@@ -20,5 +20,8 @@
   },
   "peerDependencies": {
     "typescript": "^7"
+  },
+  "dependencies": {
+    "@picocss/pico": "^2.1.1"
   }
 }
