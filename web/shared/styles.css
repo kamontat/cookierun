@@ -95,3 +95,21 @@ main {
   gap: 0.5rem;
   align-items: center;
 }
+
+.masthead h1 {
+  margin-bottom: 0.25rem;
+}
+
+.masthead p {
+  max-width: 46rem;
+  color: var(--pico-muted-color);
+}
+
+.checks {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.verdict strong {
+  color: var(--pico-primary);
+}
