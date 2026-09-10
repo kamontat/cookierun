@@ -74,7 +74,7 @@ To add a boost, episode, or cookie power: add it to its character table and its 
 
 ### Library layout
 
-Cross-directory imports go through `#lib/*`, declared in `package.json`'s `imports` field, so `web/combi-name/main.ts` can write `from "#lib/combi-name/codec.ts"` instead of a relative `../../lib/combi-name/codec.ts`. `lib/shared/` holds code more than one tool uses (today, just the tool registry); `lib/<slug>/` holds one tool's own code. There are two "shared" directories and they own different things: `lib/shared/` is cross-tool logic with no DOM in it, `web/shared/` is what pages share — `styles.css` and `chrome.ts`, the sidebar every page renders plus the `need<T>()` element lookup they all use.
+Cross-directory imports go through `#lib/*`, declared in `package.json`'s `imports` field, so `web/combi-name/main.ts` can write `from "#lib/combi-name/codec.ts"` instead of a relative `../../lib/combi-name/codec.ts`. `lib/shared/` holds code more than one tool uses (today, just the tool registry); `lib/<slug>/` holds one tool's own code. There are two "shared" directories and they own different things: `lib/shared/` is cross-tool logic with no DOM in it, `web/shared/` is what pages share — `styles.css`, `chrome.ts` (the sidebar every page renders, the `hrefFor` link writer, and the `need<T>()` element lookup), and `theme.ts` (the light/dark choice). Anything that reads `document`, `location`, or `localStorage` belongs on the `web/` side of that line.
 
 ### Hard errors vs soft warnings
 
@@ -88,12 +88,13 @@ Cross-directory imports go through `#lib/*`, declared in `package.json`'s `impor
 
 1. Add an entry to `TOOLS` in `lib/shared/tools.ts`.
 2. Create `web/<slug>/index.html` with `<a class="skip-link" href="#content">Skip to content</a>` then `<aside id="sidebar" class="sidebar"></aside>` as the first two body children, `<main id="content" class="container" tabindex="-1">`, a `../shared/styles.css` link, and Pico's `container` class on `header` and `footer` too. The skip link matters because the sidebar comes first in the DOM. A page that forgets the stylesheet or the container is unstyled and no test catches it; a page that forgets the sidebar host fails `lib/shared/tools.test.ts`.
-3. In the page's script, call `renderSidebar(need("sidebar"), "<slug>")` from `../shared/chrome.ts` — that is what draws the navigation, from the registry.
-4. Create `lib/<slug>/` for its logic.
-5. Add `web/<slug>/index.html` to the `build` script in `package.json`.
-6. Import the page in `web/dev.ts` and add it to `TOOL_PAGES`.
+3. Copy the `<script id="theme-boot">` block from an existing page's head, above the stylesheet link. `lib/shared/tools.test.ts` fails without it, and a page that skips it paints in the system theme and then flips.
+4. In the page's script, call `renderSidebar(need("sidebar"), "<slug>")` and then `renderThemeControl(need("theme"))`, from `../shared/chrome.ts` and `../shared/theme.ts`. The sidebar draws the navigation from the registry and renders the slot the theme control mounts into, so that order is not optional.
+5. Create `lib/<slug>/` for its logic.
+6. Add `web/<slug>/index.html` to the `build` script in `package.json`.
+7. Import the page in `web/dev.ts` and add it to `TOOL_PAGES`.
 
-`lib/shared/tools.test.ts` fails until the page exists, hosts the sidebar, the build script lists it, and `web/dev.ts` imports it. Step 6 is also a typecheck failure on its own: `TOOL_PAGES` is a `Record<ToolSlug, HTMLBundle>`, so a registered slug with no page there does not compile. Nothing in the markup names another tool — the sidebar is generated, so the registry stays the only list.
+`lib/shared/tools.test.ts` fails until the page exists, hosts the sidebar, carries the skip link and the theme bootstrap, the build script lists it, and `web/dev.ts` imports it. Step 7 is also a typecheck failure on its own: `TOOL_PAGES` is a `Record<ToolSlug, HTMLBundle>`, so a registered slug with no page there does not compile. Nothing in the markup names another tool — the sidebar is generated, so the registry stays the only list.
 
 ## Web build
 
@@ -117,7 +118,7 @@ Nothing consumes `assets/` yet. The codec deliberately does not model the cookie
 
 ## Deployment
 
-`.github/workflows/deploy.yml` runs on pushes to `main` and on manual dispatch: install with a frozen lockfile, test, typecheck, build, then publish `dist/`. Bun's version comes from the `packageManager` field in `package.json`, which `oven-sh/setup-bun` reads automatically — keep it in sync with `mise.toml`.
+`.github/workflows/deploy.yml` runs on pushes to `main`, on pull requests against it, and on manual dispatch: install with a frozen lockfile, test, typecheck, build, then publish `dist/`. The deploy job carries `if: github.event_name != 'pull_request'`, so a pull request gets the build job as a check and stops there — add that guard to any new publishing job too. Bun's version comes from the `packageManager` field in `package.json`, which `oven-sh/setup-bun` reads automatically — keep it in sync with `mise.toml`.
 
 Every action is pinned to a full commit SHA with the release tag in a trailing comment, so a moved tag cannot change what runs. Bump one by resolving the tag again rather than editing the SHA by hand:
 

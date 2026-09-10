@@ -87,7 +87,7 @@ isSemiAuto(combi); // true
 
 Every page carries a sidebar listing the available tools, generated from the registry rather than written out. <https://kamontat.github.io/cookierun/> is a short home pane; the combi builder itself lives at <https://kamontat.github.io/cookierun/combi-name/>.
 
-The code leads the page and updates as you pick a configuration below it, or paste one into the reader and it comes back in plain words. The slot legend is on the page too, so you can learn to read a code by eye and stop needing the tool. Everything runs in the browser — no network calls, no analytics.
+The code leads the page and updates as you pick a configuration below it, or paste one into the reader and it comes back in plain words. The slot legend is on the page too, so you can learn to read a code by eye and stop needing the tool. The sidebar carries a light/dark control that defaults to following your system. Everything runs in the browser — no network calls, no analytics.
 
 The build produces a **self-contained `index.html` per page** with all JavaScript and CSS inlined, so each page works from a file:// URL offline and needs no base-path configuration when served from a GitHub Pages project subpath.
 
@@ -96,7 +96,7 @@ The build produces a **self-contained `index.html` per page** with all JavaScrip
 ```bash
 bun install
 bun run dev        # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
-bun test           # 42 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun test           # 60 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run typecheck
 bun run build      # writes dist/index.html and dist/combi-name/index.html
 ```
@@ -113,12 +113,14 @@ The exhaustive test asserts that encoding produces exactly 1,474,560 distinct co
 | `lib/shared/` | The tool registry other tools list themselves in. |
 | `web/` | The home pane at the root plus one subdirectory per tool: markup, styles, and thin DOM wiring. |
 | `web/shared/chrome.ts` | The sidebar every page renders from the registry, and the `need<T>()` lookup pages share. |
+| `web/shared/theme.ts` | The light/dark choice: read it, write `data-theme`, remember it. |
+| `web/dev.ts` | The dev server, routing every URL spelling each page is linked by. |
 
 The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a boost or episode cannot silently ship a page with a missing option.
 
 ## Deployment
 
-`.github/workflows/deploy.yml` runs on every push to `main` and on manual dispatch: it installs with a frozen lockfile, runs the tests and typecheck, builds, and publishes `dist/` to GitHub Pages.
+`.github/workflows/deploy.yml` runs on every push to `main`, on pull requests against it, and on manual dispatch: it installs with a frozen lockfile, runs the tests and typecheck, and builds. Publishing to GitHub Pages is gated to non-pull-request events, so a PR gets the checks without deploying.
 
 Bun's version is pinned by the `packageManager` field in `package.json`, which `oven-sh/setup-bun` reads automatically. Keep it in sync with `mise.toml` when upgrading.
 
