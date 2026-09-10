@@ -16,6 +16,7 @@
     <script src="./main.ts" type="module"></script>
   </head>
   <body>
+    <a class="skip-link" href="#content">Skip to content</a>
     <aside id="sidebar" class="sidebar"></aside>
 
     <header class="masthead container">
@@ -27,7 +28,7 @@
       </p>
     </header>
 
-    <main class="container">
+    <main id="content" class="container" tabindex="-1">
       <section class="panel result" aria-labelledby="result-heading">
         <h2 id="result-heading">Your combi name</h2>
 
@@ -90,8 +91,9 @@
             spellcheck="false"
             maxlength="10"
             placeholder="1S0HPF014-"
+            aria-describedby="code-input-hint"
           />
-          <small class="hint">
+          <small id="code-input-hint" class="hint">
             Ten characters. It reads back as you type, and a code that
             contradicts itself still reads - you get a warning, not a refusal.
           </small>

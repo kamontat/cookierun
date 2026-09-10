@@ -3,6 +3,8 @@ name: Deploy site
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 # The default token only needs to read the repository; the deploy job asks for
@@ -34,7 +36,10 @@ jobs:
         with:
           path: dist
 
+  # A pull request gets the build job as a check and stops there; only a push
+  # to main publishes.
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:

@@ -2,6 +2,8 @@
 
 import { expect, test } from "bun:test";
 
+import { need } from "../shared/chrome.ts";
+
 const page = await Bun.file(new URL("./index.html", import.meta.url)).text();
 const body = page.slice(
   page.indexOf("<body>") + "<body>".length,
@@ -10,12 +12,6 @@ const body = page.slice(
 
 document.body.innerHTML = body;
 await import("./main.ts");
-
-function need<T extends HTMLElement>(id: string): T {
-  const node = document.getElementById(id);
-  if (node === null) throw new Error(`missing #${id}`);
-  return node as T;
-}
 
 function fire(node: HTMLElement): void {
   node.dispatchEvent(new Event("input", { bubbles: true }));

@@ -87,7 +87,7 @@ isSemiAuto(combi); // true
 
 Every page carries a sidebar listing the available tools, generated from the registry rather than written out. <https://kamontat.github.io/cookierun/> is a short home pane; the combi builder itself lives at <https://kamontat.github.io/cookierun/combi-name/>.
 
-Two panels: pick a configuration and the 10-character code updates as you go, or paste a code and read it back in plain words. The page also carries the slot legend so you can read a code by eye without it. Everything runs in the browser — no network calls, no analytics.
+The code leads the page and updates as you pick a configuration below it, or paste one into the reader and it comes back in plain words. The slot legend is on the page too, so you can learn to read a code by eye and stop needing the tool. Everything runs in the browser — no network calls, no analytics.
 
 The build produces a **self-contained `index.html` per page** with all JavaScript and CSS inlined, so each page works from a file:// URL offline and needs no base-path configuration when served from a GitHub Pages project subpath.
 

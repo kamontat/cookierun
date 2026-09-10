@@ -70,7 +70,7 @@ Cross-directory imports go through `#lib/*`, declared in `package.json`'s `impor
 ### Adding a tool
 
 1. Add an entry to `TOOLS` in `lib/shared/tools.ts`.
-2. Create `web/<slug>/index.html` with `<aside id="sidebar" class="sidebar"></aside>` as the first body child, a `../shared/styles.css` link, and Pico's `container` class on `header`, `main`, and `footer`. A page that forgets the stylesheet or the container is unstyled and no test catches it; a page that forgets the sidebar host fails `lib/shared/tools.test.ts`.
+2. Create `web/<slug>/index.html` with `<a class="skip-link" href="#content">Skip to content</a>` then `<aside id="sidebar" class="sidebar"></aside>` as the first two body children, `<main id="content" class="container" tabindex="-1">`, a `../shared/styles.css` link, and Pico's `container` class on `header` and `footer` too. The skip link matters because the sidebar comes first in the DOM. A page that forgets the stylesheet or the container is unstyled and no test catches it; a page that forgets the sidebar host fails `lib/shared/tools.test.ts`.
 3. In the page's script, call `renderSidebar(need("sidebar"), "<slug>")` from `../shared/chrome.ts` — that is what draws the navigation, from the registry.
 4. Create `lib/<slug>/` for its logic.
 5. Add `web/<slug>/index.html` to the `build` script in `package.json`.
@@ -96,7 +96,7 @@ Two things about `index.json` that matter to whatever consumes it. A display nam
 
 Nothing consumes `assets/` yet. The codec deliberately does not model the cookie, relay, pet, or treasure: the game already stores those four in the combi, which is precisely why the 10 characters are spent on everything else. Don't add them to the code.
 
-`assets/` is 14 MB (868 treasures account for 11 MB) and, unlike `dist/`, is not gitignored — whether the scrape output belongs in the repository is still open. Since the page build inlines every referenced asset into one file, a feature that displays icons needs either a curated subset or a non-standalone build that copies files alongside the HTML.
+`assets/` is 14 MB (868 treasures account for 11 MB) and, unlike `dist/`, is committed on purpose: a planned feature reads it, so the scrape output stays in the repository rather than being fetched per clone. Since the page build inlines every referenced asset into one file, that feature needs either a curated subset or a non-standalone build that copies files alongside the HTML — 14 MB of data URIs in one page is not an option.
 
 ## Deployment
 

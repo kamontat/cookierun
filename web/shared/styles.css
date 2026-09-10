@@ -46,6 +46,34 @@ h3 {
   padding-left: var(--pico-spacing);
 }
 
+/* The sidebar comes first in the DOM, so without this every page opens with a
+   keyboard walk through the navigation. Off-screen until focused. */
+.skip-link {
+  position: absolute;
+  left: -100vw;
+}
+
+.skip-link:focus {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-primary-background);
+  color: var(--pico-primary-inverse);
+}
+
+/* The result panel is sticky, so anything scrolled to by a fragment link or
+   by keyboard focus needs to clear it. */
+:root {
+  scroll-padding-top: 8rem;
+}
+
+main:focus {
+  outline: none;
+}
+
 /* The sidebar is a body child rather than a wrapper around the page so that
    Pico's own `body > header|main|footer` padding keeps applying. */
 body {
@@ -98,6 +126,12 @@ body {
 
 .sidebar a:hover {
   background: var(--pico-primary-focus);
+}
+
+/* Pico's focus ring lives on its own components; these links are ours. */
+.sidebar a:focus-visible {
+  outline: 2px solid var(--pico-primary);
+  outline-offset: 2px;
 }
 
 /* A solid amber block here outshouted the code the tool exists to produce.

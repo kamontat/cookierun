@@ -64,13 +64,29 @@ test("the dev server routes every URL form the pages link to", async () => {
   }
 });
 
+async function pages(): Promise<string[]> {
+  const paths = ["web/index.html", ...TOOLS.map(({ slug }) => `web/${slug}/index.html`)];
+  return Promise.all(paths.map((path) => Bun.file(new URL(path, root)).text()));
+}
+
 // Navigation lives in the sidebar every page renders from this registry, so a
 // page without the host element is a page you cannot leave.
-test("every tool page hosts the sidebar", async () => {
-  for (const { slug } of TOOLS) {
-    const page = await Bun.file(
-      new URL(`web/${slug}/index.html`, root),
-    ).text();
+test("every page hosts the sidebar", async () => {
+  for (const page of await pages()) {
     expect(page).toContain('id="sidebar"');
   }
+});
+
+// The sidebar is the first thing in the DOM, so without this every page opens
+// with a keyboard walk through the navigation before reaching the content.
+test("every page offers a skip link to its content", async () => {
+  for (const page of await pages()) {
+    expect(page).toContain('href="#content"');
+    expect(page).toContain('id="content"');
+  }
+});
+
+test("the home page hosts the tool index", async () => {
+  const [home] = await pages();
+  expect(home).toContain('id="tools"');
 });
