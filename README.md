@@ -65,7 +65,7 @@ Full auto is therefore one visual pattern — `-` at slot 6, `0` at slot 7, `-` 
 ## Usage
 
 ```ts
-import { encode, decode, isSemiAuto } from "./src/codec.ts";
+import { encode, decode, isSemiAuto } from "./lib/combi-name/codec.ts";
 
 encode({
   type: "score",
@@ -85,32 +85,33 @@ isSemiAuto(combi); // true
 
 ## Web app
 
-<https://kamontat.github.io/cookierun/>
+The site is a dashboard at <https://kamontat.github.io/cookierun/> listing the available tools; the combi builder itself lives at <https://kamontat.github.io/cookierun/combi-name/>.
 
 Two panels: pick a configuration and the 10-character code updates as you go, or paste a code and read it back in plain words. The page also carries the slot legend so you can read a code by eye without it. Everything runs in the browser — no network calls, no analytics.
 
-The build produces a **single self-contained `index.html`** with all JavaScript and CSS inlined, so the page works from a file:// URL offline and needs no base-path configuration when served from a GitHub Pages project subpath.
+The build produces a **self-contained `index.html` per page** with all JavaScript and CSS inlined, so each page works from a file:// URL offline and needs no base-path configuration when served from a GitHub Pages project subpath.
 
 ## Development
 
 ```bash
 bun install
-bun run dev        # dev server with hot reload at http://localhost:3000
-bun test           # 35 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run dev        # dev server with hot reload; / is the dashboard, /combi-name/ is the combi tool
+bun test           # 42 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run typecheck
-bun run build      # writes dist/index.html
+bun run build      # writes dist/index.html and dist/combi-name/index.html
 ```
 
-The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against `web/index.html` under happy-dom, preloaded via `bunfig.toml`.
+The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against each page under happy-dom, preloaded via `bunfig.toml`.
 
 ### Layout
 
 | Path | Role |
 | --- | --- |
-| `src/codec.ts` | Slot tables, `encode`, `decode`, `isSemiAuto`. No DOM, no dependencies. |
-| `src/labels.ts` | Display names for every enum value. |
-| `src/describe.ts` | Turns a combi into rows and an auto/semi-auto verdict. |
-| `web/` | The page: markup, styles, and thin DOM wiring. |
+| `lib/combi-name/codec.ts` | Slot tables, `encode`, `decode`, `isSemiAuto`. No DOM, no dependencies. |
+| `lib/combi-name/labels.ts` | Display names for every enum value. |
+| `lib/combi-name/describe.ts` | Turns a combi into rows and an auto/semi-auto verdict. |
+| `lib/shared/` | The tool registry other tools list themselves in. |
+| `web/` | The dashboard at the root plus one subdirectory per tool: markup, styles, and thin DOM wiring. |
 
 The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a boost or episode cannot silently ship a page with a missing option.
 

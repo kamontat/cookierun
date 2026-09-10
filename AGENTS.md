@@ -24,12 +24,12 @@ Bun's own API docs are vendored at `node_modules/bun-types/docs/**.mdx` — read
 
 ```bash
 bun install
-bun run dev                          # dev server with hot reload at http://localhost:3000
+bun run dev                          # dev server with hot reload; / is the dashboard, /combi-name/ is the combi tool
 bun test                             # whole suite, ~3.5s (the exhaustive test dominates)
-bun test src/codec.test.ts           # one file
+bun test lib/combi-name/codec.test.ts # one file
 bun test -t "decodes every slot"     # one test by name substring
 bun run typecheck                    # tsc --noEmit; the test files are typechecked too
-bun run build                        # writes a single self-contained dist/index.html
+bun run build                        # writes one self-contained file per page: dist/index.html, dist/combi-name/index.html
 bun run fetch-assets                 # re-scrapes icons into assets/ (idempotent, skips existing)
 ```
 
@@ -37,21 +37,25 @@ bun run fetch-assets                 # re-scrapes icons into assets/ (idempotent
 
 ## Architecture
 
-The character tables at the top of `src/codec.ts` are the single source of truth, and everything else derives from them:
+The character tables at the top of `lib/combi-name/codec.ts` are the single source of truth, and everything else derives from them:
 
 - `TYPE_CHARS`, `EPISODE_CHARS`, `BOOST_SLOTS`, `RANDOM_BOOST_CHARS`, `COOKIE_POWER_BITS`, `ACTION_CHARS` define both the encoding and the set of valid values.
 - `ALL_TYPES`, `ALL_EPISODES`, `ALL_BOOSTS`, `ALL_RANDOM_BOOSTS`, `ALL_COOKIE_POWERS`, `ALL_ACTIONS`, and `BOOST_LABELS` are computed from those tables — never hand-maintain a parallel list.
-- `src/labels.ts` maps every value to a display name. A test asserts key-for-key parity with the `ALL_*` arrays, so a new value cannot ship unlabeled. Boost names live in `codec.ts` instead, because `decode`'s error messages quote them.
-- `src/describe.ts` turns a `Combi` into display rows plus an auto/semi-auto verdict. It is the only place that decides how a combi reads in prose.
-- `web/main.ts` generates every select and checkbox from the `ALL_*` arrays and the label tables. `web/index.html` holds empty container elements on purpose — do not hardcode options into the markup.
+- `lib/combi-name/labels.ts` maps every value to a display name. A test asserts key-for-key parity with the `ALL_*` arrays, so a new value cannot ship unlabeled. Boost names live in `codec.ts` instead, because `decode`'s error messages quote them.
+- `lib/combi-name/describe.ts` turns a `Combi` into display rows plus an auto/semi-auto verdict. It is the only place that decides how a combi reads in prose.
+- `web/combi-name/main.ts` generates every select and checkbox from the `ALL_*` arrays and the label tables. `web/combi-name/index.html` holds empty container elements on purpose — do not hardcode options into the markup.
 
 To add a boost, episode, or cookie power: add it to its character table and its label table. Nothing else needs touching, and tests fail until both are done.
 
 ### Ordering is part of the wire format
 
-`Object.keys` order determines the `ALL_*` order, which determines the boost slot order (slots 4-6) and the cookie power+ bit values. Reordering a table silently changes what existing codes mean. If the slot layout or a character mapping has to change, bump `VERSION` in `src/codec.ts` — `decode` rejects any other version outright.
+`Object.keys` order determines the `ALL_*` order, which determines the boost slot order (slots 4-6) and the cookie power+ bit values. Reordering a table silently changes what existing codes mean. If the slot layout or a character mapping has to change, bump `VERSION` in `lib/combi-name/codec.ts` — `decode` rejects any other version outright.
 
-`checkedValues` in `web/main.ts` filters the canonical `ALL_*` list rather than reading DOM order, which is what keeps boosts in slot order and cookie powers in bit order.
+`checkedValues` in `web/combi-name/main.ts` filters the canonical `ALL_*` list rather than reading DOM order, which is what keeps boosts in slot order and cookie powers in bit order.
+
+### Library layout
+
+Cross-directory imports go through `#lib/*`, declared in `package.json`'s `imports` field, so `web/combi-name/main.ts` can write `from "#lib/combi-name/codec.ts"` instead of a relative `../../lib/combi-name/codec.ts`. `lib/shared/` holds code more than one tool uses (today, just the tool registry); `lib/<slug>/` holds one tool's own code.
 
 ### Hard errors vs soft warnings
 
@@ -59,13 +63,26 @@ To add a boost, episode, or cookie power: add it to its character table and its 
 
 ### The exhaustive test
 
-`src/exhaustive.test.ts` round-trips all 1,769,472 combinations and asserts encoding yields exactly 1,474,560 distinct codes (the auto/semi-auto character is derived, so the auto family collapses). Both numbers are hardcoded; changing the configuration space means recomputing them, and a mismatch usually means a table changed size rather than that the test is stale.
+`lib/combi-name/exhaustive.test.ts` round-trips all 1,769,472 combinations and asserts encoding yields exactly 1,474,560 distinct codes (the auto/semi-auto character is derived, so the auto family collapses). Both numbers are hardcoded; changing the configuration space means recomputing them, and a mismatch usually means a table changed size rather than that the test is stale.
+
+### Adding a tool
+
+1. Add an entry to `TOOLS` in `lib/shared/tools.ts`.
+2. Create `web/<slug>/index.html` with a `../index.html` back link.
+3. Create `lib/<slug>/` for its logic.
+4. Add `web/<slug>/index.html` to both the `dev` and `build` scripts in `package.json`.
+
+`lib/shared/tools.test.ts` fails until the page exists and both scripts list it.
 
 ## Web build
 
-`bun run build` uses `--compile --target=browser`, which inlines all JavaScript, CSS, and referenced assets into one `dist/index.html`. That is deliberate: it removes any base-path concern when GitHub Pages serves the site from a project subpath, and the file works offline from `file://`.
+`bun run build` takes one entrypoint per page — `web/index.html` and `web/combi-name/index.html` are both named explicitly in the `build` script — and `--compile --target=browser` inlines each page's JavaScript, CSS, and referenced assets into its own self-contained file: `dist/index.html` and `dist/combi-name/index.html`. That is deliberate: it removes any base-path concern when GitHub Pages serves the site from a project subpath, and each file works offline from `file://`.
 
-The consequence is that anything the page references gets embedded as a data URI. Read the Assets section below before wiring an icon into the page.
+Never replace the explicit entrypoint list with a glob. `sh` expands `**` as `*`, which would silently drop `web/index.html` from the build (the shell's glob doesn't recurse the way you'd expect). The `dev` script names the same entrypoints for the same reason.
+
+The consequence of inlining is that anything a page references gets embedded as a data URI. Read the Assets section below before wiring an icon into a page.
+
+`web/shared/styles.css` is the only stylesheet. It imports Pico's amber theme (`@picocss/pico/css/pico.amber.min.css`) and adds only the overrides Pico has no opinion about; colors come from Pico's custom properties, not a local palette.
 
 ## Assets
 
