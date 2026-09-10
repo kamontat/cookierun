@@ -18,11 +18,13 @@ export const TOOLS = [
   },
 ] as const satisfies readonly Tool[];
 
+export type ToolSlug = (typeof TOOLS)[number]["slug"];
+
 /**
  * Pages link to `./<slug>/index.html` rather than `./<slug>/`. A server
  * resolves both, but only the explicit filename works when the standalone
  * build is opened from the filesystem.
  */
-export function toolHref(slug: string): string {
+export function toolHref(slug: ToolSlug): string {
   return `./${slug}/index.html`;
 }

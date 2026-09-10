@@ -10,8 +10,9 @@ const body = page.slice(
   page.indexOf("</body>"),
 );
 
-// Append rather than replace: every test file shares one happy-dom document,
-// and web/combi-name/main.test.ts looks its elements up by id at test time.
+// Append rather than replace: every test file shares one happy-dom document.
+// This file stays independent of the others because `holder` is a detached
+// element and `cards` below is a static NodeList, not a live query.
 const holder = document.createElement("div");
 holder.innerHTML = body;
 document.body.append(holder);

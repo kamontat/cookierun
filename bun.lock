@@ -4,11 +4,9 @@
   "workspaces": {
     "": {
       "name": "demo-cookierun-encode",
-      "dependencies": {
-        "@picocss/pico": "^2.1.1",
-      },
       "devDependencies": {
         "@happy-dom/global-registrator": "^20.14.3",
+        "@picocss/pico": "^2.1.1",
         "@types/bun": "latest",
       },
       "peerDependencies": {

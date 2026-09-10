@@ -24,14 +24,16 @@ Bun's own API docs are vendored at `node_modules/bun-types/docs/**.mdx` — read
 
 ```bash
 bun install
-bun run dev                          # dev server with hot reload; / is the dashboard, /combi-name/ is the combi tool
+bun run dev                          # dev server with hot reload; / is the dashboard, /combi-name is the combi tool
 bun test                             # whole suite, ~3.5s (the exhaustive test dominates)
-bun test lib/combi-name/codec.test.ts # one file
+bun test lib/combi-name/codec.test.ts# one file
 bun test -t "decodes every slot"     # one test by name substring
 bun run typecheck                    # tsc --noEmit; the test files are typechecked too
 bun run build                        # writes one self-contained file per page: dist/index.html, dist/combi-name/index.html
 bun run fetch-assets                 # re-scrapes icons into assets/ (idempotent, skips existing)
 ```
+
+`bun run dev` registers exactly two routes: the dashboard at `/` and the tool at `/combi-name` (no trailing slash). It serves neither `/combi-name/` nor `/index.html`, so the dashboard's card link (`./combi-name/index.html`) and the tool page's back link (`../index.html`) both 404 in dev even though they resolve correctly in `dist/`, on GitHub Pages, and from `file://`. Check cross-page navigation against `bun run build` output instead of the dev server.
 
 `bunfig.toml` preloads `happydom.ts` for every test run, so `document` and `window` exist in all test files, not just the DOM ones.
 
@@ -55,7 +57,7 @@ To add a boost, episode, or cookie power: add it to its character table and its 
 
 ### Library layout
 
-Cross-directory imports go through `#lib/*`, declared in `package.json`'s `imports` field, so `web/combi-name/main.ts` can write `from "#lib/combi-name/codec.ts"` instead of a relative `../../lib/combi-name/codec.ts`. `lib/shared/` holds code more than one tool uses (today, just the tool registry); `lib/<slug>/` holds one tool's own code.
+Cross-directory imports go through `#lib/*`, declared in `package.json`'s `imports` field, so `web/combi-name/main.ts` can write `from "#lib/combi-name/codec.ts"` instead of a relative `../../lib/combi-name/codec.ts`. `lib/shared/` holds code more than one tool uses (today, just the tool registry); `lib/<slug>/` holds one tool's own code. There are two "shared" directories and they own different things: `lib/shared/` is cross-tool logic, `web/shared/` is page assets (today, just `styles.css`), and page-level DOM helpers like the `need<T>()` lookup each page defines stay local to their page until a third page needs one.
 
 ### Hard errors vs soft warnings
 
@@ -68,7 +70,7 @@ Cross-directory imports go through `#lib/*`, declared in `package.json`'s `impor
 ### Adding a tool
 
 1. Add an entry to `TOOLS` in `lib/shared/tools.ts`.
-2. Create `web/<slug>/index.html` with a `../index.html` back link.
+2. Create `web/<slug>/index.html` with a `../index.html` back link. It also needs to link `../shared/styles.css` and put Pico's `container` class on `header`, `main`, and `footer` — a page that forgets is unstyled, and unlike the back link, no test catches it.
 3. Create `lib/<slug>/` for its logic.
 4. Add `web/<slug>/index.html` to both the `dev` and `build` scripts in `package.json`.
 

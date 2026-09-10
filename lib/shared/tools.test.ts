@@ -34,6 +34,15 @@ test("toolHref names the page file so file:// resolves it too", () => {
   expect(toolHref("combi-name")).toBe("./combi-name/index.html");
 });
 
+test("the dashboard itself is an entrypoint of both scripts", async () => {
+  const { scripts } = (await Bun.file(new URL("package.json", root)).json()) as {
+    scripts: Record<string, string>;
+  };
+
+  expect(scripts.dev).toContain("web/index.html");
+  expect(scripts.build).toContain("web/index.html");
+});
+
 test("every tool page links back to the dashboard", async () => {
   for (const { slug } of TOOLS) {
     const page = await Bun.file(
