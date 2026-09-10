@@ -1,9 +1,12 @@
 {
   "name": "demo-cookierun-encode",
-  "module": "src/codec.ts",
+  "module": "lib/combi-name/codec.ts",
   "type": "module",
   "private": true,
   "packageManager": "bun@1.4.2",
+  "imports": {
+    "#lib/*": "./lib/*"
+  },
   "scripts": {
     "dev": "bun web/index.html",
     "fetch-assets": "bun scripts/fetch-assets.ts",

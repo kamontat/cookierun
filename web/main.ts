@@ -13,8 +13,8 @@ import {
   type CombiType,
   type Episode,
   type RandomBoost,
-} from "../src/codec.ts";
-import { describeCombi, type AutoVerdict } from "../src/describe.ts";
+} from "#lib/combi-name/codec.ts";
+import { describeCombi, type AutoVerdict } from "#lib/combi-name/describe.ts";
 import {
   ACTION_LABELS,
   BOOST_LABELS,
@@ -22,7 +22,7 @@ import {
   EPISODE_LABELS,
   RANDOM_BOOST_LABELS,
   TYPE_LABELS,
-} from "../src/labels.ts";
+} from "#lib/combi-name/labels.ts";
 
 function need<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
