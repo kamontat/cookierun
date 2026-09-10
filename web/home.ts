@@ -1,3 +1,4 @@
-import { need, renderSidebar } from "./shared/chrome.ts";
+import { need, renderSidebar, renderToolList } from "./shared/chrome.ts";
 
 renderSidebar(need("sidebar"), null);
+renderToolList(need("tools"));

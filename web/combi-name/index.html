@@ -28,6 +28,17 @@
     </header>
 
     <main class="container">
+      <section class="panel result" aria-labelledby="result-heading">
+        <h2 id="result-heading">Your combi name</h2>
+
+        <output id="code-output" class="code-output" aria-live="polite">
+          <code id="code" class="code">1S0---000-</code>
+          <button id="copy" type="button" class="outline secondary">Copy</button>
+        </output>
+        <p id="copy-status" class="status" role="status"></p>
+        <p id="builder-verdict" class="verdict" aria-live="polite"></p>
+      </section>
+
       <section class="panel" aria-labelledby="builder-heading">
         <h2 id="builder-heading">Build a code</h2>
 
@@ -62,13 +73,6 @@
             <select id="action"></select>
           </div>
         </form>
-
-        <output id="code-output" class="code-output" aria-live="polite">
-          <code id="code" class="code">1S0---000-</code>
-          <button id="copy" type="button">Copy</button>
-        </output>
-        <p id="copy-status" class="status" role="status"></p>
-        <p id="builder-verdict" class="verdict" aria-live="polite"></p>
       </section>
 
       <section class="panel" aria-labelledby="reader-heading">
@@ -87,6 +91,10 @@
             maxlength="10"
             placeholder="1S0HPF014-"
           />
+          <small class="hint">
+            Ten characters. It reads back as you type, and a code that
+            contradicts itself still reads - you get a warning, not a refusal.
+          </small>
         </div>
 
         <p id="reader-message" class="status" aria-live="polite"></p>
@@ -105,7 +113,8 @@ slot:  1  2  3  4 5 6  7  8 9  10
 ex:    1  H  3  H - F  4  1 4  J</pre
         >
 
-        <table>
+        <div class="table-wrap">
+          <table>
           <thead>
             <tr>
               <th scope="col">Slot</th>
@@ -161,7 +170,8 @@ ex:    1  H  3  H - F  4  1 4  J</pre
               <td><code>-</code> none, <code>J</code> jump at start</td>
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
 
         <h3>Auto vs semi-auto</h3>
         <p>
