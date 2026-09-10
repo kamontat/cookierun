@@ -8,9 +8,9 @@
     "#lib/*": "./lib/*"
   },
   "scripts": {
-    "dev": "bun web/combi-name/index.html",
+    "dev": "bun web/index.html web/combi-name/index.html",
     "fetch-assets": "bun scripts/fetch-assets.ts",
-    "build": "bun build --compile --target=browser web/combi-name/index.html --outdir=dist --minify",
+    "build": "bun build --compile --target=browser web/index.html web/combi-name/index.html --outdir=dist --minify",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },

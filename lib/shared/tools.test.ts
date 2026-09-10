@@ -33,3 +33,12 @@ test("every tool page is an entrypoint of both the dev and build scripts", async
 test("toolHref names the page file so file:// resolves it too", () => {
   expect(toolHref("combi-name")).toBe("./combi-name/index.html");
 });
+
+test("every tool page links back to the dashboard", async () => {
+  for (const { slug } of TOOLS) {
+    const page = await Bun.file(
+      new URL(`web/${slug}/index.html`, root),
+    ).text();
+    expect(page).toContain('href="../index.html"');
+  }
+});
