@@ -24,11 +24,9 @@ import {
   TYPE_LABELS,
 } from "#lib/combi-name/labels.ts";
 
-function need<T extends HTMLElement>(id: string): T {
-  const node = document.getElementById(id);
-  if (node === null) throw new Error(`the page is missing #${id}`);
-  return node as T;
-}
+import { need, renderSidebar } from "../shared/chrome.ts";
+
+renderSidebar(need("sidebar"), "combi-name");
 
 const typeSelect = need<HTMLSelectElement>("type");
 const episodeSelect = need<HTMLSelectElement>("episode");

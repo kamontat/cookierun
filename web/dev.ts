@@ -2,7 +2,7 @@ import type { HTMLBundle } from "bun";
 
 import { TOOLS, type ToolSlug } from "#lib/shared/tools.ts";
 
-import dashboard from "./index.html";
+import home from "./index.html";
 import combiName from "./combi-name/index.html";
 
 /**
@@ -21,8 +21,8 @@ const TOOL_PAGES: Record<ToolSlug, HTMLBundle> = {
  * page answers to all of its spellings.
  */
 const routes: Record<string, HTMLBundle> = {
-  "/": dashboard,
-  "/index.html": dashboard,
+  "/": home,
+  "/index.html": home,
 };
 
 for (const { slug } of TOOLS) {

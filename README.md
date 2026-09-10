@@ -85,7 +85,7 @@ isSemiAuto(combi); // true
 
 ## Web app
 
-The site is a dashboard at <https://kamontat.github.io/cookierun/> listing the available tools; the combi builder itself lives at <https://kamontat.github.io/cookierun/combi-name/>.
+Every page carries a sidebar listing the available tools, generated from the registry rather than written out. <https://kamontat.github.io/cookierun/> is a short home pane; the combi builder itself lives at <https://kamontat.github.io/cookierun/combi-name/>.
 
 Two panels: pick a configuration and the 10-character code updates as you go, or paste a code and read it back in plain words. The page also carries the slot legend so you can read a code by eye without it. Everything runs in the browser — no network calls, no analytics.
 
@@ -95,7 +95,7 @@ The build produces a **self-contained `index.html` per page** with all JavaScrip
 
 ```bash
 bun install
-bun run dev        # dev server with hot reload; / is the dashboard, /combi-name/ is the combi tool
+bun run dev        # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
 bun test           # 42 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run typecheck
 bun run build      # writes dist/index.html and dist/combi-name/index.html
@@ -111,7 +111,8 @@ The exhaustive test asserts that encoding produces exactly 1,474,560 distinct co
 | `lib/combi-name/labels.ts` | Display names for every enum value. |
 | `lib/combi-name/describe.ts` | Turns a combi into rows and an auto/semi-auto verdict. |
 | `lib/shared/` | The tool registry other tools list themselves in. |
-| `web/` | The dashboard at the root plus one subdirectory per tool: markup, styles, and thin DOM wiring. |
+| `web/` | The home pane at the root plus one subdirectory per tool: markup, styles, and thin DOM wiring. |
+| `web/shared/chrome.ts` | The sidebar every page renders from the registry, and the `need<T>()` lookup pages share. |
 
 The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a boost or episode cannot silently ship a page with a missing option.
 

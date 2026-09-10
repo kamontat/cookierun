@@ -24,7 +24,7 @@ Bun's own API docs are vendored at `node_modules/bun-types/docs/**.mdx` — read
 
 ```bash
 bun install
-bun run dev                           # dev server with hot reload; / is the dashboard, /combi-name/ is the combi tool
+bun run dev                           # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
 bun test                              # whole suite, ~3.5s (the exhaustive test dominates)
 bun test lib/combi-name/codec.test.ts # one file
 bun test -t "decodes every slot"      # one test by name substring
@@ -33,7 +33,7 @@ bun run build                         # writes one self-contained file per page:
 bun run fetch-assets                  # re-scrapes icons into assets/ (idempotent, skips existing)
 ```
 
-`bun run dev` runs `web/dev.ts`, a small `Bun.serve()` whose route table is generated from `TOOLS`. Handing Bun the HTML files directly (`bun web/index.html web/combi-name/index.html`) registers only `/` and `/combi-name`, which 404s on both links the pages actually carry — `./combi-name/index.html` from the dashboard and `../index.html` from the tool page. So each page answers to every spelling: `/` and `/index.html` for the dashboard, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. Bun's 404 body is a bare `Not found` with no `<head>`, which reads like a page that lost its `<meta>` tags — check the status code before believing that.
+`bun run dev` runs `web/dev.ts`, a small `Bun.serve()` whose route table is generated from `TOOLS`. Handing Bun the HTML files directly (`bun web/index.html web/combi-name/index.html`) registers only `/` and `/combi-name`, which 404s on both links the sidebar actually renders — `./combi-name/index.html` from the home pane and `../index.html` from the tool page. So each page answers to every spelling: `/` and `/index.html` for the home pane, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. Bun's 404 body is a bare `Not found` with no `<head>`, which reads like a page that lost its `<meta>` tags — check the status code before believing that.
 
 `bunfig.toml` preloads `happydom.ts` for every test run, so `document` and `window` exist in all test files, not just the DOM ones.
 
@@ -57,7 +57,7 @@ To add a boost, episode, or cookie power: add it to its character table and its 
 
 ### Library layout
 
-Cross-directory imports go through `#lib/*`, declared in `package.json`'s `imports` field, so `web/combi-name/main.ts` can write `from "#lib/combi-name/codec.ts"` instead of a relative `../../lib/combi-name/codec.ts`. `lib/shared/` holds code more than one tool uses (today, just the tool registry); `lib/<slug>/` holds one tool's own code. There are two "shared" directories and they own different things: `lib/shared/` is cross-tool logic, `web/shared/` is page assets (today, just `styles.css`), and page-level DOM helpers like the `need<T>()` lookup each page defines stay local to their page until a third page needs one.
+Cross-directory imports go through `#lib/*`, declared in `package.json`'s `imports` field, so `web/combi-name/main.ts` can write `from "#lib/combi-name/codec.ts"` instead of a relative `../../lib/combi-name/codec.ts`. `lib/shared/` holds code more than one tool uses (today, just the tool registry); `lib/<slug>/` holds one tool's own code. There are two "shared" directories and they own different things: `lib/shared/` is cross-tool logic with no DOM in it, `web/shared/` is what pages share — `styles.css` and `chrome.ts`, the sidebar every page renders plus the `need<T>()` element lookup they all use.
 
 ### Hard errors vs soft warnings
 
@@ -70,12 +70,13 @@ Cross-directory imports go through `#lib/*`, declared in `package.json`'s `impor
 ### Adding a tool
 
 1. Add an entry to `TOOLS` in `lib/shared/tools.ts`.
-2. Create `web/<slug>/index.html` with a `../index.html` back link. It also needs to link `../shared/styles.css` and put Pico's `container` class on `header`, `main`, and `footer` — a page that forgets is unstyled, and unlike the back link, no test catches it.
-3. Create `lib/<slug>/` for its logic.
-4. Add `web/<slug>/index.html` to the `build` script in `package.json`.
-5. Import the page in `web/dev.ts` and add it to `TOOL_PAGES`.
+2. Create `web/<slug>/index.html` with `<aside id="sidebar" class="sidebar"></aside>` as the first body child, a `../shared/styles.css` link, and Pico's `container` class on `header`, `main`, and `footer`. A page that forgets the stylesheet or the container is unstyled and no test catches it; a page that forgets the sidebar host fails `lib/shared/tools.test.ts`.
+3. In the page's script, call `renderSidebar(need("sidebar"), "<slug>")` from `../shared/chrome.ts` — that is what draws the navigation, from the registry.
+4. Create `lib/<slug>/` for its logic.
+5. Add `web/<slug>/index.html` to the `build` script in `package.json`.
+6. Import the page in `web/dev.ts` and add it to `TOOL_PAGES`.
 
-`lib/shared/tools.test.ts` fails until the page exists, the build script lists it, and `web/dev.ts` imports it. Step 5 is also a typecheck failure on its own: `TOOL_PAGES` is a `Record<ToolSlug, HTMLBundle>`, so a registered slug with no page there does not compile.
+`lib/shared/tools.test.ts` fails until the page exists, hosts the sidebar, the build script lists it, and `web/dev.ts` imports it. Step 6 is also a typecheck failure on its own: `TOOL_PAGES` is a `Record<ToolSlug, HTMLBundle>`, so a registered slug with no page there does not compile. Nothing in the markup names another tool — the sidebar is generated, so the registry stays the only list.
 
 ## Web build
 

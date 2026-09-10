@@ -46,6 +46,79 @@ h3 {
   padding-left: var(--pico-spacing);
 }
 
+/* The sidebar is a body child rather than a wrapper around the page so that
+   Pico's own `body > header|main|footer` padding keeps applying. */
+body {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  grid-row: 1 / -1;
+  align-self: start;
+  padding: var(--pico-block-spacing-vertical) var(--pico-spacing);
+  border-right: 1px solid var(--pico-muted-border-color);
+  background: var(--pico-card-background-color);
+}
+
+.sidebar-title {
+  margin-bottom: var(--pico-spacing);
+  color: var(--pico-muted-color);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sidebar ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sidebar a {
+  display: block;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--pico-border-radius);
+  color: var(--pico-color);
+  text-decoration: none;
+}
+
+.sidebar a:hover {
+  background: var(--pico-secondary-background);
+  color: var(--pico-secondary-inverse);
+}
+
+.sidebar a[aria-current="page"] {
+  background: var(--pico-primary-background);
+  color: var(--pico-primary-inverse);
+}
+
+/* Under the breakpoint the sidebar stops being a column and rides along the
+   top as a row of links. */
+@media (width < 48rem) {
+  body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+    grid-row: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+  }
+
+  .sidebar ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+}
+
 /* Panels sit side by side and wrap on narrow screens; the legend spans. */
 main {
   display: grid;
@@ -54,8 +127,7 @@ main {
   align-items: start;
 }
 
-.legend,
-.tools {
+.legend {
   grid-column: 1 / -1;
 }
 
@@ -67,26 +139,6 @@ main {
   border-radius: var(--pico-border-radius);
   background: var(--pico-card-background-color);
   box-shadow: var(--pico-card-box-shadow);
-}
-
-.tools {
-  display: grid;
-  gap: var(--pico-block-spacing-horizontal);
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-}
-
-/* Same doubled-gap problem as .panel, for the dashboard's cards. */
-.tools article {
-  margin-bottom: 0;
-}
-
-.tools h2 {
-  --pico-typography-spacing-top: 0;
-}
-
-.backlink {
-  margin-bottom: 0.25rem;
-  font-size: 0.9rem;
 }
 
 .code-output {
