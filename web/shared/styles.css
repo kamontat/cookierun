@@ -1,5 +1,51 @@
 @import "@picocss/pico/css/pico.amber.min.css";
 
+/* Density.
+   Pico scales the root font from 100% up to 131.25% as the viewport grows, so
+   on a wide screen every rem-based margin inflates with it and the page reads
+   like a slide. Pin the root and shrink the spacing scale: a wider window
+   should show more, not bigger. */
+html {
+  font-size: 100%;
+}
+
+:root {
+  --pico-line-height: 1.45;
+  --pico-spacing: 0.75rem;
+  --pico-typography-spacing-vertical: 0.75rem;
+  --pico-block-spacing-vertical: 1rem;
+  --pico-block-spacing-horizontal: 1rem;
+  --pico-form-element-spacing-vertical: 0.4rem;
+  --pico-form-element-spacing-horizontal: 0.6rem;
+  --pico-border-radius: 0.35rem;
+}
+
+/* Pico sizes headings for long-form prose and gives them up to 3rem of top
+   margin to separate sections. These are panel titles. */
+h1 {
+  --pico-font-size: 1.5rem;
+  --pico-typography-spacing-top: 0;
+}
+
+h2 {
+  --pico-font-size: 1.15rem;
+  --pico-typography-spacing-top: 1rem;
+}
+
+h3 {
+  --pico-font-size: 1rem;
+  --pico-typography-spacing-top: 1rem;
+}
+
+/* Pico's container tops out at 1450px and drops its side padding at every
+   breakpoint above 576px, on the assumption the max-width keeps content off
+   the edge. A narrower cap has to put that padding back. */
+.container {
+  max-width: 68rem;
+  padding-right: var(--pico-spacing);
+  padding-left: var(--pico-spacing);
+}
+
 /* Panels sit side by side and wrap on narrow screens; the legend spans. */
 main {
   display: grid;
@@ -13,7 +59,10 @@ main {
   grid-column: 1 / -1;
 }
 
+/* The grid gap already separates the panels; Pico's own `section` margin
+   would stack a second gap underneath each one. */
 .panel {
+  margin-bottom: 0;
   padding: var(--pico-block-spacing-vertical) var(--pico-block-spacing-horizontal);
   border-radius: var(--pico-border-radius);
   background: var(--pico-card-background-color);
@@ -24,6 +73,15 @@ main {
   display: grid;
   gap: var(--pico-block-spacing-horizontal);
   grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+}
+
+/* Same doubled-gap problem as .panel, for the dashboard's cards. */
+.tools article {
+  margin-bottom: 0;
+}
+
+.tools h2 {
+  --pico-typography-spacing-top: 0;
 }
 
 .backlink {
@@ -44,7 +102,7 @@ main {
   border: 1px dashed var(--pico-muted-border-color);
   border-radius: var(--pico-border-radius);
   font-family: var(--pico-font-family-monospace);
-  font-size: clamp(1.25rem, 5vw, 1.75rem);
+  font-size: clamp(1.1rem, 4vw, 1.5rem);
   letter-spacing: 0.16em;
   user-select: all;
 }
