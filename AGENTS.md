@@ -24,7 +24,7 @@ Bun's own API docs are vendored at `node_modules/bun-types/docs/**.mdx` — read
 
 ```bash
 bun install
-bun run dev                           # dev server with hot reload; / is the dashboard, /combi-name is the combi tool
+bun run dev                           # dev server with hot reload; / is the dashboard, /combi-name/ is the combi tool
 bun test                              # whole suite, ~3.5s (the exhaustive test dominates)
 bun test lib/combi-name/codec.test.ts # one file
 bun test -t "decodes every slot"      # one test by name substring
@@ -33,7 +33,7 @@ bun run build                         # writes one self-contained file per page:
 bun run fetch-assets                  # re-scrapes icons into assets/ (idempotent, skips existing)
 ```
 
-`bun run dev` registers exactly two routes: the dashboard at `/` and the tool at `/combi-name` (no trailing slash). It serves neither `/combi-name/` nor `/index.html`, so the dashboard's card link (`./combi-name/index.html`) and the tool page's back link (`../index.html`) both 404 in dev even though they resolve correctly in `dist/`, on GitHub Pages, and from `file://`. Check cross-page navigation against `bun run build` output instead of the dev server.
+`bun run dev` runs `web/dev.ts`, a small `Bun.serve()` whose route table is generated from `TOOLS`. Handing Bun the HTML files directly (`bun web/index.html web/combi-name/index.html`) registers only `/` and `/combi-name`, which 404s on both links the pages actually carry — `./combi-name/index.html` from the dashboard and `../index.html` from the tool page. So each page answers to every spelling: `/` and `/index.html` for the dashboard, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. Bun's 404 body is a bare `Not found` with no `<head>`, which reads like a page that lost its `<meta>` tags — check the status code before believing that.
 
 `bunfig.toml` preloads `happydom.ts` for every test run, so `document` and `window` exist in all test files, not just the DOM ones.
 
@@ -72,15 +72,16 @@ Cross-directory imports go through `#lib/*`, declared in `package.json`'s `impor
 1. Add an entry to `TOOLS` in `lib/shared/tools.ts`.
 2. Create `web/<slug>/index.html` with a `../index.html` back link. It also needs to link `../shared/styles.css` and put Pico's `container` class on `header`, `main`, and `footer` — a page that forgets is unstyled, and unlike the back link, no test catches it.
 3. Create `lib/<slug>/` for its logic.
-4. Add `web/<slug>/index.html` to both the `dev` and `build` scripts in `package.json`.
+4. Add `web/<slug>/index.html` to the `build` script in `package.json`.
+5. Import the page in `web/dev.ts` and add it to `TOOL_PAGES`.
 
-`lib/shared/tools.test.ts` fails until the page exists and both scripts list it.
+`lib/shared/tools.test.ts` fails until the page exists, the build script lists it, and `web/dev.ts` imports it. Step 5 is also a typecheck failure on its own: `TOOL_PAGES` is a `Record<ToolSlug, HTMLBundle>`, so a registered slug with no page there does not compile.
 
 ## Web build
 
 `bun run build` takes one entrypoint per page — `web/index.html` and `web/combi-name/index.html` are both named explicitly in the `build` script — and `--compile --target=browser` inlines each page's JavaScript, CSS, and referenced assets into its own self-contained file: `dist/index.html` and `dist/combi-name/index.html`. That is deliberate: it removes any base-path concern when GitHub Pages serves the site from a project subpath, and each file works offline from `file://`.
 
-Never replace the explicit entrypoint list with a glob. `sh` expands `**` as `*`, which would silently drop `web/index.html` from the build (the shell's glob doesn't recurse the way you'd expect). The `dev` script names the same entrypoints for the same reason.
+Never replace the explicit entrypoint list with a glob. `sh` expands `**` as `*`, which would silently drop `web/index.html` from the build (the shell's glob doesn't recurse the way you'd expect). `web/dev.ts` covers the same ground for development by importing each page by name.
 
 The consequence of inlining is that anything a page references gets embedded as a data URI. Read the Assets section below before wiring an icon into a page.
 
