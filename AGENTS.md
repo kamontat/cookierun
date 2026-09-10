@@ -24,13 +24,13 @@ Bun's own API docs are vendored at `node_modules/bun-types/docs/**.mdx` — read
 
 ```bash
 bun install
-bun run dev                          # dev server with hot reload; / is the dashboard, /combi-name is the combi tool
-bun test                             # whole suite, ~3.5s (the exhaustive test dominates)
-bun test lib/combi-name/codec.test.ts# one file
-bun test -t "decodes every slot"     # one test by name substring
-bun run typecheck                    # tsc --noEmit; the test files are typechecked too
-bun run build                        # writes one self-contained file per page: dist/index.html, dist/combi-name/index.html
-bun run fetch-assets                 # re-scrapes icons into assets/ (idempotent, skips existing)
+bun run dev                           # dev server with hot reload; / is the dashboard, /combi-name is the combi tool
+bun test                              # whole suite, ~3.5s (the exhaustive test dominates)
+bun test lib/combi-name/codec.test.ts # one file
+bun test -t "decodes every slot"      # one test by name substring
+bun run typecheck                     # tsc --noEmit; the test files are typechecked too
+bun run build                         # writes one self-contained file per page: dist/index.html, dist/combi-name/index.html
+bun run fetch-assets                  # re-scrapes icons into assets/ (idempotent, skips existing)
 ```
 
 `bun run dev` registers exactly two routes: the dashboard at `/` and the tool at `/combi-name` (no trailing slash). It serves neither `/combi-name/` nor `/index.html`, so the dashboard's card link (`./combi-name/index.html`) and the tool page's back link (`../index.html`) both 404 in dev even though they resolve correctly in `dist/`, on GitHub Pages, and from `file://`. Check cross-page navigation against `bun run build` output instead of the dev server.
