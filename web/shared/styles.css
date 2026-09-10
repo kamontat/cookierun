@@ -86,6 +86,8 @@ body {
 /* Full viewport height, not the height of its links: a rail that stops
    halfway down the page reads as a panel that failed to load. */
 .sidebar {
+  display: flex;
+  flex-direction: column;
   position: sticky;
   top: 0;
   grid-row: 1 / -1;
@@ -147,6 +149,25 @@ body {
   font-weight: 600;
 }
 
+/* Settling, not navigating: the theme control sits at the far end of the rail
+   so it never competes with the tool list. */
+.sidebar-foot {
+  margin-top: auto;
+  padding-top: var(--pico-spacing);
+}
+
+.sidebar-foot label {
+  color: var(--pico-muted-color);
+  font-size: 0.8rem;
+}
+
+.sidebar-foot select {
+  --pico-form-element-spacing-vertical: 0.3rem;
+  --pico-form-element-spacing-horizontal: 0.5rem;
+  margin-bottom: 0;
+  font-size: 0.85rem;
+}
+
 /* Under the breakpoint the sidebar stops being a column and rides along the
    top as a row of links. */
 @media (width < 48rem) {
@@ -166,6 +187,19 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
+  }
+
+  /* In the row layout there is no "far end" to push it to. */
+  .sidebar-foot {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    margin-top: var(--pico-spacing);
+    padding-top: 0;
+  }
+
+  .sidebar-foot select {
+    width: auto;
   }
 }
 

@@ -12,6 +12,15 @@
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%8D%AA</text></svg>"
     />
+    <!-- Blocking on purpose: the module script below is deferred, so without
+         this the page paints in the system theme and then flips. -->
+    <script id="theme-boot">
+      try {
+        var stored = localStorage.getItem("theme");
+        if (stored === "light" || stored === "dark")
+          document.documentElement.dataset.theme = stored;
+      } catch (error) {}
+    </script>
     <link rel="stylesheet" href="./shared/styles.css" />
     <script src="./home.ts" type="module"></script>
   </head>

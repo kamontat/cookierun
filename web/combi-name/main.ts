@@ -25,8 +25,10 @@ import {
 } from "#lib/combi-name/labels.ts";
 
 import { need, renderSidebar } from "../shared/chrome.ts";
+import { renderThemeControl } from "../shared/theme.ts";
 
 renderSidebar(need("sidebar"), "combi-name");
+renderThemeControl(need("theme"));
 
 const typeSelect = need<HTMLSelectElement>("type");
 const episodeSelect = need<HTMLSelectElement>("episode");

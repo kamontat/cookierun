@@ -82,6 +82,15 @@ test("every page offers a skip link to its content", async () => {
   }
 });
 
+// The module scripts are deferred, so a page without this paints in the
+// system theme and flips once the saved choice is read.
+test("every page applies a saved theme before it paints", async () => {
+  for (const page of await pages()) {
+    expect(page).toContain('id="theme-boot"');
+    expect(page).toContain('localStorage.getItem("theme")');
+  }
+});
+
 test("the home page hosts the tool index", async () => {
   const [home] = await pages();
   expect(home).toContain('id="tools"');

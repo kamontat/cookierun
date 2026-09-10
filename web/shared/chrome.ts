@@ -87,5 +87,11 @@ export function renderSidebar(host: HTMLElement, active: ToolSlug | null): void 
   title.className = "sidebar-title";
   title.textContent = "Cookie Run tools";
 
-  host.replaceChildren(title, nav);
+  // The sidebar owns this slot rather than the markup, because rendering
+  // replaces the host's children and would wipe anything a page put there.
+  const foot = document.createElement("div");
+  foot.id = "theme";
+  foot.className = "sidebar-foot";
+
+  host.replaceChildren(title, nav, foot);
 }

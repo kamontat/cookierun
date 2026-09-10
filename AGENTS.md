@@ -35,6 +35,14 @@ bun run fetch-assets                  # re-scrapes icons into assets/ (idempoten
 
 `bun run dev` runs `web/dev.ts`, a small `Bun.serve()` whose route table is generated from `TOOLS`. Handing Bun the HTML files directly (`bun web/index.html web/combi-name/index.html`) registers only `/` and `/combi-name`, which 404s on the trailing-slash links the sidebar renders. So each page answers to every spelling: `/` and `/index.html` for the home pane, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. Bun's 404 body is a bare `Not found` with no `<head>`, which reads like a page that lost its `<meta>` tags — check the status code before believing that.
 
+### Theme
+
+`web/shared/theme.ts` owns the light/dark choice. Pico paints light by default, dark under `prefers-color-scheme`, and obeys `data-theme` on the root over both, so the whole feature is: remember a choice and write that attribute. Three states, and "system" is the absence of one — it removes `data-theme` and deletes the stored key rather than writing a third value, which is what hands the page back to the OS.
+
+Each page's `<head>` carries a small inline copy of the read-and-apply step, marked `id="theme-boot"`. The module scripts are deferred, so without it a page paints in the system theme and flips once the saved choice loads. `lib/shared/tools.test.ts` asserts every page has it.
+
+Every storage call is wrapped: a browser that refuses `localStorage` still themes the page for that visit.
+
 ### Link shape
 
 `hrefFor` in `web/shared/chrome.ts` writes every cross-page link, and writes it twice over:

@@ -60,6 +60,12 @@ test("the current tool is the only entry marked", () => {
   expect(marked[0]?.textContent).toBe("Combi name codes");
 });
 
+// Rendering replaces the host's children, so the slot has to come from here
+// rather than from each page's markup.
+test("the sidebar leaves a slot for the theme control", () => {
+  expect(sidebar(null).querySelector("#theme")).not.toBeNull();
+});
+
 test("home is marked when no tool is active", () => {
   const marked = sidebar(null).querySelectorAll('[aria-current="page"]');
 
