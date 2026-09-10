@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cookie Run combi codes</title>
+    <meta
+      name="description"
+      content="Pack a Cookie Run run configuration - type, episode, boosts, random boost, cookie power+, and action - into a 10-character combi name."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%8D%AA</text></svg>"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./main.ts" type="module"></script>
+  </head>
+  <body>
+    <header class="masthead">
+      <h1>Cookie Run combi codes</h1>
+      <p>
+        A combi name holds 10 characters. That is enough to carry the run type,
+        episode, boosts, random boost, cookie power+ selections, and starting
+        action alongside your cookie, relay, pet, and treasure.
+      </p>
+    </header>
+
+    <main>
+      <section class="panel" aria-labelledby="builder-heading">
+        <h2 id="builder-heading">Build a code</h2>
+
+        <form id="builder" novalidate>
+          <div class="field">
+            <label for="type">Type</label>
+            <select id="type"></select>
+          </div>
+
+          <div class="field">
+            <label for="episode">Episode</label>
+            <select id="episode"></select>
+          </div>
+
+          <fieldset>
+            <legend>Boosts</legend>
+            <div id="boosts" class="checks"></div>
+          </fieldset>
+
+          <div class="field">
+            <label for="randomBoost">Random boost</label>
+            <select id="randomBoost"></select>
+          </div>
+
+          <fieldset>
+            <legend>Cookie power+</legend>
+            <div id="cookiePowers" class="checks"></div>
+          </fieldset>
+
+          <div class="field">
+            <label for="action">Action</label>
+            <select id="action"></select>
+          </div>
+        </form>
+
+        <output id="code-output" class="code-output" aria-live="polite">
+          <code id="code" class="code">1S0---000-</code>
+          <button id="copy" type="button">Copy</button>
+        </output>
+        <p id="copy-status" class="status" role="status"></p>
+        <p id="builder-verdict" class="verdict" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="reader-heading">
+        <h2 id="reader-heading">Read a code</h2>
+
+        <div class="field">
+          <label for="code-input">Combi name</label>
+          <input
+            id="code-input"
+            class="code-input"
+            type="text"
+            inputmode="latin"
+            autocapitalize="characters"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="10"
+            placeholder="1S0HPF014-"
+          />
+        </div>
+
+        <p id="reader-message" class="status" aria-live="polite"></p>
+        <dl id="reader-rows" class="rows"></dl>
+        <p id="reader-verdict" class="verdict" aria-live="polite"></p>
+        <ul id="reader-warnings" class="warnings" aria-live="polite"></ul>
+        <button id="load" type="button" hidden>Load into builder</button>
+      </section>
+
+      <section class="panel legend" aria-labelledby="legend-heading">
+        <h2 id="legend-heading">Reading a code by eye</h2>
+
+        <pre class="diagram">
+slot:  1  2  3  4 5 6  7  8 9  10
+       V  T  E  B B B  R  C C  A
+ex:    1  H  3  H - F  4  1 4  J</pre
+        >
+
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Slot</th>
+              <th scope="col">Field</th>
+              <th scope="col">Characters</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>Format version</td>
+              <td><code>1</code></td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>Type</td>
+              <td>
+                <code>S</code> Score, <code>M</code> Money, <code>E</code> Exp,
+                <code>B</code> Box, <code>A</code> Auto, <code>H</code>
+                Semi-auto
+              </td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>Episode</td>
+              <td>
+                <code>0</code> Any, <code>1</code>-<code>7</code> Episode 1-7,
+                <code>A</code>/<code>B</code>/<code>C</code> Special Episode
+                1-3, <code>X</code> Special Exp Episode
+              </td>
+            </tr>
+            <tr>
+              <td>4-6</td>
+              <td>Boosts</td>
+              <td>
+                <code>H</code> HP Extension, <code>P</code> Power Jelly Boost,
+                <code>F</code> Fast Start, <code>-</code> when off
+              </td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td>Random boost</td>
+              <td><code>0</code> none, otherwise <code>1</code>-<code>9</code>, <code>A</code>, <code>B</code></td>
+            </tr>
+            <tr>
+              <td>8-9</td>
+              <td>Cookie power+</td>
+              <td>Bitmask as two hex digits, <code>00</code>-<code>7F</code></td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>Action</td>
+              <td><code>-</code> none, <code>J</code> jump at start</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Auto vs semi-auto</h3>
+        <p>
+          A combi is semi-auto when <strong>any</strong> of these is true: Fast
+          Start is on (slot 6), a random boost is selected (slot 7), or there is
+          a jump action (slot 10). Slot 2 stores <code>A</code> or
+          <code>H</code> so the name reads plainly, but those three slots are
+          the authority - building a code always rewrites slot 2 to match them.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Codes are computed in your browser. Nothing is sent anywhere, and the
+        page works offline.
+      </p>
+    </footer>
+  </body>
+</html>
