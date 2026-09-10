@@ -81,6 +81,15 @@ Nothing consumes `assets/` yet. The codec deliberately does not model the cookie
 
 `.github/workflows/deploy.yml` runs on pushes to `main` and on manual dispatch: install with a frozen lockfile, test, typecheck, build, then publish `dist/`. Bun's version comes from the `packageManager` field in `package.json`, which `oven-sh/setup-bun` reads automatically — keep it in sync with `mise.toml`.
 
+Every action is pinned to a full commit SHA with the release tag in a trailing comment, so a moved tag cannot change what runs. Bump one by resolving the tag again rather than editing the SHA by hand:
+
+```bash
+gh api repos/actions/checkout/releases/latest --jq .tag_name          # e.g. v7.0.1
+gh api repos/actions/checkout/commits/v7.0.1 --jq .sha                # the SHA to pin
+```
+
+Update the comment in the same edit — a stale comment is worse than none, since it is the only readable record of which version the SHA is.
+
 Two things that are easy to trip over:
 
 - The repository needs **Settings → Pages → Source** set to **GitHub Actions**, or the deploy job fails no matter what the workflow says.
