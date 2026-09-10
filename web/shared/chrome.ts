@@ -1,4 +1,4 @@
-import { TOOLS, toolHref, type ToolSlug } from "#lib/shared/tools.ts";
+import { TOOLS, type ToolSlug } from "#lib/shared/tools.ts";
 
 export function need<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -13,18 +13,29 @@ type Entry = {
 };
 
 /**
- * Every page renders the same list, but from a different depth: the home page
- * sits at the root and a tool page one directory down. Pages link by filename
- * rather than by directory so the standalone build works from `file://`, which
- * means the prefix has to be written out rather than left to the server.
+ * Links are written as directories - `./combi-name/`, `../` - so a served site
+ * shows `/combi-name` rather than a filename. Nothing serves a directory index
+ * when the standalone build is opened straight from disk, though, so under
+ * `file:` the filename goes back on. Relative either way: GitHub Pages puts the
+ * site under a project subpath, where a root-relative `/combi-name` would miss.
+ *
+ * Every page renders the same list from a different depth - the home page at
+ * the root, a tool page one directory down - so the prefix is explicit.
  */
-function entries(active: ToolSlug | null): Entry[] {
-  const prefix = active === null ? "./" : "../";
+export function hrefFor(
+  target: ToolSlug | null,
+  from: ToolSlug | null,
+  protocol: string = globalThis.location?.protocol ?? "https:",
+): string {
+  const directory = `${from === null ? "./" : "../"}${target === null ? "" : `${target}/`}`;
+  return protocol === "file:" ? `${directory}index.html` : directory;
+}
 
+function entries(active: ToolSlug | null): Entry[] {
   return [
-    { href: `${prefix}index.html`, label: "Home", current: active === null },
+    { href: hrefFor(null, active), label: "Home", current: active === null },
     ...TOOLS.map(({ slug, name }) => ({
-      href: `${prefix}${slug}/index.html`,
+      href: hrefFor(slug, active),
       label: name,
       current: slug === active,
     })),
@@ -39,7 +50,7 @@ export function renderToolList(host: HTMLElement): void {
   host.replaceChildren(
     ...TOOLS.flatMap(({ slug, name, tagline }) => {
       const link = document.createElement("a");
-      link.href = toolHref(slug);
+      link.href = hrefFor(slug, null);
       link.textContent = name;
 
       const term = document.createElement("dt");

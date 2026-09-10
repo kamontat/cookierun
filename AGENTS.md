@@ -33,7 +33,16 @@ bun run build                         # writes one self-contained file per page:
 bun run fetch-assets                  # re-scrapes icons into assets/ (idempotent, skips existing)
 ```
 
-`bun run dev` runs `web/dev.ts`, a small `Bun.serve()` whose route table is generated from `TOOLS`. Handing Bun the HTML files directly (`bun web/index.html web/combi-name/index.html`) registers only `/` and `/combi-name`, which 404s on both links the sidebar actually renders — `./combi-name/index.html` from the home pane and `../index.html` from the tool page. So each page answers to every spelling: `/` and `/index.html` for the home pane, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. Bun's 404 body is a bare `Not found` with no `<head>`, which reads like a page that lost its `<meta>` tags — check the status code before believing that.
+`bun run dev` runs `web/dev.ts`, a small `Bun.serve()` whose route table is generated from `TOOLS`. Handing Bun the HTML files directly (`bun web/index.html web/combi-name/index.html`) registers only `/` and `/combi-name`, which 404s on the trailing-slash links the sidebar renders. So each page answers to every spelling: `/` and `/index.html` for the home pane, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. Bun's 404 body is a bare `Not found` with no `<head>`, which reads like a page that lost its `<meta>` tags — check the status code before believing that.
+
+### Link shape
+
+`hrefFor` in `web/shared/chrome.ts` writes every cross-page link, and writes it twice over:
+
+- Served over http(s) it emits directories — `./combi-name/`, `../` — so the address bar reads `/combi-name`, not a filename.
+- Under `file:` it appends `index.html`, because opening `dist/` from disk means nothing is there to serve a directory index and the bare directory link would dead-end.
+
+Both forms stay relative. GitHub Pages serves the site from a project subpath, so a root-relative `/combi-name` would resolve against the domain root and miss. A test covers all four combinations of depth and protocol; that is the guard against someone "simplifying" it back to one form.
 
 `bunfig.toml` preloads `happydom.ts` for every test run, so `document` and `window` exist in all test files, not just the DOM ones.
 

@@ -15,10 +15,9 @@ const TOOL_PAGES: Record<ToolSlug, HTMLBundle> = {
 };
 
 /**
- * The pages link to `./<slug>/index.html` and `../index.html`, which is what a
- * static host and `file://` both resolve. Handing the dev server only the
- * shortest form would 404 on every link the site actually carries, so each
- * page answers to all of its spellings.
+ * Pages link to directories (`./<slug>/`, `../`) so a served URL reads
+ * `/combi-name`, and fall back to the filename under `file:`. Rather than
+ * track which spelling is in play, every page answers to all of them.
  */
 const routes: Record<string, HTMLBundle> = {
   "/": home,

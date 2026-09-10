@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { TOOLS, toolHref } from "./tools.ts";
+import { TOOLS } from "./tools.ts";
 
 const root = new URL("../../", import.meta.url);
 
@@ -37,10 +37,6 @@ test("every tool page is imported by the dev server", async () => {
   for (const { slug } of TOOLS) {
     expect(devServer).toContain(`./${slug}/index.html`);
   }
-});
-
-test("toolHref names the page file so file:// resolves it too", () => {
-  expect(toolHref("combi-name")).toBe("./combi-name/index.html");
 });
 
 test("the home page is built and served like the tools are", async () => {
