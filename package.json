@@ -5,7 +5,8 @@
   "private": true,
   "packageManager": "bun@1.4.2",
   "imports": {
-    "#lib/*": "./lib/*"
+    "#lib/*": "./lib/*",
+    "#components/*": "./components/*"
   },
   "scripts": {
     "dev": "bun web/dev.ts",

@@ -24,11 +24,9 @@ import {
   TYPE_LABELS,
 } from "#lib/combi-name/labels.ts";
 
-import { need, renderSidebar } from "../shared/chrome.ts";
-import { renderThemeControl } from "../shared/theme.ts";
+import "#components/site-nav.ts";
 
-renderSidebar(need("sidebar"), "combi-name");
-renderThemeControl(need("theme"));
+import { need } from "../shared/chrome.ts";
 
 const typeSelect = need<HTMLSelectElement>("type");
 const episodeSelect = need<HTMLSelectElement>("episode");

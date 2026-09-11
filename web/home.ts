@@ -1,6 +1,5 @@
-import { need, renderSidebar, renderToolList } from "./shared/chrome.ts";
-import { renderThemeControl } from "./shared/theme.ts";
+import "#components/site-nav.ts";
 
-renderSidebar(need("sidebar"), null);
-renderThemeControl(need("theme"));
+import { need, renderToolList } from "./shared/chrome.ts";
+
 renderToolList(need("tools"));

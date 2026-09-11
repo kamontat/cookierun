@@ -66,10 +66,10 @@ async function pages(): Promise<string[]> {
 }
 
 // Navigation lives in the sidebar every page renders from this registry, so a
-// page without the host element is a page you cannot leave.
+// page without the element is a page you cannot leave.
 test("every page hosts the sidebar", async () => {
   for (const page of await pages()) {
-    expect(page).toContain('id="sidebar"');
+    expect(page).toContain("<site-nav");
   }
 });
 
