@@ -65,7 +65,7 @@ Full auto is therefore one visual pattern — `-` at slot 6, `0` at slot 7, `-` 
 ## Usage
 
 ```ts
-import { encode, decode, isSemiAuto } from "./lib/combi-name/codec.ts";
+import { encode, decode, isSemiAuto } from "./routes/combi-name/codec.ts";
 
 encode({
   type: "score",
@@ -96,25 +96,25 @@ The build produces a **self-contained `index.html` per page** with all JavaScrip
 ```bash
 bun install
 bun run dev        # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
-bun test           # 60 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run test       # 86 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run typecheck
 bun run build      # writes dist/index.html and dist/combi-name/index.html
 ```
 
-The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against each page under happy-dom, preloaded via `bunfig.toml`.
+The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
 
 ### Layout
 
 | Path | Role |
 | --- | --- |
-| `lib/combi-name/codec.ts` | Slot tables, `encode`, `decode`, `isSemiAuto`. No DOM, no dependencies. |
-| `lib/combi-name/labels.ts` | Display names for every enum value. |
-| `lib/combi-name/describe.ts` | Turns a combi into rows and an auto/semi-auto verdict. |
-| `lib/shared/` | The tool registry other tools list themselves in. |
-| `web/` | The home pane at the root plus one subdirectory per tool: markup, styles, and thin DOM wiring. |
-| `web/shared/chrome.ts` | The sidebar every page renders from the registry, and the `need<T>()` lookup pages share. |
-| `web/shared/theme.ts` | The light/dark choice: read it, write `data-theme`, remember it. |
-| `web/dev.ts` | The dev server, routing every URL spelling each page is linked by. |
+| `routes/` | One directory per page — markup, stylesheet, page script, and that page's own logic. `routes/index.*` is the home pane. |
+| `routes/combi-name/codec.ts` | Slot tables, `encode`, `decode`, `isSemiAuto`. No DOM, no dependencies. |
+| `routes/combi-name/labels.ts` | Display names for every enum value. |
+| `routes/combi-name/describe.ts` | Turns a combi into rows and an auto/semi-auto verdict. |
+| `components/` | Every custom element the pages declare, the sidebar and the light/dark control among them. |
+| `lib/` | What more than one route needs: the tool registry, and the link writer that keeps every href relative. |
+| `scripts/` | One file per package script — dev server, build, test, typecheck, asset scrape. |
+| `tests/` | Test configuration only; every test sits beside the code it covers. |
 
 The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a boost or episode cannot silently ship a page with a missing option.
 

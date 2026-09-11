@@ -1,28 +1,28 @@
 {
   "name": "demo-cookierun-encode",
-  "module": "lib/combi-name/codec.ts",
   "type": "module",
   "private": true,
   "packageManager": "bun@1.4.2",
   "imports": {
-    "#lib/*": "./lib/*"
+    "#lib/*": "./lib/*",
+    "#components/*": "./components/*"
   },
   "scripts": {
-    "dev": "bun web/dev.ts",
+    "dev": "bun scripts/dev.ts",
     "fetch-assets": "bun scripts/fetch-assets.ts",
-    "build": "bun build --compile --target=browser web/index.html web/combi-name/index.html --outdir=dist --minify",
-    "test": "bun test",
-    "typecheck": "tsc --noEmit",
+    "build": "bun scripts/build.ts",
+    "test": "bun scripts/test.ts",
+    "typecheck": "bun scripts/typecheck.ts",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "@happy-dom/global-registrator": "^20.14.3",
-    "@picocss/pico": "^2.1.1",
-    "@types/bun": "latest",
+    "@happy-dom/global-registrator": "20.14.3",
+    "@picocss/pico": "2.1.1",
+    "@types/bun": "1.4.2",
     "typescript-language-server": "6.0.0",
     "wrangler": "4.131.0"
   },
   "peerDependencies": {
-    "typescript": "^7"
+    "typescript": "7.0.2"
   }
 }

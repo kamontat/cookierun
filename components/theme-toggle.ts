@@ -3,9 +3,9 @@
  * `data-theme` on the root over both. So the whole feature is: remember a
  * choice, write that attribute, and let the stylesheet do the rest.
  *
- * `index.html` carries a tiny inline copy of the read-and-apply step in its
- * head. Module scripts are deferred, so without it the page paints in the
- * system theme first and flips once this file runs.
+ * Each page carries a tiny inline copy of the read-and-apply step in its head,
+ * marked `id="theme-boot"`. Module scripts are deferred, so without it the page
+ * paints in the system theme first and flips once this file runs.
  */
 export type Theme = "system" | "light" | "dark";
 
@@ -50,6 +50,11 @@ export function applyTheme(theme: Theme, root: HTMLElement): void {
   else root.dataset.theme = theme;
 }
 
+/**
+ * Exported as a function as well as wrapped in the element below, because a
+ * custom element swallows a callback exception into the global error handler.
+ * The storage-refused test has to call something that can actually throw.
+ */
 export function renderThemeControl(
   host: HTMLElement,
   root: HTMLElement = document.documentElement,
@@ -81,4 +86,21 @@ export function renderThemeControl(
   label.textContent = "Theme";
 
   host.replaceChildren(label, select);
+}
+
+export class ThemeToggle extends HTMLElement {
+  connectedCallback(): void {
+    renderThemeControl(this);
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "theme-toggle": ThemeToggle;
+  }
+}
+
+// One `bun test` process shares one registry across every test file.
+if (!customElements.get("theme-toggle")) {
+  customElements.define("theme-toggle", ThemeToggle);
 }

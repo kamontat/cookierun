@@ -1,2 +1,7 @@
 [test]
 preload = ["./tests/happydom.ts"]
+
+[install]
+# A range here would quietly widen on the next install and the whole point of
+# the pinned versions above is that it cannot.
+exact = true

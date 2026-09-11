@@ -1,0 +1,81 @@
+@import "../index.css";
+
+/* The result and the legend are full-width; the builder and the reader pair up
+   beside each other once the grid has two tracks. */
+.result,
+.legend {
+  grid-column: 1 / -1;
+}
+
+/* The code is what the page is for, so it stays in view while you work the
+   controls under it. */
+.result {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.result h2 {
+  --pico-typography-spacing-top: 0;
+  color: var(--pico-muted-color);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.code-input {
+  font-family: var(--pico-font-family-monospace);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* A placeholder at full value colour reads as a code someone already typed. */
+.code-input::placeholder {
+  color: var(--pico-muted-color);
+  opacity: 0.6;
+  text-transform: none;
+}
+
+.hint {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--pico-muted-color);
+}
+
+.warnings {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.warnings li {
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-mark-background-color);
+  color: var(--pico-mark-color);
+  font-size: 0.9rem;
+}
+
+.rows {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+}
+
+.rows dt {
+  color: var(--pico-muted-color);
+}
+
+.rows dd {
+  margin: 0;
+}
+
+.diagram {
+  overflow-x: auto;
+  padding: var(--pico-spacing);
+  font-size: 0.85rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}

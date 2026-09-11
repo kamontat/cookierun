@@ -8,7 +8,7 @@ import {
   renderThemeControl,
   writeTheme,
   THEME_KEY,
-} from "./theme.ts";
+} from "./theme-toggle.ts";
 
 function fakeStorage(seed: Record<string, string> = {}) {
   const store = new Map(Object.entries(seed));
@@ -55,6 +55,9 @@ test("system is stored as the absence of a choice", () => {
   expect(storage.read()).toBe(null);
 });
 
+// Called as a function on purpose. A custom element reports a callback
+// exception to the global error handler rather than throwing to whoever
+// appended it, so going through <theme-toggle> here would pass either way.
 test("a browser that refuses storage still themes the page", () => {
   const hostile = {
     getItem: () => {
@@ -109,4 +112,12 @@ test("choosing a theme paints the page and remembers it", () => {
 
   expect(root.hasAttribute("data-theme")).toBe(false);
   expect(storage.read()).toBe(null);
+});
+
+test("the element renders the control when it is connected", () => {
+  document.body.replaceChildren();
+  document.body.append(document.createElement("theme-toggle"));
+
+  const select = document.body.querySelector("theme-toggle select");
+  expect(select).not.toBeNull();
 });

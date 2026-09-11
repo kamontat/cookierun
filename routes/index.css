@@ -85,7 +85,7 @@ body {
 
 /* Full viewport height, not the height of its links: a rail that stops
    halfway down the page reads as a panel that failed to load. */
-.sidebar {
+site-nav {
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -99,7 +99,7 @@ body {
   background: var(--pico-card-background-color);
 }
 
-.sidebar-title {
+site-nav .title {
   margin-bottom: var(--pico-spacing);
   color: var(--pico-muted-color);
   font-size: 0.8rem;
@@ -108,9 +108,28 @@ body {
   text-transform: uppercase;
 }
 
+/* Pico styles `aside nav` and `aside li` directly, not `nav`/`li` on their
+   own - rules that matched the old `<aside class="sidebar">` and match
+   nothing now that the wrapper is `<site-nav>`. Without these the inner
+   `<nav>` reverts to Pico's `nav,nav ul{display:flex}` and the list shrinks
+   to fit its labels instead of filling the rail, and each `<li>` reverts to
+   `nav li`'s taller padding. */
+site-nav nav {
+  display: block;
+}
+
+site-nav li {
+  padding: calc(var(--pico-nav-element-spacing-vertical) * 0.5)
+    var(--pico-nav-element-spacing-horizontal);
+}
+
 /* Spaced, or the hovered link and the current one run together into a single
-   slab and neither reads as its own button. */
-.sidebar ul {
+   slab and neither reads as its own button. Scoped through `nav` (not just
+   `site-nav`) so this out-specifies Pico's own `nav ol,nav ul` and
+   `nav li :where(a,[role=link])` instead of merely tying and winning on
+   source order, which is where the old `.sidebar ul`/`.sidebar a` classes
+   left it. */
+site-nav nav ul {
   display: grid;
   gap: 0.35rem;
   margin: 0;
@@ -121,7 +140,7 @@ body {
 /* `inherit`, not `var(--pico-color)`: Pico's own `a` rule reassigns that
    property to the primary colour, so reading it back paints every link amber
    and the current-page marker stops meaning anything. */
-.sidebar a {
+site-nav nav a {
   display: block;
   padding: 0.35rem 0.5rem;
   border-left: 2px solid transparent;
@@ -130,19 +149,19 @@ body {
   text-decoration: none;
 }
 
-.sidebar a:hover {
+site-nav a:hover {
   background: var(--pico-primary-focus);
 }
 
 /* Pico's focus ring lives on its own components; these links are ours. */
-.sidebar a:focus-visible {
+site-nav a:focus-visible {
   outline: 2px solid var(--pico-primary);
   outline-offset: 2px;
 }
 
 /* A solid amber block here outshouted the code the tool exists to produce.
    Tint plus a marker is enough to say "you are here". */
-.sidebar a[aria-current="page"] {
+site-nav a[aria-current="page"] {
   border-left: 2px solid var(--pico-primary);
   background: var(--pico-primary-focus);
   color: var(--pico-primary);
@@ -151,17 +170,18 @@ body {
 
 /* Settling, not navigating: the theme control sits at the far end of the rail
    so it never competes with the tool list. */
-.sidebar-foot {
+theme-toggle {
+  display: block;
   margin-top: auto;
   padding-top: var(--pico-spacing);
 }
 
-.sidebar-foot label {
+theme-toggle label {
   color: var(--pico-muted-color);
   font-size: 0.8rem;
 }
 
-.sidebar-foot select {
+theme-toggle select {
   --pico-form-element-spacing-vertical: 0.3rem;
   --pico-form-element-spacing-horizontal: 0.5rem;
   margin-bottom: 0;
@@ -175,7 +195,7 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .sidebar {
+  site-nav {
     position: static;
     grid-row: auto;
     height: auto;
@@ -183,14 +203,14 @@ body {
     border-bottom: 1px solid var(--pico-muted-border-color);
   }
 
-  .sidebar ul {
+  site-nav ul {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
   }
 
   /* In the row layout there is no "far end" to push it to. */
-  .sidebar-foot {
+  theme-toggle {
     display: flex;
     gap: 0.5rem;
     align-items: baseline;
@@ -198,7 +218,7 @@ body {
     padding-top: 0;
   }
 
-  .sidebar-foot select {
+  theme-toggle select {
     width: auto;
   }
 }
@@ -218,25 +238,10 @@ main {
   }
 }
 
-.result,
-.legend,
+/* A page with a single section - the home pane - spans both tracks rather
+   than sitting in the left one with a hole beside it. */
 main > :only-child {
   grid-column: 1 / -1;
-}
-
-/* The code is what the page is for, so it stays in view while you work the
-   controls under it. */
-.result {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.result h2 {
-  --pico-typography-spacing-top: 0;
-  color: var(--pico-muted-color);
-  font-size: 0.8rem;
-  font-weight: 500;
 }
 
 /* The grid gap already separates the panels; Pico's own `section` margin
@@ -253,43 +258,12 @@ main > :only-child {
   box-shadow: var(--pico-card-box-shadow);
 }
 
-.code-output {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
+.masthead h1 {
+  margin-bottom: 0.25rem;
 }
 
-.code {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  padding: 0;
-  background: none;
-  color: var(--pico-color);
-  font-family: var(--pico-font-family-monospace);
-  font-size: clamp(1.5rem, 5vw, 2.25rem);
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  user-select: all;
-}
-
-.code-input {
-  font-family: var(--pico-font-family-monospace);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-/* A placeholder at full value colour reads as a code someone already typed. */
-.code-input::placeholder {
-  color: var(--pico-muted-color);
-  opacity: 0.6;
-  text-transform: none;
-}
-
-.hint {
-  display: block;
-  margin-top: 0.35rem;
+.masthead p {
+  max-width: 46rem;
   color: var(--pico-muted-color);
 }
 
@@ -303,102 +277,92 @@ main > :only-child {
   color: var(--pico-del-color);
 }
 
-.warnings {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0;
-  list-style: none;
+tool-index {
+  display: block;
 }
 
-.warnings li {
-  padding: 0.5rem 0.65rem;
-  border-radius: var(--pico-border-radius);
-  background: var(--pico-mark-background-color);
-  color: var(--pico-mark-color);
-  font-size: 0.9rem;
-}
-
-.rows {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.35rem 1rem;
-}
-
-.rows dt {
-  color: var(--pico-muted-color);
-}
-
-.rows dd {
+tool-index dl {
   margin: 0;
 }
 
-.diagram {
-  overflow-x: auto;
-  padding: var(--pico-spacing);
-  font-size: 0.85rem;
-}
-
-.table-wrap {
-  overflow-x: auto;
-}
-
-.tools {
-  margin: 0;
-}
-
-.tools dt {
+tool-index dt {
   font-size: 1.05rem;
 }
 
-.tools dd {
+tool-index dd {
   margin: 0.15rem 0 var(--pico-spacing);
   max-width: 46rem;
   color: var(--pico-muted-color);
 }
 
-.tools dd:last-child {
+tool-index dd:last-child {
   margin-bottom: 0;
 }
 
-.checks label {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
+labelled-select {
+  display: block;
 }
 
-.masthead h1 {
-  margin-bottom: 0.25rem;
+check-group {
+  display: block;
 }
 
-.masthead p {
-  max-width: 46rem;
-  color: var(--pico-muted-color);
+/* A group of checkboxes and a single select were styled identically, so the
+   form read as six equal things instead of two pickers and two groups. */
+check-group fieldset {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--pico-muted-border-color);
+}
+
+check-group legend {
+  padding-right: 0.4rem;
+  font-weight: 600;
 }
 
 /* Seven cookie powers in one column made the builder twice the height of
    everything beside it. */
-.checks {
+check-group .checks {
   display: grid;
   gap: 0.4rem 1rem;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 }
 
-/* A group of checkboxes and a single select were styled identically, so the
-   form read as six equal things instead of two pickers and two groups. */
-fieldset {
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--pico-muted-border-color);
+check-group .checks label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
-fieldset legend {
-  padding-right: 0.4rem;
+copy-code {
+  display: block;
+}
+
+copy-code output {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+copy-code code {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0;
+  background: none;
+  color: var(--pico-color);
+  font-family: var(--pico-font-family-monospace);
+  font-size: clamp(1.5rem, 5vw, 2.25rem);
   font-weight: 600;
+  letter-spacing: 0.22em;
+  user-select: all;
 }
 
-.verdict {
+auto-verdict {
+  display: block;
   margin-top: 0.75rem;
 }
 
-.verdict strong {
+auto-verdict strong {
   color: var(--pico-primary);
 }
