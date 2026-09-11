@@ -254,14 +254,18 @@ main > :only-child {
   box-shadow: var(--pico-card-box-shadow);
 }
 
-.code-output {
+copy-code {
+  display: block;
+}
+
+copy-code output {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
 }
 
-.code {
+copy-code code {
   flex: 0 1 auto;
   min-width: 0;
   overflow-x: auto;
@@ -408,10 +412,11 @@ check-group .checks label {
   align-items: center;
 }
 
-.verdict {
+auto-verdict {
+  display: block;
   margin-top: 0.75rem;
 }
 
-.verdict strong {
+auto-verdict strong {
   color: var(--pico-primary);
 }

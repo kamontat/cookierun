@@ -16,7 +16,7 @@ import {
   type Episode,
   type RandomBoost,
 } from "#lib/combi-name/codec.ts";
-import { describeCombi, type AutoVerdict } from "#lib/combi-name/describe.ts";
+import { describeCombi } from "#lib/combi-name/describe.ts";
 import {
   ACTION_LABELS,
   BOOST_LABELS,
@@ -26,11 +26,15 @@ import {
   TYPE_LABELS,
 } from "#lib/combi-name/labels.ts";
 
+import "#components/auto-verdict.ts";
 import "#components/check-group.ts";
+import "#components/copy-code.ts";
 import "#components/labelled-select.ts";
 import "#components/site-nav.ts";
 
+import type { AutoVerdictElement } from "#components/auto-verdict.ts";
 import type { CheckGroup } from "#components/check-group.ts";
+import type { CopyCode } from "#components/copy-code.ts";
 import type { LabelledSelect } from "#components/labelled-select.ts";
 
 import { need } from "../shared/chrome.ts";
@@ -43,15 +47,13 @@ const cookiePowersGroup = need<CheckGroup>("cookiePowers");
 const actionSelect = need<LabelledSelect>("action");
 
 const builderForm = need<HTMLFormElement>("builder");
-const codeElement = need("code");
-const copyButton = need<HTMLButtonElement>("copy");
-const copyStatus = need("copy-status");
-const builderVerdict = need("builder-verdict");
+const codeOutput = need<CopyCode>("code-output");
+const builderVerdict = need<AutoVerdictElement>("builder-verdict");
 
 const codeInput = need<HTMLInputElement>("code-input");
 const readerMessage = need("reader-message");
 const readerRows = need<HTMLDListElement>("reader-rows");
-const readerVerdict = need("reader-verdict");
+const readerVerdict = need<AutoVerdictElement>("reader-verdict");
 const readerWarnings = need<HTMLUListElement>("reader-warnings");
 const loadButton = need<HTMLButtonElement>("load");
 
@@ -85,47 +87,20 @@ function setStatus(host: HTMLElement, text: string, isError = false): void {
   host.classList.toggle("error", isError);
 }
 
-function renderVerdict(
-  host: HTMLElement,
-  auto: AutoVerdict | null,
-  prefix: string,
-): void {
-  if (auto === null) {
-    host.replaceChildren();
-    return;
-  }
-
-  const name = document.createElement("strong");
-  name.textContent = auto.semi ? "Semi-auto" : "Full auto";
-
-  const tail = auto.semi
-    ? ` - ${auto.reasons.join(", ")} ${
-        auto.reasons.length === 1 ? "needs" : "need"
-      } manual work each run.`
-    : " - nothing needs manual work each run.";
-
-  host.replaceChildren(
-    document.createTextNode(`${prefix} `),
-    name,
-    document.createTextNode(tail),
-  );
-}
-
 function renderBuilder(): void {
   const code = encode(readForm());
-  codeElement.textContent = code;
-  setStatus(copyStatus, "");
+  codeOutput.value = code;
 
   // Read the code back so the verdict reflects the character actually written
   // into slot 2, not the type the select still shows.
   const { combi } = decode(code);
-  renderVerdict(builderVerdict, describeCombi(combi).auto, "Stored as");
+  builderVerdict.verdict = describeCombi(combi).auto;
 }
 
 function clearReader(): void {
   readerRows.replaceChildren();
   readerWarnings.replaceChildren();
-  readerVerdict.replaceChildren();
+  readerVerdict.verdict = null;
   loadButton.hidden = true;
 }
 
@@ -185,7 +160,7 @@ function renderReader(): void {
       return item;
     }),
   );
-  renderVerdict(readerVerdict, described.auto, "This code is");
+  readerVerdict.verdict = described.auto;
   loadButton.hidden = false;
 }
 
@@ -210,19 +185,6 @@ boostsGroup.options = pairs(ALL_BOOSTS, BOOST_LABELS);
 cookiePowersGroup.options = pairs(ALL_COOKIE_POWERS, COOKIE_POWER_LABELS);
 
 builderForm.addEventListener("input", renderBuilder);
-
-copyButton.addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(codeElement.textContent ?? "");
-    setStatus(copyStatus, "Copied.");
-  } catch {
-    setStatus(
-      copyStatus,
-      "The browser blocked the clipboard. Select the code and copy it by hand.",
-      true,
-    );
-  }
-});
 
 codeInput.addEventListener("input", renderReader);
 

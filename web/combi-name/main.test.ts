@@ -26,7 +26,8 @@ function check(hostId: string, value: string, checked: boolean): void {
   fire(input);
 }
 
-const code = need("code");
+const codeOutput = need("code-output");
+const code = codeOutput.querySelector("code")!;
 const typeSelect = need<HTMLSelectElement>("type");
 const episodeSelect = need<HTMLSelectElement>("episode");
 const randomBoostSelect = need<HTMLSelectElement>("randomBoost");

@@ -41,12 +41,8 @@
       <section class="panel result" aria-labelledby="result-heading">
         <h2 id="result-heading">Your combi name</h2>
 
-        <output id="code-output" class="code-output" aria-live="polite">
-          <code id="code" class="code">1S0---000-</code>
-          <button id="copy" type="button" class="outline secondary">Copy</button>
-        </output>
-        <p id="copy-status" class="status" role="status"></p>
-        <p id="builder-verdict" class="verdict" aria-live="polite"></p>
+        <copy-code id="code-output" value="1S0---000-"></copy-code>
+        <auto-verdict id="builder-verdict" prefix="Stored as"></auto-verdict>
       </section>
 
       <section class="panel" aria-labelledby="builder-heading">
@@ -95,7 +91,7 @@
 
         <p id="reader-message" class="status" aria-live="polite"></p>
         <dl id="reader-rows" class="rows"></dl>
-        <p id="reader-verdict" class="verdict" aria-live="polite"></p>
+        <auto-verdict id="reader-verdict" prefix="This code is"></auto-verdict>
         <ul id="reader-warnings" class="warnings" aria-live="polite"></ul>
         <button id="load" type="button" hidden>Load into builder</button>
       </section>
