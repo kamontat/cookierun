@@ -5,9 +5,32 @@ description: Use when touching assets/, scripts/fetch-assets.ts or assets/index.
 
 # Assets
 
-`bun run fetch-assets` scrapes cookie, pet, and treasure icons from cookierundb.com into `assets/` and writes `assets/index.json`, mapping each entry's display name to its icon path relative to `assets/`. It is idempotent — icons already on disk are skipped, so re-running only fills gaps.
+`bun run fetch-assets` scrapes cookie, pet, and treasure icons from cookierundb.com into `assets/` and writes `assets/index.json`. It is idempotent for icons — those already on disk are skipped, so re-running only fills gaps — but it always re-reads the treasure evolution chains, which costs one request per evolved treasure (524 today) on every run.
 
-Two things about `index.json` that matter to whatever consumes it. A display name can cover several entries; when their icons differ the key is disambiguated as `Name [slug]`, and when they share an icon the duplicate collapses into one key. So treat the keys as opaque strings rather than assuming one name means one entry.
+`index.json` has one object per section, keyed by a PascalCase id derived from the display name:
+
+```jsonc
+{
+  "cookies": {
+    "GingerBrave": {
+      "name": "GingerBrave",
+      "url": "https://cookierundb.com/cookies/ch01",
+      "image": "cookies/ch01.png" // relative to assets/, or null where the game has no sprite
+    }
+  },
+  "treasures": {
+    "DoubleBubbleSBestFriend": { /* …, */ "type": "N", "targets": ["ChewyCheeseBall", "BlessedChewyCheeseBall"] },
+    "ChewyCheeseBall": { /* …, */ "type": "E", "source": "DoubleBubbleSBestFriend" },
+    "BlessedChewyCheeseBall": { /* …, */ "type": "B", "source": "DoubleBubbleSBestFriend" }
+  }
+}
+```
+
+Treasures carry their chain: `type` is `N` (base), `E` (evolved) or `B` (blessed). A base lists `targets` as `[evolved, blessed]`, with either half `null` when that form does not exist — 358 of the 620 bases are `[null, null]`. An evolved or blessed treasure names its base as `source`. The two directions are inverses of each other, so either can be walked.
+
+The chain comes from the detail pages, not the listing: a listing card's `data-evo` says only that a treasure is evolved. The `rc-sub` captions on the detail page carry the meaning — `Evolves from` names the base, and `Unblessed form` appears only on a blessed page. Both the sitemap check and the chain checks fail the run loudly rather than writing a partial index.
+
+Two entries can share a display name, and therefore an id. When that happens every member of the colliding group is numbered from 1 in listing order — `SotdaeFlock1`, `SotdaeFlock2`, `SotdaeFlock3` — so no entry is silently overwritten and none keeps the bare name. Numbering follows the listing page, so an entry added upstream can renumber the ones after it; the run throws if a numbered id ever lands on one that already exists. Treat the keys as opaque.
 
 Nothing consumes `assets/` yet. The codec deliberately does not model the cookie, relay, pet, or treasure: the game already stores those four in the combi, which is precisely why the 10 characters are spent on everything else. Don't add them to the code.
 
