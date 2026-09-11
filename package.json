@@ -13,7 +13,7 @@
 		"build": "bun scripts/build.ts",
 		"test": "bun scripts/test.ts",
 		"format:biome": "bun scripts/format-biome.ts",
-		"format:": "bun scripts/format-biome.ts",
+		"format": "bun scripts/format-biome.ts",
 		"check:type": "bun scripts/check-type.ts",
 		"check:biome": "bun scripts/check-biome.ts",
 		"check": "bun scripts/check-type.ts && bun scripts/check-biome.ts",
