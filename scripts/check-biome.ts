@@ -1,11 +1,8 @@
 /**
- * Formatting and lint, through `bunx` for the same reason check-type.ts does:
- * running this file directly does not put node_modules/.bin on PATH the way an
- * npm-style script does.
- *
- * `check` reports without touching anything. Pass `--write` to have Biome apply
- * what it can - the arguments are forwarded, so `bun run check:biome --write`
- * works.
+ * Formatting and lint, reporting without touching anything. Pass `--write` to
+ * have Biome apply what it can on its own - the arguments are forwarded, so
+ * `bun run check:biome --write` works. `format:biome` is the same check with
+ * `--write --unsafe` already applied.
  */
 import { execAsync } from "./utils/shell";
 

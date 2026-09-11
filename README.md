@@ -96,7 +96,7 @@ The build produces a **self-contained `index.html` per page** with all JavaScrip
 ```bash
 bun install
 bun run dev        # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
-bun run test       # 89 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run test       # 90 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run check      # typecheck and Biome, in one pass
 bun run build      # writes dist/index.html and dist/combi-name/index.html
 ```
@@ -113,7 +113,7 @@ The exhaustive test asserts that encoding produces exactly 1,474,560 distinct co
 | `routes/combi-name/describe.ts` | Turns a combi into rows and an auto/semi-auto verdict. |
 | `components/` | Every custom element the pages declare, the sidebar and the light/dark control among them. |
 | `lib/` | What more than one route needs: the tool registry, and the link writer that keeps every href relative. |
-| `scripts/` | One file per package script — dev server, build, test, the two checks, deploy, asset scrape. |
+| `scripts/` | One file per package script — dev server, build, test, the two checks, the formatter, deploy, asset scrape — over a shared `execAsync` in `scripts/utils/`. |
 | `tests/` | Test configuration only; every test sits beside the code it covers. |
 
 The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a boost or episode cannot silently ship a page with a missing option.
@@ -122,6 +122,6 @@ The `ALL_*` arrays and the label tables derive from the character tables, and a 
 
 The site is a Cloudflare Worker serving static assets. `wrangler.jsonc` points it at `dist/` and has wrangler run `bun run build` itself, so the deploy workflows do not build beforehand.
 
-`.github/workflows/main.yml` runs the tests, the typecheck, and the build. `deploy-preview.yml` uploads a preview version for every pull request; `deploy-production.yml` deploys on every push to `main`. Both need `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in repository secrets.
+`.github/workflows/main.yml` runs the tests, both checks, and the build. `deploy-preview.yml` uploads a preview version for every pull request; `deploy-production.yml` deploys on every push to `main`. Both need `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in repository secrets.
 
 Bun's version is pinned by the `packageManager` field in `package.json`, which `oven-sh/setup-bun` reads automatically. Keep it in sync with `mise.toml` when upgrading.

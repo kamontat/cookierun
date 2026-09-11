@@ -1,6 +1,8 @@
 /**
- * `bunx`, not a bare `tsc`: running this file directly does not put
- * node_modules/.bin on PATH the way an npm-style script does.
+ * `tsc --noEmit` over the whole project, test files included. `execAsync` runs
+ * it through Bun Shell, which resolves `node_modules/.bin` itself - running
+ * this file directly would not put that directory on PATH the way an npm-style
+ * script does.
  */
 import { execAsync } from "./utils/shell";
 

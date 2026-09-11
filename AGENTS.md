@@ -30,6 +30,7 @@ bun run test routes/combi-name/codec.test.ts # one file
 bun run test -t "decodes every slot"         # one test by name substring
 bun run check:type                           # tsc --noEmit; the test files are typechecked too
 bun run check:biome                          # formatting and lint; --write applies what Biome can fix
+bun run format:biome                         # the same check with --write --unsafe; read the diff after (`format` is an alias)
 bun run check                                # both checks, in one pass
 bun run build                                # writes one self-contained file per page: dist/index.html, dist/combi-name/index.html
 bun run fetch-assets                         # re-scrapes icons into assets/ (idempotent, skips existing)
@@ -38,9 +39,11 @@ bun run deploy                               # publishes to Cloudflare; wrangler
 
 Every script is a file under `scripts/`, so `package.json` holds a delegation rather than a command. Each one forwards its arguments and propagates the child's exit code, which is what keeps the two filtered test forms above working and what makes a failure fail whatever called it. `check` is the two check scripts chained with `&&`, so a type error stops before Biome runs.
 
-`bunx`, not a bare binary name, inside `check-type.ts`, `check-biome.ts`, and `deploy.ts`: running a file directly does not put `node_modules/.bin` on `PATH` the way an npm-style script does.
+Every one of them is a docstring plus a single `execAsync` call, from `scripts/utils/shell.ts`. That helper echoes the command, runs it through Bun Shell with `.nothrow()`, and then calls `process.exit` with the child's code — on success as well as on failure. So `execAsync` never returns, and anything written after it in a script is dead code. Bun Shell resolves `node_modules/.bin` itself, which is why a bare `tsc`, `biome`, or `wrangler` works here even though running a file directly does not put that directory on `PATH` the way an npm-style script does. (These scripts used to spell that out as `bunx`; they no longer do, so don't reintroduce the wrapper on the old reasoning.)
 
 `check:biome` reports without touching anything. `bun run check:biome --write` applies what Biome can fix on its own. The repository's formatting comes from `@kcconfigs/biome` via `biome.json`, which also ignores `assets/` — that directory is 14 MB of generated scrape output and reformatting it would bury every real diff.
+
+The two checks are stricter together than either is alone. `tsconfig.json` sets `noUncheckedIndexedAccess`, so every index and every regex capture group arrives as `T | undefined`; `@kcconfigs/biome` forbids `!`, so the usual escape hatch fails lint. Narrow instead: a destructuring default (`const [, href = ""] = match`), `??`, or pulling the element into a `const` and guarding it. `scripts/fetch-assets.ts` does all three. `!` after `?.` is worse still — that one is an error rather than a warning, and Biome is right that it defeats the optional chain.
 
 `bun run dev` runs `scripts/dev.ts`, a small `Bun.serve()` whose route table is generated from `TOOLS`. Handing Bun the HTML files directly (`bun routes/index.html routes/combi-name/index.html`) registers only `/` and `/combi-name`, which 404s on the trailing-slash links the sidebar renders. So each page answers to every spelling: `/` and `/index.html` for the home pane, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. An unrouted URL comes back as a 404 with an empty body, which paints as a blank page rather than as an error — check the status code before concluding the page itself broke.
 
@@ -94,7 +97,7 @@ Cross-directory imports go through `#lib/*` and `#components/*`, declared in `pa
 - `lib/` is code more than one route uses, reached as `#lib/*`. Today that is the tool registry and `hrefFor`. It owns no DOM, with one deliberate exception: `hrefFor` defaults its `protocol` argument to `globalThis.location?.protocol`, because every caller would otherwise pass the same thing. That is a default rather than a read — `lib/href.test.ts` hands the protocol in on every call and never touches `location`.
 - `components/` is every custom element, reached as `#components/*`. It imports from `lib/` and never from `routes/` — `components/auto-verdict.ts` declares its own `Verdict` type rather than importing the structurally identical `AutoVerdict` from `routes/combi-name/describe.ts`, which is what keeps that arrow pointing one way.
 - `routes/<slug>/` is one page: `index.html`, `index.css`, `index.ts`, and that route's own logic and tests. `routes/index.*` is the home pane.
-- `scripts/` is one file per package script.
+- `scripts/` is one file per package script, plus `scripts/utils/shell.ts` holding the `execAsync` every one of them calls.
 - `tests/` is test configuration only. `bunfig.toml` preloads `tests/happydom.ts` for every run, so `document` and `window` exist in all test files, not just the DOM ones. No test lives there.
 
 Route-only logic stays in the route. The combi codec is imported by exactly one page, so it lives at `routes/combi-name/codec.ts` rather than in `lib/`.
@@ -167,7 +170,7 @@ The site is a Cloudflare Worker serving static assets. `wrangler.jsonc` names th
 
 Three workflows, each pinning every action to a full commit SHA with the release tag in a trailing comment:
 
-- `main.yml` — install, `bun test`, `bun run check:type`, `bun run build`. This is the only place the suite runs in CI.
+- `main.yml` — install, `bun test`, `bun run check`, `bun run build`. This is the only place the suite runs in CI. It calls `bun test` directly rather than `bun run test`, so the wrapper script is for local callers only.
 - `deploy-preview.yml` — on pull requests, `wrangler versions upload`, reporting into the `preview` environment.
 - `deploy-production.yml` — on pushes to `main`, `wrangler deploy`, reporting into the `production` environment.
 
