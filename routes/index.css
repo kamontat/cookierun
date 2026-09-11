@@ -108,9 +108,28 @@ site-nav .title {
   text-transform: uppercase;
 }
 
+/* Pico styles `aside nav` and `aside li` directly, not `nav`/`li` on their
+   own - rules that matched the old `<aside class="sidebar">` and match
+   nothing now that the wrapper is `<site-nav>`. Without these the inner
+   `<nav>` reverts to Pico's `nav,nav ul{display:flex}` and the list shrinks
+   to fit its labels instead of filling the rail, and each `<li>` reverts to
+   `nav li`'s taller padding. */
+site-nav nav {
+  display: block;
+}
+
+site-nav li {
+  padding: calc(var(--pico-nav-element-spacing-vertical) * 0.5)
+    var(--pico-nav-element-spacing-horizontal);
+}
+
 /* Spaced, or the hovered link and the current one run together into a single
-   slab and neither reads as its own button. */
-site-nav ul {
+   slab and neither reads as its own button. Scoped through `nav` (not just
+   `site-nav`) so this out-specifies Pico's own `nav ol,nav ul` and
+   `nav li :where(a,[role=link])` instead of merely tying and winning on
+   source order, which is where the old `.sidebar ul`/`.sidebar a` classes
+   left it. */
+site-nav nav ul {
   display: grid;
   gap: 0.35rem;
   margin: 0;
@@ -121,7 +140,7 @@ site-nav ul {
 /* `inherit`, not `var(--pico-color)`: Pico's own `a` rule reassigns that
    property to the primary colour, so reading it back paints every link amber
    and the current-page marker stops meaning anything. */
-site-nav a {
+site-nav nav a {
   display: block;
   padding: 0.35rem 0.5rem;
   border-left: 2px solid transparent;
