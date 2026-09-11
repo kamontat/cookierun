@@ -9,4 +9,4 @@
  */
 import { execAsync } from "./utils/shell";
 
-await execAsync("biome", "check", ...Bun.argv.slice(2));
+await execAsync("biome", "check", "--write", "--unsafe", ...Bun.argv.slice(2));

@@ -7,9 +7,6 @@
  * so this does not build first - wrangler does. Arguments are forwarded, which
  * is what keeps `bun run deploy --dry-run` working.
  */
-import { $ } from "bun";
+import { execAsync } from "./utils/shell";
 
-const { exitCode } =
-	await $`bunx wrangler deploy ${Bun.argv.slice(2)}`.nothrow();
-
-process.exit(exitCode);
+await execAsync("wrangler", "deploy", ...Bun.argv.slice(2));

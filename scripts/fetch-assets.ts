@@ -75,7 +75,7 @@ async function fetchSitemap(): Promise<Record<Section, Set<string>>> {
 async function fetchListing(section: Section): Promise<Card[]> {
 	const html = await (await get(`/${section}/`)).text();
 	return [...html.matchAll(CARD_RE)].map((m) => ({
-		slug: m[1]!.split("/").pop()!,
+		slug: m[1]?.split("/").pop()!,
 		name: unescapeHtml(m[2]!),
 		icon: m[3] ? m[3].replace(/^\.\.\//, "/") : null,
 	}));

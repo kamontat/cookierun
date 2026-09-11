@@ -5,8 +5,6 @@
  * failure still fails whatever called it. CI runs `bun test` directly, so
  * this is for every other caller.
  */
-import { $ } from "bun";
+import { execAsync } from "./utils/shell";
 
-const { exitCode } = await $`bun test ${Bun.argv.slice(2)}`.nothrow();
-
-process.exit(exitCode);
+await execAsync("bun", "test", ...Bun.argv.slice(2));

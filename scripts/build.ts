@@ -7,11 +7,16 @@
  * Entrypoints come from the registry rather than a list here: `sh` expands
  * `**` as `*`, so a glob would silently drop routes/index.html.
  */
-import { $ } from "bun";
 
 import { pageEntrypoints } from "#lib/tools.ts";
+import { execAsync } from "./utils/shell";
 
-const { exitCode } =
-	await $`bun build --compile --target=browser ${pageEntrypoints()} --outdir=dist --minify`.nothrow();
-
-process.exit(exitCode);
+await execAsync(
+	"bun",
+	"build",
+	"--compile",
+	"--target=browser",
+	...pageEntrypoints(),
+	"--outdir=dist",
+	"--minify",
+);
