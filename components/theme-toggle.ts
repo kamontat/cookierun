@@ -14,40 +14,40 @@ export const THEME_KEY = "theme";
 const THEMES = ["system", "light", "dark"] as const;
 
 const LABELS: Record<Theme, string> = {
-  system: "System",
-  light: "Light",
-  dark: "Dark",
+	system: "System",
+	light: "Light",
+	dark: "Dark",
 };
 
 /** Storage throws rather than returning null in a locked-down browser. */
 type ThemeStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 function isTheme(value: unknown): value is Theme {
-  return THEMES.includes(value as Theme);
+	return THEMES.includes(value as Theme);
 }
 
 export function readTheme(storage: ThemeStorage): Theme {
-  try {
-    const stored = storage.getItem(THEME_KEY);
-    return isTheme(stored) ? stored : "system";
-  } catch {
-    return "system";
-  }
+	try {
+		const stored = storage.getItem(THEME_KEY);
+		return isTheme(stored) ? stored : "system";
+	} catch {
+		return "system";
+	}
 }
 
 export function writeTheme(theme: Theme, storage: ThemeStorage): void {
-  try {
-    if (theme === "system") storage.removeItem(THEME_KEY);
-    else storage.setItem(THEME_KEY, theme);
-  } catch {
-    // A browser that refuses storage still gets the theme for this page.
-  }
+	try {
+		if (theme === "system") storage.removeItem(THEME_KEY);
+		else storage.setItem(THEME_KEY, theme);
+	} catch {
+		// A browser that refuses storage still gets the theme for this page.
+	}
 }
 
 /** "system" means no attribute at all, which hands the page back to the OS. */
 export function applyTheme(theme: Theme, root: HTMLElement): void {
-  if (theme === "system") delete root.dataset.theme;
-  else root.dataset.theme = theme;
+	if (theme === "system") delete root.dataset.theme;
+	else root.dataset.theme = theme;
 }
 
 /**
@@ -56,51 +56,51 @@ export function applyTheme(theme: Theme, root: HTMLElement): void {
  * The storage-refused test has to call something that can actually throw.
  */
 export function renderThemeControl(
-  host: HTMLElement,
-  root: HTMLElement = document.documentElement,
-  storage: ThemeStorage = localStorage,
+	host: HTMLElement,
+	root: HTMLElement = document.documentElement,
+	storage: ThemeStorage = localStorage,
 ): void {
-  const select = document.createElement("select");
-  select.id = "theme-choice";
-  select.replaceChildren(
-    ...THEMES.map((theme) => {
-      const option = document.createElement("option");
-      option.value = theme;
-      option.textContent = LABELS[theme];
-      return option;
-    }),
-  );
+	const select = document.createElement("select");
+	select.id = "theme-choice";
+	select.replaceChildren(
+		...THEMES.map((theme) => {
+			const option = document.createElement("option");
+			option.value = theme;
+			option.textContent = LABELS[theme];
+			return option;
+		}),
+	);
 
-  const current = readTheme(storage);
-  select.value = current;
-  applyTheme(current, root);
+	const current = readTheme(storage);
+	select.value = current;
+	applyTheme(current, root);
 
-  select.addEventListener("change", () => {
-    const chosen = isTheme(select.value) ? select.value : "system";
-    applyTheme(chosen, root);
-    writeTheme(chosen, storage);
-  });
+	select.addEventListener("change", () => {
+		const chosen = isTheme(select.value) ? select.value : "system";
+		applyTheme(chosen, root);
+		writeTheme(chosen, storage);
+	});
 
-  const label = document.createElement("label");
-  label.htmlFor = select.id;
-  label.textContent = "Theme";
+	const label = document.createElement("label");
+	label.htmlFor = select.id;
+	label.textContent = "Theme";
 
-  host.replaceChildren(label, select);
+	host.replaceChildren(label, select);
 }
 
 export class ThemeToggle extends HTMLElement {
-  connectedCallback(): void {
-    renderThemeControl(this);
-  }
+	connectedCallback(): void {
+		renderThemeControl(this);
+	}
 }
 
 declare global {
-  interface HTMLElementTagNameMap {
-    "theme-toggle": ThemeToggle;
-  }
+	interface HTMLElementTagNameMap {
+		"theme-toggle": ThemeToggle;
+	}
 }
 
 // One `bun test` process shares one registry across every test file.
 if (!customElements.get("theme-toggle")) {
-  customElements.define("theme-toggle", ThemeToggle);
+	customElements.define("theme-toggle", ThemeToggle);
 }

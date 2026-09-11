@@ -15,11 +15,12 @@
     <!-- Blocking on purpose: the module script below is deferred, so without
          this the page paints in the system theme and then flips. -->
     <script id="theme-boot">
+      var stored = null;
       try {
-        var stored = localStorage.getItem("theme");
-        if (stored === "light" || stored === "dark")
-          document.documentElement.dataset.theme = stored;
-      } catch (error) {}
+        stored = localStorage.getItem("theme");
+      } catch {}
+      if (stored === "light" || stored === "dark")
+        document.documentElement.dataset.theme = stored;
     </script>
     <link rel="stylesheet" href="./index.css" />
     <script src="./index.ts" type="module"></script>

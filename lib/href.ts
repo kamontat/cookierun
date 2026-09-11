@@ -11,10 +11,10 @@ import type { ToolSlug } from "./tools.ts";
  * the root, a tool page one directory down - so the prefix is explicit.
  */
 export function hrefFor(
-  target: ToolSlug | null,
-  from: ToolSlug | null,
-  protocol: string = globalThis.location?.protocol ?? "https:",
+	target: ToolSlug | null,
+	from: ToolSlug | null,
+	protocol: string = globalThis.location?.protocol ?? "https:",
 ): string {
-  const directory = `${from === null ? "./" : "../"}${target === null ? "" : `${target}/`}`;
-  return protocol === "file:" ? `${directory}index.html` : directory;
+	const directory = `${from === null ? "./" : "../"}${target === null ? "" : `${target}/`}`;
+	return protocol === "file:" ? `${directory}index.html` : directory;
 }

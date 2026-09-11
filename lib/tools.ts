@@ -4,18 +4,18 @@
  * served under another.
  */
 export type Tool = {
-  readonly slug: string;
-  readonly name: string;
-  readonly tagline: string;
+	readonly slug: string;
+	readonly name: string;
+	readonly tagline: string;
 };
 
 export const TOOLS = [
-  {
-    slug: "combi-name",
-    name: "Combi name codes",
-    tagline:
-      "Pack a run configuration - type, episode, boosts, random boost, cookie power+, and action - into a 10-character combi name.",
-  },
+	{
+		slug: "combi-name",
+		name: "Combi name codes",
+		tagline:
+			"Pack a run configuration - type, episode, boosts, random boost, cookie power+, and action - into a 10-character combi name.",
+	},
 ] as const satisfies readonly Tool[];
 
 export type ToolSlug = (typeof TOOLS)[number]["slug"];
@@ -26,8 +26,8 @@ export type ToolSlug = (typeof TOOLS)[number]["slug"];
  * failing assertion rather than a sidebar link to nothing.
  */
 export function pageEntrypoints(): string[] {
-  return [
-    "routes/index.html",
-    ...TOOLS.map(({ slug }) => `routes/${slug}/index.html`),
-  ];
+	return [
+		"routes/index.html",
+		...TOOLS.map(({ slug }) => `routes/${slug}/index.html`),
+	];
 }

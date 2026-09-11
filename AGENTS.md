@@ -28,12 +28,19 @@ bun run dev                                  # dev server with hot reload; / is 
 bun run test                                 # whole suite, ~3s (the exhaustive test dominates)
 bun run test routes/combi-name/codec.test.ts # one file
 bun run test -t "decodes every slot"         # one test by name substring
-bun run typecheck                            # tsc --noEmit; the test files are typechecked too
+bun run check:type                           # tsc --noEmit; the test files are typechecked too
+bun run check:biome                          # formatting and lint; --write applies what Biome can fix
+bun run check                                # both checks, in one pass
 bun run build                                # writes one self-contained file per page: dist/index.html, dist/combi-name/index.html
 bun run fetch-assets                         # re-scrapes icons into assets/ (idempotent, skips existing)
+bun run deploy                               # publishes to Cloudflare; wrangler builds first
 ```
 
-Every script is a file under `scripts/`, so `package.json` holds a delegation rather than a command. `scripts/test.ts` and `scripts/typecheck.ts` forward their arguments, which is what keeps the two filtered forms above working. Those two and `scripts/build.ts` each propagate the child's exit code, so a failure still fails whatever called it.
+Every script is a file under `scripts/`, so `package.json` holds a delegation rather than a command. Each one forwards its arguments and propagates the child's exit code, which is what keeps the two filtered test forms above working and what makes a failure fail whatever called it. `check` is the two check scripts chained with `&&`, so a type error stops before Biome runs.
+
+`bunx`, not a bare binary name, inside `check-type.ts`, `check-biome.ts`, and `deploy.ts`: running a file directly does not put `node_modules/.bin` on `PATH` the way an npm-style script does.
+
+`check:biome` reports without touching anything. `bun run check:biome --write` applies what Biome can fix on its own. The repository's formatting comes from `@kcconfigs/biome` via `biome.json`, which also ignores `assets/` — that directory is 14 MB of generated scrape output and reformatting it would bury every real diff.
 
 `bun run dev` runs `scripts/dev.ts`, a small `Bun.serve()` whose route table is generated from `TOOLS`. Handing Bun the HTML files directly (`bun routes/index.html routes/combi-name/index.html`) registers only `/` and `/combi-name`, which 404s on the trailing-slash links the sidebar renders. So each page answers to every spelling: `/` and `/index.html` for the home pane, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. An unrouted URL comes back as a 404 with an empty body, which paints as a blank page rather than as an error — check the status code before concluding the page itself broke.
 
@@ -52,7 +59,7 @@ Every storage call is wrapped: a browser that refuses `localStorage` still theme
 - Served over http(s) it emits directories — `./combi-name/`, `../` — so the address bar reads `/combi-name`, not a filename.
 - Under `file:` it appends `index.html`, because opening `dist/` from disk means nothing is there to serve a directory index and the bare directory link would dead-end.
 
-Both forms stay relative. GitHub Pages serves the site from a project subpath, so a root-relative `/combi-name` would resolve against the domain root and miss. A test covers all four combinations of depth and protocol; that is the guard against someone "simplifying" it back to one form.
+Both forms stay relative, and that outlives the reason it started. The site was served from a GitHub Pages project subpath, where a root-relative `/combi-name` would have resolved against the domain root and missed; it now serves from a Cloudflare Worker at its own root, where such a link would happen to work. Relative links are still what the `file:` build needs, and they cost nothing, so the rule stands — but do not restate the old subpath justification as if it were live. A test covers all four combinations of depth and protocol; that is the guard against someone "simplifying" it back to one form.
 
 ## Architecture
 
@@ -94,7 +101,9 @@ Route-only logic stays in the route. The combi codec is imported by exactly one 
 
 ### Components
 
-Light DOM, no shadow root: Pico styles by element selector, and the two form components need `<form>` participation and label association. Component styles live in `routes/index.css` alongside the page layout, scoped by element name — including a `display` rule for each, since an unknown element is inline until a stylesheet says otherwise.
+Light DOM, no shadow root: Pico styles by element selector, and the two form components need `<form>` participation and label association. Component styles live in `routes/base.css` alongside the page frame, scoped by element name — including a `display` rule for each, since an unknown element is inline until a stylesheet says otherwise. They sit in the base sheet rather than beside each component or in the route that uses one, so that adopting an existing element in a new route is a markup change and nothing else.
+
+The sidebar's rules reach through `nav` — `site-nav nav ul`, not `site-nav ul`. Pico styles `aside nav` and `aside li` directly, which used to cover this markup when the rail was an `<aside>`; with a custom element those rules match nothing, and the replacements need a third type selector to out-specify Pico's own `nav`/`nav li` rather than tie them and win on whichever sheet the bundler emits last.
 
 Attributes carry markup-authored configuration; properties carry structured data the route hands over. Every `customElements.define` is guarded by `customElements.get`, because one `bun test` process shares one registry across every test file.
 
@@ -120,25 +129,27 @@ Each component is standalone by design. Only `site-nav.ts` and `tool-index.ts` i
 
 1. Add an entry to `TOOLS` in `lib/tools.ts`.
 2. Create `routes/<slug>/index.html`: `<a class="skip-link" href="#content">Skip to content</a>` then `<site-nav current="<slug>"></site-nav>` as the first two body children, a `<script id="theme-boot">` block copied from an existing page's head above the stylesheet link, `<link rel="stylesheet" href="./index.css" />`, `<script src="./index.ts" type="module"></script>`, `<main id="content" class="container" tabindex="-1">`, and Pico's `container` class on `header` and `footer` too. The skip link matters because the sidebar comes first in the DOM.
-3. Create `routes/<slug>/index.css` starting with `@import "../index.css";`, and give it at least one rule of its own. The import is what gives the page Pico, the body grid, the sidebar rail, and every component's rules. A sheet holding nothing but the import resolves byte-identical to the home pane's base sheet, and `bun run build` then stops with `Multiple files share the same output path` — two entry stylesheets that hash alike cannot both be written, and nothing in that message says so.
+3. Create `routes/<slug>/index.css` starting with `@import "../base.css";`. That import is what gives the page Pico, the body grid, the sidebar rail, and every component's rules. A sheet holding nothing else is fine — the base sheet is its own file, so no route's stylesheet can collide with it.
 4. Create `routes/<slug>/index.ts` and import the components the page declares, so their `customElements.define` calls run.
 5. Import the page in `scripts/dev.ts` and add it to `TOOL_PAGES`.
 
-`lib/tools.test.ts` fails until the page exists, links `./index.css`, has a stylesheet that imports the base sheet, hosts `<site-nav>`, carries the skip link and the theme bootstrap, and is imported by `scripts/dev.ts`. Step 5 is also a typecheck failure on its own: `TOOL_PAGES` is a `Record<ToolSlug, HTMLBundle>`, so a registered slug with no page there does not compile. What no test checks is the rest of step 2: a page missing the `container` classes or the `tabindex` is merely ugly, but a page missing `<script src="./index.ts" type="module"></script>` renders its elements as empty tags and reports nothing anywhere.
+`lib/tools.test.ts` fails until the page exists, links `./index.css`, has a stylesheet that imports the base sheet, hosts `<site-nav>` carrying its own slug as `current`, loads `./index.ts`, carries the skip link and the theme bootstrap, and is imported by `scripts/dev.ts`. Step 5 is also a typecheck failure on its own: `TOOL_PAGES` is a `Record<ToolSlug, HTMLBundle>`, so a registered slug with no page there does not compile. What no test checks is the rest of step 2: a page missing the `container` classes or the `tabindex` on `<main>` is merely ugly, and nothing catches it. The two failures that are silent and total — a page that never upgrades its elements, and a tool page whose sidebar links all point at the wrong directory — are the two the tests above do cover, because the alternative is a green suite and a broken site.
 
 Nothing has to be added to the build — `pageEntrypoints()` in `lib/tools.ts` derives the list from the registry, and `scripts/build.ts` passes it straight to `bun build`. Nothing in any page's markup names another tool, so the registry stays the only list.
 
 ## Web build
 
-`bun run build` takes one entrypoint per page, and `--compile --target=browser` inlines each page's JavaScript, CSS, and referenced assets into its own self-contained file: `dist/index.html` and `dist/combi-name/index.html`. That is deliberate: it removes any base-path concern when GitHub Pages serves the site from a project subpath, and each file works offline from `file://`.
+`bun run build` takes one entrypoint per page, and `--compile --target=browser` inlines each page's JavaScript, CSS, and referenced assets into its own self-contained file: `dist/index.html` and `dist/combi-name/index.html`. `dist/` is also what Cloudflare serves — `wrangler.jsonc` names it as the asset directory — so the build's output shape is part of the deployment contract, not just a local convenience. Each file works offline from `file://` as well.
 
 `scripts/build.ts` gets those entrypoints from `pageEntrypoints()` in `lib/tools.ts` rather than from a list, which is what retired the old warning about never globbing that list away — `sh` expands `**` as `*`, so a glob would have silently dropped the home page. `lib/tools.test.ts` asserts the build script still calls `pageEntrypoints()`, so a hand-maintained list slipped back in fails the suite rather than passing it. `scripts/dev.ts` covers the same ground for development by importing each page by name.
 
 The consequence of inlining is that anything a page references gets embedded as a data URI. Read the Assets section below before wiring an icon into a page.
 
-`routes/index.css` is the base stylesheet. It imports Pico's amber theme (`@picocss/pico/css/pico.amber.min.css`), holds the body grid and every component's rules, and adds only the overrides Pico has no opinion about; colors come from Pico's custom properties, not a local palette. Each route's `index.css` imports it and adds page-only rules; the build inlines that two-level chain, so nothing ships an `@import`.
+`routes/base.css` is the base stylesheet, and it belongs to no route. It imports Pico's amber theme (`@picocss/pico/css/pico.amber.min.css`), holds the body grid and every component's rules, and adds only the overrides Pico has no opinion about; colors come from Pico's custom properties, not a local palette. Every route's `index.css` opens by importing it and then adds that page's own rules — the home pane's sheet carries the `tool-index` rules and nothing else. The build inlines that two-level chain, so nothing ships an `@import`.
 
-One declaration is split across both levels: the base sheet gives `main > :only-child` the full grid width, which is what makes the home pane's single section span both columns, and the combi page's sheet spans `.result, .legend` the same way. Neither file can see the other's selectors, and losing either half is a layout break no test catches.
+The base sheet is a separate file rather than the home pane's sheet doubling as one, which it used to be. Two things fell out of that arrangement: the home pane could never hold a rule the other routes should not see, and a new route whose sheet held only the import hashed byte-identical to the base and stopped the build with `Multiple files share the same output path` — two entry stylesheets that hash alike cannot both be written, and nothing in that message says so.
+
+One declaration is still split across both levels: the base sheet gives `main > :only-child` the full grid width, which is what makes a single-section page span both columns, and the combi page's sheet spans `.result, .legend` the same way. Neither file can see the other's selectors, and losing either half is a layout break no test catches.
 
 ## Assets
 
@@ -152,9 +163,19 @@ Nothing consumes `assets/` yet. The codec deliberately does not model the cookie
 
 ## Deployment
 
-`.github/workflows/deploy.yml` runs on pushes to `main`, on pull requests against it, and on manual dispatch: install with a frozen lockfile, test, typecheck, build, then publish `dist/`. The deploy job carries `if: github.event_name != 'pull_request'`, so a pull request gets the build job as a check and stops there — add that guard to any new publishing job too. Bun's version comes from the `packageManager` field in `package.json`, which `oven-sh/setup-bun` reads automatically — keep it in sync with `mise.toml`.
+The site is a Cloudflare Worker serving static assets. `wrangler.jsonc` names the worker `cookierun`, sets `build.command` to `bun run build`, and points `assets.directory` at `dist/` — so wrangler runs the build itself, and neither deploy workflow builds beforehand. Nothing else reads `dist/`; changing where the build writes means changing that file too.
 
-Every action is pinned to a full commit SHA with the release tag in a trailing comment, so a moved tag cannot change what runs. Bump one by resolving the tag again rather than editing the SHA by hand:
+Three workflows, each pinning every action to a full commit SHA with the release tag in a trailing comment:
+
+- `main.yml` — install, `bun test`, `bun run check:type`, `bun run build`. This is the only place the suite runs in CI.
+- `deploy-preview.yml` — on pull requests, `wrangler versions upload`, reporting into the `preview` environment.
+- `deploy-production.yml` — on pushes to `main`, `wrangler deploy`, reporting into the `production` environment.
+
+Both deploy workflows need `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in repository secrets, and grant `deployments: write` on the job rather than at the top of the file — the workflows open with `permissions: {}` and hand back only what each job needs. Keep that shape in anything new.
+
+Bun's version comes from the `packageManager` field in `package.json`, which `oven-sh/setup-bun` reads automatically — keep it in sync with `mise.toml`.
+
+A pinned SHA is bumped by resolving the tag again rather than editing it by hand:
 
 ```bash
 gh api repos/actions/checkout/releases/latest --jq .tag_name          # e.g. v7.0.1
@@ -163,7 +184,4 @@ gh api repos/actions/checkout/commits/v7.0.1 --jq .sha                # the SHA 
 
 Update the comment in the same edit — a stale comment is worse than none, since it is the only readable record of which version the SHA is.
 
-Two things that are easy to trip over:
-
-- The repository needs **Settings → Pages → Source** set to **GitHub Actions**, or the deploy job fails no matter what the workflow says.
-- Pushing any change under `.github/workflows/` requires a token with the `workflow` scope. `gh auth refresh -h github.com -u <account> -s workflow` grants it.
+Pushing any change under `.github/workflows/` requires a token with the `workflow` scope. `gh auth refresh -h github.com -u <account> -s workflow` grants it.

@@ -8,72 +8,72 @@ export type Option = readonly [value: string, label: string];
  * order. That ordering is part of the combi wire format, not a preference.
  */
 export class CheckGroup extends HTMLElement {
-  readonly #checks = document.createElement("div");
-  #options: readonly Option[] = [];
-  #built = false;
+	readonly #checks = document.createElement("div");
+	#options: readonly Option[] = [];
+	#built = false;
 
-  connectedCallback(): void {
-    if (this.#built) return;
-    this.#built = true;
+	connectedCallback(): void {
+		if (this.#built) return;
+		this.#built = true;
 
-    const legend = document.createElement("legend");
-    legend.textContent = this.getAttribute("legend") ?? "";
+		const legend = document.createElement("legend");
+		legend.textContent = this.getAttribute("legend") ?? "";
 
-    this.#checks.className = "checks";
+		this.#checks.className = "checks";
 
-    const fieldset = document.createElement("fieldset");
-    fieldset.replaceChildren(legend, this.#checks);
+		const fieldset = document.createElement("fieldset");
+		fieldset.replaceChildren(legend, this.#checks);
 
-    this.replaceChildren(fieldset);
-  }
+		this.replaceChildren(fieldset);
+	}
 
-  get options(): readonly Option[] {
-    return this.#options;
-  }
+	get options(): readonly Option[] {
+		return this.#options;
+	}
 
-  set options(options: readonly Option[]) {
-    this.#options = options;
-    this.#checks.replaceChildren(
-      ...options.map(([value, text]) => {
-        const input = document.createElement("input");
-        input.type = "checkbox";
-        input.value = value;
+	set options(options: readonly Option[]) {
+		this.#options = options;
+		this.#checks.replaceChildren(
+			...options.map(([value, text]) => {
+				const input = document.createElement("input");
+				input.type = "checkbox";
+				input.value = value;
 
-        const label = document.createElement("label");
-        label.append(input, document.createTextNode(text));
-        return label;
-      }),
-    );
-  }
+				const label = document.createElement("label");
+				label.append(input, document.createTextNode(text));
+				return label;
+			}),
+		);
+	}
 
-  get selected(): string[] {
-    const checked = new Set(
-      Array.from(
-        this.#checks.querySelectorAll<HTMLInputElement>("input:checked"),
-        (input) => input.value,
-      ),
-    );
-    return this.#options
-      .map(([value]) => value)
-      .filter((value) => checked.has(value));
-  }
+	get selected(): string[] {
+		const checked = new Set(
+			Array.from(
+				this.#checks.querySelectorAll<HTMLInputElement>("input:checked"),
+				(input) => input.value,
+			),
+		);
+		return this.#options
+			.map(([value]) => value)
+			.filter((value) => checked.has(value));
+	}
 
-  set selected(values: readonly string[]) {
-    const wanted = new Set(values);
-    for (const input of this.#checks.querySelectorAll<HTMLInputElement>(
-      "input",
-    )) {
-      input.checked = wanted.has(input.value);
-    }
-  }
+	set selected(values: readonly string[]) {
+		const wanted = new Set(values);
+		for (const input of this.#checks.querySelectorAll<HTMLInputElement>(
+			"input",
+		)) {
+			input.checked = wanted.has(input.value);
+		}
+	}
 }
 
 declare global {
-  interface HTMLElementTagNameMap {
-    "check-group": CheckGroup;
-  }
+	interface HTMLElementTagNameMap {
+		"check-group": CheckGroup;
+	}
 }
 
 if (!customElements.get("check-group")) {
-  customElements.define("check-group", CheckGroup);
+	customElements.define("check-group", CheckGroup);
 }

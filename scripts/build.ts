@@ -12,6 +12,6 @@ import { $ } from "bun";
 import { pageEntrypoints } from "#lib/tools.ts";
 
 const { exitCode } =
-  await $`bun build --compile --target=browser ${pageEntrypoints()} --outdir=dist --minify`.nothrow();
+	await $`bun build --compile --target=browser ${pageEntrypoints()} --outdir=dist --minify`.nothrow();
 
 process.exit(exitCode);
