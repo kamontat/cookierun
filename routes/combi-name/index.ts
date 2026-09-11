@@ -15,8 +15,8 @@ import {
   type CookiePower,
   type Episode,
   type RandomBoost,
-} from "#lib/combi-name/codec.ts";
-import { describeCombi } from "#lib/combi-name/describe.ts";
+} from "./codec.ts";
+import { describeCombi } from "./describe.ts";
 import {
   ACTION_LABELS,
   BOOST_LABELS,
@@ -24,7 +24,7 @@ import {
   EPISODE_LABELS,
   RANDOM_BOOST_LABELS,
   TYPE_LABELS,
-} from "#lib/combi-name/labels.ts";
+} from "./labels.ts";
 
 import "#components/auto-verdict.ts";
 import "#components/check-group.ts";
