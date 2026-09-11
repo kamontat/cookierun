@@ -98,7 +98,7 @@ test("every page links its own stylesheet", async () => {
   }
 });
 
-// The home pane's sheet is the base sheet - it imports Pico directly. Every
+// The home pane's sheet is the base sheet — it imports Pico directly. Every
 // other route's sheet instead opens with `@import "../index.css";`, which is
 // what gives that page Pico, the sidebar rail, the body grid, and every
 // component's rules. Delete that line and the page is spectacularly broken
