@@ -1,6 +1,6 @@
 import type { HTMLBundle } from "bun";
 
-import { TOOLS, type ToolSlug } from "#lib/shared/tools.ts";
+import { TOOLS, type ToolSlug } from "#lib/tools.ts";
 
 import home from "./index.html";
 import combiName from "./combi-name/index.html";

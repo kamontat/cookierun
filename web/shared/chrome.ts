@@ -1,4 +1,4 @@
-import { TOOLS, type ToolSlug } from "#lib/shared/tools.ts";
+import { TOOLS, type ToolSlug } from "#lib/tools.ts";
 
 export function need<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);

@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test";
 
-import { TOOLS } from "#lib/shared/tools.ts";
+import { TOOLS } from "#lib/tools.ts";
 
 import { hrefFor, renderSidebar, renderToolList } from "./chrome.ts";
 

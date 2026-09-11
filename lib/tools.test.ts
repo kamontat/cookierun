@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 
 import { TOOLS } from "./tools.ts";
 
-const root = new URL("../../", import.meta.url);
+const root = new URL("../", import.meta.url);
 
 test("tool slugs are unique", () => {
   const slugs = TOOLS.map((tool) => tool.slug);

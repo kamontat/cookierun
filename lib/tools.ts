@@ -1,7 +1,7 @@
 /**
- * The one place that knows what tools exist. The slug drives the library
- * namespace (`lib/<slug>/`), the page directory (`web/<slug>/`), and the URL,
- * so a tool cannot be registered under one name and served under another.
+ * The one place that knows what tools exist. The slug drives the route
+ * directory and the URL, so a tool cannot be registered under one name and
+ * served under another.
  */
 export type Tool = {
   readonly slug: string;
