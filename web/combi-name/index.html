@@ -53,35 +53,20 @@
         <h2 id="builder-heading">Build a code</h2>
 
         <form id="builder" novalidate>
-          <div class="field">
-            <label for="type">Type</label>
-            <select id="type"></select>
-          </div>
+          <labelled-select id="type" label="Type"></labelled-select>
 
-          <div class="field">
-            <label for="episode">Episode</label>
-            <select id="episode"></select>
-          </div>
+          <labelled-select id="episode" label="Episode"></labelled-select>
 
-          <fieldset>
-            <legend>Boosts</legend>
-            <div id="boosts" class="checks"></div>
-          </fieldset>
+          <check-group id="boosts" legend="Boosts"></check-group>
 
-          <div class="field">
-            <label for="randomBoost">Random boost</label>
-            <select id="randomBoost"></select>
-          </div>
+          <labelled-select
+            id="randomBoost"
+            label="Random boost"
+          ></labelled-select>
 
-          <fieldset>
-            <legend>Cookie power+</legend>
-            <div id="cookiePowers" class="checks"></div>
-          </fieldset>
+          <check-group id="cookiePowers" legend="Cookie power+"></check-group>
 
-          <div class="field">
-            <label for="action">Action</label>
-            <select id="action"></select>
-          </div>
+          <labelled-select id="action" label="Action"></labelled-select>
         </form>
       </section>
 

@@ -365,12 +365,6 @@ tool-index dd:last-child {
   margin-bottom: 0;
 }
 
-.checks label {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
 .masthead h1 {
   margin-bottom: 0.25rem;
 }
@@ -380,24 +374,38 @@ tool-index dd:last-child {
   color: var(--pico-muted-color);
 }
 
+labelled-select {
+  display: block;
+}
+
+check-group {
+  display: block;
+}
+
+/* A group of checkboxes and a single select were styled identically, so the
+   form read as six equal things instead of two pickers and two groups. */
+check-group fieldset {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--pico-muted-border-color);
+}
+
+check-group legend {
+  padding-right: 0.4rem;
+  font-weight: 600;
+}
+
 /* Seven cookie powers in one column made the builder twice the height of
    everything beside it. */
-.checks {
+check-group .checks {
   display: grid;
   gap: 0.4rem 1rem;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 }
 
-/* A group of checkboxes and a single select were styled identically, so the
-   form read as six equal things instead of two pickers and two groups. */
-fieldset {
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--pico-muted-border-color);
-}
-
-fieldset legend {
-  padding-right: 0.4rem;
-  font-weight: 600;
+check-group .checks label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .verdict {
