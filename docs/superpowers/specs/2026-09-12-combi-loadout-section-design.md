@@ -11,7 +11,7 @@ Sharing a build needs more than the game remembers. A guide that says "this comb
 The two sections are separated by `.`:
 
 ```
-1C2NR0BP1ZTU0FZ_13B-0QQ.1H3H-F400J
+1C2LR0BP1ZTU0FZ_0RB-0QQ.1H3H-F400J
 └───────── loadout ────┘ └─ combi ┘
 ```
 
@@ -61,12 +61,12 @@ Group tags:
 
 `C` and `R` read from the same cookie catalog, so a relay ID and a cookie ID with the same characters name the same cookie.
 
-Inside the treasure group, `U` means slot position does not matter and `O` means it does, `-` separates slots, and `_` separates alternatives within one slot. `TU0FZ_13B-0QQ` is two slots: the first accepts `0FZ` or `13B`, the second wants `0QQ`.
+Inside the treasure group, `U` means slot position does not matter and `O` means it does, `-` separates slots, and `_` separates alternatives within one slot. `TU0FZ_0RB-0QQ` is two slots: the first accepts `0FZ` or `0RB`, the second wants `0QQ`.
 
 Rules:
 
 - Each group appears at most once, and groups appear in the order `C R P T`.
-- An absent group means that field is unset. A cookie-only loadout is `1C2N`, so the full code is `1C2N.1H3H-F400J`.
+- An absent group means that field is unset. A cookie-only loadout is `1C2L`, so the full code is `1C2L.1H3H-F400J`.
 - Zero to three treasure slots, no gaps, and every slot holds at least one ID. Zero treasures means no `T` group at all, which also means the ordered flag is absent — it carries no information with nothing to order.
 - An ID must not repeat within one slot; the same ID may appear in two different slots, which is how overlapping alternatives are written.
 - A loadout with every field unset is not written: `encodeFull` emits the bare ten-character code, with no `.`.
@@ -162,7 +162,7 @@ It lives in the route rather than `lib/`, like the codec, because exactly one pa
 ```ts
 // routes/combi-name/loadout.ts
 export type Loadout = {
-  cookie: string | null;   // wire ID, e.g. "2N"
+  cookie: string | null;   // wire ID, e.g. "2L"
   relay: string | null;
   pet: string | null;
   treasures: string[][];   // 0-3 slots, each holding 1+ alternative IDs
@@ -185,7 +185,7 @@ export function decodeFull(code: string): { full: FullCode; warnings: string[] }
 
 `encodeFull` emits `loadout + "." + combi`, or just the combi section when the loadout is empty. `decodeFull` splits on `.`, routes each half to its own decoder, and merges the warnings — of which only the combi half produces any.
 
-The model holds wire IDs, not slugs or display names. The ID is now a stable first-class field of the index, so a second identifier in the model would only be something to keep in sync. Tests read `"2N"` and reach for the catalog when they need a name.
+The model holds wire IDs, not slugs or display names. The ID is now a stable first-class field of the index, so a second identifier in the model would only be something to keep in sync. Tests read `"2L"` and reach for the catalog when they need a name.
 
 `describe.ts` gains `describeLoadout`, and keeps deciding all prose in one place. Rows: Cookie, Relay, Pet, and Treasures, where a slot with alternatives reads `A or B` and the section notes whether order matters. An unset field reads `None`, matching the existing rows. A retired entry reads with a `(no longer listed)` suffix, since the code is still readable and the reader deserves to know why they cannot find it in the game. The loadout rows come before the combi rows.
 
@@ -235,7 +235,7 @@ The page imports `index.json`, which the build inlines, taking the built page fr
 
 **A second section rather than a wider code.** The ten-character section still has to fit the game's combi name field, so the loadout cannot be packed into it. Keeping the two apart means the right-hand side stays copy-pasteable into the game and every existing code keeps working.
 
-**Tagged groups with absent fields omitted, over fixed positions or a bitpack.** Tags make a sparse loadout short — `1C2N` for a cookie alone — and make a hand-typed mistake diagnosable, since a decoder can say which group is malformed. Fixed positions would need placeholders for every unset field and would still need separators for alternatives, ending up a hybrid with none of the readability. A dense bitpack over cookie, relay, pet, and the flag would be shortest and completely opaque, which contradicts the project's stated choice of legibility over packing.
+**Tagged groups with absent fields omitted, over fixed positions or a bitpack.** Tags make a sparse loadout short — `1C2L` for a cookie alone — and make a hand-typed mistake diagnosable, since a decoder can say which group is malformed. Fixed positions would need placeholders for every unset field and would still need separators for alternatives, ending up a hybrid with none of the readability. A dense bitpack over cookie, relay, pet, and the flag would be shortest and completely opaque, which contradicts the project's stated choice of legibility over packing.
 
 **Position in an append-only index, over a hashed identifier.** A hash was measured on the real data. A single-seed FNV hash of the index key, mod 36^width, is collision-free today at two characters for cookies (seed 3) and pets (seed 12) and at three characters for treasures (seed 11573); two characters for 1,144 treasures in 1,296 slots found no clean seed in three million tries. The scheme fails on growth, not on today's data: 1,144 of 46,656 slots are taken, so each new treasure collides with probability 2.45%, and a patch adding twenty treasures collides at about 39%. Resolving a collision means either an exception table or a reseed that rewrites every existing code. Since uniqueness is a property of the whole set, any guarantee of it requires a committed record of the set — and the committed record that never collides and survives renames is the better one. A four-character hash of the slug is clean today at seed 1 and risks 0.07% per new entry, but costs a character per treasure and still cannot promise uniqueness.
 
