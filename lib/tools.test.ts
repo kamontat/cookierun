@@ -93,5 +93,5 @@ test("every page applies a saved theme before it paints", async () => {
 
 test("the home page hosts the tool index", async () => {
   const [home] = await pages();
-  expect(home).toContain('id="tools"');
+  expect(home).toContain("<tool-index");
 });

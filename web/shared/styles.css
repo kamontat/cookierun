@@ -343,21 +343,25 @@ main > :only-child {
   overflow-x: auto;
 }
 
-.tools {
+tool-index {
+  display: block;
+}
+
+tool-index dl {
   margin: 0;
 }
 
-.tools dt {
+tool-index dt {
   font-size: 1.05rem;
 }
 
-.tools dd {
+tool-index dd {
   margin: 0.15rem 0 var(--pico-spacing);
   max-width: 46rem;
   color: var(--pico-muted-color);
 }
 
-.tools dd:last-child {
+tool-index dd:last-child {
   margin-bottom: 0;
 }
 
