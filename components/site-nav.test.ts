@@ -48,6 +48,23 @@ test("home is marked when no tool is active", () => {
   expect(marked[0]?.textContent).toBe("Home");
 });
 
+// A slug that was never registered - a typo copied from another page, or a
+// tool that got renamed - used to pass straight through an `as ToolSlug`
+// cast. That handed hrefFor a non-null `from`, which writes `../`-prefixed
+// links: a root-level page would get links that climb out of the site
+// entirely instead of merely landing on the home pane.
+test("an unregistered current value is treated as the home pane", () => {
+  const nav = mount("not-a-real-tool");
+
+  const marked = nav.querySelectorAll('[aria-current="page"]');
+  expect(marked.length).toBe(1);
+  expect(marked[0]?.textContent).toBe("Home");
+
+  const links = nav.querySelectorAll("a");
+  expect(links[0]?.getAttribute("href")).toBe("./");
+  expect(links[1]?.getAttribute("href")).toBe("./combi-name/");
+});
+
 // The pages used to wire this themselves, in an order that had to be right.
 test("the sidebar renders the theme control itself", () => {
   expect(mount(null).querySelector("theme-toggle")).not.toBeNull();

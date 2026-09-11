@@ -27,8 +27,14 @@ function entries(active: ToolSlug | null): Entry[] {
  */
 export class SiteNav extends HTMLElement {
   connectedCallback(): void {
+    // A cast here would let a typo through as a truthy `from`: hrefFor would
+    // then write `../`-prefixed links for a page that was never registered,
+    // sending every link outside the site instead of merely failing to mark
+    // anything current.
     const raw = this.getAttribute("current");
-    const active = raw === null || raw === "" ? null : (raw as ToolSlug);
+    const active = TOOLS.some((tool) => tool.slug === raw)
+      ? (raw as ToolSlug)
+      : null;
 
     const items = entries(active).map(({ href, label, current }) => {
       const link = document.createElement("a");

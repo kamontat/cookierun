@@ -74,6 +74,21 @@ test("every page hosts the sidebar", async () => {
   }
 });
 
+// A tool page built by copying routes/index.html - which is what the
+// add-a-tool checklist in AGENTS.md tells you to do - carries a bare
+// <site-nav></site-nav> unless this is checked. Without `current`, hrefFor
+// treats the page as the home pane and writes "./" and "./combi-name/",
+// which one directory down resolve to the page itself and to
+// "/combi-name/combi-name/".
+test("every tool page marks itself current with its own slug", async () => {
+  const [, ...toolEntrypoints] = pageEntrypoints();
+
+  for (const [index, tool] of TOOLS.entries()) {
+    const page = await Bun.file(new URL(toolEntrypoints[index]!, root)).text();
+    expect(page).toContain(`current="${tool.slug}"`);
+  }
+});
+
 // The sidebar is the first thing in the DOM, so without this every page opens
 // with a keyboard walk through the navigation before reaching the content.
 test("every page offers a skip link to its content", async () => {
@@ -95,6 +110,15 @@ test("every page applies a saved theme before it paints", async () => {
 test("every page links its own stylesheet", async () => {
   for (const page of await pages()) {
     expect(page).toContain('href="./index.css"');
+  }
+});
+
+// Without this the page renders every custom element as an empty tag and
+// reports nothing anywhere - there is no error, just a page that never
+// upgrades past its markup.
+test("every page loads its own module script", async () => {
+  for (const page of await pages()) {
+    expect(page).toContain('src="./index.ts"');
   }
 });
 
