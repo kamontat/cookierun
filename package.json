@@ -1,28 +1,37 @@
 {
-  "name": "demo-cookierun-encode",
-  "type": "module",
-  "private": true,
-  "packageManager": "bun@1.4.2",
-  "imports": {
-    "#lib/*": "./lib/*",
-    "#components/*": "./components/*"
-  },
-  "scripts": {
-    "dev": "bun scripts/dev.ts",
-    "fetch-assets": "bun scripts/fetch-assets.ts",
-    "build": "bun scripts/build.ts",
-    "test": "bun scripts/test.ts",
-    "typecheck": "bun scripts/typecheck.ts",
-    "deploy": "wrangler deploy"
-  },
-  "devDependencies": {
-    "@happy-dom/global-registrator": "20.14.3",
-    "@picocss/pico": "2.1.1",
-    "@types/bun": "1.4.2",
-    "typescript-language-server": "6.0.0",
-    "wrangler": "4.131.0"
-  },
-  "peerDependencies": {
-    "typescript": "7.0.2"
-  }
+	"name": "demo-cookierun-encode",
+	"type": "module",
+	"private": true,
+	"packageManager": "bun@1.4.2",
+	"imports": {
+		"#lib/*": "./lib/*",
+		"#components/*": "./components/*"
+	},
+	"scripts": {
+		"dev": "bun scripts/dev.ts",
+		"fetch-assets": "bun scripts/fetch-assets.ts",
+		"build": "bun scripts/build.ts",
+		"test": "bun scripts/test.ts",
+		"format:biome": "bun scripts/format-biome.ts",
+		"format:": "bun scripts/format-biome.ts",
+		"check:type": "bun scripts/check-type.ts",
+		"check:biome": "bun scripts/check-biome.ts",
+		"check": "bun scripts/check-type.ts && bun scripts/check-biome.ts",
+		"deploy": "bun scripts/deploy.ts"
+	},
+	"dependencies": {
+		"@picocss/pico": "2.1.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.13",
+		"@happy-dom/global-registrator": "20.14.3",
+		"@kcconfigs/biome": "2.0.4",
+		"@kcconfigs/tsconfig": "1.1.5",
+		"@types/bun": "1.4.2",
+		"typescript-language-server": "6.0.0",
+		"wrangler": "4.131.0"
+	},
+	"peerDependencies": {
+		"typescript": "7.0.2"
+	}
 }
