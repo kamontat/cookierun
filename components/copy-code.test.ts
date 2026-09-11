@@ -43,8 +43,7 @@ test("copying reports that it worked", async () => {
   stubClipboard(async () => void (copied = element.value));
 
   element.querySelector("button")!.click();
-  await Promise.resolve();
-  await Promise.resolve();
+  await Bun.sleep(0);
 
   expect(copied).toBe("1S0---000-");
   expect(element.querySelector(".status")?.textContent).toBe("Copied.");
@@ -55,8 +54,7 @@ test("a blocked clipboard tells the reader to copy by hand", async () => {
   stubClipboard(() => Promise.reject(new Error("denied")));
 
   element.querySelector("button")!.click();
-  await Promise.resolve();
-  await Promise.resolve();
+  await Bun.sleep(0);
 
   const status = element.querySelector(".status")!;
   expect(status.textContent).toContain("copy it by hand");
@@ -69,8 +67,7 @@ test("a new value clears the status", async () => {
   stubClipboard(async () => {});
 
   element.querySelector("button")!.click();
-  await Promise.resolve();
-  await Promise.resolve();
+  await Bun.sleep(0);
   element.value = "1H0--F000-";
 
   expect(element.querySelector(".status")?.textContent).toBe("");
