@@ -75,7 +75,7 @@ test("every page hosts the sidebar", async () => {
 });
 
 // A tool page built by copying routes/index.html - which is what the
-// add-a-tool checklist in AGENTS.md tells you to do - carries a bare
+// add-a-tool checklist tells you to do - carries a bare
 // <site-nav></site-nav> unless this is checked. Without `current`, hrefFor
 // treats the page as the home pane and writes "./" and "./combi-name/",
 // which one directory down resolve to the page itself and to
