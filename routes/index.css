@@ -219,25 +219,10 @@ main {
   }
 }
 
-.result,
-.legend,
+/* A page with a single section - the home pane - spans both tracks rather
+   than sitting in the left one with a hole beside it. */
 main > :only-child {
   grid-column: 1 / -1;
-}
-
-/* The code is what the page is for, so it stays in view while you work the
-   controls under it. */
-.result {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.result h2 {
-  --pico-typography-spacing-top: 0;
-  color: var(--pico-muted-color);
-  font-size: 0.8rem;
-  font-weight: 500;
 }
 
 /* The grid gap already separates the panels; Pico's own `section` margin
@@ -254,47 +239,12 @@ main > :only-child {
   box-shadow: var(--pico-card-box-shadow);
 }
 
-copy-code {
-  display: block;
+.masthead h1 {
+  margin-bottom: 0.25rem;
 }
 
-copy-code output {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-copy-code code {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  padding: 0;
-  background: none;
-  color: var(--pico-color);
-  font-family: var(--pico-font-family-monospace);
-  font-size: clamp(1.5rem, 5vw, 2.25rem);
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  user-select: all;
-}
-
-.code-input {
-  font-family: var(--pico-font-family-monospace);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-/* A placeholder at full value colour reads as a code someone already typed. */
-.code-input::placeholder {
-  color: var(--pico-muted-color);
-  opacity: 0.6;
-  text-transform: none;
-}
-
-.hint {
-  display: block;
-  margin-top: 0.35rem;
+.masthead p {
+  max-width: 46rem;
   color: var(--pico-muted-color);
 }
 
@@ -306,45 +256,6 @@ copy-code code {
 
 .status.error {
   color: var(--pico-del-color);
-}
-
-.warnings {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0;
-  list-style: none;
-}
-
-.warnings li {
-  padding: 0.5rem 0.65rem;
-  border-radius: var(--pico-border-radius);
-  background: var(--pico-mark-background-color);
-  color: var(--pico-mark-color);
-  font-size: 0.9rem;
-}
-
-.rows {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.35rem 1rem;
-}
-
-.rows dt {
-  color: var(--pico-muted-color);
-}
-
-.rows dd {
-  margin: 0;
-}
-
-.diagram {
-  overflow-x: auto;
-  padding: var(--pico-spacing);
-  font-size: 0.85rem;
-}
-
-.table-wrap {
-  overflow-x: auto;
 }
 
 tool-index {
@@ -367,15 +278,6 @@ tool-index dd {
 
 tool-index dd:last-child {
   margin-bottom: 0;
-}
-
-.masthead h1 {
-  margin-bottom: 0.25rem;
-}
-
-.masthead p {
-  max-width: 46rem;
-  color: var(--pico-muted-color);
 }
 
 labelled-select {
@@ -410,6 +312,31 @@ check-group .checks label {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+copy-code {
+  display: block;
+}
+
+copy-code output {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+copy-code code {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0;
+  background: none;
+  color: var(--pico-color);
+  font-family: var(--pico-font-family-monospace);
+  font-size: clamp(1.5rem, 5vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  user-select: all;
 }
 
 auto-verdict {

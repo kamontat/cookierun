@@ -2,8 +2,6 @@
 
 import { expect, test } from "bun:test";
 
-import { need } from "../shared/chrome.ts";
-
 const page = await Bun.file(new URL("./index.html", import.meta.url)).text();
 const body = page.slice(
   page.indexOf("<body>") + "<body>".length,
@@ -11,7 +9,10 @@ const body = page.slice(
 );
 
 document.body.innerHTML = body;
-await import("./main.ts");
+
+// Dynamic, and kept below the assignment: importing the page script runs it,
+// and it looks every element up at module scope.
+const { need } = await import("./index.ts");
 
 function fire(node: HTMLElement): void {
   node.dispatchEvent(new Event("input", { bubbles: true }));

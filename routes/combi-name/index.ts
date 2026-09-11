@@ -37,7 +37,12 @@ import type { CheckGroup } from "#components/check-group.ts";
 import type { CopyCode } from "#components/copy-code.ts";
 import type { LabelledSelect } from "#components/labelled-select.ts";
 
-import { need } from "../shared/chrome.ts";
+/** Exported for this route's test, which drives the page through the same lookups. */
+export function need<T extends HTMLElement>(id: string): T {
+  const node = document.getElementById(id);
+  if (node === null) throw new Error(`the page is missing #${id}`);
+  return node as T;
+}
 
 const typeSelect = need<LabelledSelect>("type");
 const episodeSelect = need<LabelledSelect>("episode");

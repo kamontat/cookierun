@@ -19,3 +19,15 @@ export const TOOLS = [
 ] as const satisfies readonly Tool[];
 
 export type ToolSlug = (typeof TOOLS)[number]["slug"];
+
+/**
+ * One HTML entrypoint per page, home pane first. The build and the test that
+ * guards it both read this, so a registered tool with no page on disk is a
+ * failing assertion rather than a sidebar link to nothing.
+ */
+export function pageEntrypoints(): string[] {
+  return [
+    "routes/index.html",
+    ...TOOLS.map(({ slug }) => `routes/${slug}/index.html`),
+  ];
+}

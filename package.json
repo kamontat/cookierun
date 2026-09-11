@@ -1,6 +1,5 @@
 {
   "name": "demo-cookierun-encode",
-  "module": "lib/combi-name/codec.ts",
   "type": "module",
   "private": true,
   "packageManager": "bun@1.4.2",
@@ -9,9 +8,9 @@
     "#components/*": "./components/*"
   },
   "scripts": {
-    "dev": "bun web/dev.ts",
+    "dev": "bun scripts/dev.ts",
     "fetch-assets": "bun scripts/fetch-assets.ts",
-    "build": "bun build --compile --target=browser web/index.html web/combi-name/index.html --outdir=dist --minify",
+    "build": "bun scripts/build.ts",
     "test": "bun scripts/test.ts",
     "typecheck": "bun scripts/typecheck.ts"
   },

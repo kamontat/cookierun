@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { TOOLS } from "./tools.ts";
+import { pageEntrypoints, TOOLS } from "./tools.ts";
 
 const root = new URL("../", import.meta.url);
 
@@ -9,50 +9,41 @@ test("tool slugs are unique", () => {
   expect(new Set(slugs).size).toBe(slugs.length);
 });
 
-test("every registered tool has a page on disk", async () => {
-  for (const { slug } of TOOLS) {
-    const page = Bun.file(new URL(`web/${slug}/index.html`, root));
-    expect(await page.exists()).toBe(true);
+// The build takes this list, so a registered tool with no page here is a
+// sidebar link to a page that was never written.
+test("every page the build asks for exists on disk", async () => {
+  const entrypoints = pageEntrypoints();
+  expect(entrypoints).toContain("routes/index.html");
+  expect(entrypoints.length).toBe(TOOLS.length + 1);
+
+  for (const path of entrypoints) {
+    expect(await Bun.file(new URL(path, root)).exists()).toBe(true);
   }
 });
 
-// A registered tool that nothing builds would show up in the sidebar as a
-// link to a page that was never written.
-test("every tool page is an entrypoint of the build script", async () => {
-  const { scripts } = (await Bun.file(new URL("package.json", root)).json()) as {
-    scripts: Record<string, string>;
-  };
-
-  for (const { slug } of TOOLS) {
-    expect(scripts.build).toContain(`web/${slug}/index.html`);
-  }
-});
-
-// The dev server serves what it imports, so a tool missing from web/dev.ts is
-// a 404 in development even though the build ships it. The Record<ToolSlug>
-// in that file makes typecheck fail too; this catches it at test time.
+// The dev server serves what it imports, so a tool missing from scripts/dev.ts
+// is a 404 in development even though the build ships it. The
+// Record<ToolSlug> in that file makes typecheck fail too; this catches it at
+// test time.
 test("every tool page is imported by the dev server", async () => {
-  const devServer = await Bun.file(new URL("web/dev.ts", root)).text();
+  const devServer = await Bun.file(new URL("scripts/dev.ts", root)).text();
 
   for (const { slug } of TOOLS) {
-    expect(devServer).toContain(`./${slug}/index.html`);
+    expect(devServer).toContain(`../routes/${slug}/index.html`);
   }
 });
 
-test("the home page is built and served like the tools are", async () => {
-  const { scripts } = (await Bun.file(new URL("package.json", root)).json()) as {
-    scripts: Record<string, string>;
-  };
-  const devServer = await Bun.file(new URL("web/dev.ts", root)).text();
+test("the home page is served like the tools are", async () => {
+  const devServer = await Bun.file(new URL("scripts/dev.ts", root)).text();
 
-  expect(scripts.build).toContain("web/index.html");
+  expect(devServer).toContain("../routes/index.html");
   expect(devServer).toContain('"/": home');
 });
 
 // Every link the pages carry has to resolve in development too, or the dev
 // server is a different site from the one that ships.
 test("the dev server routes every URL form the pages link to", async () => {
-  const devServer = await Bun.file(new URL("web/dev.ts", root)).text();
+  const devServer = await Bun.file(new URL("scripts/dev.ts", root)).text();
 
   expect(devServer).toContain('"/index.html": home');
   for (const suffix of ["", "/", "/index.html"]) {
@@ -61,8 +52,9 @@ test("the dev server routes every URL form the pages link to", async () => {
 });
 
 async function pages(): Promise<string[]> {
-  const paths = ["web/index.html", ...TOOLS.map(({ slug }) => `web/${slug}/index.html`)];
-  return Promise.all(paths.map((path) => Bun.file(new URL(path, root)).text()));
+  return Promise.all(
+    pageEntrypoints().map((path) => Bun.file(new URL(path, root)).text()),
+  );
 }
 
 // Navigation lives in the sidebar every page renders from this registry, so a
@@ -88,6 +80,12 @@ test("every page applies a saved theme before it paints", async () => {
   for (const page of await pages()) {
     expect(page).toContain('id="theme-boot"');
     expect(page).toContain('localStorage.getItem("theme")');
+  }
+});
+
+test("every page links its own stylesheet", async () => {
+  for (const page of await pages()) {
+    expect(page).toContain('href="./index.css"');
   }
 });
 

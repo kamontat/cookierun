@@ -2,8 +2,8 @@ import type { HTMLBundle } from "bun";
 
 import { TOOLS, type ToolSlug } from "#lib/tools.ts";
 
-import home from "./index.html";
-import combiName from "./combi-name/index.html";
+import home from "../routes/index.html";
+import combiName from "../routes/combi-name/index.html";
 
 /**
  * Each page needs a literal import so the bundler can find it, but the routes
