@@ -11,8 +11,8 @@
     "dev": "bun web/dev.ts",
     "fetch-assets": "bun scripts/fetch-assets.ts",
     "build": "bun build --compile --target=browser web/index.html web/combi-name/index.html --outdir=dist --minify",
-    "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "test": "bun scripts/test.ts",
+    "typecheck": "bun scripts/typecheck.ts"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "20.14.3",
