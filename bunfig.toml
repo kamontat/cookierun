@@ -1,5 +1,5 @@
 [test]
-preload = ["./happydom.ts"]
+preload = ["./tests/happydom.ts"]
 
 [install]
 # A range here would quietly widen on the next install and the whole point of

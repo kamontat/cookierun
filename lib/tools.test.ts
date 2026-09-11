@@ -21,6 +21,15 @@ test("every page the build asks for exists on disk", async () => {
   }
 });
 
+// scripts/build.ts takes its entrypoints from this function. A hand-maintained
+// list slipped back in there would pass the rest of the suite today, which
+// defeats the reason the derivation exists.
+test("the build script takes its entrypoints from the registry", async () => {
+  expect(await Bun.file(new URL("scripts/build.ts", root)).text()).toContain(
+    "pageEntrypoints()",
+  );
+});
+
 // The dev server serves what it imports, so a tool missing from scripts/dev.ts
 // is a 404 in development even though the build ships it. The
 // Record<ToolSlug> in that file makes typecheck fail too; this catches it at
@@ -86,6 +95,22 @@ test("every page applies a saved theme before it paints", async () => {
 test("every page links its own stylesheet", async () => {
   for (const page of await pages()) {
     expect(page).toContain('href="./index.css"');
+  }
+});
+
+// The home pane's sheet is the base sheet - it imports Pico directly. Every
+// other route's sheet instead opens with `@import "../index.css";`, which is
+// what gives that page Pico, the sidebar rail, the body grid, and every
+// component's rules. Delete that line and the page is spectacularly broken
+// while the rest of the suite stays green, so check it directly.
+test("every route stylesheet below the top level imports the base sheet", async () => {
+  const [, ...toolEntrypoints] = pageEntrypoints();
+
+  for (const entrypoint of toolEntrypoints) {
+    const stylesheet = entrypoint.replace(/index\.html$/, "index.css");
+    expect(await Bun.file(new URL(stylesheet, root)).text()).toContain(
+      '@import "../index.css";',
+    );
   }
 });
 
