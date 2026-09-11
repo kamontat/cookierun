@@ -74,10 +74,10 @@ async function fetchSitemap(): Promise<Record<Section, Set<string>>> {
 
 async function fetchListing(section: Section): Promise<Card[]> {
 	const html = await (await get(`/${section}/`)).text();
-	return [...html.matchAll(CARD_RE)].map((m) => ({
-		slug: m[1]?.split("/").pop()!,
-		name: unescapeHtml(m[2]!),
-		icon: m[3] ? m[3].replace(/^\.\.\//, "/") : null,
+	return [...html.matchAll(CARD_RE)].map(([, href = "", name = "", icon]) => ({
+		slug: href.split("/").pop() ?? "",
+		name: unescapeHtml(name),
+		icon: icon ? icon.replace(/^\.\.\//, "/") : null,
 	}));
 }
 
@@ -155,7 +155,9 @@ const failures: string[] = [];
 await Promise.all(
 	Array.from({ length: CONCURRENCY }, async () => {
 		while (cursor < jobs.length) {
-			const [remote, local] = jobs[cursor++]!;
+			const job = jobs[cursor++];
+			if (job === undefined) break;
+			const [remote, local] = job;
 			try {
 				await Bun.write(
 					ASSETS + local,
