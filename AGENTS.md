@@ -33,7 +33,7 @@ bun run build                                # writes one self-contained file pe
 bun run fetch-assets                         # re-scrapes icons into assets/ (idempotent, skips existing)
 ```
 
-Every script is a file under `scripts/`, so `package.json` holds a delegation rather than a command. `scripts/test.ts` and `scripts/typecheck.ts` forward their arguments, which is what keeps the two filtered forms above working, and both propagate the child's exit code so a red suite still fails CI.
+Every script is a file under `scripts/`, so `package.json` holds a delegation rather than a command. `scripts/test.ts` and `scripts/typecheck.ts` forward their arguments, which is what keeps the two filtered forms above working. Those two and `scripts/build.ts` each propagate the child's exit code, so a failure still fails whatever called it.
 
 `bun run dev` runs `scripts/dev.ts`, a small `Bun.serve()` whose route table is generated from `TOOLS`. Handing Bun the HTML files directly (`bun routes/index.html routes/combi-name/index.html`) registers only `/` and `/combi-name`, which 404s on the trailing-slash links the sidebar renders. So each page answers to every spelling: `/` and `/index.html` for the home pane, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. An unrouted URL comes back as a 404 with an empty body, which paints as a blank page rather than as an error — check the status code before concluding the page itself broke.
 
@@ -84,8 +84,8 @@ The form end of that guarantee is `<check-group>`'s `selected` getter, described
 
 Cross-directory imports go through `#lib/*` and `#components/*`, declared in `package.json`'s `imports` field, so a route writes `from "#components/check-group.ts"` rather than counting `../`s.
 
-- `lib/` is code more than one route uses, reached as `#lib/*`. Today that is the tool registry and `hrefFor`. It does not own DOM.
-- `components/` is every custom element, reached as `#components/*`. It imports from `lib/` and never from `routes/` — `<auto-verdict>` declares its own structural property type rather than importing `AutoVerdict` from the combi route, which is what keeps that arrow pointing one way.
+- `lib/` is code more than one route uses, reached as `#lib/*`. Today that is the tool registry and `hrefFor`. It owns no DOM, with one deliberate exception: `hrefFor` defaults its `protocol` argument to `globalThis.location?.protocol`, because every caller would otherwise pass the same thing. That is a default rather than a read — `lib/href.test.ts` hands the protocol in on every call and never touches `location`.
+- `components/` is every custom element, reached as `#components/*`. It imports from `lib/` and never from `routes/` — `components/auto-verdict.ts` declares its own `Verdict` type rather than importing the structurally identical `AutoVerdict` from `routes/combi-name/describe.ts`, which is what keeps that arrow pointing one way.
 - `routes/<slug>/` is one page: `index.html`, `index.css`, `index.ts`, and that route's own logic and tests. `routes/index.*` is the home pane.
 - `scripts/` is one file per package script.
 - `tests/` is test configuration only. `bunfig.toml` preloads `tests/happydom.ts` for every run, so `document` and `window` exist in all test files, not just the DOM ones. No test lives there.
@@ -114,7 +114,7 @@ Attributes carry markup-authored configuration; properties carry structured data
 
 `<check-group>`'s `selected` getter filters the element's own `options` rather than reading DOM order. That is what keeps boosts in slot order and cookie powers in bit order, and it is part of the wire format rather than a preference.
 
-Each component is standalone by design. `<labelled-select>` and `<check-group>` declare an `Option` pair type each rather than sharing one, and `<copy-code>` and `<auto-verdict>` import nothing at all. A shared type between two components is the first step towards a component that cannot be read on its own.
+Each component is standalone by design. Only `site-nav.ts` and `tool-index.ts` import anything — `TOOLS` and `hrefFor` from `lib/`, plus `theme-toggle.ts` in the sidebar's case, since it renders one — and the other five import nothing at all. `<labelled-select>` and `<check-group>` even declare an `Option` pair type each rather than sharing one. A shared type between two components is the first step towards a component that cannot be read on its own.
 
 ### Adding a tool
 

@@ -101,7 +101,7 @@ bun run typecheck
 bun run build      # writes dist/index.html and dist/combi-name/index.html
 ```
 
-The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against each page and each component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
+The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
 
 ### Layout
 
