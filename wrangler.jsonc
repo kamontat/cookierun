@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cookierun",
+  "compatibility_date": "2026-09-10",
+  "workers_dev": true,
+  "build": {
+    "command": "bun run build"
+  },
+  "assets": {
+    "directory": "dist"
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "send_metrics": false
+}
