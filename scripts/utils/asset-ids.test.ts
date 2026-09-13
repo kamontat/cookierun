@@ -1,6 +1,14 @@
 import { expect, test } from "bun:test";
 
-import { fromId, migrate, reconcile, toId } from "./asset-ids.ts";
+import {
+	type Entry,
+	fromId,
+	migrate,
+	ordered,
+	reconcile,
+	type TreasureEntry,
+	toId,
+} from "./asset-ids.ts";
 
 test("an id is fixed-width uppercase base-36", () => {
 	expect(toId(0, 2)).toBe("00");
@@ -197,4 +205,43 @@ test("reconcile refuses to exceed the section capacity", () => {
 	expect(() => reconcile("cookies", byId, ["brand-new"])).toThrow(
 		"cookies: no id left, 1296 already in use",
 	);
+});
+
+test("ordered gives one field order whatever built the entry", () => {
+	const scraped = ordered({
+		key: "Acorn",
+		name: "Acorn",
+		url: "https://cookierundb.com/treasures/acorn",
+		image: null,
+		type: "N",
+		targets: [null, null],
+	} as TreasureEntry);
+
+	expect(Object.keys(scraped)).toEqual([
+		"name",
+		"url",
+		"image",
+		"type",
+		"targets",
+		"key",
+	]);
+});
+
+test("ordered keeps a retired entry's flag last and drops nothing", () => {
+	const entry = ordered({
+		retired: true,
+		key: "Gone",
+		name: "Gone",
+		url: "https://cookierundb.com/pets/gone",
+		image: null,
+	} as Entry);
+
+	expect(Object.keys(entry)).toEqual([
+		"name",
+		"url",
+		"image",
+		"key",
+		"retired",
+	]);
+	expect(entry.retired).toBe(true);
 });

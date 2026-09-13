@@ -27,6 +27,7 @@ import {
 	type AssetIndex,
 	type Entry,
 	migrate,
+	ordered,
 	reconcile,
 	SECTIONS,
 	type Section,
@@ -432,11 +433,11 @@ await pool("icons", jobs, async ([remote, local]) => {
 	}
 });
 
-function byId<T>(entries: Record<string, T>): Record<string, T> {
+function byId<T extends Entry>(entries: Record<string, T>): Record<string, T> {
 	const sorted: Record<string, T> = {};
 	for (const id of Object.keys(entries).sort()) {
 		const entry = entries[id];
-		if (entry !== undefined) sorted[id] = entry;
+		if (entry !== undefined) sorted[id] = ordered(entry);
 	}
 	return sorted;
 }

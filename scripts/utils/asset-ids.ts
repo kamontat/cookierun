@@ -59,6 +59,32 @@ export function slugOf(url: string): string {
 	return url.split("/").pop() ?? "";
 }
 
+const FIELD_ORDER = [
+	"name",
+	"url",
+	"image",
+	"type",
+	"targets",
+	"source",
+	"key",
+	"retired",
+] as const;
+
+/**
+ * One field order for the file, whatever built the entry. `migrate` appends
+ * `key` to whatever it read, while the scraper writes each field as it builds —
+ * without this, a rescrape that changes nothing still rewrites all 1,341
+ * entries with their fields shuffled.
+ */
+export function ordered<T extends Entry>(entry: T): T {
+	const source = entry as Record<string, unknown>;
+	const out: Record<string, unknown> = {};
+	for (const field of FIELD_ORDER) {
+		if (field in source) out[field] = source[field];
+	}
+	return out as T;
+}
+
 type OldEntry = Record<string, unknown>;
 
 function sectionOf(old: unknown, section: Section): Record<string, OldEntry> {
@@ -114,10 +140,13 @@ export function migrate(old: unknown): AssetIndex {
 			// disk, and only the shape written below is guaranteed after this.
 			if (section === "treasures") {
 				treasureIds.set(oldKey, id);
-				out.treasures[id] = { ...entry, key } as unknown as TreasureEntry;
+				out.treasures[id] = ordered({
+					...entry,
+					key,
+				} as unknown as TreasureEntry);
 				return;
 			}
-			out[section][id] = { ...entry, key } as unknown as Entry;
+			out[section][id] = ordered({ ...entry, key } as unknown as Entry);
 		});
 	}
 
