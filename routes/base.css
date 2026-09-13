@@ -352,3 +352,70 @@ auto-verdict {
 auto-verdict strong {
 	color: var(--pico-primary);
 }
+
+entry-picker,
+entry-set {
+	display: block;
+}
+
+entry-picker .entries,
+entry-set .entries {
+	display: flex;
+	flex-direction: column;
+	gap: 0.125rem;
+	max-height: 14rem;
+	overflow-y: auto;
+	border: var(--pico-border-width) solid var(--pico-form-element-border-color);
+	border-radius: var(--pico-border-radius);
+	padding: 0.25rem;
+}
+
+entry-picker .entry,
+entry-set .entry {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+	margin: 0;
+	padding: 0.25rem 0.5rem;
+	background: none;
+	border: none;
+	color: var(--pico-color);
+	text-align: left;
+	font-size: 0.875rem;
+}
+
+entry-picker .entry[aria-selected="true"],
+entry-set .entry[aria-selected="true"] {
+	background: var(--pico-primary-focus);
+}
+
+entry-picker .entry img,
+entry-set .entry img {
+	width: 1.75rem;
+	height: 1.75rem;
+	object-fit: contain;
+}
+
+entry-picker .more,
+entry-set .more {
+	color: var(--pico-muted-color);
+}
+
+entry-set .picked {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	margin-bottom: 0.5rem;
+}
+
+entry-set .chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	margin: 0;
+	padding: 0.125rem 0.5rem;
+	width: auto;
+	font-size: 0.8125rem;
+	border-radius: var(--pico-border-radius);
+}
