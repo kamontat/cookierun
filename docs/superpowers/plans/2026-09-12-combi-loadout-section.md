@@ -1476,10 +1476,16 @@ test("combiSectionOf picks the right half, or the whole code", () => {
 // The loadout space is unbounded once alternatives exist, so the round trip is
 // covered by a seeded sample rather than exhaustively.
 test("a seeded sample of loadouts round-trips to its canonical form", () => {
+	// mulberry32: every step stays in 32-bit range. The obvious LCG
+	// (`seed * 1103515245 + 12345`) overflows 2^53 and degenerates into a
+	// generator that returns 0 almost always, which silently empties this loop.
 	let seed = 20260912;
 	const random = (bound: number): number => {
-		seed = (seed * 1103515245 + 12345) % 2147483648;
-		return seed % bound;
+		seed = (seed + 0x6d2b79f5) >>> 0;
+		let t = seed;
+		t = Math.imul(t ^ (t >>> 15), t | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		return ((t ^ (t >>> 14)) >>> 0) % bound;
 	};
 
 	const cookieIds = ["00", "01", "2L"];
