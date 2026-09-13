@@ -69,9 +69,26 @@ function sectionOf(old: unknown, section: Section): Record<string, OldEntry> {
 }
 
 /**
- * Keys each section by id in file order, moving the old key into `key`. Runs on
- * an already-migrated index without changing it, which is what lets
- * `fetch-assets` call it unconditionally.
+ * An already-migrated section keys every entry by an id of the section's width
+ * and carries a `key` field on each. It matters because ids are not re-derived
+ * for such a section — see `migrate`.
+ */
+function isMigrated(entries: [string, OldEntry][], width: number): boolean {
+	const id = new RegExp(`^[0-9A-Z]{${width}}$`);
+	return entries.every(
+		([key, entry]) => typeof entry.key === "string" && id.test(key),
+	);
+}
+
+/**
+ * Keys each section by id in file order, moving the old key into `key`.
+ *
+ * Ids are only derived from position for a section that has not been migrated
+ * yet, whose keys are PascalCase names — there, `Object.entries` order is
+ * insertion order. A migrated section keeps the ids it has, because JavaScript
+ * enumerates canonical integer-string keys ("10", "11") ahead of every other
+ * key regardless of insertion order, so re-deriving would hand those ids to
+ * different entries. That is what lets `fetch-assets` call this unconditionally.
  */
 export function migrate(old: unknown): AssetIndex {
 	const out: AssetIndex = { cookies: {}, pets: {}, treasures: {} };
@@ -88,8 +105,10 @@ export function migrate(old: unknown): AssetIndex {
 			);
 		}
 
+		const migrated = isMigrated(entries, width);
+
 		entries.forEach(([oldKey, entry], position) => {
-			const id = toId(position, width);
+			const id = migrated ? oldKey : toId(position, width);
 			const key = typeof entry.key === "string" ? entry.key : oldKey;
 			// One cast at the migration boundary: the input is whatever was on
 			// disk, and only the shape written below is guaranteed after this.

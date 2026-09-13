@@ -101,6 +101,26 @@ test("migrate leaves an already-migrated index alone", () => {
 	expect(migrate(once)).toEqual(once);
 });
 
+test("migrate leaves an already-migrated index alone, even where ids look numeric", () => {
+	const cookies: Record<string, unknown> = {};
+	for (let n = 0; n < 45; n++) {
+		cookies[`Cookie${n}`] = {
+			name: `Cookie ${n}`,
+			url: `https://cookierundb.com/cookies/cookie-${n}`,
+			image: null,
+		};
+	}
+
+	const once = migrate({ cookies, pets: {}, treasures: {} });
+	// "10" is a canonical integer string, which JavaScript enumerates ahead of
+	// every other key. Deriving ids from key order would hand it to a different
+	// entry on the second pass.
+	expect(once.cookies["10"]?.key).toBe("Cookie36");
+
+	const roundTripped = JSON.parse(JSON.stringify(once));
+	expect(migrate(roundTripped)).toEqual(once);
+});
+
 test("migrate refuses a section that would overflow its id width", () => {
 	const cookies: Record<string, unknown> = {};
 	for (let n = 0; n < 1297; n++) {
