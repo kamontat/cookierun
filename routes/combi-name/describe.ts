@@ -1,4 +1,6 @@
+import { type CatalogSection, isRetired, nameFor } from "./catalog.ts";
 import { type Combi, isSemiAuto } from "./codec.ts";
+import type { FullCode } from "./full-code.ts";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
@@ -7,6 +9,7 @@ import {
 	RANDOM_BOOST_LABELS,
 	TYPE_LABELS,
 } from "./labels.ts";
+import type { Loadout } from "./loadout.ts";
 
 export type DescribedRow = {
 	field: string;
@@ -70,4 +73,61 @@ export function describeCombi(combi: Combi): DescribedCombi {
 		],
 		auto: verdict(combi),
 	};
+}
+
+const RETIRED_SUFFIX = " (no longer listed)";
+
+/**
+ * A code stays readable after the site drops an entry, so the entry is still
+ * named — with a note, because the reader will not find it in the game.
+ */
+function entryName(section: CatalogSection, id: string): string {
+	const name = nameFor(section, id);
+	return isRetired(section, id) ? name + RETIRED_SUFFIX : name;
+}
+
+function slotName(slot: string[]): string {
+	return slot.map((id) => entryName("treasures", id)).join(" or ");
+}
+
+function treasureRow(loadout: Loadout): DescribedRow {
+	const { treasures, ordered } = loadout;
+	if (treasures.length === 0) return { field: "Treasures", value: NONE };
+
+	if (ordered && treasures.length > 1) {
+		return {
+			field: "Treasures (exact order)",
+			value: treasures
+				.map((slot, position) => `${position + 1}. ${slotName(slot)}`)
+				.join("; "),
+		};
+	}
+
+	return {
+		field: "Treasures",
+		value: treasures.map(slotName).join("; "),
+	};
+}
+
+export function describeLoadout(loadout: Loadout): DescribedRow[] {
+	const single = (
+		field: string,
+		section: CatalogSection,
+		id: string | null,
+	): DescribedRow => ({
+		field,
+		value: id === null ? NONE : entryName(section, id),
+	});
+
+	return [
+		single("Cookie", "cookies", loadout.cookie),
+		single("Relay", "cookies", loadout.relay),
+		single("Pet", "pets", loadout.pet),
+		treasureRow(loadout),
+	];
+}
+
+export function describeFull(full: FullCode): DescribedCombi {
+	const combi = describeCombi(full.combi);
+	return { ...combi, rows: [...describeLoadout(full.loadout), ...combi.rows] };
 }
