@@ -2954,20 +2954,38 @@ In `package.json`, `build` becomes:
 In `scripts/dev.ts`, widen the route table and add the handler:
 
 ```ts
+import { resolve } from "node:path";
+
 const ASSETS = new URL("../assets/", import.meta.url).pathname;
 
 /**
  * The built page loads icons from `../assets/`, which wrangler serves out of
  * `dist/`. In development nothing writes `dist/`, so the dev server answers for
  * the repository's own `assets/` directory instead.
+ *
+ * Containment is checked by resolving the path rather than by looking for
+ * "..": `pathname` has already collapsed literal dot segments by the time the
+ * handler sees it, and a percent-encoded one never matches a substring test, so
+ * a ".." check would be reassuring and useless.
  */
-const serveAsset = (request: Request): Response => {
-	const path = new URL(request.url).pathname.slice("/assets/".length);
-	if (path.includes("..")) return new Response("no", { status: 400 });
-	return new Response(Bun.file(ASSETS + path));
+const serveAsset = async (request: Request): Promise<Response> => {
+	const { pathname } = new URL(request.url);
+	const resolved = resolve(ASSETS + pathname.slice("/assets/".length));
+	if (!resolved.startsWith(ASSETS)) {
+		return new Response("outside the asset directory", { status: 403 });
+	}
+
+	const file = Bun.file(resolved);
+	if (!(await file.exists())) {
+		return new Response("no such asset", { status: 404 });
+	}
+	return new Response(file);
 };
 
-const routes: Record<string, HTMLBundle | ((request: Request) => Response)> = {
+const routes: Record<
+	string,
+	HTMLBundle | ((request: Request) => Promise<Response>)
+> = {
 	"/": home,
 	"/index.html": home,
 	"/assets/*": serveAsset,
@@ -2985,7 +3003,7 @@ Run:
 ls dist/assets && ls dist/assets/treasures | wc -l && du -sh dist/combi-name/index.html dist/assets
 ```
 
-Expected: `cookies pets treasures`, over 1,100 treasure icons, the page around 500KB, and `dist/assets` around 14MB.
+Expected: `cookies pets treasures`, 868 treasure icons, the page around 500KB, and `dist/assets` around 14MB. The icon count is lower than the 1,144 treasure entries because entries share icons — there are 869 distinct paths, of which 8 entries have none.
 
 Run: `grep -c "data:image/png;base64" dist/combi-name/index.html || true`
 Expected: `0` — no icon was inlined.
