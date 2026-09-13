@@ -75,6 +75,8 @@ Encoding always writes the canonical form: ids are sorted within a slot, and who
 
 Every id — cookie, relay, pet, or treasure — is a catalog id from `assets/index.json`. Ids are handed out once, append-only, and never reassigned or reused, so a code you write today still names the same cookie, pet, or treasure years from now, even if that entry is later pulled from the game.
 
+An id must not repeat within one treasure slot — `TU0FZ_0FZ` is invalid, since listing the same treasure as its own alternative says nothing. The same id may repeat across two different slots, though: that is how overlapping alternatives are written, and `loadout.ts` enforces the no-repeat rule per slot, not across the whole group.
+
 ## Auto vs semi-auto
 
 Semi-auto is a run that needs manual work each time. A combi is semi-auto when **any** of these is true: Fast Start is on (slot 6), a random boost is selected (slot 7), or there is a jump action (slot 10).
@@ -125,7 +127,7 @@ bun install
 bun run dev        # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
 bun run test       # 177 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run check      # typecheck and Biome, in one pass
-bun run build      # writes dist/index.html and dist/combi-name/index.html
+bun run build      # writes dist/index.html, dist/combi-name/index.html, and dist/assets/
 ```
 
 The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
@@ -143,7 +145,7 @@ The exhaustive test asserts that encoding produces exactly 1,474,560 distinct co
 | `routes/combi-name/full-code.ts` | Joins a loadout and a combi into `loadout.combi`, or just the bare combi when there is no loadout. |
 | `components/` | Every custom element the pages declare, the sidebar and the light/dark control among them. |
 | `lib/` | What more than one route needs: the tool registry, and the link writer that keeps every href relative. |
-| `scripts/` | One file per package script — dev server, build, test, the two checks, the formatter, deploy, asset scrape — over a shared `execAsync` in `scripts/utils/`. |
+| `scripts/` | One file per package script — dev server, build, copying built assets, test, the two checks, the formatter, deploy, asset scrape — over a shared `execAsync` in `scripts/utils/`. |
 | `tests/` | Test configuration only; every test sits beside the code it covers. |
 
 The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a boost or episode cannot silently ship a page with a missing option.

@@ -1,11 +1,19 @@
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { HTMLBundle } from "bun";
 
 import { TOOLS, type ToolSlug } from "#lib/tools.ts";
 import combiName from "../routes/combi-name/index.html";
 import home from "../routes/index.html";
 
-const ASSETS = new URL("../assets/", import.meta.url).pathname;
+/**
+ * `fileURLToPath` rather than `.pathname`: `pathname` percent-encodes, so a
+ * checkout under a path containing a space (or any other reserved character)
+ * would give an `ASSETS` that never matches what `resolve()` — which works in
+ * literal filesystem paths — returns, and the containment check below would
+ * fail for every request.
+ */
+const ASSETS = fileURLToPath(new URL("../assets/", import.meta.url));
 
 /**
  * The built page loads icons from `../assets/`, which wrangler serves out of
@@ -19,7 +27,12 @@ const ASSETS = new URL("../assets/", import.meta.url).pathname;
  */
 const serveAsset = async (request: Request): Promise<Response> => {
 	const { pathname } = new URL(request.url);
-	const resolved = resolve(ASSETS + pathname.slice("/assets/".length));
+	// Decoded before the containment check, never after: the check has to see
+	// the literal path the filesystem will, or an encoded ".." would sail
+	// through as harmless-looking characters and a legitimately encoded
+	// filename would 404.
+	const segment = decodeURIComponent(pathname.slice("/assets/".length));
+	const resolved = resolve(ASSETS + segment);
 	if (!resolved.startsWith(ASSETS)) {
 		return new Response("outside the asset directory", { status: 403 });
 	}
