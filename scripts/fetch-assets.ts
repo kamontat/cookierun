@@ -1,8 +1,11 @@
 /**
  * Scrapes cookie, pet and treasure icons from cookierundb.com into `assets/`
- * and writes `assets/index.json`, keying every entry by a PascalCase id derived
- * from its display name and recording the name, its page on cookierundb.com and
- * its icon path (relative to `assets/`, or `null` where the game has no sprite).
+ * and writes `assets/index.json`, keying every entry by the fixed-width id
+ * `reconcile` (`utils/asset-ids.ts`) assigns it against what is already on
+ * disk, and recording its PascalCase key, name, page on cookierundb.com and
+ * icon path (relative to `assets/`, or `null` where the game has no sprite).
+ * An entry no longer listed is kept and marked `retired` rather than deleted,
+ * since its id may already be part of a published code.
  *
  * Treasures carry their evolution chain as well: `type` is `N` for a base
  * treasure, `E` for an evolved one and `B` for a blessed one. A base lists its
@@ -20,13 +23,20 @@
  * rendering entries the sitemap declares, the run fails loudly instead of
  * quietly writing a short index.
  */
+import {
+	type AssetIndex,
+	type Entry,
+	migrate,
+	reconcile,
+	SECTIONS,
+	type Section,
+	type TreasureEntry,
+} from "./utils/asset-ids.ts";
+
 const ORIGIN = "https://cookierundb.com";
 const ASSETS = new URL("../assets/", import.meta.url).pathname;
 const CONCURRENCY = 4;
 const BAR_WIDTH = 24;
-
-type Section = "cookies" | "pets" | "treasures";
-const SECTIONS: Section[] = ["cookies", "pets", "treasures"];
 
 /**
  * Each listing page renders one `<a class="ecard">` per entry. The icon frame
@@ -55,13 +65,6 @@ type Card = {
 	evolved: boolean;
 };
 
-type Entry = { name: string; url: string; image: string | null };
-type TreasureEntry = Entry & {
-	type: "N" | "E" | "B";
-	targets?: [string | null, string | null];
-	source?: string;
-};
-
 function unescapeHtml(text: string): string {
 	return text
 		.replace(/&#x27;/g, "'")
@@ -70,46 +73,6 @@ function unescapeHtml(text: string): string {
 		.replace(/&lt;/g, "<")
 		.replace(/&gt;/g, ">")
 		.replace(/&amp;/g, "&");
-}
-
-/**
- * `Squirrel's Seashell Necklace` becomes `SquirrelSSeashellNecklace`: every run
- * of non-alphanumerics is dropped and the piece after it capitalised. A name
- * that is already one word keeps its own casing, so `GingerBrave` survives.
- */
-function toId(name: string): string {
-	return (name.match(/[A-Za-z0-9]+/g) ?? [])
-		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-		.join("");
-}
-
-/**
- * Ids are display names, and a display name can cover several entries. When two
- * entries collapse onto one id, every member of that group is numbered from 1 in
- * listing order — `SotdaeFlock1`, `SotdaeFlock2` — so no id is ever silently
- * overwritten and no colliding entry keeps the bare name. Numbering follows the
- * listing, so inserting an entry upstream can renumber the ones after it.
- */
-function assignIds(cards: Card[]): Map<string, string> {
-	const groups = new Map<string, Card[]>();
-	for (const card of cards) {
-		const id = toId(card.name);
-		groups.set(id, [...(groups.get(id) ?? []), card]);
-	}
-	const ids = new Map<string, string>();
-	for (const [id, group] of groups) {
-		group.forEach((card, i) => {
-			ids.set(card.slug, group.length > 1 ? `${id}${i + 1}` : id);
-		});
-	}
-	// A numbered id can in principle land on a name that already ends in a digit,
-	// which would drop one of the two entries. Nothing upstream does that today.
-	const taken = new Set<string>();
-	for (const [slug, id] of ids) {
-		if (taken.has(id)) throw new Error(`id ${id} claimed twice, at ${slug}`);
-		taken.add(id);
-	}
-	return ids;
 }
 
 async function get(path: string): Promise<Response> {
@@ -261,11 +224,42 @@ for (const section of SECTIONS) {
 }
 bail(drift, "sitemap mismatch");
 
-const ids: Record<Section, Map<string, string>> = {
-	cookies: assignIds(cards.cookies),
-	pets: assignIds(cards.pets),
-	treasures: assignIds(cards.treasures),
+const ASSETS_INDEX = `${ASSETS}index.json`;
+
+const onDisk = await Bun.file(ASSETS_INDEX).exists();
+const previous: AssetIndex = onDisk
+	? migrate(await Bun.file(ASSETS_INDEX).json())
+	: { cookies: {}, pets: {}, treasures: {} };
+
+const reconciled = {
+	cookies: reconcile(
+		"cookies",
+		previous.cookies,
+		cards.cookies.map((c) => c.slug),
+	),
+	pets: reconcile(
+		"pets",
+		previous.pets,
+		cards.pets.map((c) => c.slug),
+	),
+	treasures: reconcile(
+		"treasures",
+		previous.treasures,
+		cards.treasures.map((c) => c.slug),
+	),
 };
+
+const ids: Record<Section, Map<string, string>> = {
+	cookies: reconciled.cookies.ids,
+	pets: reconciled.pets.ids,
+	treasures: reconciled.treasures.ids,
+};
+
+function idFor(section: Section, slug: string): string {
+	const id = ids[section].get(slug);
+	if (id === undefined) throw new Error(`${section}/${slug} has no id`);
+	return id;
+}
 
 // Only the evolved half of the treasure list needs a detail page: a base learns
 // its own targets by inverting what the evolved treasures point back at.
@@ -322,10 +316,24 @@ const index: {
 const downloads = new Map<string, string>(); // remote icon path -> path under assets/
 let spriteless = 0;
 
-function entryFor(section: Section, card: Card): Entry {
+/**
+ * The readable handle the index used to be keyed by. Nothing resolves it, so a
+ * name shared by two entries yielding one key is harmless — but an entry that
+ * already has a key keeps it, so a rescrape does not churn the file. The keys
+ * on disk carry the old collision numbering (`BabySotdae1`); recomputing them
+ * would drop it for no gain.
+ */
+function keyOf(name: string): string {
+	return (name.match(/[A-Za-z0-9]+/g) ?? [])
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join("");
+}
+
+function entryFor(section: Section, card: Card, key: string): Entry {
 	if (card.icon === null) {
 		spriteless++;
 		return {
+			key,
 			name: card.name,
 			url: `${ORIGIN}/${section}/${card.slug}`,
 			image: null,
@@ -334,47 +342,71 @@ function entryFor(section: Section, card: Card): Entry {
 	const local = `${section}/${card.icon.split("/").pop()}`;
 	downloads.set(card.icon, local);
 	return {
+		key,
 		name: card.name,
 		url: `${ORIGIN}/${section}/${card.slug}`,
 		image: local,
 	};
 }
 
-/** Ids are only resolvable once every card has one, so chains are mapped last. */
-function idOf(slug: string): string {
-	return ids.treasures.get(slug) ?? slug;
+/** An entry already in the index keeps its key; a new one is given one. */
+function keyFor(section: Section, id: string, card: Card): string {
+	return previous[section][id]?.key ?? keyOf(card.name);
 }
 
 for (const section of ["cookies", "pets"] as const) {
 	for (const card of cards[section]) {
-		index[section][ids[section].get(card.slug) ?? card.slug] = entryFor(
-			section,
-			card,
-		);
+		const id = idFor(section, card.slug);
+		index[section][id] = entryFor(section, card, keyFor(section, id, card));
 	}
 }
 
 for (const card of cards.treasures) {
-	const entry = entryFor("treasures", card);
+	const id = idFor("treasures", card.slug);
+	const entry = entryFor("treasures", card, keyFor("treasures", id, card));
 	const chain = chains.get(card.slug);
 	if (chain === undefined) {
 		const pair = targets.get(card.slug) ?? [null, null];
-		index.treasures[idOf(card.slug)] = {
+		index.treasures[id] = {
 			...entry,
 			type: "N",
 			targets: [
-				pair[0] === null ? null : idOf(pair[0]),
-				pair[1] === null ? null : idOf(pair[1]),
+				pair[0] === null ? null : idFor("treasures", pair[0]),
+				pair[1] === null ? null : idFor("treasures", pair[1]),
 			],
 		};
 		continue;
 	}
-	index.treasures[idOf(card.slug)] = {
+	index.treasures[id] = {
 		...entry,
 		type: chain.type,
-		source: idOf(chain.source),
+		source: idFor("treasures", chain.source),
 	};
 }
+
+for (const id of reconciled.treasures.retired) {
+	const entry = previous.treasures[id];
+	if (entry !== undefined) index.treasures[id] = { ...entry, retired: true };
+}
+for (const section of ["cookies", "pets"] as const) {
+	for (const id of reconciled[section].retired) {
+		const entry = previous[section][id];
+		if (entry !== undefined) index[section][id] = { ...entry, retired: true };
+	}
+}
+
+const moved: string[] = [];
+for (const section of SECTIONS) {
+	for (const [id, entry] of Object.entries(previous[section])) {
+		const now = index[section][id];
+		if (now === undefined || now.url !== entry.url) {
+			moved.push(
+				`${section}/${id} was ${entry.url}, now ${now?.url ?? "gone"}`,
+			);
+		}
+	}
+}
+bail(moved, "ids moved");
 
 // Only icons absent from disk are fetched; everything else is already correct.
 const jobs: [remote: string, local: string][] = [];
@@ -400,7 +432,27 @@ await pool("icons", jobs, async ([remote, local]) => {
 	}
 });
 
-await Bun.write(`${ASSETS}index.json`, `${JSON.stringify(index, null, 2)}\n`);
+function byId<T>(entries: Record<string, T>): Record<string, T> {
+	const sorted: Record<string, T> = {};
+	for (const id of Object.keys(entries).sort()) {
+		const entry = entries[id];
+		if (entry !== undefined) sorted[id] = entry;
+	}
+	return sorted;
+}
+
+await Bun.write(
+	ASSETS_INDEX,
+	`${JSON.stringify(
+		{
+			cookies: byId(index.cookies),
+			pets: byId(index.pets),
+			treasures: byId(index.treasures),
+		},
+		null,
+		2,
+	)}\n`,
+);
 console.log(
 	`done: ${jobs.length - failures.length} downloaded, ${failures.length} failed`,
 );

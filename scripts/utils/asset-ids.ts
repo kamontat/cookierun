@@ -140,3 +140,47 @@ export function migrate(old: unknown): AssetIndex {
 
 	return out;
 }
+
+/**
+ * Matches a listing against the index already on disk. A slug keeps whatever id
+ * it was first given, a new slug takes one past the highest in use, and a slug
+ * that no longer appears is reported so the caller can retire its entry instead
+ * of deleting it. Ids are never reassigned, so no existing code changes meaning.
+ */
+export function reconcile(
+	section: Section,
+	existing: Record<string, Entry>,
+	slugs: string[],
+): { ids: Map<string, string>; retired: string[] } {
+	const bySlug = new Map<string, string>();
+	let highest = -1;
+
+	for (const [id, entry] of Object.entries(existing)) {
+		bySlug.set(slugOf(entry.url), id);
+		highest = Math.max(highest, fromId(id));
+	}
+
+	const width = ID_WIDTH[section];
+	const capacity = CAPACITY[section];
+	const ids = new Map<string, string>();
+
+	for (const slug of slugs) {
+		const known = bySlug.get(slug);
+		if (known !== undefined) {
+			ids.set(slug, known);
+			continue;
+		}
+		highest += 1;
+		if (highest >= capacity) {
+			throw new Error(`${section}: no id left, ${capacity} already in use`);
+		}
+		ids.set(slug, toId(highest, width));
+	}
+
+	const listed = new Set(slugs);
+	const retired = Object.entries(existing)
+		.filter(([, entry]) => !listed.has(slugOf(entry.url)))
+		.map(([id]) => id);
+
+	return { ids, retired };
+}

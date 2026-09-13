@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { fromId, migrate, toId } from "./asset-ids.ts";
+import { fromId, migrate, reconcile, toId } from "./asset-ids.ts";
 
 test("an id is fixed-width uppercase base-36", () => {
 	expect(toId(0, 2)).toBe("00");
@@ -133,5 +133,68 @@ test("migrate refuses a section that would overflow its id width", () => {
 
 	expect(() => migrate({ cookies, pets: {}, treasures: {} })).toThrow(
 		"cookies: 1297 entries exceeds the 1296 an id of width 2 can hold",
+	);
+});
+
+const existing = {
+	"00": {
+		key: "First",
+		name: "First",
+		url: "https://cookierundb.com/cookies/first",
+		image: null,
+	},
+	"01": {
+		key: "Second",
+		name: "Second",
+		url: "https://cookierundb.com/cookies/second",
+		image: null,
+	},
+};
+
+test("a slug already in the index keeps its id, wherever it now sorts", () => {
+	const { ids } = reconcile("cookies", existing, ["second", "first"]);
+
+	expect(ids.get("first")).toBe("00");
+	expect(ids.get("second")).toBe("01");
+});
+
+test("a new slug takes the next free id", () => {
+	const { ids } = reconcile("cookies", existing, ["first", "second", "third"]);
+
+	expect(ids.get("third")).toBe("02");
+});
+
+test("a vanished slug is reported as retired rather than dropped", () => {
+	const { ids, retired } = reconcile("cookies", existing, ["first"]);
+
+	expect(retired).toEqual(["01"]);
+	expect(ids.has("second")).toBe(false);
+});
+
+// The next free id is one past the highest in use, never the entry count, or a
+// retired id would be handed to a different entry.
+test("a retired id is never reused", () => {
+	const { ids } = reconcile("cookies", existing, ["first", "third"]);
+
+	expect(ids.get("third")).toBe("02");
+});
+
+test("reconcile refuses to exceed the section capacity", () => {
+	const full: Record<string, (typeof existing)["00"]> = {};
+	for (let n = 0; n < 1296; n++) {
+		full[`X${n}`] = {
+			key: `X${n}`,
+			name: `X${n}`,
+			url: `https://cookierundb.com/cookies/x${n}`,
+			image: null,
+		};
+	}
+	// Keys above are placeholders for shape only; ids come from the map below.
+	const byId = Object.fromEntries(
+		Object.values(full).map((entry, n) => [toId(n, 2), entry]),
+	);
+
+	expect(() => reconcile("cookies", byId, ["brand-new"])).toThrow(
+		"cookies: no id left, 1296 already in use",
 	);
 });
