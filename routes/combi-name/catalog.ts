@@ -35,7 +35,7 @@ export type PickerOption = readonly [
 	image: string | null,
 ];
 
-type CatalogEntry = {
+export type CatalogEntry = {
 	key: string;
 	name: string;
 	image: string | null;
@@ -74,44 +74,44 @@ export function imageFor(section: CatalogSection, id: string): string | null {
 }
 
 /**
- * Two live entries can share a display name, so a label that appears more than
- * once carries its id — the id is what tells them apart, and it is what the
- * code will carry. Not the key: the key is derived from the name, so entries
- * that collide on one collide on the other. Computed here rather than stored,
- * since the answer depends on the whole section.
+ * Live entries only, in id order — the order every wire-format sort uses. A
+ * name shared by two live entries carries its id, since the id is what tells
+ * them apart and what the code will carry; not the key, which is derived from
+ * the name and so collides whenever the name does.
+ *
+ * Takes its entries rather than reading the catalog directly so the retired
+ * branch can be tested: the real catalog has none yet, and a filter nothing
+ * exercises is a filter nobody notices breaking.
  */
-function labelsFor(section: CatalogSection): Map<string, string> {
+export function optionsFrom(
+	entries: Record<string, CatalogEntry>,
+): readonly PickerOption[] {
+	const live = Object.entries(entries).filter(
+		([, entry]) => entry.retired !== true,
+	);
+
 	const counts = new Map<string, number>();
-	for (const entry of Object.values(DATA[section])) {
-		if (entry.retired === true) continue;
+	for (const [, entry] of live) {
 		counts.set(entry.name, (counts.get(entry.name) ?? 0) + 1);
 	}
 
-	const labels = new Map<string, string>();
-	for (const [id, entry] of Object.entries(DATA[section])) {
-		if (entry.retired === true) continue;
-		const shared = (counts.get(entry.name) ?? 0) > 1;
-		labels.set(id, shared ? `${entry.name} [${id}]` : entry.name);
-	}
-	return labels;
-}
-
-function buildOptions(section: CatalogSection): readonly PickerOption[] {
-	const labels = labelsFor(section);
-	return [...labels.keys()].sort().map((id): PickerOption => {
-		return [id, labels.get(id) ?? id, imageFor(section, id)] as const;
-	});
+	return live
+		.map(([id, entry]): PickerOption => {
+			const shared = (counts.get(entry.name) ?? 0) > 1;
+			return [id, shared ? `${entry.name} [${id}]` : entry.name, entry.image];
+		})
+		.sort(([a], [b]) => (a === b ? 0 : a < b ? -1 : 1));
 }
 
 // Built once at module load: three sections, 1,341 entries, and the page asks
 // for them six times over.
 const OPTIONS: Record<CatalogSection, readonly PickerOption[]> = {
-	cookies: buildOptions("cookies"),
-	pets: buildOptions("pets"),
-	treasures: buildOptions("treasures"),
+	cookies: optionsFrom(DATA.cookies),
+	pets: optionsFrom(DATA.pets),
+	treasures: optionsFrom(DATA.treasures),
 };
 
-/** Live entries only, in id order — the order every wire-format sort uses. */
+/** Live entries only, in id order. See optionsFrom for the logic. */
 export function optionsFor(section: CatalogSection): readonly PickerOption[] {
 	return OPTIONS[section];
 }

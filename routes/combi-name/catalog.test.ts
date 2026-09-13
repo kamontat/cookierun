@@ -9,6 +9,7 @@ import {
 	isRetired,
 	nameFor,
 	optionsFor,
+	optionsFrom,
 } from "./catalog.ts";
 
 const SECTIONS: CatalogSection[] = ["cookies", "pets", "treasures"];
@@ -72,6 +73,25 @@ test("nothing in the catalog is retired yet, and retired entries stay out of the
 		const ids = optionsFor(section).map(([id]) => id);
 		expect(ids.filter((id) => isRetired(section, id))).toEqual([]);
 	}
+});
+
+test("a retired entry stays out of the options, and out of the name count", () => {
+	const options = optionsFrom({
+		"00": { key: "Live", name: "Sotdae Flock", image: null },
+		"01": { key: "Gone", name: "Sotdae Flock", image: null, retired: true },
+		"02": { key: "Other", name: "Other", image: "pets/pet02.png" },
+	});
+
+	// The live "Sotdae Flock" is alone once the retired one is out, so it keeps
+	// its plain name rather than being disambiguated against a dead entry.
+	expect(options).toEqual([
+		["00", "Sotdae Flock", null],
+		["02", "Other", "pets/pet02.png"],
+	]);
+});
+
+test("an id absent from the catalog is not retired", () => {
+	expect(isRetired("cookies", "ZZ")).toBe(false);
 });
 
 // The catalog declares these itself so a route never imports from scripts/.
