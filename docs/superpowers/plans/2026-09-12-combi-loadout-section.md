@@ -565,18 +565,24 @@ function idFor(section: Section, slug: string): string {
 4. Replace `entryFor` (lines 325-341) with a version that carries the `key`, which is no longer an id and is resolved by nothing:
 
 ```ts
-/** The readable handle the index used to be keyed by. Nothing resolves it. */
+/**
+ * The readable handle the index used to be keyed by. Nothing resolves it, so a
+ * name shared by two entries yielding one key is harmless — but an entry that
+ * already has a key keeps it, so a rescrape does not churn the file. The keys
+ * on disk carry the old collision numbering (`BabySotdae1`); recomputing them
+ * would drop it for no gain.
+ */
 function keyOf(name: string): string {
 	return (name.match(/[A-Za-z0-9]+/g) ?? [])
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 		.join("");
 }
 
-function entryFor(section: Section, card: Card): Entry {
+function entryFor(section: Section, card: Card, key: string): Entry {
 	if (card.icon === null) {
 		spriteless++;
 		return {
-			key: keyOf(card.name),
+			key,
 			name: card.name,
 			url: `${ORIGIN}/${section}/${card.slug}`,
 			image: null,
@@ -585,11 +591,16 @@ function entryFor(section: Section, card: Card): Entry {
 	const local = `${section}/${card.icon.split("/").pop()}`;
 	downloads.set(card.icon, local);
 	return {
-		key: keyOf(card.name),
+		key,
 		name: card.name,
 		url: `${ORIGIN}/${section}/${card.slug}`,
 		image: local,
 	};
+}
+
+/** An entry already in the index keeps its key; a new one is given one. */
+function keyFor(section: Section, id: string, card: Card): string {
+	return previous[section][id]?.key ?? keyOf(card.name);
 }
 ```
 
@@ -598,13 +609,14 @@ function entryFor(section: Section, card: Card): Entry {
 ```ts
 for (const section of ["cookies", "pets"] as const) {
 	for (const card of cards[section]) {
-		index[section][idFor(section, card.slug)] = entryFor(section, card);
+		const id = idFor(section, card.slug);
+		index[section][id] = entryFor(section, card, keyFor(section, id, card));
 	}
 }
 
 for (const card of cards.treasures) {
 	const id = idFor("treasures", card.slug);
-	const entry = entryFor("treasures", card);
+	const entry = entryFor("treasures", card, keyFor("treasures", id, card));
 	const chain = chains.get(card.slug);
 	if (chain === undefined) {
 		const pair = targets.get(card.slug) ?? [null, null];
@@ -778,11 +790,21 @@ test("an unknown id names itself rather than throwing", () => {
 	expect(imageFor("cookies", "ZZ")).toBe(null);
 });
 
-// Two live entries can share a display name. The id disambiguates the code; the
-// label has to disambiguate the picker.
-test("a display name shared by two entries is labelled with its key", () => {
+// Two live entries can share a display name — 5 treasure names and 1 pet name
+// do today. The id disambiguates the code; the label has to disambiguate the
+// picker, and it disambiguates with the id, since a shared name yields a shared
+// key and so the key would add nothing.
+test("a display name shared by two entries is labelled with its id", () => {
 	const labels = optionsFor("treasures").map(([, label]) => label);
 	expect(new Set(labels).size).toBe(labels.length);
+
+	const sotdae = optionsFor("pets").filter(([, label]) =>
+		label.startsWith("Sotdae Flock"),
+	);
+	expect(sotdae).toHaveLength(3);
+	for (const [id, label] of sotdae) {
+		expect(label).toBe(`Sotdae Flock [${id}]`);
+	}
 });
 
 test("nothing in the catalog is retired yet, and retired entries stay out of the options", () => {
@@ -892,8 +914,10 @@ export function imageFor(
 
 /**
  * Two live entries can share a display name, so a label that appears more than
- * once carries its key. Computed here rather than stored, since the answer
- * depends on the whole section.
+ * once carries its id — the id is what tells them apart, and it is what the
+ * code will carry. Not the key: the key is derived from the name, so entries
+ * that collide on one collide on the other. Computed here rather than stored,
+ * since the answer depends on the whole section.
  */
 function labelsFor(section: CatalogSection): Map<string, string> {
 	const counts = new Map<string, number>();
@@ -906,7 +930,7 @@ function labelsFor(section: CatalogSection): Map<string, string> {
 	for (const [id, entry] of Object.entries(DATA[section])) {
 		if (entry.retired === true) continue;
 		const shared = (counts.get(entry.name) ?? 0) > 1;
-		labels.set(id, shared ? `${entry.name} [${entry.key}]` : entry.name);
+		labels.set(id, shared ? `${entry.name} [${id}]` : entry.name);
 	}
 	return labels;
 }
