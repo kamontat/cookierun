@@ -45,6 +45,28 @@ test("slots are joined by - and sorted when order does not matter", () => {
 	).toBe("1TU000-0QQ");
 });
 
+test("slots sharing their smallest id sort the same way whichever order they arrive in", () => {
+	const one = encodeLoadout(
+		loadout({
+			treasures: [
+				["001", "000"],
+				["000", "002"],
+			],
+		}),
+	);
+	const other = encodeLoadout(
+		loadout({
+			treasures: [
+				["000", "002"],
+				["001", "000"],
+			],
+		}),
+	);
+
+	expect(one).toBe(other);
+	expect(one).toBe("1TU000_001-000_002");
+});
+
 test("slot order is preserved when order matters", () => {
 	expect(
 		encodeLoadout(loadout({ treasures: [["0QQ"], ["000"]], ordered: true })),
