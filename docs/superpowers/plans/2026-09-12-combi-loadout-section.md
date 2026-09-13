@@ -349,7 +349,9 @@ Run:
 ```bash
 bun -e 'const j = await Bun.file("assets/index.json").json();
 for (const s of ["cookies","pets","treasures"]) {
-  const ids = Object.keys(j[s]);
+  // Sorted, not in key order: JavaScript enumerates canonical integer-string
+  // keys ("10", "11") ahead of every other key, so ids[0] is not the lowest id.
+  const ids = Object.keys(j[s]).sort();
   const width = s === "treasures" ? 3 : 2;
   console.log(s, ids.length, ids[0], ids.at(-1), ids.every((i) => new RegExp(`^[0-9A-Z]{${width}}$`).test(i)));
 }
@@ -361,7 +363,17 @@ console.log("broken chain references:", broken.length);
 console.log(j.cookies["00"]);'
 ```
 
-Expected: the same three counts as Step 1; first id `00`/`00`/`000`; last id `2L`/`2U`/`0VR`; every id the right width; `broken chain references: 0`; and the cookie entry carrying `key`, `name`, `url`, `image`.
+Expected: the same three counts as Step 1; lowest id `00`/`00`/`000`; highest id `2L`/`2U`/`0VR`; every id the right width; `broken chain references: 0`; and the cookie entry carrying `key`, `name`, `url`, `image`.
+
+Then confirm the migration is a fixed point, since `fetch-assets` will call it on every run:
+
+```bash
+bun -e 'import { migrate } from "./scripts/utils/asset-ids.ts";
+const now = await Bun.file("assets/index.json").json();
+console.log("stable:", Bun.deepEquals(migrate(now), now));'
+```
+
+Expected: `stable: true`.
 
 - [ ] **Step 4: Commit**
 
@@ -664,7 +676,7 @@ for (const section of SECTIONS) {
 bail(moved, "ids moved");
 ```
 
-7. Sort each section by id before writing, so a rescrape appends at the end of the file instead of interleaving:
+7. Sort each section by id before writing, so the output is deterministic and a rescrape appends rather than interleaving. Note the limit: `JSON.stringify` emits canonical integer-string keys (`"10"`, `"11"`) first whatever the insertion order, so the file is sorted within those two groups rather than globally. Deterministic either way, which is what matters — nothing reads the file in key order:
 
 ```ts
 function byId<T>(entries: Record<string, T>): Record<string, T> {
