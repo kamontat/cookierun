@@ -84,9 +84,12 @@ test("a picked cookie, relay and pet read as their names", () => {
 		pet: "00",
 	});
 
+	// The relay is a second cookie, not its own list. Id "01" names
+	// GingerBright among cookies and Cheese Drop among pets, so this assertion
+	// is what fails if the relay is ever read from the wrong catalog.
 	expect(rows[0]).toEqual({ field: "Cookie", value: "GingerBrave" });
-	expect(rows[1]?.field).toBe("Relay");
-	expect(rows[2]?.field).toBe("Pet");
+	expect(rows[1]).toEqual({ field: "Relay", value: "GingerBright" });
+	expect(rows[2]).toEqual({ field: "Pet", value: "Choco Drop" });
 });
 
 test("alternatives read as or, and slots as a numbered list when order matters", () => {
@@ -106,6 +109,17 @@ test("alternatives read as or, and slots as a numbered list when order matters",
 	});
 	expect(ordered[3]?.field).toBe("Treasures (exact order)");
 	expect(ordered[3]?.value.startsWith("1. ")).toBe(true);
+});
+
+// One slot has nothing to order, so the label must not claim otherwise.
+test("a single treasure slot never reads as exact order", () => {
+	const rows = describeLoadout({
+		...emptyLoadout(),
+		treasures: [["000"]],
+		ordered: true,
+	});
+
+	expect(rows[3]?.field).toBe("Treasures");
 });
 
 test("the loadout rows come before the combi rows", () => {
