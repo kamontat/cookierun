@@ -11,7 +11,7 @@
 	"scripts": {
 		"dev": "bun scripts/dev.ts",
 		"fetch-assets": "bun scripts/fetch-assets.ts",
-		"build": "bun scripts/build.ts",
+		"build": "bun scripts/build.ts && bun scripts/copy-assets.ts",
 		"test": "bun scripts/test.ts",
 		"format:biome": "bun scripts/format-biome.ts",
 		"format": "bun scripts/format-biome.ts",
