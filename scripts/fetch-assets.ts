@@ -26,6 +26,7 @@
 import {
 	type AssetIndex,
 	type Entry,
+	ID_WIDTH,
 	migrate,
 	ordered,
 	reconcile,
@@ -228,9 +229,32 @@ bail(drift, "sitemap mismatch");
 const ASSETS_INDEX = `${ASSETS}index.json`;
 
 const onDisk = await Bun.file(ASSETS_INDEX).exists();
+const raw: unknown = onDisk ? await Bun.file(ASSETS_INDEX).json() : {};
 const previous: AssetIndex = onDisk
-	? migrate(await Bun.file(ASSETS_INDEX).json())
+	? migrate(raw)
 	: { cookies: {}, pets: {}, treasures: {} };
+
+/**
+ * The `ids moved` check below compares the new index against `previous`, which
+ * is `migrate`'s own output — so it cannot see a migration that renumbered. This
+ * compares against what is actually on disk, which can.
+ */
+const rawSections = raw as Record<string, Record<string, { url?: string }>>;
+const renumbered: string[] = [];
+for (const section of SECTIONS) {
+	const onDiskSection = rawSections[section] ?? {};
+	const shaped = new RegExp(`^[0-9A-Z]{${ID_WIDTH[section]}}$`);
+	for (const [id, entry] of Object.entries(onDiskSection)) {
+		if (!shaped.test(id)) continue;
+		const after = previous[section][id];
+		if (after === undefined || after.url !== entry.url) {
+			renumbered.push(
+				`${section}/${id} was ${entry.url}, migrate gave ${after?.url ?? "nothing"}`,
+			);
+		}
+	}
+}
+bail(renumbered, "migrate moved an id");
 
 const reconciled = {
 	cookies: reconcile(

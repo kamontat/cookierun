@@ -54,7 +54,7 @@ function entryFor(
 	section: CatalogSection,
 	id: string,
 ): CatalogEntry | undefined {
-	return DATA[section][id];
+	return Object.hasOwn(DATA[section], id) ? DATA[section][id] : undefined;
 }
 
 export function hasId(section: CatalogSection, id: string): boolean {

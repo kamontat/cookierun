@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 
+import index from "#assets/index.json";
+
 import {
 	CAPACITY,
 	type CatalogSection,
@@ -39,6 +41,12 @@ test("known ids resolve and unknown ones do not", () => {
 	expect(hasId("treasures", "000")).toBe(true);
 	expect(hasId("cookies", "ZZ")).toBe(false);
 	expect(hasId("treasures", "00")).toBe(false);
+});
+
+// A plain object literal's prototype chain has a `constructor`. Looking it up
+// with bracket access resolves it, so the id lookup must not.
+test("a prototype key is not an id, even though property access would resolve it", () => {
+	expect(hasId("cookies", "constructor")).toBe(false);
 });
 
 test("the first cookie reads as its display name", () => {
@@ -101,4 +109,33 @@ test("the widths match the ones the scraper assigns ids with", async () => {
 
 	expect(ID_WIDTH).toEqual(scraper.ID_WIDTH);
 	expect(CAPACITY).toEqual(scraper.CAPACITY);
+});
+
+// The committed guard against a hand edit: a `targets` or `source` chain
+// reference is another treasure's id, and this is what would catch one
+// pointing at an id nothing in the catalog defines.
+test("every targets/source reference resolves to a treasure id", () => {
+	const treasures = index.treasures as Record<
+		string,
+		{ type: string; targets?: (string | null)[]; source?: string }
+	>;
+
+	let checked = 0;
+	for (const entry of Object.values(treasures)) {
+		if (entry.type === "N") {
+			for (const target of entry.targets ?? []) {
+				if (target === null) continue;
+				expect(hasId("treasures", target)).toBe(true);
+				checked++;
+			}
+			continue;
+		}
+		expect(entry.source).toBeDefined();
+		if (entry.source !== undefined) {
+			expect(hasId("treasures", entry.source)).toBe(true);
+			checked++;
+		}
+	}
+	// Guards against the loop above silently checking nothing.
+	expect(checked).toBeGreaterThan(0);
 });

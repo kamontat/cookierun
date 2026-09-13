@@ -129,6 +129,36 @@ test("migrate leaves an already-migrated index alone, even where ids look numeri
 	expect(migrate(roundTripped)).toEqual(once);
 });
 
+// The reviewer's original fixture deleted `key` from one already-migrated
+// entry, leaving both keys id-shaped ("00", "01") — that reads as fully
+// migrated under a shape-only discriminator and does not throw. What actually
+// produces a mixed section is one entry keyed back by its old PascalCase name
+// alongside entries still keyed by id.
+test("a section with both id-shaped and name-shaped keys is refused, not renumbered", () => {
+	const migrated = migrate({
+		cookies: {
+			GingerBrave: {
+				name: "GingerBrave",
+				url: "https://cookierundb.com/cookies/ch01",
+				image: null,
+			},
+			Strawberry: {
+				name: "Strawberry Cookie",
+				url: "https://cookierundb.com/cookies/ch02",
+				image: null,
+			},
+		},
+		pets: {},
+		treasures: {},
+	});
+
+	const tampered = JSON.parse(JSON.stringify(migrated));
+	tampered.cookies.Strawberry = tampered.cookies["01"];
+	delete tampered.cookies["01"];
+
+	expect(() => migrate(tampered)).toThrow("partially migrated");
+});
+
 test("migrate refuses a section that would overflow its id width", () => {
 	const cookies: Record<string, unknown> = {};
 	for (let n = 0; n < 1297; n++) {

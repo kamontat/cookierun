@@ -95,14 +95,19 @@ function sectionOf(old: unknown, section: Section): Record<string, OldEntry> {
 }
 
 /**
- * An already-migrated section keys every entry by an id of the section's width
- * and carries a `key` field on each. It matters because ids are not re-derived
- * for such a section — see `migrate`.
+ * A section is migrated when its keys are ids. A section with only some id
+ * keys is corrupt — a hand edit or a bad merge — and re-deriving ids from
+ * enumeration position would move every id in it, which is the one thing this
+ * module exists to prevent. So that case stops the run instead.
  */
-function isMigrated(entries: [string, OldEntry][], width: number): boolean {
+function isMigrated(keys: string[], width: number): boolean {
 	const id = new RegExp(`^[0-9A-Z]{${width}}$`);
-	return entries.every(
-		([key, entry]) => typeof entry.key === "string" && id.test(key),
+	const shaped = keys.filter((key) => id.test(key)).length;
+	if (shaped === 0) return false;
+	if (shaped === keys.length) return true;
+	throw new Error(
+		`partially migrated: ${shaped} of ${keys.length} keys are ids — ` +
+			`re-deriving would move every id in the section`,
 	);
 }
 
@@ -131,7 +136,10 @@ export function migrate(old: unknown): AssetIndex {
 			);
 		}
 
-		const migrated = isMigrated(entries, width);
+		const migrated = isMigrated(
+			entries.map(([key]) => key),
+			width,
+		);
 
 		entries.forEach(([oldKey, entry], position) => {
 			const id = migrated ? oldKey : toId(position, width);
