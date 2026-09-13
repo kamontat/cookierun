@@ -34,7 +34,7 @@ bun run check:type                           # tsc --noEmit; the test files are 
 bun run check:biome                          # formatting and lint; --write applies what Biome can fix
 bun run format:biome                         # the same check with --write --unsafe; read the diff after (`format` is an alias)
 bun run check                                # both checks, in one pass
-bun run build                                # writes one self-contained file per page: dist/index.html, dist/combi-name/index.html
+bun run build                                # writes dist/index.html and dist/combi-name/index.html, plus dist/assets/ for the combi page's icons
 bun run fetch-assets                         # re-scrapes icons into assets/ (idempotent, skips existing)
 bun run deploy                               # publishes to Cloudflare; wrangler builds first
 ```
@@ -48,7 +48,7 @@ Cross-directory imports go through `#lib/*` and `#components/*`, declared in `pa
 - `lib/` is code more than one route uses, reached as `#lib/*`. Today that is the tool registry and `hrefFor`. It owns no DOM, with one deliberate exception documented in the `ui-components` skill.
 - `components/` is every custom element, reached as `#components/*`. It imports from `lib/` and never from `routes/`.
 - `routes/<slug>/` is one page: `index.html`, `index.css`, `index.ts`, and that route's own logic and tests. `routes/index.*` is the home pane. `routes/base.css` is the base stylesheet and belongs to no route.
-- `scripts/` is one file per package script, plus `scripts/utils/shell.ts` holding the `execAsync` every one of them calls.
+- `scripts/` is one file per package script — `build` is the exception, chaining `build.ts` and `copy-assets.ts`, because `execAsync` exits and nothing can follow it inside one file — plus `scripts/utils/` holding `shell.ts`'s shared `execAsync` and other script helpers.
 - `tests/` is test configuration only. `bunfig.toml` preloads `tests/happydom.ts` for every run, so `document` and `window` exist in all test files, not just the DOM ones. No test lives there.
 
 Route-only logic stays in the route. The combi codec is imported by exactly one page, so it lives at `routes/combi-name/codec.ts` rather than in `lib/`.
@@ -62,4 +62,4 @@ Route-only logic stays in the route. The combi codec is imported by exactly one 
 | `adding-a-tool` | adding a `routes/<slug>/` page, or debugging one that fails `lib/tools.test.ts` |
 | `repo-scripts` | editing `scripts/`, or fixing a `check:type` / `check:biome` failure — the two checks are stricter together than either alone |
 | `build-and-deploy` | changing the build, a stylesheet's import chain, `wrangler.jsonc`, or `.github/workflows/` |
-| `assets` | touching `assets/` or putting an icon in a page — the build inlines every referenced asset |
+| `assets` | touching `assets/` or putting an icon in a page — a new icon is inlined by default, which has a size consequence |

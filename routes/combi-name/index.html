@@ -33,7 +33,8 @@
       <p>
         A combi name holds 10 characters. That is enough to carry the run type,
         episode, boosts, random boost, cookie power+ selections, and starting
-        action alongside your cookie, relay, pet, and treasure.
+        action. Put a loadout section in front of it and the same code carries
+        your cookie, relay, pet, and treasures too.
       </p>
     </header>
 
@@ -66,6 +67,30 @@
         </form>
       </section>
 
+      <section class="panel loadout" aria-labelledby="loadout-heading">
+        <h2 id="loadout-heading">Cookie, relay, pet, treasures</h2>
+        <p>
+          The game stores these four in the combi itself, so they live in the
+          left-hand section of the code rather than in the 10-character name.
+          Leave them alone and the code stays exactly 10 characters.
+        </p>
+
+        <form id="loadout" novalidate>
+          <entry-picker id="cookie" label="Cookie"></entry-picker>
+          <entry-picker id="relay" label="Relay"></entry-picker>
+          <entry-picker id="pet" label="Pet"></entry-picker>
+
+          <entry-set id="treasure1" legend="Treasure slot 1"></entry-set>
+          <entry-set id="treasure2" legend="Treasure slot 2"></entry-set>
+          <entry-set id="treasure3" legend="Treasure slot 3"></entry-set>
+
+          <labelled-select
+            id="treasureOrder"
+            label="Treasure order"
+          ></labelled-select>
+        </form>
+      </section>
+
       <section class="panel" aria-labelledby="reader-heading">
         <h2 id="reader-heading">Read a code</h2>
 
@@ -79,13 +104,13 @@
             autocapitalize="characters"
             autocomplete="off"
             spellcheck="false"
-            maxlength="10"
-            placeholder="1S0HPF014-"
+            placeholder="1C00TU000.1S0HPF014-"
             aria-describedby="code-input-hint"
           />
           <small id="code-input-hint" class="hint">
-            Ten characters. It reads back as you type, and a code that
-            contradicts itself still reads - you get a warning, not a refusal.
+            A bare 10-character name, or a full code with a loadout in front
+            of the dot. It reads back as you type, and a code that contradicts
+            itself still reads - you get a warning, not a refusal.
           </small>
         </div>
 
@@ -162,6 +187,56 @@ ex:    1  H  3  H - F  4  1 4  J</pre
               <td><code>-</code> none, <code>J</code> jump at start</td>
             </tr>
           </tbody>
+          </table>
+        </div>
+
+        <h3>The loadout section</h3>
+        <p>
+          Everything left of the dot. Groups always read in the order
+          <code>C</code> <code>R</code> <code>P</code> <code>T</code>, and a
+          group you did not pick is simply absent.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Group</th>
+                <th scope="col">Field</th>
+                <th scope="col">Characters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>1</code></td>
+                <td>Loadout version</td>
+                <td>Always <code>1</code>, and separate from the name's version</td>
+              </tr>
+              <tr>
+                <td><code>C</code></td>
+                <td>Cookie</td>
+                <td>2 characters</td>
+              </tr>
+              <tr>
+                <td><code>R</code></td>
+                <td>Relay</td>
+                <td>2 characters, from the same list as the cookie</td>
+              </tr>
+              <tr>
+                <td><code>P</code></td>
+                <td>Pet</td>
+                <td>2 characters</td>
+              </tr>
+              <tr>
+                <td><code>T</code></td>
+                <td>Treasures</td>
+                <td>
+                  <code>U</code> any order or <code>O</code> exact order, then up
+                  to 3 slots of 3 characters each, separated by <code>-</code>.
+                  Alternatives within a slot are joined by <code>_</code>
+                </td>
+              </tr>
+            </tbody>
           </table>
         </div>
 

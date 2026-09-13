@@ -1,3 +1,4 @@
+import { optionsFor } from "./catalog.ts";
 import {
 	type Action,
 	ALL_ACTIONS,
@@ -11,12 +12,12 @@ import {
 	type Combi,
 	type CombiType,
 	type CookiePower,
-	decode,
 	type Episode,
-	encode,
 	type RandomBoost,
 } from "./codec.ts";
-import { describeCombi } from "./describe.ts";
+import { describeFull } from "./describe.ts";
+import type { FullCode } from "./full-code.ts";
+import { combiSectionOf, decodeFull, encodeFull } from "./full-code.ts";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
@@ -25,16 +26,21 @@ import {
 	RANDOM_BOOST_LABELS,
 	TYPE_LABELS,
 } from "./labels.ts";
+import type { Loadout } from "./loadout.ts";
 
 import "#components/auto-verdict.ts";
 import "#components/check-group.ts";
 import "#components/copy-code.ts";
+import "#components/entry-picker.ts";
+import "#components/entry-set.ts";
 import "#components/labelled-select.ts";
 import "#components/site-nav.ts";
 
 import type { AutoVerdictElement } from "#components/auto-verdict.ts";
 import type { CheckGroup } from "#components/check-group.ts";
 import type { CopyCode } from "#components/copy-code.ts";
+import type { EntryPicker } from "#components/entry-picker.ts";
+import type { EntrySet } from "#components/entry-set.ts";
 import type { LabelledSelect } from "#components/labelled-select.ts";
 
 /** Exported for this route's test, which drives the page through the same lookups. */
@@ -61,6 +67,57 @@ const readerRows = need<HTMLDListElement>("reader-rows");
 const readerVerdict = need<AutoVerdictElement>("reader-verdict");
 const readerWarnings = need<HTMLUListElement>("reader-warnings");
 const loadButton = need<HTMLButtonElement>("load");
+
+const cookiePicker = need<EntryPicker>("cookie");
+const relayPicker = need<EntryPicker>("relay");
+const petPicker = need<EntryPicker>("pet");
+const treasureSets = [
+	need<EntrySet>("treasure1"),
+	need<EntrySet>("treasure2"),
+	need<EntrySet>("treasure3"),
+];
+const orderSelect = need<LabelledSelect>("treasureOrder");
+const loadoutForm = need<HTMLFormElement>("loadout");
+
+/** Icons sit beside the built page, one directory up from this route. */
+const ASSET_BASE = "../assets/";
+
+function pickerOptions(
+	section: "cookies" | "pets" | "treasures",
+): readonly (readonly [string, string, string | null])[] {
+	return optionsFor(section).map(
+		([id, label, image]) =>
+			[id, label, image === null ? null : ASSET_BASE + image] as const,
+	);
+}
+
+const ORDER_OPTIONS = [
+	["any", "Any order"],
+	["ordered", "Exact order"],
+] as const;
+
+function readLoadout(): Loadout {
+	return {
+		cookie: cookiePicker.value,
+		relay: relayPicker.value,
+		pet: petPicker.value,
+		// Empty slots are not gaps in the wire format, so they drop out.
+		treasures: treasureSets
+			.map((set) => set.selected)
+			.filter((slot) => slot.length > 0),
+		ordered: orderSelect.value === "ordered",
+	};
+}
+
+function writeLoadout(loadout: Loadout): void {
+	cookiePicker.value = loadout.cookie;
+	relayPicker.value = loadout.relay;
+	petPicker.value = loadout.pet;
+	orderSelect.value = loadout.ordered ? "ordered" : "any";
+	treasureSets.forEach((set, index) => {
+		set.selected = loadout.treasures[index] ?? [];
+	});
+}
 
 const NO_RANDOM_BOOST = "";
 
@@ -93,13 +150,13 @@ function setStatus(host: HTMLElement, text: string, isError = false): void {
 }
 
 function renderBuilder(): void {
-	const code = encode(readForm());
+	const code = encodeFull({ loadout: readLoadout(), combi: readForm() });
 	codeOutput.value = code;
 
 	// Read the code back so the verdict reflects the character actually written
 	// into slot 2, not the type the select still shows.
-	const { combi } = decode(code);
-	builderVerdict.verdict = describeCombi(combi).auto;
+	const { full } = decodeFull(code);
+	builderVerdict.verdict = describeFull(full).auto;
 }
 
 function clearReader(): void {
@@ -123,19 +180,20 @@ function renderReader(): void {
 		return;
 	}
 
-	if (canonical.length !== CODE_LENGTH) {
+	const combiPart = combiSectionOf(canonical);
+	if (combiPart.length !== CODE_LENGTH) {
 		setStatus(
 			readerMessage,
-			`${canonical.length} of ${CODE_LENGTH} characters.`,
+			`${combiPart.length} of ${CODE_LENGTH} characters.`,
 		);
 		clearReader();
 		return;
 	}
 
-	let combi: Combi;
+	let full: FullCode;
 	let warnings: string[];
 	try {
-		({ combi, warnings } = decode(canonical));
+		({ full, warnings } = decodeFull(canonical));
 	} catch (error) {
 		setStatus(
 			readerMessage,
@@ -146,7 +204,7 @@ function renderReader(): void {
 		return;
 	}
 
-	const described = describeCombi(combi);
+	const described = describeFull(full);
 
 	setStatus(readerMessage, "");
 	readerRows.replaceChildren(
@@ -189,13 +247,24 @@ actionSelect.options = pairs(ALL_ACTIONS, ACTION_LABELS);
 boostsGroup.options = pairs(ALL_BOOSTS, BOOST_LABELS);
 cookiePowersGroup.options = pairs(ALL_COOKIE_POWERS, COOKIE_POWER_LABELS);
 
+const cookieOptions = pickerOptions("cookies");
+const treasureOptions = pickerOptions("treasures");
+
+cookiePicker.options = cookieOptions;
+relayPicker.options = cookieOptions;
+petPicker.options = pickerOptions("pets");
+for (const set of treasureSets) set.options = treasureOptions;
+orderSelect.options = ORDER_OPTIONS;
+
 builderForm.addEventListener("input", renderBuilder);
+loadoutForm.addEventListener("input", renderBuilder);
 
 codeInput.addEventListener("input", renderReader);
 
 loadButton.addEventListener("click", () => {
-	const { combi } = decode(codeInput.value);
-	writeForm(combi);
+	const { full } = decodeFull(codeInput.value);
+	writeForm(full.combi);
+	writeLoadout(full.loadout);
 	renderBuilder();
 	typeSelect.focus();
 });

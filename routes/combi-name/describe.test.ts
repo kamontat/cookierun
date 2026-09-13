@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 
 import type { Combi } from "./codec.ts";
-import { describeCombi } from "./describe.ts";
+import { describeCombi, describeFull, describeLoadout } from "./describe.ts";
+import { emptyLoadout } from "./loadout.ts";
 
 const base: Combi = {
 	type: "score",
@@ -64,4 +65,94 @@ test("a semi-auto verdict names every reason it needs manual work", () => {
 		semi: true,
 		reasons: ["Fast Start", "Revive once with 80 HP", "Jump at start"],
 	});
+});
+
+test("an empty loadout reads as four None rows", () => {
+	expect(describeLoadout(emptyLoadout())).toEqual([
+		{ field: "Cookie", value: "None" },
+		{ field: "Relay", value: "None" },
+		{ field: "Pet", value: "None" },
+		{ field: "Treasures", value: "None" },
+	]);
+});
+
+test("a picked cookie, relay and pet read as their names", () => {
+	const rows = describeLoadout({
+		...emptyLoadout(),
+		cookie: "00",
+		relay: "01",
+		pet: "00",
+	});
+
+	// The relay is a second cookie, not its own list. Id "01" names
+	// GingerBright among cookies and Cheese Drop among pets, so this assertion
+	// is what fails if the relay is ever read from the wrong catalog.
+	expect(rows[0]).toEqual({ field: "Cookie", value: "GingerBrave" });
+	expect(rows[1]).toEqual({ field: "Relay", value: "GingerBright" });
+	expect(rows[2]).toEqual({ field: "Pet", value: "Choco Drop" });
+});
+
+// Pet ids 0J, 0K and 2L are all named "Sotdae Flock". A reader told only the
+// name cannot tell which cookie the code means.
+test("a shared display name reads with the id that tells it apart", () => {
+	const rows = describeLoadout({ ...emptyLoadout(), pet: "0J" });
+
+	expect(rows[2]).toEqual({ field: "Pet", value: "Sotdae Flock [0J]" });
+});
+
+test("alternatives read as or, and slots as a numbered list when order matters", () => {
+	const unordered = describeLoadout({
+		...emptyLoadout(),
+		treasures: [["000", "001"], ["002"]],
+		ordered: false,
+	});
+	expect(unordered[3]?.field).toBe("Treasures");
+	expect(unordered[3]?.value).toContain(" or ");
+	expect(unordered[3]?.value).toContain("; ");
+
+	const ordered = describeLoadout({
+		...emptyLoadout(),
+		treasures: [["000"], ["001"]],
+		ordered: true,
+	});
+	expect(ordered[3]?.field).toBe("Treasures (exact order)");
+	expect(ordered[3]?.value.startsWith("1. ")).toBe(true);
+});
+
+// One slot has nothing to order, so the label must not claim otherwise.
+test("a single treasure slot never reads as exact order", () => {
+	const rows = describeLoadout({
+		...emptyLoadout(),
+		treasures: [["000"]],
+		ordered: true,
+	});
+
+	expect(rows[3]?.field).toBe("Treasures");
+});
+
+test("the loadout rows come before the combi rows", () => {
+	const { rows } = describeFull({
+		loadout: { ...emptyLoadout(), cookie: "00" },
+		combi: {
+			type: "score",
+			episode: "any",
+			boosts: [],
+			randomBoost: null,
+			cookiePowers: [],
+			action: "none",
+		},
+	});
+
+	expect(rows.map(({ field }) => field)).toEqual([
+		"Cookie",
+		"Relay",
+		"Pet",
+		"Treasures",
+		"Type",
+		"Episode",
+		"Boosts",
+		"Random boost",
+		"Cookie power+",
+		"Action",
+	]);
 });

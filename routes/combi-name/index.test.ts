@@ -120,3 +120,76 @@ test("loading a code into the builder fills every control", () => {
 	expect(randomBoostSelect.value).toBe("revive");
 	expect(code.textContent).toBe("1E3-PF400J");
 });
+
+const orderSelect = need<HTMLSelectElement>("treasureOrder");
+
+function clickEntry(hostId: string, value: string): void {
+	const host = need(hostId);
+	const row = host.querySelector<HTMLButtonElement>(`button[value="${value}"]`);
+	if (row === null) throw new Error(`no entry ${value} in #${hostId}`);
+	row.click();
+}
+
+// These run against the same page as the tests above, in file order, so the
+// combi half is whatever the last test left in the builder: 1E3-PF400J.
+test("picking a cookie puts a loadout section in front of the combi code", () => {
+	clickEntry("cookie", "00");
+
+	expect(code.textContent).toBe("1C00.1E3-PF400J");
+});
+
+test("picking treasures writes a slot group, and clearing the cookie drops its group", () => {
+	clickEntry("treasure1", "000");
+
+	expect(code.textContent).toBe("1C00TU000.1E3-PF400J");
+
+	clickEntry("cookie", "");
+
+	expect(code.textContent).toBe("1TU000.1E3-PF400J");
+});
+
+test("the order select switches the flag once there are two slots", () => {
+	clickEntry("treasure2", "001");
+	orderSelect.value = "ordered";
+	fire(orderSelect);
+
+	expect(code.textContent).toBe("1TO000-001.1E3-PF400J");
+
+	orderSelect.value = "any";
+	fire(orderSelect);
+
+	expect(code.textContent).toBe("1TU000-001.1E3-PF400J");
+});
+
+test("the reader still counts the combi half while a full code is short", () => {
+	codeInput.value = "1C00.1S0";
+	fire(codeInput);
+
+	expect(readerMessage.textContent).toBe("3 of 10 characters.");
+});
+
+test("the reader spells out both sections", () => {
+	codeInput.value = "1c00tu000.1s0hpf014-";
+	fire(codeInput);
+
+	const rows = [...readerRows.querySelectorAll("dt")].map(
+		(term) => term.textContent,
+	);
+	expect(rows.slice(0, 4)).toEqual(["Cookie", "Relay", "Pet", "Treasures"]);
+	expect(readerMessage.textContent).toBe("");
+});
+
+test("an unreadable loadout section is reported, not guessed at", () => {
+	codeInput.value = "1CZZ.1S0---000-";
+	fire(codeInput);
+
+	expect(readerMessage.textContent).toContain('no cookie has id "ZZ"');
+});
+
+test("loading a full code into the builder fills the loadout controls too", () => {
+	codeInput.value = "1C01P02TU001.1S0---000-";
+	fire(codeInput);
+	need<HTMLButtonElement>("load").click();
+
+	expect(code.textContent).toBe("1C01P02TU001.1S0---000-");
+});

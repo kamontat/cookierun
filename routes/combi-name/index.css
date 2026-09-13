@@ -1,8 +1,9 @@
 @import "../base.css";
 
-/* The result and the legend are full-width; the builder and the reader pair up
-   beside each other once the grid has two tracks. */
+/* The result, the loadout and the legend are full-width; the builder and the
+   reader pair up beside each other once the grid has two tracks. */
 .result,
+.loadout,
 .legend {
 	grid-column: 1 / -1;
 }

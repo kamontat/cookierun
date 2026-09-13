@@ -349,7 +349,9 @@ Run:
 ```bash
 bun -e 'const j = await Bun.file("assets/index.json").json();
 for (const s of ["cookies","pets","treasures"]) {
-  const ids = Object.keys(j[s]);
+  // Sorted, not in key order: JavaScript enumerates canonical integer-string
+  // keys ("10", "11") ahead of every other key, so ids[0] is not the lowest id.
+  const ids = Object.keys(j[s]).sort();
   const width = s === "treasures" ? 3 : 2;
   console.log(s, ids.length, ids[0], ids.at(-1), ids.every((i) => new RegExp(`^[0-9A-Z]{${width}}$`).test(i)));
 }
@@ -361,7 +363,17 @@ console.log("broken chain references:", broken.length);
 console.log(j.cookies["00"]);'
 ```
 
-Expected: the same three counts as Step 1; first id `00`/`00`/`000`; last id `2L`/`2U`/`0VR`; every id the right width; `broken chain references: 0`; and the cookie entry carrying `key`, `name`, `url`, `image`.
+Expected: the same three counts as Step 1; lowest id `00`/`00`/`000`; highest id `2L`/`2U`/`0VR`; every id the right width; `broken chain references: 0`; and the cookie entry carrying `key`, `name`, `url`, `image`.
+
+Then confirm the migration is a fixed point, since `fetch-assets` will call it on every run:
+
+```bash
+bun -e 'import { migrate } from "./scripts/utils/asset-ids.ts";
+const now = await Bun.file("assets/index.json").json();
+console.log("stable:", Bun.deepEquals(migrate(now), now));'
+```
+
+Expected: `stable: true`.
 
 - [ ] **Step 4: Commit**
 
@@ -565,18 +577,24 @@ function idFor(section: Section, slug: string): string {
 4. Replace `entryFor` (lines 325-341) with a version that carries the `key`, which is no longer an id and is resolved by nothing:
 
 ```ts
-/** The readable handle the index used to be keyed by. Nothing resolves it. */
+/**
+ * The readable handle the index used to be keyed by. Nothing resolves it, so a
+ * name shared by two entries yielding one key is harmless — but an entry that
+ * already has a key keeps it, so a rescrape does not churn the file. The keys
+ * on disk carry the old collision numbering (`BabySotdae1`); recomputing them
+ * would drop it for no gain.
+ */
 function keyOf(name: string): string {
 	return (name.match(/[A-Za-z0-9]+/g) ?? [])
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 		.join("");
 }
 
-function entryFor(section: Section, card: Card): Entry {
+function entryFor(section: Section, card: Card, key: string): Entry {
 	if (card.icon === null) {
 		spriteless++;
 		return {
-			key: keyOf(card.name),
+			key,
 			name: card.name,
 			url: `${ORIGIN}/${section}/${card.slug}`,
 			image: null,
@@ -585,11 +603,16 @@ function entryFor(section: Section, card: Card): Entry {
 	const local = `${section}/${card.icon.split("/").pop()}`;
 	downloads.set(card.icon, local);
 	return {
-		key: keyOf(card.name),
+		key,
 		name: card.name,
 		url: `${ORIGIN}/${section}/${card.slug}`,
 		image: local,
 	};
+}
+
+/** An entry already in the index keeps its key; a new one is given one. */
+function keyFor(section: Section, id: string, card: Card): string {
+	return previous[section][id]?.key ?? keyOf(card.name);
 }
 ```
 
@@ -598,13 +621,14 @@ function entryFor(section: Section, card: Card): Entry {
 ```ts
 for (const section of ["cookies", "pets"] as const) {
 	for (const card of cards[section]) {
-		index[section][idFor(section, card.slug)] = entryFor(section, card);
+		const id = idFor(section, card.slug);
+		index[section][id] = entryFor(section, card, keyFor(section, id, card));
 	}
 }
 
 for (const card of cards.treasures) {
 	const id = idFor("treasures", card.slug);
-	const entry = entryFor("treasures", card);
+	const entry = entryFor("treasures", card, keyFor("treasures", id, card));
 	const chain = chains.get(card.slug);
 	if (chain === undefined) {
 		const pair = targets.get(card.slug) ?? [null, null];
@@ -652,7 +676,7 @@ for (const section of SECTIONS) {
 bail(moved, "ids moved");
 ```
 
-7. Sort each section by id before writing, so a rescrape appends at the end of the file instead of interleaving:
+7. Sort each section by id before writing, so the output is deterministic and a rescrape appends rather than interleaving. Note the limit: `JSON.stringify` emits canonical integer-string keys (`"10"`, `"11"`) first whatever the insertion order, so the file is sorted within those two groups rather than globally. Deterministic either way, which is what matters — nothing reads the file in key order:
 
 ```ts
 function byId<T>(entries: Record<string, T>): Record<string, T> {
@@ -778,11 +802,21 @@ test("an unknown id names itself rather than throwing", () => {
 	expect(imageFor("cookies", "ZZ")).toBe(null);
 });
 
-// Two live entries can share a display name. The id disambiguates the code; the
-// label has to disambiguate the picker.
-test("a display name shared by two entries is labelled with its key", () => {
+// Two live entries can share a display name — 5 treasure names and 1 pet name
+// do today. The id disambiguates the code; the label has to disambiguate the
+// picker, and it disambiguates with the id, since a shared name yields a shared
+// key and so the key would add nothing.
+test("a display name shared by two entries is labelled with its id", () => {
 	const labels = optionsFor("treasures").map(([, label]) => label);
 	expect(new Set(labels).size).toBe(labels.length);
+
+	const sotdae = optionsFor("pets").filter(([, label]) =>
+		label.startsWith("Sotdae Flock"),
+	);
+	expect(sotdae).toHaveLength(3);
+	for (const [id, label] of sotdae) {
+		expect(label).toBe(`Sotdae Flock [${id}]`);
+	}
 });
 
 test("nothing in the catalog is retired yet, and retired entries stay out of the options", () => {
@@ -892,8 +926,10 @@ export function imageFor(
 
 /**
  * Two live entries can share a display name, so a label that appears more than
- * once carries its key. Computed here rather than stored, since the answer
- * depends on the whole section.
+ * once carries its id — the id is what tells them apart, and it is what the
+ * code will carry. Not the key: the key is derived from the name, so entries
+ * that collide on one collide on the other. Computed here rather than stored,
+ * since the answer depends on the whole section.
  */
 function labelsFor(section: CatalogSection): Map<string, string> {
 	const counts = new Map<string, number>();
@@ -906,7 +942,7 @@ function labelsFor(section: CatalogSection): Map<string, string> {
 	for (const [id, entry] of Object.entries(DATA[section])) {
 		if (entry.retired === true) continue;
 		const shared = (counts.get(entry.name) ?? 0) > 1;
-		labels.set(id, shared ? `${entry.name} [${entry.key}]` : entry.name);
+		labels.set(id, shared ? `${entry.name} [${id}]` : entry.name);
 	}
 	return labels;
 }
@@ -1262,14 +1298,16 @@ export function encodeLoadout(loadout: Loadout): string {
 
 	const slots = loadout.treasures.map((slot) => [...slot].sort());
 	const ordered = slots.length > 1 && loadout.ordered;
-	// Fixed-width uppercase base-36 sorts lexicographically in numeric order,
-	// so comparing the first id as a plain string is comparing the ids.
-	const first = (slot: string[]): string => slot[0] ?? "";
+	// Fixed-width uppercase base-36 sorts lexicographically in numeric order, so
+	// comparing slots as strings is comparing their ids. It has to be the whole
+	// slot: two slots sharing their smallest id would otherwise tie, and a tie
+	// leaves the caller's order in place — one build with two codes.
+	const key = (slot: string[]): string => slot.join("_");
 	const arranged = ordered
 		? slots
 		: [...slots].sort((a, b) => {
-				if (first(a) === first(b)) return 0;
-				return first(a) < first(b) ? -1 : 1;
+				if (key(a) === key(b)) return 0;
+				return key(a) < key(b) ? -1 : 1;
 			});
 
 	return `${out}T${ordered ? "O" : "U"}${arranged.map((slot) => slot.join("_")).join("-")}`;
@@ -1438,10 +1476,16 @@ test("combiSectionOf picks the right half, or the whole code", () => {
 // The loadout space is unbounded once alternatives exist, so the round trip is
 // covered by a seeded sample rather than exhaustively.
 test("a seeded sample of loadouts round-trips to its canonical form", () => {
+	// mulberry32: every step stays in 32-bit range. The obvious LCG
+	// (`seed * 1103515245 + 12345`) overflows 2^53 and degenerates into a
+	// generator that returns 0 almost always, which silently empties this loop.
 	let seed = 20260912;
 	const random = (bound: number): number => {
-		seed = (seed * 1103515245 + 12345) % 2147483648;
-		return seed % bound;
+		seed = (seed + 0x6d2b79f5) >>> 0;
+		let t = seed;
+		t = Math.imul(t ^ (t >>> 15), t | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		return ((t ^ (t >>> 14)) >>> 0) % bound;
 	};
 
 	const cookieIds = ["00", "01", "2L"];
@@ -2910,20 +2954,38 @@ In `package.json`, `build` becomes:
 In `scripts/dev.ts`, widen the route table and add the handler:
 
 ```ts
+import { resolve } from "node:path";
+
 const ASSETS = new URL("../assets/", import.meta.url).pathname;
 
 /**
  * The built page loads icons from `../assets/`, which wrangler serves out of
  * `dist/`. In development nothing writes `dist/`, so the dev server answers for
  * the repository's own `assets/` directory instead.
+ *
+ * Containment is checked by resolving the path rather than by looking for
+ * "..": `pathname` has already collapsed literal dot segments by the time the
+ * handler sees it, and a percent-encoded one never matches a substring test, so
+ * a ".." check would be reassuring and useless.
  */
-const serveAsset = (request: Request): Response => {
-	const path = new URL(request.url).pathname.slice("/assets/".length);
-	if (path.includes("..")) return new Response("no", { status: 400 });
-	return new Response(Bun.file(ASSETS + path));
+const serveAsset = async (request: Request): Promise<Response> => {
+	const { pathname } = new URL(request.url);
+	const resolved = resolve(ASSETS + pathname.slice("/assets/".length));
+	if (!resolved.startsWith(ASSETS)) {
+		return new Response("outside the asset directory", { status: 403 });
+	}
+
+	const file = Bun.file(resolved);
+	if (!(await file.exists())) {
+		return new Response("no such asset", { status: 404 });
+	}
+	return new Response(file);
 };
 
-const routes: Record<string, HTMLBundle | ((request: Request) => Response)> = {
+const routes: Record<
+	string,
+	HTMLBundle | ((request: Request) => Promise<Response>)
+> = {
 	"/": home,
 	"/index.html": home,
 	"/assets/*": serveAsset,
@@ -2941,7 +3003,7 @@ Run:
 ls dist/assets && ls dist/assets/treasures | wc -l && du -sh dist/combi-name/index.html dist/assets
 ```
 
-Expected: `cookies pets treasures`, over 1,100 treasure icons, the page around 500KB, and `dist/assets` around 14MB.
+Expected: `cookies pets treasures`, 868 treasure icons, the page around 500KB, and `dist/assets` around 14MB. The icon count is lower than the 1,144 treasure entries because entries share icons — there are 869 distinct paths, of which 8 entries have none.
 
 Run: `grep -c "data:image/png;base64" dist/combi-name/index.html || true`
 Expected: `0` — no icon was inlined.

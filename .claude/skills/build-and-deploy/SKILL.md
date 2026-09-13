@@ -1,17 +1,21 @@
 ---
 name: build-and-deploy
-description: Use when changing `bun run build`, routes/base.css or a route stylesheet, wrangler.jsonc, the dist/ output shape, or anything under .github/workflows/ — including bumping a pinned action SHA or debugging a Cloudflare deploy.
+description: Use when changing `bun run build`, `scripts/copy-assets.ts`, the dev server's `/assets/*` route, routes/base.css or a route stylesheet, wrangler.jsonc, the dist/ output shape, or anything under .github/workflows/ — including bumping a pinned action SHA or debugging a Cloudflare deploy.
 ---
 
 # Web build and deployment
 
 ## Build
 
-`bun run build` takes one entrypoint per page, and `--compile --target=browser` inlines each page's JavaScript, CSS, and referenced assets into its own self-contained file: `dist/index.html` and `dist/combi-name/index.html`. `dist/` is also what Cloudflare serves — `wrangler.jsonc` names it as the asset directory — so the build's output shape is part of the deployment contract, not just a local convenience. Each file works offline from `file://` as well.
+`bun run build` is `bun scripts/build.ts && bun scripts/copy-assets.ts` — two scripts chained at the package-script level, not one script that does both. `execAsync` (see the `repo-scripts` skill) calls `process.exit` once its command finishes, so nothing written after it in the same file ever runs; a second build step has to be a second script the first one's exit code gates.
 
-`scripts/build.ts` gets those entrypoints from `pageEntrypoints()` in `lib/tools.ts` rather than from a list, which is what retired the old warning about never globbing that list away — `sh` expands `**` as `*`, so a glob would have silently dropped the home page. `lib/tools.test.ts` asserts the build script still calls `pageEntrypoints()`, so a hand-maintained list slipped back in fails the suite rather than passing it. `scripts/dev.ts` covers the same ground for development by importing each page by name.
+`scripts/build.ts` takes one entrypoint per page, and `--compile --target=browser` inlines each page's JavaScript and CSS into its own file: `dist/index.html` and `dist/combi-name/index.html`. `scripts/copy-assets.ts` then copies `assets/cookies`, `assets/pets`, and `assets/treasures` to `dist/assets/` with `cp -R`. `dist/` is also what Cloudflare serves — `wrangler.jsonc` names it as the asset directory — so both scripts' output shape is part of the deployment contract, not just a local convenience.
 
-The consequence of inlining is that anything a page references gets embedded as a data URI — read the `assets` skill before wiring an icon into a page.
+`scripts/build.ts` gets its entrypoints from `pageEntrypoints()` in `lib/tools.ts` rather than from a list, which is what retired the old warning about never globbing that list away — `sh` expands `**` as `*`, so a glob would have silently dropped the home page. `lib/tools.test.ts` asserts the build script still calls `pageEntrypoints()`, so a hand-maintained list slipped back in fails the suite rather than passing it. `scripts/dev.ts` covers the same ground for development by importing each page by name.
+
+Inlining still means anything else a page references gets embedded as a data URI — read the `assets` skill before wiring a new icon into a page. The combi page's own cookie, pet, and treasure icons are the one deliberate exception: at 14 MB, inlining them as data URIs was never on the table, so `--compile` never sees them. The page instead loads them at runtime from `../assets/...`, a plain relative path into the `dist/assets/` that `copy-assets.ts` populates. That makes `dist/combi-name/index.html` the one page that is not a single self-contained file — moving it without its sibling `dist/assets/` leaves every icon broken — but it still works fully offline from a `file://` URL as long as `dist/` stays intact. Every other page remains one inlined file, unaffected.
+
+`copy-assets.ts` only runs as part of `bun run build`, and `bun run dev` never writes `dist/` at all, so `../assets/...` would 404 in development without help. `scripts/dev.ts` answers that itself: its `Bun.serve()` route table handles `/assets/*` by resolving the request path against the repository's own `assets/` directory (rejecting anything that resolves outside it) and serving the file straight from there, so the combi page's icons load the same way in `bun run dev` as they do against a built `dist/`.
 
 ## Stylesheets
 

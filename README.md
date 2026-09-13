@@ -1,6 +1,6 @@
 # Cookie Run combi codes
 
-A Cookie Run combi stores a cookie, relay, pet, and treasure, but nothing else — the run type, episode, boosts, and cookie power+ selections live only in your head. The combi name is 10 characters, which is enough room to carry all of it.
+A Cookie Run combi stores a cookie, relay, pet, and treasure, but nothing else — the run type, episode, boosts, and cookie power+ selections would otherwise live only in your head. The combi name is 10 characters, which is enough room to carry all of it. An optional loadout section goes further still, writing down the cookie, relay, pet, and treasure choices themselves, so a whole build travels as one code even without the game in front of you.
 
 The full configuration space is 6 types x 12 episodes x 8 boost subsets x 12 random-boost choices x 128 cookie-power+ subsets x 2 actions = 1,769,472 combinations, or about 21 bits. Ten characters of `A-Z0-9` hold roughly 52 bits, so this encoding spends the surplus on legibility instead of packing: every field gets a fixed slot you can read at a glance.
 
@@ -48,6 +48,35 @@ ex:    1  H  3  H - F  4  1 4  J
 
 Add the values of everything you selected and write the sum in hex. Fairy plus Sea Fairy is `04 + 10 = 14`.
 
+## Loadout section
+
+A full code is `loadout.combi`: an optional loadout section, a `.`, then the ten-character combi name exactly as above. A bare ten-character code — no `.`, no loadout — is still a whole code and decodes exactly as it always has; the loadout is purely additive and every code written before it existed still works, unchanged.
+
+The loadout writes down the cookie, relay, pet, and treasure a build uses. The game already stores those four in its own combi field, so a loadout is never required — add one when you want a build to travel as text on its own, without a screenshot or the game alongside it.
+
+| Tag | Group | Encoding |
+| --- | --- | --- |
+| `1` | Version | This section's own format version, tracked separately from the combi section's (slot 1 of the table above) |
+| `C` | Cookie | 2-character catalog id |
+| `R` | Relay | 2-character catalog id, the same catalog as cookie |
+| `P` | Pet | 2-character catalog id |
+| `T` | Treasures | An order flag (`U` any order, `O` exact order), then up to three slots of 3-character ids joined by `-`; alternatives within a slot are joined by `_` |
+
+`C`, `R`, `P`, and `T` are each written at most once and, when present, always in that order. A group that has nothing to say is simply missing — there is no placeholder character for "unset."
+
+```
+1S0HPF014-                   no loadout, exactly as before
+1C2L.1S0HPF014-              a cookie only
+1C2LR0BP1ZTU0FZ_0RB-0QQ.1H3H-F400J
+                             cookie, relay, pet, two treasure slots, any order
+```
+
+Encoding always writes the canonical form: ids are sorted within a slot, and whole slots are sorted against each other whenever the order flag is `U` — a single slot is always written `U`, since there is nothing to order with only one slot. That is what keeps one build to exactly one code. Reading a code is more forgiving: a hand-written or otherwise non-canonical loadout still decodes correctly, it just re-encodes into the canonical form rather than back into what you typed.
+
+Every id — cookie, relay, pet, or treasure — is a catalog id from `assets/index.json`. Ids are handed out once, append-only, and never reassigned or reused, so a code you write today still names the same cookie, pet, or treasure years from now, even if that entry is later pulled from the game.
+
+An id must not repeat within one treasure slot — `TU0FZ_0FZ` is invalid, since listing the same treasure as its own alternative says nothing. The same id may repeat across two different slots, though: that is how overlapping alternatives are written, and `loadout.ts` enforces the no-repeat rule per slot, not across the whole group.
+
 ## Auto vs semi-auto
 
 Semi-auto is a run that needs manual work each time. A combi is semi-auto when **any** of these is true: Fast Start is on (slot 6), a random boost is selected (slot 7), or there is a jump action (slot 10).
@@ -89,16 +118,16 @@ Every page carries a sidebar listing the available tools, generated from the reg
 
 The code leads the page and updates as you pick a configuration below it, or paste one into the reader and it comes back in plain words. The slot legend is on the page too, so you can learn to read a code by eye and stop needing the tool. The sidebar carries a light/dark control that defaults to following your system. Everything runs in the browser — no network calls, no analytics.
 
-The build produces a **self-contained `index.html` per page** with all JavaScript and CSS inlined, so each page works from a file:// URL offline and carries no base-path assumption about where it is served from.
+The build produces one `index.html` per page with its JavaScript and CSS inlined, so each page works from a file:// URL offline and carries no base-path assumption about where it is served from. The combi page is the one exception: it ships its cookie, pet, and treasure icons as a sibling `assets/` folder rather than inlining them, so that page needs the folder alongside it to show them — every other page stays fully self-contained.
 
 ## Development
 
 ```bash
 bun install
 bun run dev        # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
-bun run test       # 90 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run test       # 177 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run check      # typecheck and Biome, in one pass
-bun run build      # writes dist/index.html and dist/combi-name/index.html
+bun run build      # writes dist/index.html, dist/combi-name/index.html, and dist/assets/
 ```
 
 The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
@@ -111,9 +140,12 @@ The exhaustive test asserts that encoding produces exactly 1,474,560 distinct co
 | `routes/combi-name/codec.ts` | Slot tables, `encode`, `decode`, `isSemiAuto`. No DOM, no dependencies. |
 | `routes/combi-name/labels.ts` | Display names for every enum value. |
 | `routes/combi-name/describe.ts` | Turns a combi into rows and an auto/semi-auto verdict. |
+| `routes/combi-name/catalog.ts` | Resolves cookie, pet, and treasure ids against `assets/index.json`. |
+| `routes/combi-name/loadout.ts` | The loadout section's grammar: `encodeLoadout`, `decodeLoadout`. |
+| `routes/combi-name/full-code.ts` | Joins a loadout and a combi into `loadout.combi`, or just the bare combi when there is no loadout. |
 | `components/` | Every custom element the pages declare, the sidebar and the light/dark control among them. |
 | `lib/` | What more than one route needs: the tool registry, and the link writer that keeps every href relative. |
-| `scripts/` | One file per package script — dev server, build, test, the two checks, the formatter, deploy, asset scrape — over a shared `execAsync` in `scripts/utils/`. |
+| `scripts/` | One file per package script — dev server, build, copying built assets, test, the two checks, the formatter, deploy, asset scrape — over a shared `execAsync` in `scripts/utils/`. |
 | `tests/` | Test configuration only; every test sits beside the code it covers. |
 
 The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a boost or episode cannot silently ship a page with a missing option.
