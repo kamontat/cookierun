@@ -115,3 +115,18 @@ const OPTIONS: Record<CatalogSection, readonly PickerOption[]> = {
 export function optionsFor(section: CatalogSection): readonly PickerOption[] {
 	return OPTIONS[section];
 }
+
+const LABELS: Record<CatalogSection, ReadonlyMap<string, string>> = {
+	cookies: new Map(OPTIONS.cookies.map(([id, label]) => [id, label])),
+	pets: new Map(OPTIONS.pets.map(([id, label]) => [id, label])),
+	treasures: new Map(OPTIONS.treasures.map(([id, label]) => [id, label])),
+};
+
+/**
+ * The disambiguated display name — what the picker shows. A name shared by two
+ * live entries carries its id, since that is what tells them apart. Falls back
+ * to the bare name for a retired entry, which no picker offers.
+ */
+export function labelFor(section: CatalogSection, id: string): string {
+	return LABELS[section].get(id) ?? nameFor(section, id);
+}

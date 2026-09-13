@@ -9,6 +9,7 @@ import {
 	ID_WIDTH,
 	imageFor,
 	isRetired,
+	labelFor,
 	nameFor,
 	optionsFor,
 	optionsFrom,
@@ -100,6 +101,14 @@ test("a retired entry stays out of the options, and out of the name count", () =
 
 test("an id absent from the catalog is not retired", () => {
 	expect(isRetired("cookies", "ZZ")).toBe(false);
+});
+
+// labelFor is what describe.ts calls; a retired entry's id is not in the
+// picker's precomputed label map at all, since the picker never offers it, so
+// this exercises the plain nameFor fallback rather than the disambiguation
+// path optionsFrom above already covers.
+test("labelFor falls back to the bare name for an id no picker offers", () => {
+	expect(labelFor("cookies", "ZZ")).toBe("ZZ");
 });
 
 // The catalog declares these itself so a route never imports from scripts/.

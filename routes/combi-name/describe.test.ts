@@ -92,6 +92,14 @@ test("a picked cookie, relay and pet read as their names", () => {
 	expect(rows[2]).toEqual({ field: "Pet", value: "Choco Drop" });
 });
 
+// Pet ids 0J, 0K and 2L are all named "Sotdae Flock". A reader told only the
+// name cannot tell which cookie the code means.
+test("a shared display name reads with the id that tells it apart", () => {
+	const rows = describeLoadout({ ...emptyLoadout(), pet: "0J" });
+
+	expect(rows[2]).toEqual({ field: "Pet", value: "Sotdae Flock [0J]" });
+});
+
 test("alternatives read as or, and slots as a numbered list when order matters", () => {
 	const unordered = describeLoadout({
 		...emptyLoadout(),

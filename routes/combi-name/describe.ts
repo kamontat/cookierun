@@ -1,4 +1,4 @@
-import { type CatalogSection, isRetired, nameFor } from "./catalog.ts";
+import { type CatalogSection, isRetired, labelFor } from "./catalog.ts";
 import { type Combi, isSemiAuto } from "./codec.ts";
 import type { FullCode } from "./full-code.ts";
 import {
@@ -82,7 +82,7 @@ const RETIRED_SUFFIX = " (no longer listed)";
  * named — with a note, because the reader will not find it in the game.
  */
 function entryName(section: CatalogSection, id: string): string {
-	const name = nameFor(section, id);
+	const name = labelFor(section, id);
 	return isRetired(section, id) ? name + RETIRED_SUFFIX : name;
 }
 

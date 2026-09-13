@@ -62,6 +62,29 @@ test("clicking the None row clears the value", () => {
 	expect(element.value).toBeNull();
 });
 
+// aria-selected is only valid on option/tab/row/gridcell/treeitem roles; a
+// plain button ignores it, so assistive technology needs both roles present.
+test("the list and its rows carry the roles that make aria-selected valid", () => {
+	const element = mount();
+
+	expect(element.querySelector(".entries")?.getAttribute("role")).toBe(
+		"listbox",
+	);
+	for (const row of rows(element)) {
+		expect(row.getAttribute("role")).toBe("option");
+	}
+});
+
+test("clicking a row returns focus to the search input, not <body>", () => {
+	const element = mount();
+	const search = element.querySelector<HTMLInputElement>("input[type=search]");
+	if (search === null) throw new Error("no search input");
+
+	rows(element)[2]?.click();
+
+	expect(document.activeElement).toBe(search);
+});
+
 test("setting the value marks that row as the selected one", () => {
 	const element = mount();
 	element.value = "02";

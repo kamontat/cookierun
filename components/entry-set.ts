@@ -37,6 +37,8 @@ export class EntrySet extends HTMLElement {
 
 		this.#picked.className = "picked";
 		this.#list.className = "entries";
+		this.#list.setAttribute("role", "listbox");
+		this.#list.setAttribute("aria-multiselectable", "true");
 		this.#more.className = "more";
 
 		this.#search.type = "search";
@@ -86,6 +88,11 @@ export class EntrySet extends HTMLElement {
 
 	#changed(): void {
 		this.#render();
+		// `#render()` just replaced the chip or row button the click landed on,
+		// which would otherwise drop focus to <body>. The search input is the one
+		// element guaranteed to survive a render, and it is where the next
+		// keystroke wants to go anyway.
+		this.#search.focus();
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 	}
 
@@ -109,6 +116,7 @@ export class EntrySet extends HTMLElement {
 		button.type = "button";
 		button.value = value;
 		button.className = "entry";
+		button.setAttribute("role", "option");
 		button.setAttribute("aria-selected", String(this.#chosen.has(value)));
 		button.addEventListener("click", () => {
 			this.#chosen.add(value);

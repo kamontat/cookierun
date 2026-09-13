@@ -44,6 +44,7 @@ export class EntryPicker extends HTMLElement {
 		});
 
 		this.#list.className = "entries";
+		this.#list.setAttribute("role", "listbox");
 		this.#more.className = "more";
 
 		const field = document.createElement("div");
@@ -104,10 +105,16 @@ export class EntryPicker extends HTMLElement {
 		button.type = "button";
 		button.value = value;
 		button.className = "entry";
+		button.setAttribute("role", "option");
 		button.setAttribute("aria-selected", String((this.#value ?? "") === value));
 		button.addEventListener("click", () => {
 			this.#value = value === "" ? null : value;
 			this.#render();
+			// `#render()` just replaced the button the click landed on, which would
+			// otherwise drop focus to <body>. The search input is the one element
+			// guaranteed to survive a render, and it is where the next keystroke
+			// wants to go anyway.
+			this.#search.focus();
 			this.dispatchEvent(new Event("input", { bubbles: true }));
 		});
 

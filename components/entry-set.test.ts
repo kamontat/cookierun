@@ -88,6 +88,42 @@ test("a value that is not an option is ignored rather than invented", () => {
 	expect(element.selected).toEqual(["000"]);
 });
 
+// aria-selected is only valid on option/tab/row/gridcell/treeitem roles; a
+// plain button ignores it, so assistive technology needs both roles present.
+// aria-multiselectable also has to be on the listbox, since this one accepts
+// several picks.
+test("the list and its rows carry the roles that make aria-selected valid", () => {
+	const element = mount();
+	const list = element.querySelector(".entries");
+
+	expect(list?.getAttribute("role")).toBe("listbox");
+	expect(list?.getAttribute("aria-multiselectable")).toBe("true");
+	for (const row of addRows(element)) {
+		expect(row.getAttribute("role")).toBe("option");
+	}
+});
+
+test("clicking a row returns focus to the search input, not <body>", () => {
+	const element = mount();
+	const search = element.querySelector<HTMLInputElement>("input[type=search]");
+	if (search === null) throw new Error("no search input");
+
+	addRows(element)[1]?.click();
+
+	expect(document.activeElement).toBe(search);
+});
+
+test("clicking a chip to remove it also returns focus to the search input", () => {
+	const element = mount();
+	element.selected = ["000", "002"];
+	const search = element.querySelector<HTMLInputElement>("input[type=search]");
+	if (search === null) throw new Error("no search input");
+
+	chips(element)[0]?.click();
+
+	expect(document.activeElement).toBe(search);
+});
+
 test("an already-picked row is marked so", () => {
 	const element = mount();
 	element.selected = ["001"];
