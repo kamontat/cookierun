@@ -9,6 +9,11 @@
  *
  * This runs after `build`, which is why it is its own script: `execAsync` exits
  * the process, so nothing can follow it inside one file.
+ *
+ * `cp -R` only adds and overwrites; it never deletes. A local `dist/` reused
+ * across builds can end up with an icon that was renamed or removed from
+ * `assets/` after an earlier build. CI and deploys always start from a fresh
+ * checkout, so this has no production consequence.
  */
 
 import { execAsync } from "./utils/shell";
