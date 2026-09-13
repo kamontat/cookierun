@@ -76,7 +76,7 @@ Rules:
 `encodeLoadout` canonicalizes so that one build has one code:
 
 - IDs within a slot are sorted ascending.
-- When the flag is `U`, the slots themselves are sorted ascending by their first ID. When it is `O`, slot order is the build's own and is preserved.
+- When the flag is `U`, the slots themselves are sorted ascending, comparing each slot whole — every ID in it, in order — not just its first. Comparing first IDs alone ties whenever two slots share their smallest ID, and a tie leaves the caller's order in place, which is one build with two codes. When the flag is `O`, slot order is the build's own and is preserved.
 - A single treasure slot is always written `U`. With one slot there is nothing to order, so `O` would be a second code for the same build.
 
 `decodeLoadout` accepts a non-canonical code as written and does not warn. The round-trip property is therefore `encodeFull(decodeFull(code)) === canonical(code)`, not string equality with the input.

@@ -1298,14 +1298,16 @@ export function encodeLoadout(loadout: Loadout): string {
 
 	const slots = loadout.treasures.map((slot) => [...slot].sort());
 	const ordered = slots.length > 1 && loadout.ordered;
-	// Fixed-width uppercase base-36 sorts lexicographically in numeric order,
-	// so comparing the first id as a plain string is comparing the ids.
-	const first = (slot: string[]): string => slot[0] ?? "";
+	// Fixed-width uppercase base-36 sorts lexicographically in numeric order, so
+	// comparing slots as strings is comparing their ids. It has to be the whole
+	// slot: two slots sharing their smallest id would otherwise tie, and a tie
+	// leaves the caller's order in place — one build with two codes.
+	const key = (slot: string[]): string => slot.join("_");
 	const arranged = ordered
 		? slots
 		: [...slots].sort((a, b) => {
-				if (first(a) === first(b)) return 0;
-				return first(a) < first(b) ? -1 : 1;
+				if (key(a) === key(b)) return 0;
+				return key(a) < key(b) ? -1 : 1;
 			});
 
 	return `${out}T${ordered ? "O" : "U"}${arranged.map((slot) => slot.join("_")).join("-")}`;
