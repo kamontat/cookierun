@@ -178,6 +178,372 @@ export function migrate(old: unknown): AssetIndex {
 	return out;
 }
 
+function byId<T extends Entry>(entries: Record<string, T>): Record<string, T> {
+	const sorted: Record<string, T> = {};
+	for (const id of Object.keys(entries).sort()) {
+		const entry = entries[id];
+		if (entry !== undefined) sorted[id] = ordered(entry);
+	}
+	return sorted;
+}
+
+/**
+ * The one way `assets/index.json` is written, so the scraper and the verifier
+ * cannot disagree about what the file should look like.
+ */
+export function serializeIndex(index: AssetIndex): string {
+	return `${JSON.stringify(
+		{
+			cookies: byId(index.cookies),
+			pets: byId(index.pets),
+			treasures: byId(index.treasures),
+		},
+		null,
+		2,
+	)}\n`;
+}
+
+export type Fingerprint = {
+	/** How many of the section's ids the hashes cover, counting from the lowest. */
+	through: number;
+	/** Over `id url`: which entry each id names. A change here is never benign. */
+	identity: string;
+	/** Over `id name|image|key`: how those entries read. A scrape changes this. */
+	display: string;
+};
+
+export type Fingerprints = Record<Section, Fingerprint>;
+
+/**
+ * Two hashes per section, because two very different things can change.
+ *
+ * `identity` binds an id to an entry's page URL. Nothing legitimate moves it:
+ * `reconcile` only ever appends, so an id that names a different URL than it
+ * did is corruption, and the codes already published for it now mean something
+ * else. `display` covers the name, icon and key — which a scrape rewrites
+ * whenever the site renames something, so a mismatch there is a prompt to read
+ * the diff rather than proof of damage. Hashing them together would have made
+ * every upstream rename look like corruption, and taught everyone to reach for
+ * `--update` without looking.
+ *
+ * Both cover the first `through` ids. `verifyIndex` separately requires that to
+ * be every id, so nothing sits outside the fingerprint's reach.
+ */
+function fingerprintOf(
+	entries: Record<string, Entry>,
+	through: number,
+): { identity: string; display: string } {
+	const ids = Object.keys(entries).sort().slice(0, through);
+
+	return {
+		identity: hashLines(ids.map((id) => `${id} ${entries[id]?.url ?? ""}`)),
+		display: hashLines(
+			ids.map((id) => {
+				const entry = entries[id];
+				return `${id} ${entry?.name ?? ""}|${entry?.image ?? ""}|${entry?.key ?? ""}`;
+			}),
+		),
+	};
+}
+
+function hashLines(lines: string[]): string {
+	const hasher = new Bun.CryptoHasher("sha256");
+	hasher.update(lines.join("\n"));
+	// 64 bits is far more than enough to catch an accident, and short enough to
+	// read in a diff.
+	return hasher.digest("hex").slice(0, 16);
+}
+
+/** Fingerprints covering every entry currently in the index. */
+export function fingerprintsFor(index: AssetIndex): Fingerprints {
+	return {
+		cookies: {
+			through: Object.keys(index.cookies).length,
+			...fingerprintOf(index.cookies, Object.keys(index.cookies).length),
+		},
+		pets: {
+			through: Object.keys(index.pets).length,
+			...fingerprintOf(index.pets, Object.keys(index.pets).length),
+		},
+		treasures: {
+			through: Object.keys(index.treasures).length,
+			...fingerprintOf(index.treasures, Object.keys(index.treasures).length),
+		},
+	};
+}
+
+const HASH = /^[0-9a-f]{16}$/;
+
+/**
+ * Whether a parsed `fingerprint.json` is usable. A malformed one must report
+ * itself rather than throw halfway through a comparison, since the likeliest
+ * cause is the same bad merge the fingerprint exists to catch.
+ */
+export function fingerprintProblems(value: unknown): string[] {
+	if (typeof value !== "object" || value === null) {
+		return ["fingerprint.json is not an object"];
+	}
+
+	const holder = value as Record<string, unknown>;
+	const problems: string[] = [];
+
+	for (const section of SECTIONS) {
+		const entry = holder[section];
+		if (typeof entry !== "object" || entry === null) {
+			problems.push(`fingerprint.json has no ${section}`);
+			continue;
+		}
+
+		const { through, identity, display } = entry as Record<string, unknown>;
+		if (
+			typeof through !== "number" ||
+			!Number.isInteger(through) ||
+			through < 0
+		) {
+			problems.push(`fingerprint.json: ${section}.through is not a count`);
+		}
+		if (typeof identity !== "string" || !HASH.test(identity)) {
+			problems.push(
+				`fingerprint.json: ${section}.identity is not 16 hex characters`,
+			);
+		}
+		if (typeof display !== "string" || !HASH.test(display)) {
+			problems.push(
+				`fingerprint.json: ${section}.display is not 16 hex characters`,
+			);
+		}
+	}
+
+	return problems;
+}
+
+/**
+ * Everything about the index that can be checked without knowing what it looked
+ * like before: that it parses, that `migrate` accepts it and leaves it alone,
+ * that it is written the way the scraper writes it, that every id is the right
+ * shape and sits where its position says it should, that no two entries claim
+ * one slug, and that every treasure chain reference resolves.
+ *
+ * Returns one line per problem, so a caller can report them all at once.
+ */
+export function verifyStructure(text: string): string[] {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(text);
+	} catch (error) {
+		return [`index.json is not valid JSON: ${String(error)}`];
+	}
+
+	let index: AssetIndex;
+	try {
+		index = migrate(parsed);
+	} catch (error) {
+		return [`migrate refused the index: ${String(error)}`];
+	}
+
+	const problems: string[] = [];
+
+	// A file the writer would rewrite means the next scrape produces a diff
+	// nobody asked for — field order, key order or indentation has drifted.
+	if (serializeIndex(index) !== text) {
+		problems.push(
+			"index.json is not what the writer would produce — field order, key order or indentation has drifted",
+		);
+	}
+
+	for (const section of SECTIONS) {
+		const width = ID_WIDTH[section];
+		const shaped = new RegExp(`^[0-9A-Z]{${width}}$`);
+		const ids = Object.keys(index[section]).sort();
+
+		ids.forEach((id, position) => {
+			if (!shaped.test(id)) {
+				problems.push(
+					`${section}/${id} is not ${width} characters of [0-9A-Z]`,
+				);
+				return;
+			}
+			// Ids are assigned from zero and never removed, so the nth lowest id
+			// is always n. Anything else means one was deleted or inserted, which
+			// moves every id after it.
+			const belongs = toId(position, width);
+			if (id !== belongs) {
+				problems.push(
+					`${section}: id ${id} sits where ${belongs} should be — an id was deleted or inserted`,
+				);
+			}
+		});
+
+		const seen = new Map<string, string>();
+		for (const [id, entry] of Object.entries(index[section])) {
+			const slug = slugOf(entry.url);
+			const first = seen.get(slug);
+			if (first !== undefined) {
+				problems.push(
+					`${section}: ${slug} is claimed by both ${first} and ${id}`,
+				);
+				continue;
+			}
+			seen.set(slug, id);
+		}
+	}
+
+	problems.push(...chainProblems(index.treasures));
+
+	return problems;
+}
+
+/**
+ * A base treasure lists `targets` as `[evolved, blessed]`; an evolved or
+ * blessed one names its base as `source`. The two directions are inverses, so
+ * each has to agree with the other — a reference that merely resolves is not
+ * enough, since a merge can leave one side pointing somewhere the other does
+ * not point back from.
+ */
+function chainProblems(treasures: Record<string, TreasureEntry>): string[] {
+	const problems: string[] = [];
+	const resolves = (reference: string): boolean =>
+		Object.hasOwn(treasures, reference);
+
+	for (const [id, entry] of Object.entries(treasures)) {
+		const type = (entry as { type?: unknown }).type;
+		if (type !== "N" && type !== "E" && type !== "B") {
+			problems.push(
+				`treasures/${id}: type ${JSON.stringify(type)} is not N, E or B`,
+			);
+			continue;
+		}
+
+		if (type !== "N") {
+			const { source } = entry as { source?: unknown };
+			if (typeof source !== "string" || !resolves(source)) {
+				problems.push(
+					`treasures/${id} names ${JSON.stringify(source)} as its base, which is not a treasure`,
+				);
+				continue;
+			}
+			// The base must point back, in the half matching this form.
+			const base = treasures[source];
+			const back =
+				base?.type === "N" ? base.targets[type === "E" ? 0 : 1] : null;
+			if (back !== id) {
+				problems.push(
+					`treasures/${id} names ${source} as its base, but ${source} points at ${JSON.stringify(back)} instead`,
+				);
+			}
+			continue;
+		}
+
+		const { targets } = entry as { targets?: unknown };
+		if (!Array.isArray(targets) || targets.length !== 2) {
+			problems.push(
+				`treasures/${id} is a base without a [evolved, blessed] pair`,
+			);
+			continue;
+		}
+
+		targets.forEach((target, half) => {
+			if (target === null) return;
+			if (typeof target !== "string" || !resolves(target)) {
+				problems.push(
+					`treasures/${id} points at ${JSON.stringify(target)}, which is not a treasure`,
+				);
+				return;
+			}
+			const wanted = half === 0 ? "E" : "B";
+			const form = treasures[target];
+			if (form?.type !== wanted) {
+				problems.push(
+					`treasures/${id} lists ${target} as its ${wanted} form, but ${target} is type ${JSON.stringify(form?.type)}`,
+				);
+				return;
+			}
+			if (form.source !== id) {
+				problems.push(
+					`treasures/${id} lists ${target} as its ${wanted} form, but ${target} names ${form.source} as its base`,
+				);
+			}
+		});
+	}
+
+	return problems;
+}
+
+/**
+ * `verifyStructure` plus the question only the committed fingerprint can
+ * answer: does every covered id still name the entry it named when the
+ * fingerprint was recorded?
+ *
+ * Says nothing about ids past `through` — that is `verifyIndex`'s job, and
+ * keeping the two apart is what lets `--update` refuse to bless a moved id
+ * while still being the thing that covers newly appended ones.
+ */
+export function verifyCovered(text: string, expected: Fingerprints): string[] {
+	const problems = verifyStructure(text);
+	if (problems.length > 0) return problems;
+
+	problems.push(...fingerprintProblems(expected));
+	if (problems.length > 0) return problems;
+
+	// Structure passed, so this parse and migrate cannot fail.
+	const index = migrate(JSON.parse(text));
+
+	for (const section of SECTIONS) {
+		const { through, identity, display } = expected[section];
+		const count = Object.keys(index[section]).length;
+
+		if (count < through) {
+			problems.push(
+				`${section}: ${count} entries, fewer than the ${through} the fingerprint covers — an entry was removed`,
+			);
+			continue;
+		}
+
+		const actual = fingerprintOf(index[section], through);
+
+		if (actual.identity !== identity) {
+			problems.push(
+				`${section}: an id within the first ${through} names a different entry (identity ${actual.identity}, committed ${identity})`,
+			);
+		}
+		if (actual.display !== display) {
+			problems.push(
+				`${section}: a name, icon or key within the first ${through} changed (display ${actual.display}, committed ${display}) — a scrape does this legitimately, so read the diff, then run \`bun run verify:assets --update\``,
+			);
+		}
+	}
+
+	return problems;
+}
+
+/**
+ * `verifyCovered` plus the requirement that the fingerprint covers every id.
+ *
+ * Without it, an id appended after the last `--update` sits outside every
+ * guard: the fingerprint never covered it, and the scraper's own moved-id
+ * check compares against what is on disk, where a dropped entry no longer
+ * appears — so a later scrape would hand its id to a different entry and
+ * nothing would notice.
+ */
+export function verifyIndex(text: string, expected: Fingerprints): string[] {
+	const problems = verifyCovered(text, expected);
+	if (problems.length > 0) return problems;
+
+	const index = migrate(JSON.parse(text));
+
+	for (const section of SECTIONS) {
+		const count = Object.keys(index[section]).length;
+		const { through } = expected[section];
+		if (count > through) {
+			problems.push(
+				`${section}: ${count} entries but the fingerprint covers ${through} — run \`bun run verify:assets --update\` so every id is covered`,
+			);
+		}
+	}
+
+	return problems;
+}
+
 /**
  * Matches a listing against the index already on disk. A slug keeps whatever id
  * it was first given, a new slug takes one past the highest in use, and a slug

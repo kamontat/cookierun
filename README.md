@@ -126,10 +126,11 @@ The build produces one `index.html` per page with its JavaScript and CSS inlined
 
 ```bash
 bun install
-bun run dev        # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
-bun run test       # 222 tests, including an exhaustive round-trip over all 1,769,472 combis
-bun run check      # typecheck and Biome, in one pass
-bun run build      # writes dist/index.html, dist/combi-name/index.html, and dist/assets/
+bun run dev           # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
+bun run test          # 232 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run check         # typecheck and Biome, in one pass
+bun run build         # writes dist/index.html, dist/combi-name/index.html, and dist/assets/
+bun run verify:assets # checks assets/index.json against its committed fingerprint, offline
 ```
 
 The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
@@ -149,7 +150,7 @@ The exhaustive test asserts that encoding produces exactly 1,474,560 distinct co
 | `routes/combi-name/state.ts` | The code in the address bar and in `localStorage`: what a link carries and what a return visit restores. |
 | `components/` | Every custom element the pages declare, the sidebar and the light/dark control among them. |
 | `lib/` | What more than one route needs: the tool registry, and the link writer that keeps every href relative. |
-| `scripts/` | One file per package script — dev server, build, copying built assets, test, the two checks, the formatter, deploy, asset scrape — over a shared `execAsync` in `scripts/utils/`. |
+| `scripts/` | One file per package script — dev server, build, copying built assets, test, the two checks, the formatter, deploy — over a shared `execAsync` in `scripts/utils/`, plus the two asset programs: `fetch-assets.ts` scrapes, `verify-assets.ts` checks the result offline. |
 | `tests/` | Test configuration only; every test sits beside the code it covers. |
 
 The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a boost or episode cannot silently ship a page with a missing option.
