@@ -465,6 +465,13 @@ await pool("icons", jobs, async ([remote, local]) => {
 	}
 });
 
+// Said before anything below can bail: `bail` exits, and an operator whose run
+// failed still needs to know which icons did not arrive.
+console.log(
+	`done: ${jobs.length - failures.length} downloaded, ${failures.length} failed`,
+);
+for (const failure of failures) console.log("  FAIL", failure);
+
 // Verified before it is written, not after: a broken index that never reaches
 // disk costs nothing, while one that does needs `git checkout` to undo.
 const written = serializeIndex(index);
@@ -492,10 +499,7 @@ if (await Bun.file(FINGERPRINT).exists()) {
 }
 
 await Bun.write(ASSETS_INDEX, written);
-console.log(
-	`done: ${jobs.length - failures.length} downloaded, ${failures.length} failed`,
-);
-for (const failure of failures) console.log("  FAIL", failure);
+console.log("index written");
 
 if (appended.length > 0) {
 	console.log(
