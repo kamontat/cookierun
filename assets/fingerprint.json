@@ -1,14 +1,17 @@
 {
   "cookies": {
     "through": 94,
-    "hash": "4a2ca2ce6ea19188"
+    "identity": "35d7a11c190e6e64",
+    "display": "dfc1d68883c56e94"
   },
   "pets": {
     "through": 103,
-    "hash": "284bab422b5921bf"
+    "identity": "9448b098636ed99c",
+    "display": "db8e8665c0735597"
   },
   "treasures": {
     "through": 1144,
-    "hash": "2eaaaf8832ba03f2"
+    "identity": "410708f352b048fa",
+    "display": "58c2539fe63bc4d1"
   }
 }

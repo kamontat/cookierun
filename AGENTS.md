@@ -40,7 +40,7 @@ bun run verify:assets                        # checks assets/index.json offline;
 bun run deploy                               # publishes to Cloudflare; wrangler builds first
 ```
 
-Every script is a file under `scripts/`, most of them a docstring plus one `execAsync` call that never returns. The two asset scripts are programs instead: `fetch-assets.ts` scrapes, `verify-assets.ts` checks what it wrote. See the `repo-scripts` skill before editing one.
+Every script is a file under `scripts/`, most of them a docstring plus one `execAsync` call that never returns. The two asset scripts are programs instead: `fetch-assets.ts` scrapes the site, `verify-assets.ts` checks the committed index — against a hand edit or a bad merge as much as against a scrape. See the `repo-scripts` skill before editing one.
 
 ## Project layout
 

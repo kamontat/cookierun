@@ -204,40 +204,51 @@ export function serializeIndex(index: AssetIndex): string {
 }
 
 export type Fingerprint = {
-	/** How many of the section's ids the hash covers, counting from the lowest. */
+	/** How many of the section's ids the hashes cover, counting from the lowest. */
 	through: number;
-	hash: string;
+	/** Over `id url`: which entry each id names. A change here is never benign. */
+	identity: string;
+	/** Over `id name|image|key`: how those entries read. A scrape changes this. */
+	display: string;
 };
 
 export type Fingerprints = Record<Section, Fingerprint>;
 
 /**
- * Hashes what must never change: which entry each id names. Only the first
- * `through` ids of a section go in, which is what makes the fingerprint useful
- * rather than merely noisy — appending an entry leaves it untouched, while
- * renumbering, deleting or re-pointing a covered one breaks it. A renamed
- * display name or a new icon path is free, because neither changes what a
- * published code means.
+ * Two hashes per section, because two very different things can change.
+ *
+ * `identity` binds an id to an entry's page URL. Nothing legitimate moves it:
+ * `reconcile` only ever appends, so an id that names a different URL than it
+ * did is corruption, and the codes already published for it now mean something
+ * else. `display` covers the name, icon and key — which a scrape rewrites
+ * whenever the site renames something, so a mismatch there is a prompt to read
+ * the diff rather than proof of damage. Hashing them together would have made
+ * every upstream rename look like corruption, and taught everyone to reach for
+ * `--update` without looking.
+ *
+ * Both cover the first `through` ids. `verifyIndex` separately requires that to
+ * be every id, so nothing sits outside the fingerprint's reach.
  */
-export function fingerprintsOf(
-	index: AssetIndex,
-	through: Record<Section, number>,
-): Record<Section, string> {
+function fingerprintOf(
+	entries: Record<string, Entry>,
+	through: number,
+): { identity: string; display: string } {
+	const ids = Object.keys(entries).sort().slice(0, through);
+
 	return {
-		cookies: hashPrefix(index.cookies, through.cookies),
-		pets: hashPrefix(index.pets, through.pets),
-		treasures: hashPrefix(index.treasures, through.treasures),
+		identity: hashLines(ids.map((id) => `${id} ${entries[id]?.url ?? ""}`)),
+		display: hashLines(
+			ids.map((id) => {
+				const entry = entries[id];
+				return `${id} ${entry?.name ?? ""}|${entry?.image ?? ""}|${entry?.key ?? ""}`;
+			}),
+		),
 	};
 }
 
-function hashPrefix(entries: Record<string, Entry>, through: number): string {
-	const pairs = Object.keys(entries)
-		.sort()
-		.slice(0, through)
-		.map((id) => `${id} ${slugOf(entries[id]?.url ?? "")}`);
-
+function hashLines(lines: string[]): string {
 	const hasher = new Bun.CryptoHasher("sha256");
-	hasher.update(pairs.join("\n"));
+	hasher.update(lines.join("\n"));
 	// 64 bits is far more than enough to catch an accident, and short enough to
 	// read in a diff.
 	return hasher.digest("hex").slice(0, 16);
@@ -245,18 +256,65 @@ function hashPrefix(entries: Record<string, Entry>, through: number): string {
 
 /** Fingerprints covering every entry currently in the index. */
 export function fingerprintsFor(index: AssetIndex): Fingerprints {
-	const through: Record<Section, number> = {
-		cookies: Object.keys(index.cookies).length,
-		pets: Object.keys(index.pets).length,
-		treasures: Object.keys(index.treasures).length,
-	};
-	const hashes = fingerprintsOf(index, through);
-
 	return {
-		cookies: { through: through.cookies, hash: hashes.cookies },
-		pets: { through: through.pets, hash: hashes.pets },
-		treasures: { through: through.treasures, hash: hashes.treasures },
+		cookies: {
+			through: Object.keys(index.cookies).length,
+			...fingerprintOf(index.cookies, Object.keys(index.cookies).length),
+		},
+		pets: {
+			through: Object.keys(index.pets).length,
+			...fingerprintOf(index.pets, Object.keys(index.pets).length),
+		},
+		treasures: {
+			through: Object.keys(index.treasures).length,
+			...fingerprintOf(index.treasures, Object.keys(index.treasures).length),
+		},
 	};
+}
+
+const HASH = /^[0-9a-f]{16}$/;
+
+/**
+ * Whether a parsed `fingerprint.json` is usable. A malformed one must report
+ * itself rather than throw halfway through a comparison, since the likeliest
+ * cause is the same bad merge the fingerprint exists to catch.
+ */
+export function fingerprintProblems(value: unknown): string[] {
+	if (typeof value !== "object" || value === null) {
+		return ["fingerprint.json is not an object"];
+	}
+
+	const holder = value as Record<string, unknown>;
+	const problems: string[] = [];
+
+	for (const section of SECTIONS) {
+		const entry = holder[section];
+		if (typeof entry !== "object" || entry === null) {
+			problems.push(`fingerprint.json has no ${section}`);
+			continue;
+		}
+
+		const { through, identity, display } = entry as Record<string, unknown>;
+		if (
+			typeof through !== "number" ||
+			!Number.isInteger(through) ||
+			through < 0
+		) {
+			problems.push(`fingerprint.json: ${section}.through is not a count`);
+		}
+		if (typeof identity !== "string" || !HASH.test(identity)) {
+			problems.push(
+				`fingerprint.json: ${section}.identity is not 16 hex characters`,
+			);
+		}
+		if (typeof display !== "string" || !HASH.test(display)) {
+			problems.push(
+				`fingerprint.json: ${section}.display is not 16 hex characters`,
+			);
+		}
+	}
+
+	return problems;
 }
 
 /**
@@ -330,19 +388,82 @@ export function verifyStructure(text: string): string[] {
 		}
 	}
 
-	for (const [id, entry] of Object.entries(index.treasures)) {
-		const references =
-			entry.type === "N"
-				? entry.targets.filter((target): target is string => target !== null)
-				: [entry.source];
+	problems.push(...chainProblems(index.treasures));
 
-		for (const reference of references) {
-			if (!Object.hasOwn(index.treasures, reference)) {
+	return problems;
+}
+
+/**
+ * A base treasure lists `targets` as `[evolved, blessed]`; an evolved or
+ * blessed one names its base as `source`. The two directions are inverses, so
+ * each has to agree with the other — a reference that merely resolves is not
+ * enough, since a merge can leave one side pointing somewhere the other does
+ * not point back from.
+ */
+function chainProblems(treasures: Record<string, TreasureEntry>): string[] {
+	const problems: string[] = [];
+	const resolves = (reference: string): boolean =>
+		Object.hasOwn(treasures, reference);
+
+	for (const [id, entry] of Object.entries(treasures)) {
+		const type = (entry as { type?: unknown }).type;
+		if (type !== "N" && type !== "E" && type !== "B") {
+			problems.push(
+				`treasures/${id}: type ${JSON.stringify(type)} is not N, E or B`,
+			);
+			continue;
+		}
+
+		if (type !== "N") {
+			const { source } = entry as { source?: unknown };
+			if (typeof source !== "string" || !resolves(source)) {
 				problems.push(
-					`treasures/${id} points at ${reference}, which is not a treasure`,
+					`treasures/${id} names ${JSON.stringify(source)} as its base, which is not a treasure`,
+				);
+				continue;
+			}
+			// The base must point back, in the half matching this form.
+			const base = treasures[source];
+			const back =
+				base?.type === "N" ? base.targets[type === "E" ? 0 : 1] : null;
+			if (back !== id) {
+				problems.push(
+					`treasures/${id} names ${source} as its base, but ${source} points at ${JSON.stringify(back)} instead`,
 				);
 			}
+			continue;
 		}
+
+		const { targets } = entry as { targets?: unknown };
+		if (!Array.isArray(targets) || targets.length !== 2) {
+			problems.push(
+				`treasures/${id} is a base without a [evolved, blessed] pair`,
+			);
+			continue;
+		}
+
+		targets.forEach((target, half) => {
+			if (target === null) return;
+			if (typeof target !== "string" || !resolves(target)) {
+				problems.push(
+					`treasures/${id} points at ${JSON.stringify(target)}, which is not a treasure`,
+				);
+				return;
+			}
+			const wanted = half === 0 ? "E" : "B";
+			const form = treasures[target];
+			if (form?.type !== wanted) {
+				problems.push(
+					`treasures/${id} lists ${target} as its ${wanted} form, but ${target} is type ${JSON.stringify(form?.type)}`,
+				);
+				return;
+			}
+			if (form.source !== id) {
+				problems.push(
+					`treasures/${id} lists ${target} as its ${wanted} form, but ${target} names ${form.source} as its base`,
+				);
+			}
+		});
 	}
 
 	return problems;
@@ -352,21 +473,23 @@ export function verifyStructure(text: string): string[] {
  * `verifyStructure` plus the question only the committed fingerprint can
  * answer: does every covered id still name the entry it named when the
  * fingerprint was recorded?
+ *
+ * Says nothing about ids past `through` — that is `verifyIndex`'s job, and
+ * keeping the two apart is what lets `--update` refuse to bless a moved id
+ * while still being the thing that covers newly appended ones.
  */
-export function verifyIndex(text: string, expected: Fingerprints): string[] {
+export function verifyCovered(text: string, expected: Fingerprints): string[] {
 	const problems = verifyStructure(text);
+	if (problems.length > 0) return problems;
+
+	problems.push(...fingerprintProblems(expected));
 	if (problems.length > 0) return problems;
 
 	// Structure passed, so this parse and migrate cannot fail.
 	const index = migrate(JSON.parse(text));
-	const actual = fingerprintsOf(index, {
-		cookies: expected.cookies.through,
-		pets: expected.pets.through,
-		treasures: expected.treasures.through,
-	});
 
 	for (const section of SECTIONS) {
-		const { through, hash } = expected[section];
+		const { through, identity, display } = expected[section];
 		const count = Object.keys(index[section]).length;
 
 		if (count < through) {
@@ -375,9 +498,45 @@ export function verifyIndex(text: string, expected: Fingerprints): string[] {
 			);
 			continue;
 		}
-		if (actual[section] !== hash) {
+
+		const actual = fingerprintOf(index[section], through);
+
+		if (actual.identity !== identity) {
 			problems.push(
-				`${section}: fingerprint ${actual[section]} does not match the committed ${hash} — an id within the first ${through} changed meaning`,
+				`${section}: an id within the first ${through} names a different entry (identity ${actual.identity}, committed ${identity})`,
+			);
+		}
+		if (actual.display !== display) {
+			problems.push(
+				`${section}: a name, icon or key within the first ${through} changed (display ${actual.display}, committed ${display}) — a scrape does this legitimately, so read the diff, then run \`bun run verify:assets --update\``,
+			);
+		}
+	}
+
+	return problems;
+}
+
+/**
+ * `verifyCovered` plus the requirement that the fingerprint covers every id.
+ *
+ * Without it, an id appended after the last `--update` sits outside every
+ * guard: the fingerprint never covered it, and the scraper's own moved-id
+ * check compares against what is on disk, where a dropped entry no longer
+ * appears — so a later scrape would hand its id to a different entry and
+ * nothing would notice.
+ */
+export function verifyIndex(text: string, expected: Fingerprints): string[] {
+	const problems = verifyCovered(text, expected);
+	if (problems.length > 0) return problems;
+
+	const index = migrate(JSON.parse(text));
+
+	for (const section of SECTIONS) {
+		const count = Object.keys(index[section]).length;
+		const { through } = expected[section];
+		if (count > through) {
+			problems.push(
+				`${section}: ${count} entries but the fingerprint covers ${through} — run \`bun run verify:assets --update\` so every id is covered`,
 			);
 		}
 	}

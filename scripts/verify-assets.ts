@@ -10,17 +10,21 @@
  *
  * `--update` recomputes the fingerprint to cover everything currently in the
  * index and rewrites `assets/fingerprint.json`. It is the only thing that may
- * write that file, and it refuses to run on an index that does not verify — a
- * fingerprint blessing a corrupt file is worse than no fingerprint at all.
+ * write that file, and it refuses when any covered id has changed meaning — a
+ * fingerprint blessing corruption is worse than no fingerprint at all. What it
+ * will do is extend coverage to ids a scrape appended, and record display
+ * fields a scrape rewrote, which is the whole reason it exists.
  */
 
 import { fileURLToPath } from "node:url";
 
 import {
 	type Fingerprints,
+	fingerprintProblems,
 	fingerprintsFor,
 	migrate,
 	SECTIONS,
+	verifyCovered,
 	verifyIndex,
 	verifyStructure,
 } from "./utils/asset-ids.ts";
@@ -29,26 +33,38 @@ const ASSETS = fileURLToPath(new URL("../assets/", import.meta.url));
 const INDEX = `${ASSETS}index.json`;
 const FINGERPRINT = `${ASSETS}fingerprint.json`;
 
-const text = await Bun.file(INDEX).text();
-
-function report(problems: string[], label: string): void {
+function report(problems: string[], label: string): never {
 	console.error(`${label} (${problems.length}):`);
 	for (const problem of problems) console.error(`  ${problem}`);
+	process.exit(1);
 }
 
-if (process.argv.includes("--update")) {
-	const problems = verifyStructure(text);
+if (!(await Bun.file(INDEX).exists())) {
+	report(["assets/index.json does not exist"], "nothing to verify");
+}
+
+const text = await Bun.file(INDEX).text();
+const update = process.argv.slice(2).includes("--update");
+const onDisk = await Bun.file(FINGERPRINT).exists();
+
+if (update) {
+	// Bootstrapping has nothing to compare against, so structure is the whole
+	// gate. Otherwise every covered id must still name what it named — the one
+	// thing `--update` may never paper over.
+	const problems = onDisk
+		? verifyCovered(text, await readFingerprints())
+		: verifyStructure(text);
 	if (problems.length > 0) {
 		report(problems, "refusing to update: assets/index.json is not intact");
-		process.exit(1);
 	}
 
 	const next = fingerprintsFor(migrate(JSON.parse(text)));
 	await Bun.write(FINGERPRINT, `${JSON.stringify(next, null, 2)}\n`);
 
 	for (const section of SECTIONS) {
+		const { through, identity, display } = next[section];
 		console.log(
-			`${section}: covering ${next[section].through} entries, ${next[section].hash}`,
+			`${section}: covering ${through} entries, identity ${identity}, display ${display}`,
 		);
 	}
 	console.log(
@@ -57,29 +73,52 @@ if (process.argv.includes("--update")) {
 	process.exit(0);
 }
 
-const expected = (await Bun.file(FINGERPRINT).json()) as Fingerprints;
+if (!onDisk) {
+	report(
+		[
+			"assets/fingerprint.json does not exist — run `bun run verify:assets --update` to create it",
+		],
+		"nothing to verify against",
+	);
+}
+
+const expected = await readFingerprints();
 const problems = verifyIndex(text, expected);
 
 if (problems.length > 0) {
-	report(problems, "assets/index.json failed verification");
+	console.error(`assets/index.json failed verification (${problems.length}):`);
+	for (const problem of problems) console.error(`  ${problem}`);
 	console.error("");
 	console.error(
-		"A fingerprint mismatch with unchanged counts is not a stale constant: it",
+		"An identity mismatch with unchanged counts is not a stale fingerprint: it",
 	);
 	console.error(
-		"means an id changed meaning. Read `git diff assets/index.json` before",
+		"means an id changed meaning. Read `git diff assets/index.json` first —",
 	);
-	console.error(
-		"reaching for `--update`, which only ever extends coverage to entries a",
-	);
-	console.error("scrape appended.");
+	console.error("`--update` refuses to run while one is outstanding.");
 	process.exit(1);
 }
 
 const index = migrate(JSON.parse(text));
 console.log(
 	`intact: ${SECTIONS.map(
-		(section) =>
-			`${section}=${Object.keys(index[section]).length}/${expected[section].through} covered`,
-	).join(" ")}`,
+		(section) => `${section}=${Object.keys(index[section]).length}`,
+	).join(" ")}, all covered`,
 );
+
+async function readFingerprints(): Promise<Fingerprints> {
+	let parsed: unknown;
+	try {
+		parsed = await Bun.file(FINGERPRINT).json();
+	} catch (error) {
+		report(
+			[`assets/fingerprint.json is not valid JSON: ${String(error)}`],
+			"cannot read the fingerprint",
+		);
+	}
+
+	const problems = fingerprintProblems(parsed);
+	if (problems.length > 0) report(problems, "cannot read the fingerprint");
+
+	return parsed as Fingerprints;
+}
