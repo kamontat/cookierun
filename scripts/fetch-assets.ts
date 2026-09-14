@@ -23,20 +23,28 @@
  * rendering entries the sitemap declares, the run fails loudly instead of
  * quietly writing a short index.
  */
+import { fileURLToPath } from "node:url";
+
 import {
 	type AssetIndex,
 	type Entry,
+	type Fingerprints,
+	fingerprintProblems,
 	ID_WIDTH,
 	migrate,
-	ordered,
 	reconcile,
 	SECTIONS,
 	type Section,
+	serializeIndex,
 	type TreasureEntry,
+	verifyCovered,
+	verifyStructure,
 } from "./utils/asset-ids.ts";
 
 const ORIGIN = "https://cookierundb.com";
-const ASSETS = new URL("../assets/", import.meta.url).pathname;
+// `fileURLToPath`, not `.pathname`: the latter percent-encodes, so a checkout
+// under a path containing a space would not resolve.
+const ASSETS = fileURLToPath(new URL("../assets/", import.meta.url));
 const CONCURRENCY = 4;
 const BAR_WIDTH = 24;
 
@@ -457,29 +465,47 @@ await pool("icons", jobs, async ([remote, local]) => {
 	}
 });
 
-function byId<T extends Entry>(entries: Record<string, T>): Record<string, T> {
-	const sorted: Record<string, T> = {};
-	for (const id of Object.keys(entries).sort()) {
-		const entry = entries[id];
-		if (entry !== undefined) sorted[id] = ordered(entry);
-	}
-	return sorted;
-}
-
-await Bun.write(
-	ASSETS_INDEX,
-	`${JSON.stringify(
-		{
-			cookies: byId(index.cookies),
-			pets: byId(index.pets),
-			treasures: byId(index.treasures),
-		},
-		null,
-		2,
-	)}\n`,
-);
+// Said before anything below can bail: `bail` exits, and an operator whose run
+// failed still needs to know which icons did not arrive.
 console.log(
 	`done: ${jobs.length - failures.length} downloaded, ${failures.length} failed`,
 );
 for (const failure of failures) console.log("  FAIL", failure);
+
+// Verified before it is written, not after: a broken index that never reaches
+// disk costs nothing, while one that does needs `git checkout` to undo.
+const written = serializeIndex(index);
+bail(verifyStructure(written), "the index this run assembled is not intact");
+
+const FINGERPRINT = `${ASSETS}fingerprint.json`;
+let appended: Section[] = [];
+
+if (await Bun.file(FINGERPRINT).exists()) {
+	const parsed: unknown = await Bun.file(FINGERPRINT).json();
+	bail(fingerprintProblems(parsed), "cannot read the fingerprint");
+	const expected = parsed as Fingerprints;
+
+	// `verifyCovered`, not `verifyIndex`: appending ids is exactly what a scrape
+	// is for, and covering them is `--update`'s job. What must hold is that no id
+	// the fingerprint already covers has changed meaning.
+	bail(
+		verifyCovered(written, expected),
+		"the index this run assembled moved an id",
+	);
+
+	appended = SECTIONS.filter(
+		(section) => Object.keys(index[section]).length > expected[section].through,
+	);
+}
+
+await Bun.write(ASSETS_INDEX, written);
+console.log("index written");
+
+if (appended.length > 0) {
+	console.log(
+		`appended ids beyond the fingerprint's coverage (${appended.join(", ")});` +
+			" run `bun run verify:assets --update` in the same commit, or the suite will fail",
+	);
+}
+
 if (failures.length > 0) process.exit(1);
