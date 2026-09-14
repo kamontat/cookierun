@@ -68,9 +68,10 @@ h3 {
 }
 
 /* The result panel is sticky, so anything scrolled to by a fragment link or
-   by keyboard focus needs to clear it. */
+   by keyboard focus needs to clear it - about 13rem with the code, the verdict
+   and the button bar in it. */
 :root {
-	scroll-padding-top: 8rem;
+	scroll-padding-top: 13rem;
 }
 
 main:focus {
@@ -156,8 +157,10 @@ site-nav nav a {
 	text-decoration: none;
 }
 
+/* Lighter than the current-page tint below, or hovering a link would look more
+   like "you are here" than being there does. */
 site-nav nav a:hover {
-	background: var(--pico-primary-focus);
+	background: color-mix(in srgb, var(--pico-primary) 7%, transparent);
 }
 
 /* Pico's focus ring lives on its own components; these links are ours. */
@@ -167,11 +170,12 @@ site-nav nav a:focus-visible {
 }
 
 /* A solid amber block here outshouted the code the tool exists to produce.
-   Tint plus a marker is enough to say "you are here". */
+   Tint plus a marker is enough to say "you are here" - and a light tint at
+   that: `--pico-primary-focus` is opaque enough to read as a filled slab, and
+   amber label text over it clears no contrast bar worth the name. */
 site-nav nav a[aria-current="page"] {
 	border-left: 2px solid var(--pico-primary);
-	background: var(--pico-primary-focus);
-	color: var(--pico-primary);
+	background: color-mix(in srgb, var(--pico-primary) 14%, transparent);
 	font-weight: 600;
 }
 
@@ -330,10 +334,12 @@ copy-code output {
 	align-items: center;
 }
 
+/* Wrapping, not scrolling: a hint bubble inside an `overflow` box is clipped by
+   it, and a long full code has group boundaries to wrap at. */
 copy-code code {
 	flex: 0 1 auto;
 	min-width: 0;
-	overflow-x: auto;
+	overflow-wrap: anywhere;
 	padding: 0;
 	background: none;
 	color: var(--pico-color);
@@ -342,6 +348,31 @@ copy-code code {
 	font-weight: 600;
 	letter-spacing: 0.22em;
 	user-select: all;
+}
+
+/* One span per field of the code. Pico's own `[data-tooltip]` rules give them
+   the dotted underline and the `help` cursor; the gap is what makes the fields
+   read as fields rather than as ten loose characters. */
+copy-code code span {
+	white-space: nowrap;
+}
+
+/* The bubble inherits the code's monospace and its 0.22em tracking, which sets
+   a sentence as if it were a code. */
+copy-code code span::before {
+	font-family: var(--pico-font-family-sans-serif);
+	font-size: 0.8rem;
+	font-weight: 400;
+	letter-spacing: normal;
+}
+
+copy-code code span + span {
+	margin-left: 0.12em;
+}
+
+copy-code code span:hover,
+copy-code code span:focus-visible {
+	color: var(--pico-primary);
 }
 
 auto-verdict {
@@ -353,9 +384,58 @@ auto-verdict strong {
 	color: var(--pico-primary);
 }
 
+/* One control per row rather than several across. Closed, each is a single
+   line, so the column costs almost nothing; side by side, an open list would be
+   a third of a panel wide and wrap every second entry name onto two lines. */
 entry-picker,
 entry-set {
 	display: block;
+	margin-bottom: 0.4rem;
+}
+
+/* Pico's `details` is a bordered block with a rule under it, which stacks into
+   a ladder when six sit in a grid. The summary carries the border instead, so a
+   closed control reads as one field. */
+entry-picker details,
+entry-set details {
+	margin-bottom: 0;
+	border-bottom: 0;
+}
+
+entry-picker summary,
+entry-set summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.15rem 0.5rem;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--pico-form-element-spacing-vertical)
+		var(--pico-form-element-spacing-horizontal);
+	border: var(--pico-border-width) solid var(--pico-form-element-border-color);
+	border-radius: var(--pico-border-radius);
+}
+
+/* What the control holds, said on the closed line — the question a closed
+   control has to answer without being opened. */
+entry-picker summary .pick,
+entry-set summary .pick {
+	display: inline-flex;
+	gap: 0.35rem;
+	align-items: center;
+	color: var(--pico-muted-color);
+	font-size: 0.875rem;
+}
+
+entry-picker summary img,
+entry-set summary img {
+	width: 1.5rem;
+	height: 1.5rem;
+	object-fit: contain;
+}
+
+entry-picker details[open] summary,
+entry-set details[open] summary {
+	margin-bottom: 0.4rem;
 }
 
 entry-picker .entries,
@@ -363,13 +443,17 @@ entry-set .entries {
 	display: flex;
 	flex-direction: column;
 	gap: 0.125rem;
-	max-height: 14rem;
+	max-height: 12rem;
 	overflow-y: auto;
 	border: var(--pico-border-width) solid var(--pico-form-element-border-color);
 	border-radius: var(--pico-border-radius);
 	padding: 0.25rem;
 }
 
+/* `inherit`, not `var(--pico-color)`: inside a button Pico reassigns that
+   property to the button's own text colour, which paints every row in the
+   primary's inverse - black on a dark card. The sidebar links hit the same
+   trap. */
 entry-picker .entry,
 entry-set .entry {
 	display: flex;
@@ -378,16 +462,21 @@ entry-set .entry {
 	width: 100%;
 	margin: 0;
 	padding: 0.25rem 0.5rem;
-	background: none;
 	border: none;
-	color: var(--pico-color);
+	border-left: 2px solid transparent;
+	background: none;
+	color: inherit;
 	text-align: left;
 	font-size: 0.875rem;
 }
 
+/* Tint and a marker, the same "you are here" the sidebar uses, and the same
+   light tint: an entry name has to stay readable over it. */
 entry-picker .entry[aria-selected="true"],
 entry-set .entry[aria-selected="true"] {
-	background: var(--pico-primary-focus);
+	border-left-color: var(--pico-primary);
+	background: color-mix(in srgb, var(--pico-primary) 14%, transparent);
+	font-weight: 600;
 }
 
 entry-picker .entry img,

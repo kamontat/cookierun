@@ -1,11 +1,24 @@
 @import "../base.css";
 
-/* The result, the loadout and the legend are full-width; the builder and the
-   reader pair up beside each other once the grid has two tracks. */
+/* The result and the legend are full-width. */
 .result,
-.loadout,
 .legend {
 	grid-column: 1 / -1;
+}
+
+/* Once there are two tracks, the builder takes the left one whole and the
+   loadout and the reader stack in the right. Left to flow, the full-width
+   loadout used to sit between them and leave a hole beside each. */
+@media (width >= 62rem) {
+	.builder {
+		grid-column: 1;
+		grid-row: span 2;
+	}
+
+	.loadout,
+	.reader {
+		grid-column: 2;
+	}
 }
 
 /* The code is what the page is for, so it stays in view while you work the
@@ -21,6 +34,19 @@
 	color: var(--pico-muted-color);
 	font-size: 0.8rem;
 	font-weight: 500;
+}
+
+/* Pico's `[role=group]` bar is full width by default, which would stretch two
+   buttons across the panel. */
+.result .actions {
+	width: fit-content;
+	margin-bottom: 0;
+}
+
+/* The panel is sticky, so a status line that appears on copy would otherwise
+   shove the page under it. */
+#link-status {
+	margin-bottom: 0;
 }
 
 .code-input {
@@ -49,7 +75,10 @@
 	list-style: none;
 }
 
+/* `list-style: none` on the list is not enough: Pico sets `ul li` to a square
+   directly, so the bullet outlives it and sits beside the warning's box. */
 .warnings li {
+	list-style: none;
 	padding: 0.5rem 0.65rem;
 	border-radius: var(--pico-border-radius);
 	background: var(--pico-mark-background-color);
@@ -75,8 +104,4 @@
 	overflow-x: auto;
 	padding: var(--pico-spacing);
 	font-size: 0.85rem;
-}
-
-.table-wrap {
-	overflow-x: auto;
 }

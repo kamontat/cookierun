@@ -116,7 +116,9 @@ isSemiAuto(combi); // true
 
 Every page carries a sidebar listing the available tools, generated from the registry rather than written out. The site root is a short home pane; the combi builder itself lives at `/combi-name/`.
 
-The code leads the page and updates as you pick a configuration below it, or paste one into the reader and it comes back in plain words. The slot legend is on the page too, so you can learn to read a code by eye and stop needing the tool. The sidebar carries a light/dark control that defaults to following your system. Everything runs in the browser — no network calls, no analytics.
+The code leads the page and updates as you pick a configuration below it, or paste one into the reader and it comes back in plain words. Hover any part of the built code and it names its slot and what it currently says, so the legend further down the page is there to confirm rather than to look things up in. The cookie, relay, pet, and treasure pickers stay closed with their pick on the line, and open onto a filterable list one at a time.
+
+Your code lives in the address bar, so a build is a link you can send, and it is remembered between visits — a link wins over the remembered one, and **Reset** goes back to an empty code. **Copy** takes the code, **Copy link** takes the whole address. The sidebar carries a light/dark control that defaults to following your system. Everything runs in the browser — no network calls, no analytics.
 
 The build produces one `index.html` per page with its JavaScript and CSS inlined, so each page works from a file:// URL offline and carries no base-path assumption about where it is served from. The combi page is the one exception: it ships its cookie, pet, and treasure icons as a sibling `assets/` folder rather than inlining them, so that page needs the folder alongside it to show them — every other page stays fully self-contained.
 
@@ -125,7 +127,7 @@ The build produces one `index.html` per page with its JavaScript and CSS inlined
 ```bash
 bun install
 bun run dev        # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
-bun run test       # 177 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run test       # 222 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run check      # typecheck and Biome, in one pass
 bun run build      # writes dist/index.html, dist/combi-name/index.html, and dist/assets/
 ```
@@ -143,6 +145,8 @@ The exhaustive test asserts that encoding produces exactly 1,474,560 distinct co
 | `routes/combi-name/catalog.ts` | Resolves cookie, pet, and treasure ids against `assets/index.json`. |
 | `routes/combi-name/loadout.ts` | The loadout section's grammar: `encodeLoadout`, `decodeLoadout`. |
 | `routes/combi-name/full-code.ts` | Joins a loadout and a combi into `loadout.combi`, or just the bare combi when there is no loadout. |
+| `routes/combi-name/hints.ts` | What each character of a code means, one entry per character, for the tooltips on the built code. |
+| `routes/combi-name/state.ts` | The code in the address bar and in `localStorage`: what a link carries and what a return visit restores. |
 | `components/` | Every custom element the pages declare, the sidebar and the light/dark control among them. |
 | `lib/` | What more than one route needs: the tool registry, and the link writer that keeps every href relative. |
 | `scripts/` | One file per package script — dev server, build, copying built assets, test, the two checks, the formatter, deploy, asset scrape — over a shared `execAsync` in `scripts/utils/`. |

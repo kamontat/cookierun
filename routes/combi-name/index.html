@@ -44,26 +44,45 @@
 
         <copy-code id="code-output" value="1S0---000-"></copy-code>
         <auto-verdict id="builder-verdict" prefix="Stored as"></auto-verdict>
+
+        <!-- Pico's own shape for a bar of buttons that belong together. The
+             role is redundant as ARIA - a fieldset is already a group - but
+             Pico styles the bar through `[role=group]`, so the attribute is
+             what draws it. -->
+        <!-- biome-ignore lint/a11y/noRedundantRoles: Pico selects on the attribute -->
+        <fieldset class="actions" role="group">
+          <button id="copy-link" type="button" class="outline secondary">
+            Copy link
+          </button>
+          <button id="reset" type="button" class="outline secondary">
+            Reset
+          </button>
+        </fieldset>
+        <p id="link-status" class="status" role="status"></p>
       </section>
 
-      <section class="panel" aria-labelledby="builder-heading">
+      <section class="panel builder" aria-labelledby="builder-heading">
         <h2 id="builder-heading">Build a code</h2>
 
         <form id="builder" novalidate>
-          <labelled-select id="type" label="Type"></labelled-select>
+          <div class="grid">
+            <labelled-select id="type" label="Type"></labelled-select>
 
-          <labelled-select id="episode" label="Episode"></labelled-select>
+            <labelled-select id="episode" label="Episode"></labelled-select>
+          </div>
 
           <check-group id="boosts" legend="Boosts"></check-group>
 
-          <labelled-select
-            id="randomBoost"
-            label="Random boost"
-          ></labelled-select>
-
           <check-group id="cookiePowers" legend="Cookie power+"></check-group>
 
-          <labelled-select id="action" label="Action"></labelled-select>
+          <div class="grid">
+            <labelled-select
+              id="randomBoost"
+              label="Random boost"
+            ></labelled-select>
+
+            <labelled-select id="action" label="Action"></labelled-select>
+          </div>
         </form>
       </section>
 
@@ -72,7 +91,8 @@
         <p>
           The game stores these four in the combi itself, so they live in the
           left-hand section of the code rather than in the 10-character name.
-          Leave them alone and the code stays exactly 10 characters.
+          Leave them alone and the code stays exactly 10 characters. Each
+          control opens onto its own list; what it holds is on the line.
         </p>
 
         <form id="loadout" novalidate>
@@ -91,7 +111,7 @@
         </form>
       </section>
 
-      <section class="panel" aria-labelledby="reader-heading">
+      <section class="panel reader" aria-labelledby="reader-heading">
         <h2 id="reader-heading">Read a code</h2>
 
         <div class="field">
@@ -130,7 +150,7 @@ slot:  1  2  3  4 5 6  7  8 9  10
 ex:    1  H  3  H - F  4  1 4  J</pre
         >
 
-        <div class="table-wrap">
+        <div class="overflow-auto">
           <table>
           <thead>
             <tr>
@@ -197,7 +217,7 @@ ex:    1  H  3  H - F  4  1 4  J</pre
           group you did not pick is simply absent.
         </p>
 
-        <div class="table-wrap">
+        <div class="overflow-auto">
           <table>
             <thead>
               <tr>

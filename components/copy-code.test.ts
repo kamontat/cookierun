@@ -63,6 +63,61 @@ test("a blocked clipboard tells the reader to copy by hand", async () => {
 	expect(status.classList.contains("error")).toBe(true);
 });
 
+function hintFor(char: string, group: string) {
+	return { char, hint: `${char} is ${group}`, group };
+}
+
+test("hints wrap each run of one group in a labelled span", () => {
+	const element = mount("1S0");
+	element.hints = [
+		hintFor("1", "version"),
+		hintFor("S", "type"),
+		hintFor("0", "type"),
+	];
+
+	const groups = [...element.querySelectorAll("code span")];
+	expect(groups.map((span) => span.textContent)).toEqual(["1", "S0"]);
+	expect(groups[1]?.getAttribute("data-tooltip")).toBe("S is type");
+	expect(element.value).toBe("1S0");
+});
+
+// The code sits at the top of a sticky panel, so a bubble above it opens off
+// the top of the window.
+test("hints open below the code, not above it", () => {
+	const element = mount("1S");
+	element.hints = [hintFor("1", "version"), hintFor("S", "type")];
+
+	expect(
+		[...element.querySelectorAll("code span")].map((span) =>
+			span.getAttribute("data-placement"),
+		),
+	).toEqual(["bottom", "bottom"]);
+});
+
+test("hints that do not cover the code are ignored rather than misaligned", () => {
+	const element = mount("1S0");
+	element.hints = [hintFor("1", "version")];
+
+	expect(element.querySelector("code span")).toBeNull();
+	expect(element.value).toBe("1S0");
+});
+
+// Hints describe the code they were computed from; against a newer one they
+// would point at the wrong characters.
+test("a new value drops the hints until the page supplies new ones", () => {
+	const element = mount("1S0");
+	element.hints = [
+		hintFor("1", "version"),
+		hintFor("S", "type"),
+		hintFor("0", "episode"),
+	];
+
+	element.value = "1M0";
+
+	expect(element.querySelector("code span")).toBeNull();
+	expect(element.querySelector("code")?.textContent).toBe("1M0");
+});
+
 // A stale "Copied." next to a code that has since changed is a lie.
 test("a new value clears the status", async () => {
 	const element = mount("1S0---000-");

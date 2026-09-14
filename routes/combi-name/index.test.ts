@@ -193,3 +193,36 @@ test("loading a full code into the builder fills the loadout controls too", () =
 
 	expect(code.textContent).toBe("1C01P02TU001.1S0---000-");
 });
+
+test("the built code goes into the address bar, so a code is a link", () => {
+	expect(location.hash).toBe("#1C01P02TU001.1S0---000-");
+});
+
+test("resetting empties every control, builder and loadout alike", () => {
+	need<HTMLButtonElement>("reset").click();
+
+	expect(code.textContent).toBe("1S0---000-");
+	expect(need<HTMLSelectElement>("type").value).toBe("score");
+	expect(location.hash).toBe("#1S0---000-");
+});
+
+// The legend table, applied to the code in front of you.
+test("each field of the code is labelled with what it currently says", () => {
+	const spans = [...codeOutput.querySelectorAll("code span")];
+
+	expect(spans.map((span) => span.textContent)).toEqual([
+		"1",
+		"S",
+		"0",
+		"-",
+		"-",
+		"-",
+		"0",
+		"00",
+		"-",
+	]);
+	expect(spans[1]?.getAttribute("data-tooltip")).toBe("Slot 2 · Type · Score");
+	expect(spans[5]?.getAttribute("data-tooltip")).toBe(
+		"Slot 6 · Boost · Fast Start: off",
+	);
+});

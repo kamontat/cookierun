@@ -11,6 +11,7 @@ The character tables at the top of `routes/combi-name/codec.ts` are the single s
 - `ALL_TYPES`, `ALL_EPISODES`, `ALL_BOOSTS`, `ALL_RANDOM_BOOSTS`, `ALL_COOKIE_POWERS`, `ALL_ACTIONS`, and `BOOST_LABELS` are computed from those tables — never hand-maintain a parallel list.
 - `routes/combi-name/labels.ts` maps every value to a display name. A test asserts key-for-key parity with the `ALL_*` arrays, so a new value cannot ship unlabeled. Boost names live in `codec.ts` instead, because `decode`'s error messages quote them.
 - `routes/combi-name/describe.ts` turns a `Combi` into display rows plus an auto/semi-auto verdict. It is the only place that decides how a combi reads in prose.
+- `routes/combi-name/hints.ts` says what each character of a code means, one entry per character, for the tooltips on the built code. Slot numbers come from the codec's own tables and the values from `describe.ts`, so a table that grows cannot leave a stale hint behind. A code it cannot decode gets no hints at all rather than half a labelling, which would point at the wrong characters.
 - `routes/combi-name/index.ts` pairs each `ALL_*` array with its label table and hands the result to the form components as their `options` property. `routes/combi-name/index.html` declares those elements empty on purpose — do not hardcode options into the markup.
 
 To add a boost, episode, or cookie power: add it to its character table and its label table. Nothing else needs touching, and tests fail until both are done.
@@ -41,6 +42,10 @@ Encoding a loadout always writes its canonical form: ids sorted within a slot, w
 
 The combi section still does not model the cookie, relay, pet, or treasure: the game already stores those four in the combi, which is precisely why the 10 characters are spent on everything else. Don't add them to `codec.ts`. The loadout section is the exception — it exists to model exactly those four, for a code that needs to carry them anyway.
 
-Route-only logic stays in the route. The codec is imported by exactly one page, so it lives at `routes/combi-name/codec.ts` rather than in `lib/`; the same is true of `loadout.ts`, `catalog.ts`, and `full-code.ts`.
+Route-only logic stays in the route. The codec is imported by exactly one page, so it lives at `routes/combi-name/codec.ts` rather than in `lib/`; the same is true of `loadout.ts`, `catalog.ts`, `full-code.ts`, `hints.ts`, and `state.ts`.
+
+## Where the code lives between visits
+
+`routes/combi-name/state.ts` holds it in two places, and neither is trusted on the way back in: the address bar, so a build is a link someone can send, and `localStorage`, so closing the tab does not throw the last build away. A link wins over the remembered code — someone who followed one asked for that code, and their own build is one Reset away. The page writes the hash with `history.replaceState`, since one history entry per keystroke would bury the page they arrived from, and every storage call is wrapped the way `theme-toggle`'s are. A code that arrives from either place is decoded through `decodeFull` inside a `try`; both outlive the page that wrote them, and a hash can be typed by hand.
 
 `README.md` documents the slot format, and the loadout grammar, for humans.
