@@ -27,8 +27,31 @@ function chips(element: EntrySet): HTMLButtonElement[] {
 	return [...element.querySelectorAll<HTMLButtonElement>(".chip")];
 }
 
-test("the legend names the slot", () => {
-	expect(mount().querySelector("legend")?.textContent).toBe("Treasure slot 1");
+test("the summary names the slot and what is in it", () => {
+	const element = mount();
+
+	expect(element.querySelector("summary")?.textContent).toContain(
+		"Treasure slot 1",
+	);
+	expect(element.querySelector("summary")?.textContent).toContain("None");
+
+	element.selected = ["000", "002"];
+
+	expect(element.querySelector("summary")?.textContent).toContain(
+		"Acorn or Slate",
+	);
+});
+
+// Three of these open at once is a wall of scrolling lists; closed, a slot
+// reads as one line.
+test("the list starts closed", () => {
+	expect(mount().querySelector("details")?.open).toBe(false);
+});
+
+test("the list is named for the slot it fills", () => {
+	expect(mount().querySelector(".entries")?.getAttribute("aria-label")).toBe(
+		"Treasure slot 1",
+	);
 });
 
 test("nothing is picked to begin with", () => {
@@ -103,14 +126,45 @@ test("the list and its rows carry the roles that make aria-selected valid", () =
 	}
 });
 
-test("clicking a row returns focus to the search input, not <body>", () => {
+// `#render()` replaces the button the click landed on, so something has to put
+// focus back or it drops to <body>.
+test("adding an entry keeps focus on the row that was added", () => {
 	const element = mount();
-	const search = element.querySelector<HTMLInputElement>("input[type=search]");
-	if (search === null) throw new Error("no search input");
 
 	addRows(element)[1]?.click();
 
-	expect(document.activeElement).toBe(search);
+	expect((document.activeElement as HTMLButtonElement).value).toBe("001");
+});
+
+// 50 rows in each of three slots is 150 tab stops in the loadout alone. A
+// listbox is one stop, and arrows move inside it.
+test("the list is a single tab stop, on the first picked row", () => {
+	const element = mount();
+	element.selected = ["002"];
+
+	expect(addRows(element).map((row) => row.tabIndex)).toEqual([-1, -1, 0]);
+});
+
+test("with nothing picked the first row is the one tab stop", () => {
+	expect(addRows(mount()).map((row) => row.tabIndex)).toEqual([0, -1, -1]);
+});
+
+test("the arrow keys walk the rows and End jumps to the last", () => {
+	const element = mount();
+	addRows(element)[0]?.focus();
+	const press = (key: string) =>
+		element
+			.querySelector(".entries")
+			?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+
+	press("ArrowDown");
+	expect((document.activeElement as HTMLButtonElement).value).toBe("001");
+
+	press("End");
+	expect((document.activeElement as HTMLButtonElement).value).toBe("002");
+
+	press("ArrowDown");
+	expect((document.activeElement as HTMLButtonElement).value).toBe("002");
 });
 
 test("clicking a chip to remove it also returns focus to the search input", () => {

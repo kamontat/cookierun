@@ -18,6 +18,7 @@ import {
 import { describeFull } from "./describe.ts";
 import type { FullCode } from "./full-code.ts";
 import { combiSectionOf, decodeFull, encodeFull } from "./full-code.ts";
+import { hintsFor } from "./hints.ts";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
@@ -27,6 +28,7 @@ import {
 	TYPE_LABELS,
 } from "./labels.ts";
 import type { Loadout } from "./loadout.ts";
+import { hashFor, rememberCode, startingCode } from "./state.ts";
 
 import "#components/auto-verdict.ts";
 import "#components/check-group.ts";
@@ -60,6 +62,9 @@ const actionSelect = need<LabelledSelect>("action");
 const builderForm = need<HTMLFormElement>("builder");
 const codeOutput = need<CopyCode>("code-output");
 const builderVerdict = need<AutoVerdictElement>("builder-verdict");
+const copyLinkButton = need<HTMLButtonElement>("copy-link");
+const resetButton = need<HTMLButtonElement>("reset");
+const linkStatus = need("link-status");
 
 const codeInput = need<HTMLInputElement>("code-input");
 const readerMessage = need("reader-message");
@@ -149,14 +154,37 @@ function setStatus(host: HTMLElement, text: string, isError = false): void {
 	host.classList.toggle("error", isError);
 }
 
+/**
+ * The address bar is the page's own copy of the code, so a build is a link
+ * someone can send. `replaceState` rather than assigning the hash: one history
+ * entry per keystroke would bury the page someone arrived from.
+ */
+function publish(code: string): void {
+	try {
+		history.replaceState(null, "", hashFor(code));
+	} catch {}
+	rememberCode(localStorage, code);
+}
+
 function renderBuilder(): void {
 	const code = encodeFull({ loadout: readLoadout(), combi: readForm() });
 	codeOutput.value = code;
+	// After the value: setting it drops the old hints, which described the code
+	// before this one.
+	codeOutput.hints = hintsFor(code);
 
 	// Read the code back so the verdict reflects the character actually written
 	// into slot 2, not the type the select still shows.
 	const { full } = decodeFull(code);
 	builderVerdict.verdict = describeFull(full).auto;
+	publish(code);
+}
+
+function applyCode(code: string): void {
+	const { full } = decodeFull(code);
+	writeForm(full.combi);
+	writeLoadout(full.loadout);
+	renderBuilder();
 }
 
 function clearReader(): void {
@@ -262,12 +290,47 @@ loadoutForm.addEventListener("input", renderBuilder);
 codeInput.addEventListener("input", renderReader);
 
 loadButton.addEventListener("click", () => {
-	const { full } = decodeFull(codeInput.value);
-	writeForm(full.combi);
-	writeLoadout(full.loadout);
-	renderBuilder();
+	applyCode(codeInput.value);
 	typeSelect.focus();
 });
 
-renderBuilder();
+copyLinkButton.addEventListener("click", () => {
+	void navigator.clipboard
+		.writeText(location.href)
+		.then(() => {
+			setStatus(linkStatus, "Link copied.");
+		})
+		.catch(() => {
+			setStatus(
+				linkStatus,
+				"The browser blocked the clipboard. Copy the address bar by hand.",
+				true,
+			);
+		});
+});
+
+// What the controls say before anyone touches them, captured before a link or a
+// remembered code overwrites them — that is what Reset goes back to.
+const DEFAULT_CODE = encodeFull({ loadout: readLoadout(), combi: readForm() });
+
+resetButton.addEventListener("click", () => {
+	applyCode(DEFAULT_CODE);
+	setStatus(linkStatus, "");
+});
+
+/**
+ * A code in the link wins over the one left from last time; neither is trusted,
+ * since both outlive the page that wrote them and a link can be typed by hand.
+ */
+const opening = startingCode(location.hash, localStorage);
+if (opening !== null) {
+	try {
+		applyCode(opening);
+	} catch {
+		renderBuilder();
+	}
+} else {
+	renderBuilder();
+}
+
 renderReader();

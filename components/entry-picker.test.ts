@@ -23,8 +23,29 @@ function rows(element: EntryPicker): HTMLButtonElement[] {
 	return [...element.querySelectorAll<HTMLButtonElement>("button[value]")];
 }
 
-test("the label names the control", () => {
-	expect(mount().querySelector("label")?.textContent).toBe("Cookie");
+test("the summary names the control and what is picked", () => {
+	const element = mount();
+
+	expect(element.querySelector("summary")?.textContent).toContain("Cookie");
+	expect(element.querySelector("summary")?.textContent).toContain("None");
+
+	element.value = "01";
+
+	expect(element.querySelector("summary")?.textContent).toContain(
+		"Strawberry Cookie",
+	);
+});
+
+// Six of these open at once is a wall of scrolling lists; closed, the loadout
+// reads as six lines.
+test("the list starts closed", () => {
+	expect(mount().querySelector("details")?.open).toBe(false);
+});
+
+test("the search input is named even though the label is now a summary", () => {
+	const search = mount().querySelector("input[type=search]");
+
+	expect(search?.getAttribute("aria-label")).toBe("Filter Cookie");
 });
 
 test("one row per option plus a None row, in the order given", () => {
@@ -75,14 +96,69 @@ test("the list and its rows carry the roles that make aria-selected valid", () =
 	}
 });
 
-test("clicking a row returns focus to the search input, not <body>", () => {
+// `#render()` replaces the button the click landed on, so something has to put
+// focus back or it drops to <body>.
+test("picking keeps focus on the row that was picked", () => {
 	const element = mount();
-	const search = element.querySelector<HTMLInputElement>("input[type=search]");
-	if (search === null) throw new Error("no search input");
 
 	rows(element)[2]?.click();
 
-	expect(document.activeElement).toBe(search);
+	expect((document.activeElement as HTMLButtonElement).value).toBe("01");
+});
+
+test("clearing the pick keeps focus on the None row", () => {
+	const element = mount();
+	element.value = "01";
+
+	rows(element)[0]?.click();
+
+	expect((document.activeElement as HTMLButtonElement).value).toBe("");
+	expect(element.value).toBeNull();
+});
+
+// 50 rows in each of six pickers is 300 tab stops between the loadout and the
+// rest of the page. A listbox is one stop, and arrows move inside it.
+test("the list is a single tab stop, on the selected row", () => {
+	const element = mount();
+	element.value = "01";
+
+	expect(rows(element).map((row) => row.tabIndex)).toEqual([-1, -1, 0, -1]);
+});
+
+test("with nothing picked the first row is the one tab stop", () => {
+	expect(rows(mount()).map((row) => row.tabIndex)).toEqual([0, -1, -1, -1]);
+});
+
+function press(element: EntryPicker, key: string): void {
+	element
+		.querySelector(".entries")
+		?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+}
+
+test("the arrow keys walk the rows and Home and End jump to the ends", () => {
+	const element = mount();
+	rows(element)[0]?.focus();
+
+	press(element, "ArrowDown");
+	expect((document.activeElement as HTMLButtonElement).value).toBe("00");
+
+	press(element, "ArrowUp");
+	expect((document.activeElement as HTMLButtonElement).value).toBe("");
+
+	press(element, "End");
+	expect((document.activeElement as HTMLButtonElement).value).toBe("02");
+
+	press(element, "Home");
+	expect((document.activeElement as HTMLButtonElement).value).toBe("");
+});
+
+test("the arrows stop at the ends rather than wrapping around", () => {
+	const element = mount();
+	rows(element)[0]?.focus();
+
+	press(element, "ArrowUp");
+
+	expect((document.activeElement as HTMLButtonElement).value).toBe("");
 });
 
 test("setting the value marks that row as the selected one", () => {

@@ -9,6 +9,8 @@ description: Use when editing anything in components/, using a custom element fr
 
 Light DOM, no shadow root: Pico styles by element selector, and the two form components need `<form>` participation and label association. Component styles live in `routes/base.css` alongside the page frame, scoped by element name — including a `display` rule for each, since an unknown element is inline until a stylesheet says otherwise. They sit in the base sheet rather than beside each component or in the route that uses one, so that adopting an existing element in a new route is a markup change and nothing else.
 
+Inside a `<button>` or an `<a>`, write `color: inherit`, never `color: var(--pico-color)`: Pico reassigns that property on both, so reading it back paints the text in the button's own colour — which on the entry rows was black on a dark card until it was fixed. The sidebar links hit the same trap.
+
 The sidebar's rules reach through `nav` — `site-nav nav ul`, not `site-nav ul`. Pico styles `aside nav` and `aside li` directly, which used to cover this markup when the rail was an `<aside>`; with a custom element those rules match nothing, and the replacements need a third type selector to out-specify Pico's own `nav`/`nav li` rather than tie them and win on whichever sheet the bundler emits last.
 
 Attributes carry markup-authored configuration; properties carry structured data the route hands over. Every `customElements.define` is guarded by `customElements.get`, because one `bun test` process shares one registry across every test file.
@@ -20,16 +22,22 @@ Attributes carry markup-authored configuration; properties carry structured data
 | `<tool-index>` | — | — |
 | `<labelled-select>` | `label` | `options`, `value` |
 | `<check-group>` | `legend` | `options`, `selected` |
-| `<copy-code>` | `value` | `value` |
+| `<copy-code>` | `value` | `value`, `hints` |
 | `<auto-verdict>` | `prefix` | `verdict` |
+| `<entry-picker>` | `label` | `options`, `value` |
+| `<entry-set>` | `legend` | `options`, `selected` |
 
 `<site-nav>` and `<tool-index>` read the registry themselves; no route passes them data. `<site-nav>` renders `<theme-toggle>` as one of its own children, so there is no mount order for a page to get wrong.
 
 `<copy-code>` is the only element that observes an attribute, because the page sets a new code on every keystroke and the markup ships an initial one. Setting either the attribute or the property rewrites the code; setting the property also clears the copy status, since a stale "Copied." beside a code that has since changed is a lie.
 
-`<check-group>`'s `selected` getter filters the element's own `options` rather than reading DOM order. That is what keeps boosts in slot order and cookie powers in bit order, and it is part of the wire format rather than a preference.
+`<check-group>`'s `selected` getter filters the element's own `options` rather than reading DOM order. That is what keeps boosts in slot order and cookie powers in bit order, and it is part of the wire format rather than a preference. `<entry-set>`'s getter follows the same rule for the same reason: a treasure slot's alternatives are written in id order, so click order would produce a different code for the same slot.
 
-Each component is standalone by design. Only `site-nav.ts` and `tool-index.ts` import anything — `TOOLS` and `hrefFor` from `lib/`, plus `theme-toggle.ts` in the sidebar's case, since it renders one — and the other five import nothing at all. `<labelled-select>` and `<check-group>` even declare an `Option` pair type each rather than sharing one. A shared type between two components is the first step towards a component that cannot be read on its own.
+`<copy-code>`'s `hints` property takes one `{ char, hint, group }` per character of the current value and draws each run of one group as a `<span>` carrying Pico's `data-tooltip`. It labels; it never decides what a character means — that is the page's job. A list whose length does not match the value is dropped whole rather than misaligned, and setting `value` clears the hints, since against a newer code they would point at the wrong characters.
+
+`<entry-picker>` and `<entry-set>` each render inside a closed `<details>`, with the current pick on the summary line: six open lists over catalogs of 94 to 1,144 entries is a wall of scrolling, and a closed control still has to say what it holds. Their rows are a roving tabindex — one tab stop per list, arrows and Home/End inside it, clamped at the ends — because 50 rendered rows in each of six controls would otherwise be 300 tab stops between the loadout and the rest of the page. After a pick, focus follows the same row into its replacement; when a filter has hidden it, the search input takes focus instead, being the one element that survives every render.
+
+Each component is standalone by design. Only `site-nav.ts` and `tool-index.ts` import anything — `TOOLS` and `hrefFor` from `lib/`, plus `theme-toggle.ts` in the sidebar's case, since it renders one — and the rest import nothing at all. `<labelled-select>` and `<check-group>` even declare an `Option` pair type each rather than sharing one. A shared type between two components is the first step towards a component that cannot be read on its own.
 
 `components/` imports from `lib/` and never from `routes/` — `components/auto-verdict.ts` declares its own `Verdict` type rather than importing the structurally identical `AutoVerdict` from `routes/combi-name/describe.ts`, which is what keeps that arrow pointing one way.
 
