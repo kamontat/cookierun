@@ -26,13 +26,16 @@
 import {
 	type AssetIndex,
 	type Entry,
+	type Fingerprints,
 	ID_WIDTH,
 	migrate,
-	ordered,
 	reconcile,
 	SECTIONS,
 	type Section,
+	serializeIndex,
 	type TreasureEntry,
+	verifyIndex,
+	verifyStructure,
 } from "./utils/asset-ids.ts";
 
 const ORIGIN = "https://cookierundb.com";
@@ -457,27 +460,31 @@ await pool("icons", jobs, async ([remote, local]) => {
 	}
 });
 
-function byId<T extends Entry>(entries: Record<string, T>): Record<string, T> {
-	const sorted: Record<string, T> = {};
-	for (const id of Object.keys(entries).sort()) {
-		const entry = entries[id];
-		if (entry !== undefined) sorted[id] = ordered(entry);
-	}
-	return sorted;
-}
+const written = serializeIndex(index);
+await Bun.write(ASSETS_INDEX, written);
 
-await Bun.write(
-	ASSETS_INDEX,
-	`${JSON.stringify(
-		{
-			cookies: byId(index.cookies),
-			pets: byId(index.pets),
-			treasures: byId(index.treasures),
-		},
-		null,
-		2,
-	)}\n`,
-);
+// The same check `verify:assets` runs, against what this run just wrote — a
+// scrape that produced a broken index should say so now, not the next time
+// somebody runs the suite.
+bail(verifyStructure(written), "the index just written is not intact");
+
+const FINGERPRINT = `${ASSETS}fingerprint.json`;
+if (await Bun.file(FINGERPRINT).exists()) {
+	const expected = (await Bun.file(FINGERPRINT).json()) as Fingerprints;
+	bail(verifyIndex(written, expected), "the index just written moved an id");
+
+	// Appending entries leaves the fingerprint valid — it covers a prefix — so
+	// this is an invitation rather than a failure.
+	const uncovered = SECTIONS.filter(
+		(section) => Object.keys(index[section]).length > expected[section].through,
+	);
+	if (uncovered.length > 0) {
+		console.log(
+			`appended entries beyond the fingerprint's coverage (${uncovered.join(", ")});` +
+				" run `bun run verify:assets --update` to cover them",
+		);
+	}
+}
 console.log(
 	`done: ${jobs.length - failures.length} downloaded, ${failures.length} failed`,
 );

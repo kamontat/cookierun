@@ -1,13 +1,17 @@
 import { expect, test } from "bun:test";
 
+import fingerprint from "#assets/fingerprint.json";
+
 import {
 	type Entry,
+	type Fingerprints,
 	fromId,
 	migrate,
 	ordered,
 	reconcile,
 	type TreasureEntry,
 	toId,
+	verifyIndex,
 } from "./asset-ids.ts";
 
 test("an id is fixed-width uppercase base-36", () => {
@@ -274,4 +278,63 @@ test("ordered keeps a retired entry's flag last and drops nothing", () => {
 		"retired",
 	]);
 	expect(entry.retired).toBe(true);
+});
+
+const INDEX = new URL("../../assets/index.json", import.meta.url);
+const COMMITTED = fingerprint as unknown as Fingerprints;
+
+/**
+ * `bun run verify:assets` runs the same check, but a contributor runs the suite
+ * far more often than a script they have to remember. This is what makes a hand
+ * edit or a bad merge fail before it reaches anybody else.
+ */
+test("the committed index is intact and no covered id has changed meaning", async () => {
+	const text = await Bun.file(INDEX).text();
+
+	expect(verifyIndex(text, COMMITTED)).toEqual([]);
+});
+
+async function tampered(
+	change: (index: Record<string, Record<string, { url: string }>>) => void,
+): Promise<string[]> {
+	const index = JSON.parse(await Bun.file(INDEX).text());
+	change(index);
+	return verifyIndex(`${JSON.stringify(index, null, 2)}\n`, COMMITTED);
+}
+
+// Each of these is a way the file could actually break: a merge that took both
+// sides, a hand edit, a rebase that dropped a hunk.
+test("an id that comes to name a different entry is caught", async () => {
+	const problems = await tampered((index) => {
+		const first = index.cookies?.["00"];
+		const second = index.cookies?.["01"];
+		if (first === undefined || second === undefined) {
+			throw new Error("the two cookies this test swaps are missing");
+		}
+		[first.url, second.url] = [second.url, first.url];
+	});
+
+	expect(problems).toHaveLength(1);
+	expect(problems[0]).toContain("cookies: fingerprint");
+	expect(problems[0]).toContain("changed meaning");
+});
+
+test("an entry removed from the end is caught by the covered count", async () => {
+	const problems = await tampered((index) => {
+		delete index.treasures?.["0VR"];
+	});
+
+	expect(
+		problems.some((problem) => problem.includes("fewer than the 1144")),
+	).toBe(true);
+});
+
+test("an entry removed from the middle is caught as a gap", async () => {
+	const problems = await tampered((index) => {
+		delete index.pets?.["05"];
+	});
+
+	expect(problems[0]).toBe(
+		"pets: id 06 sits where 05 should be — an id was deleted or inserted",
+	);
 });

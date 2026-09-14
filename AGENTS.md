@@ -35,11 +35,12 @@ bun run check:biome                          # formatting and lint; --write appl
 bun run format:biome                         # the same check with --write --unsafe; read the diff after (`format` is an alias)
 bun run check                                # both checks, in one pass
 bun run build                                # writes dist/index.html and dist/combi-name/index.html, plus dist/assets/ for the combi page's icons
-bun run fetch-assets                         # re-scrapes icons into assets/ (idempotent, skips existing)
+bun run fetch:assets                         # re-scrapes icons into assets/ (idempotent, skips existing)
+bun run verify:assets                        # checks assets/index.json offline; --update extends the fingerprint's coverage
 bun run deploy                               # publishes to Cloudflare; wrangler builds first
 ```
 
-Every script is a file under `scripts/`, each a docstring plus one `execAsync` call that never returns. See the `repo-scripts` skill before editing one.
+Every script is a file under `scripts/`, most of them a docstring plus one `execAsync` call that never returns. The two asset scripts are programs instead: `fetch-assets.ts` scrapes, `verify-assets.ts` checks what it wrote. See the `repo-scripts` skill before editing one.
 
 ## Project layout
 

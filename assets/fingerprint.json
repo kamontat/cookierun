@@ -1,0 +1,14 @@
+{
+  "cookies": {
+    "through": 94,
+    "hash": "4a2ca2ce6ea19188"
+  },
+  "pets": {
+    "through": 103,
+    "hash": "284bab422b5921bf"
+  },
+  "treasures": {
+    "through": 1144,
+    "hash": "2eaaaf8832ba03f2"
+  }
+}

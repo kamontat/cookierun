@@ -178,6 +178,213 @@ export function migrate(old: unknown): AssetIndex {
 	return out;
 }
 
+function byId<T extends Entry>(entries: Record<string, T>): Record<string, T> {
+	const sorted: Record<string, T> = {};
+	for (const id of Object.keys(entries).sort()) {
+		const entry = entries[id];
+		if (entry !== undefined) sorted[id] = ordered(entry);
+	}
+	return sorted;
+}
+
+/**
+ * The one way `assets/index.json` is written, so the scraper and the verifier
+ * cannot disagree about what the file should look like.
+ */
+export function serializeIndex(index: AssetIndex): string {
+	return `${JSON.stringify(
+		{
+			cookies: byId(index.cookies),
+			pets: byId(index.pets),
+			treasures: byId(index.treasures),
+		},
+		null,
+		2,
+	)}\n`;
+}
+
+export type Fingerprint = {
+	/** How many of the section's ids the hash covers, counting from the lowest. */
+	through: number;
+	hash: string;
+};
+
+export type Fingerprints = Record<Section, Fingerprint>;
+
+/**
+ * Hashes what must never change: which entry each id names. Only the first
+ * `through` ids of a section go in, which is what makes the fingerprint useful
+ * rather than merely noisy — appending an entry leaves it untouched, while
+ * renumbering, deleting or re-pointing a covered one breaks it. A renamed
+ * display name or a new icon path is free, because neither changes what a
+ * published code means.
+ */
+export function fingerprintsOf(
+	index: AssetIndex,
+	through: Record<Section, number>,
+): Record<Section, string> {
+	return {
+		cookies: hashPrefix(index.cookies, through.cookies),
+		pets: hashPrefix(index.pets, through.pets),
+		treasures: hashPrefix(index.treasures, through.treasures),
+	};
+}
+
+function hashPrefix(entries: Record<string, Entry>, through: number): string {
+	const pairs = Object.keys(entries)
+		.sort()
+		.slice(0, through)
+		.map((id) => `${id} ${slugOf(entries[id]?.url ?? "")}`);
+
+	const hasher = new Bun.CryptoHasher("sha256");
+	hasher.update(pairs.join("\n"));
+	// 64 bits is far more than enough to catch an accident, and short enough to
+	// read in a diff.
+	return hasher.digest("hex").slice(0, 16);
+}
+
+/** Fingerprints covering every entry currently in the index. */
+export function fingerprintsFor(index: AssetIndex): Fingerprints {
+	const through: Record<Section, number> = {
+		cookies: Object.keys(index.cookies).length,
+		pets: Object.keys(index.pets).length,
+		treasures: Object.keys(index.treasures).length,
+	};
+	const hashes = fingerprintsOf(index, through);
+
+	return {
+		cookies: { through: through.cookies, hash: hashes.cookies },
+		pets: { through: through.pets, hash: hashes.pets },
+		treasures: { through: through.treasures, hash: hashes.treasures },
+	};
+}
+
+/**
+ * Everything about the index that can be checked without knowing what it looked
+ * like before: that it parses, that `migrate` accepts it and leaves it alone,
+ * that it is written the way the scraper writes it, that every id is the right
+ * shape and sits where its position says it should, that no two entries claim
+ * one slug, and that every treasure chain reference resolves.
+ *
+ * Returns one line per problem, so a caller can report them all at once.
+ */
+export function verifyStructure(text: string): string[] {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(text);
+	} catch (error) {
+		return [`index.json is not valid JSON: ${String(error)}`];
+	}
+
+	let index: AssetIndex;
+	try {
+		index = migrate(parsed);
+	} catch (error) {
+		return [`migrate refused the index: ${String(error)}`];
+	}
+
+	const problems: string[] = [];
+
+	// A file the writer would rewrite means the next scrape produces a diff
+	// nobody asked for — field order, key order or indentation has drifted.
+	if (serializeIndex(index) !== text) {
+		problems.push(
+			"index.json is not what the writer would produce — field order, key order or indentation has drifted",
+		);
+	}
+
+	for (const section of SECTIONS) {
+		const width = ID_WIDTH[section];
+		const shaped = new RegExp(`^[0-9A-Z]{${width}}$`);
+		const ids = Object.keys(index[section]).sort();
+
+		ids.forEach((id, position) => {
+			if (!shaped.test(id)) {
+				problems.push(
+					`${section}/${id} is not ${width} characters of [0-9A-Z]`,
+				);
+				return;
+			}
+			// Ids are assigned from zero and never removed, so the nth lowest id
+			// is always n. Anything else means one was deleted or inserted, which
+			// moves every id after it.
+			const belongs = toId(position, width);
+			if (id !== belongs) {
+				problems.push(
+					`${section}: id ${id} sits where ${belongs} should be — an id was deleted or inserted`,
+				);
+			}
+		});
+
+		const seen = new Map<string, string>();
+		for (const [id, entry] of Object.entries(index[section])) {
+			const slug = slugOf(entry.url);
+			const first = seen.get(slug);
+			if (first !== undefined) {
+				problems.push(
+					`${section}: ${slug} is claimed by both ${first} and ${id}`,
+				);
+				continue;
+			}
+			seen.set(slug, id);
+		}
+	}
+
+	for (const [id, entry] of Object.entries(index.treasures)) {
+		const references =
+			entry.type === "N"
+				? entry.targets.filter((target): target is string => target !== null)
+				: [entry.source];
+
+		for (const reference of references) {
+			if (!Object.hasOwn(index.treasures, reference)) {
+				problems.push(
+					`treasures/${id} points at ${reference}, which is not a treasure`,
+				);
+			}
+		}
+	}
+
+	return problems;
+}
+
+/**
+ * `verifyStructure` plus the question only the committed fingerprint can
+ * answer: does every covered id still name the entry it named when the
+ * fingerprint was recorded?
+ */
+export function verifyIndex(text: string, expected: Fingerprints): string[] {
+	const problems = verifyStructure(text);
+	if (problems.length > 0) return problems;
+
+	// Structure passed, so this parse and migrate cannot fail.
+	const index = migrate(JSON.parse(text));
+	const actual = fingerprintsOf(index, {
+		cookies: expected.cookies.through,
+		pets: expected.pets.through,
+		treasures: expected.treasures.through,
+	});
+
+	for (const section of SECTIONS) {
+		const { through, hash } = expected[section];
+		const count = Object.keys(index[section]).length;
+
+		if (count < through) {
+			problems.push(
+				`${section}: ${count} entries, fewer than the ${through} the fingerprint covers — an entry was removed`,
+			);
+			continue;
+		}
+		if (actual[section] !== hash) {
+			problems.push(
+				`${section}: fingerprint ${actual[section]} does not match the committed ${hash} — an id within the first ${through} changed meaning`,
+			);
+		}
+	}
+
+	return problems;
+}
+
 /**
  * Matches a listing against the index already on disk. A slug keeps whatever id
  * it was first given, a new slug takes one past the highest in use, and a slug
