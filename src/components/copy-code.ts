@@ -127,6 +127,16 @@ export class CopyCode extends LitElement {
 	@state()
 	private failed = false;
 
+	/**
+	 * Which run is the single tab stop, by index into `#runs()`. Arrow-key
+	 * navigation is the only thing that changes it; a render never writes it
+	 * back, it only clamps a stale index against however many runs currently
+	 * exist, so the invariant — exactly one run in range, tabbable — always
+	 * holds even after the code (and so the run count) changes underneath it.
+	 */
+	@state()
+	private activeRun = 0;
+
 	/** The code the current hints were computed against. */
 	#hintsFor = "";
 
@@ -184,18 +194,62 @@ export class CopyCode extends LitElement {
 		return runs;
 	}
 
+	/**
+	 * One tab stop for the whole code, arrows inside it: a full code has around
+	 * nine hint runs, and the panel sits at the top of every page, so nine tab
+	 * stops there would push the actual form nine key presses down. `event.target`
+	 * rather than `shadowRoot.activeElement`: this listener sits on `<code>`, the
+	 * `keydown` bubbles up from whichever span has focus without retargeting
+	 * inside the same root, and that is simpler than asking the shadow root what
+	 * it thinks is focused.
+	 */
+	#walk(event: KeyboardEvent): void {
+		const spans = [
+			...(this.shadowRoot?.querySelectorAll<HTMLSpanElement>("code span") ??
+				[]),
+		];
+		const at = spans.indexOf(event.target as HTMLSpanElement);
+		if (at === -1) return;
+
+		const to = {
+			ArrowLeft: at - 1,
+			ArrowRight: at + 1,
+			Home: 0,
+			End: spans.length - 1,
+		}[event.key];
+		if (to === undefined) return;
+
+		event.preventDefault();
+		// Clamped rather than wrapped: an arrow that jumps from the last run to
+		// the first reads as a lost keypress.
+		const clamped = Math.min(Math.max(to, 0), spans.length - 1);
+		this.activeRun = clamped;
+		spans[clamped]?.focus();
+	}
+
 	override render() {
+		const runs = this.#runs();
+		// Clamped against the current run count, not stored back: a render must
+		// never mutate reactive state mid-render, and the code changing out from
+		// under a stale index is exactly the case this guards.
+		const activeIndex =
+			runs.length === 0
+				? -1
+				: Math.min(Math.max(this.activeRun, 0), runs.length - 1);
+
 		return html`
 			<output aria-live="polite">
-				<code
+				<code @keydown=${(event: KeyboardEvent) => this.#walk(event)}
 					>${
-						this.hintList.length === 0
+						runs.length === 0
 							? this.value
-							: this.#runs().map(
-									(run) => html`<span
+							: runs.map(
+									(run, index) => html`<span
+									tabindex=${index === activeIndex ? 0 : -1}
 									data-tooltip=${run[0]?.hint ?? ""}
 									data-placement="bottom"
 									data-group=${run[0]?.group ?? ""}
+									aria-label=${run[0]?.hint ?? ""}
 									>${run.map(({ char }) => char).join("")}</span
 								>`,
 								)
