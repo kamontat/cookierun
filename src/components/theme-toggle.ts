@@ -1,7 +1,11 @@
+import { css, html, LitElement } from "lit";
+
+import { base, controls } from "./theme";
+
 /**
- * Pico paints light by default, dark under `prefers-color-scheme`, and obeys
- * `data-theme` on the root over both. So the whole feature is: remember a
- * choice, write that attribute, and let the stylesheet do the rest.
+ * The stylesheet paints dark by default, light under `prefers-color-scheme`,
+ * and obeys `data-theme` on the root over both. So the whole feature is:
+ * remember a choice, write that attribute, and let the tokens do the rest.
  *
  * Each page carries a tiny inline copy of the read-and-apply step in its head,
  * marked `id="theme-boot"`. Module scripts are deferred, so without it the page
@@ -50,47 +54,53 @@ export function applyTheme(theme: Theme, root: HTMLElement): void {
 	else root.setAttribute("data-theme", theme);
 }
 
-/**
- * Exported as a function as well as wrapped in the element below, because a
- * custom element swallows a callback exception into the global error handler.
- * The storage-refused test has to call something that can actually throw.
- */
-export function renderThemeControl(
-	host: HTMLElement,
-	root: HTMLElement = document.documentElement,
-	storage: ThemeStorage = localStorage,
-): void {
-	const select = document.createElement("select");
-	select.id = "theme-choice";
-	select.replaceChildren(
-		...THEMES.map((theme) => {
-			const option = document.createElement("option");
-			option.value = theme;
-			option.textContent = LABELS[theme];
-			return option;
-		}),
-	);
+export class ThemeToggle extends LitElement {
+	static override styles = [
+		base,
+		controls,
+		css`
+			:host {
+				display: block;
+			}
 
-	const current = readTheme(storage);
-	select.value = current;
-	applyTheme(current, root);
+			select {
+				margin-top: var(--cr-space-1);
+				font-size: 0.85rem;
+			}
+		`,
+	];
 
-	select.addEventListener("change", () => {
-		const chosen = isTheme(select.value) ? select.value : "system";
-		applyTheme(chosen, root);
-		writeTheme(chosen, storage);
-	});
+	override connectedCallback(): void {
+		super.connectedCallback();
+		applyTheme(readTheme(localStorage), document.documentElement);
+	}
 
-	const label = document.createElement("label");
-	label.htmlFor = select.id;
-	label.textContent = "Theme";
+	#choose(event: Event): void {
+		const value = (event.target as HTMLSelectElement).value;
+		const chosen = isTheme(value) ? value : "system";
+		applyTheme(chosen, document.documentElement);
+		writeTheme(chosen, localStorage);
+	}
 
-	host.replaceChildren(label, select);
-}
-
-export class ThemeToggle extends HTMLElement {
-	connectedCallback(): void {
-		renderThemeControl(this);
+	override render() {
+		const current = readTheme(localStorage);
+		return html`
+			<label for="theme-choice">Theme</label>
+			<select
+				id="theme-choice"
+				.value=${current}
+				@change=${(event: Event) => {
+					this.#choose(event);
+				}}
+			>
+				${THEMES.map(
+					(theme) =>
+						html`<option value=${theme} ?selected=${theme === current}>
+							${LABELS[theme]}
+						</option>`,
+				)}
+			</select>
+		`;
 	}
 }
 
