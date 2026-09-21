@@ -88,22 +88,40 @@ test("choosing an option bubbles exactly one input event, carrying the new value
 	];
 	await element.updateComplete;
 
-	// Asserted from inside the listener, at the moment the page would see the
-	// event, rather than captured into a variable read afterward: that is
-	// what actually pins down "fresh", not just "eventually correct".
+	// Asserting from *inside* the listener would not fail this test: happy-dom's
+	// default `errorCapture: "tryAndCatch"` catches whatever a listener throws
+	// and routes it to the window's own error reporting rather than back to
+	// `dispatchEvent`'s caller. So the listener only records what it saw, into
+	// a box rather than a bare closured `let` - TypeScript's control-flow
+	// narrowing does not follow a `let` that is assigned only inside a
+	// closure, so a later direct read of it does not typecheck the way this
+	// property read does - and the assertion happens here at test scope,
+	// after `dispatchEvent` returns.
 	let seen = 0;
-	document.body.addEventListener("input", () => {
+	const heard: { value: string | null } = { value: null };
+	const onInput = () => {
 		seen += 1;
-		expect(element.value).toBe("b");
-	});
+		heard.value = element.value;
+	};
+	document.body.addEventListener("input", onInput);
 
-	const select = element.shadowRoot?.querySelector("select");
-	if (select == null) throw new Error("no select");
-	select.value = "b";
-	select.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-	select.dispatchEvent(new Event("change", { bubbles: true }));
+	try {
+		const select = element.shadowRoot?.querySelector("select");
+		if (select == null) throw new Error("no select");
+		select.value = "b";
+		select.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+		select.dispatchEvent(new Event("change", { bubbles: true }));
 
-	expect(seen).toBe(1);
+		expect(seen).toBe(1);
+		if (heard.value === null) throw new Error("the input listener never fired");
+		expect(heard.value).toBe("b");
+	} finally {
+		// document.body outlives this test - replaceChildren() in the next
+		// mount() clears its children, not its listeners, so an un-removed one
+		// would still fire (against this test's now-stale `element`) on every
+		// later test's own dispatched events.
+		document.body.removeEventListener("input", onInput);
+	}
 });
 
 // Mirrors what a native, untouched <select> does: with options but no
