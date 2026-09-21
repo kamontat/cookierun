@@ -1,3 +1,9 @@
+import { css, html, LitElement, type PropertyValues } from "lit";
+import { property, state } from "lit/decorators.js";
+import { classMap } from "lit/directives/class-map.js";
+
+import { base, controls } from "./theme";
+
 /**
  * What one character of the code means. The element only groups and displays
  * these; what a character means is the page's business, not the element's.
@@ -16,57 +22,116 @@ export type CharHint = {
  * for the same reason, since against a newer code they would label the wrong
  * characters.
  */
-export class CopyCode extends HTMLElement {
-	static readonly observedAttributes = ["value"];
+export class CopyCode extends LitElement {
+	static override styles = [
+		base,
+		controls,
+		css`
+			:host {
+				display: block;
+			}
 
-	readonly #code = document.createElement("code");
-	readonly #status = document.createElement("p");
-	readonly #button = document.createElement("button");
-	#hints: readonly CharHint[] = [];
-	#built = false;
+			output {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--cr-space-3);
+				align-items: center;
+			}
 
-	connectedCallback(): void {
-		if (this.#built) return;
-		this.#built = true;
+			/* Wrapping, not scrolling: a hint bubble inside an \`overflow\` box is
+			   clipped by it, and a long full code has group boundaries to wrap at. */
+			code {
+				flex: 0 1 auto;
+				min-width: 0;
+				overflow-wrap: anywhere;
+				color: var(--cr-accent-2);
+				font-family: var(--cr-mono);
+				font-size: clamp(1.5rem, 5vw, 2.25rem);
+				font-weight: 600;
+				letter-spacing: 0.22em;
+				user-select: all;
+			}
 
-		this.#code.textContent = this.getAttribute("value") ?? "";
+			/* One span per field of the code. The gap is what makes the fields read
+			   as fields rather than as ten loose characters. */
+			code span {
+				position: relative;
+				white-space: nowrap;
+				border-bottom: 1px dotted currentColor;
+				cursor: help;
+			}
 
-		this.#button.type = "button";
-		this.#button.className = "outline secondary";
-		this.#button.textContent = "Copy";
-		this.#button.addEventListener("click", () => void this.#copy());
+			code span + span {
+				margin-left: 0.12em;
+			}
 
-		this.#status.className = "status";
-		this.#status.setAttribute("role", "status");
+			code span:hover,
+			code span:focus-visible {
+				color: var(--cr-accent);
+			}
 
-		const output = document.createElement("output");
-		output.setAttribute("aria-live", "polite");
-		output.append(this.#code, this.#button);
+			/* The bubble the framework used to draw. It opens below the code on
+			   purpose: the code sits at the top of a sticky panel, so a bubble
+			   above it would open off the top of the window. */
+			code span[data-placement="bottom"]::after {
+				content: attr(data-tooltip);
+				position: absolute;
+				top: calc(100% + var(--cr-space-1));
+				left: 50%;
+				transform: translateX(-50%);
+				z-index: 2;
+				width: max-content;
+				max-width: 16rem;
+				border: var(--cr-border) solid var(--cr-line);
+				border-radius: var(--cr-radius);
+				background: var(--cr-surface-2);
+				box-shadow: var(--cr-block);
+				padding: var(--cr-space-1) var(--cr-space-2);
+				color: var(--cr-text);
+				font-family: var(--cr-font);
+				font-size: 0.8rem;
+				font-weight: 400;
+				letter-spacing: normal;
+				white-space: normal;
+				opacity: 0;
+				pointer-events: none;
+			}
 
-		this.replaceChildren(output, this.#status);
-	}
+			code span:hover::after,
+			code span:focus-visible::after {
+				opacity: 1;
+			}
 
-	attributeChangedCallback(
-		name: string,
-		_previous: string | null,
-		next: string | null,
-	): void {
-		if (name !== "value") return;
-		this.#hints = [];
-		this.#code.textContent = next ?? "";
-	}
+			.status {
+				min-height: 1.4rem;
+				margin: var(--cr-space-2) 0 0;
+				color: var(--cr-muted);
+				font-size: 0.9rem;
+			}
 
-	get value(): string {
-		return this.#code.textContent ?? "";
-	}
+			.status.error {
+				color: var(--cr-danger);
+			}
+		`,
+	];
 
-	set value(value: string) {
-		this.setAttribute("value", value);
-		this.#setStatus("", false);
-	}
+	@property({ type: String, reflect: true })
+	value = "";
+
+	@state()
+	private hintList: readonly CharHint[] = [];
+
+	@state()
+	private status = "";
+
+	@state()
+	private failed = false;
+
+	/** The code the current hints were computed against. */
+	#hintsFor = "";
 
 	get hints(): readonly CharHint[] {
-		return this.#hints;
+		return this.hintList;
 	}
 
 	/**
@@ -75,53 +140,82 @@ export class CopyCode extends HTMLElement {
 	 * than labelling none of them.
 	 */
 	set hints(hints: readonly CharHint[]) {
-		const value = this.value;
-		this.#hints = hints.length === value.length ? hints : [];
-		this.#renderCode(value);
+		this.#hintsFor = this.value;
+		this.hintList = hints.length === this.value.length ? hints : [];
 	}
 
-	#renderCode(value: string): void {
-		if (this.#hints.length === 0) {
-			this.#code.textContent = value;
-			return;
-		}
-
-		const runs: CharHint[][] = [];
-		for (const hint of this.#hints) {
-			const last = runs[runs.length - 1];
-			if (last !== undefined && last[0]?.group === hint.group) last.push(hint);
-			else runs.push([hint]);
-		}
-
-		this.#code.replaceChildren(
-			...runs.map((run) => {
-				const span = document.createElement("span");
-				span.setAttribute("data-tooltip", run[0]?.hint ?? "");
-				// Below: the code sits at the top of a sticky panel, so Pico's
-				// default bubble above it would open off the top of the window.
-				span.setAttribute("data-placement", "bottom");
-				span.setAttribute("data-group", run[0]?.group ?? "");
-				span.textContent = run.map(({ char }) => char).join("");
-				return span;
-			}),
-		);
+	/**
+	 * A new code invalidates both the hints and the status, whichever route set
+	 * it — the attribute from the markup, or the property from the page.
+	 *
+	 * The hints are dropped by comparing what they were computed against rather
+	 * than by the fact that `value` changed, because the page sets both in one
+	 * tick: `codeOutput.value = code` then `codeOutput.hints = hintsFor(code)`.
+	 * Both land before this runs, so clearing on `changed.has("value")` alone
+	 * would throw away hints that describe the code exactly.
+	 */
+	protected override willUpdate(changed: PropertyValues<this>): void {
+		if (!changed.has("value")) return;
+		if (this.#hintsFor !== this.value) this.hintList = [];
+		this.status = "";
+		this.failed = false;
 	}
 
 	async #copy(): Promise<void> {
 		try {
 			await navigator.clipboard.writeText(this.value);
-			this.#setStatus("Copied.", false);
+			this.status = "Copied.";
+			this.failed = false;
 		} catch {
-			this.#setStatus(
-				"The browser blocked the clipboard. Select the code and copy it by hand.",
-				true,
-			);
+			this.status =
+				"The browser blocked the clipboard. Select the code and copy it by hand.";
+			this.failed = true;
 		}
 	}
 
-	#setStatus(text: string, isError: boolean): void {
-		this.#status.textContent = text;
-		this.#status.classList.toggle("error", isError);
+	/** Characters sharing a group are one run, drawn and labelled together. */
+	#runs(): CharHint[][] {
+		const runs: CharHint[][] = [];
+		for (const hint of this.hintList) {
+			const last = runs[runs.length - 1];
+			if (last !== undefined && last[0]?.group === hint.group) last.push(hint);
+			else runs.push([hint]);
+		}
+		return runs;
+	}
+
+	override render() {
+		return html`
+			<output aria-live="polite">
+				<code
+					>${
+						this.hintList.length === 0
+							? this.value
+							: this.#runs().map(
+									(run) => html`<span
+									data-tooltip=${run[0]?.hint ?? ""}
+									data-placement="bottom"
+									data-group=${run[0]?.group ?? ""}
+									>${run.map(({ char }) => char).join("")}</span
+								>`,
+								)
+					}</code
+				>
+				<button
+					type="button"
+					@click=${() => {
+						void this.#copy();
+					}}
+				>
+					Copy
+				</button>
+			</output>
+			<p
+				class=${classMap({ status: true, error: this.failed })}
+				role="status"
+				>${this.status}</p
+			>
+		`;
 	}
 }
 
