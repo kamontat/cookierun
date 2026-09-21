@@ -1,30 +1,63 @@
+import { css, html, LitElement } from "lit";
+
 import { hrefFor } from "#lib/href";
 import { TOOLS } from "#lib/tools";
+
+import { base } from "./theme";
 
 /**
  * The home pane's index. The sidebar carries the same names, but only as
  * names - this is where a tool gets to say what it does.
  */
-export class ToolIndex extends HTMLElement {
-	connectedCallback(): void {
-		const list = document.createElement("dl");
-		list.replaceChildren(
-			...TOOLS.flatMap(({ slug, name, tagline }) => {
-				const link = document.createElement("a");
-				link.href = hrefFor(slug, null);
-				link.textContent = name;
+export class ToolIndex extends LitElement {
+	static override styles = [
+		base,
+		css`
+			:host {
+				display: block;
+			}
 
-				const term = document.createElement("dt");
-				term.append(link);
+			dl {
+				margin: 0;
+			}
 
-				const detail = document.createElement("dd");
-				detail.textContent = tagline;
+			dt {
+				font-family: var(--cr-mono);
+				font-size: 1.05rem;
+				text-transform: uppercase;
+				letter-spacing: var(--cr-tracking);
+			}
 
-				return [term, detail];
-			}),
-		);
+			dt a {
+				color: var(--cr-accent);
+				text-decoration: none;
+			}
 
-		this.replaceChildren(list);
+			dt a:hover {
+				text-decoration: underline;
+			}
+
+			dd {
+				margin: var(--cr-space-1) 0 var(--cr-space-3);
+				max-width: 46rem;
+				color: var(--cr-muted);
+			}
+
+			dd:last-child {
+				margin-bottom: 0;
+			}
+		`,
+	];
+
+	override render() {
+		return html`<dl>
+			${TOOLS.map(
+				({ slug, name, tagline }) => html`
+					<dt><a href=${hrefFor(slug, null)}>${name}</a></dt>
+					<dd>${tagline}</dd>
+				`,
+			)}
+		</dl>`;
 	}
 }
 

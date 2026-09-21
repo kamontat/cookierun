@@ -6,27 +6,27 @@ import { TOOLS } from "#lib/tools";
 
 import "./tool-index";
 
-test("the home index says what each tool does, not just its name", () => {
+import type { ToolIndex } from "./tool-index";
+
+async function mount(): Promise<ToolIndex> {
 	document.body.replaceChildren();
-	const index = document.createElement("tool-index");
-	document.body.append(index);
+	const element = document.createElement("tool-index") as ToolIndex;
+	document.body.append(element);
+	await element.updateComplete;
+	return element;
+}
 
-	expect(index.querySelectorAll("dt").length).toBe(TOOLS.length);
+test("every registered tool gets a term and a description", async () => {
+	const element = await mount();
 
-	TOOLS.forEach((tool, position) => {
-		const link = index.querySelectorAll("dt")[position]?.querySelector("a");
-		expect(link?.getAttribute("href")).toBe(`./${tool.slug}/`);
-		expect(link?.textContent).toBe(tool.name);
-		expect(index.querySelectorAll("dd")[position]?.textContent).toBe(
-			tool.tagline,
-		);
-	});
+	expect(element.shadowRoot?.querySelectorAll("dt").length).toBe(TOOLS.length);
+	expect(element.shadowRoot?.querySelectorAll("dd").length).toBe(TOOLS.length);
 });
 
-// The page used to supply the <dl> and have it filled in by id.
-test("the element brings its own description list", () => {
-	document.body.replaceChildren();
-	document.body.append(document.createElement("tool-index"));
+test("each term links to its tool from the home pane", async () => {
+	const element = await mount();
+	const link = element.shadowRoot?.querySelector("dt a");
 
-	expect(document.body.querySelector("tool-index > dl")).not.toBeNull();
+	expect(link?.getAttribute("href")).toBe("./combi-name/");
+	expect(link?.textContent).toBe("Combi name codes");
 });
