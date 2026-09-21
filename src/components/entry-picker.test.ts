@@ -87,15 +87,20 @@ test("an option with an icon renders an image, one without does not", async () =
 test("clicking a row sets the value and bubbles an input event", async () => {
 	const element = await mount();
 	let seen = 0;
-	document.body.addEventListener("input", () => {
+	const onInput = () => {
 		seen += 1;
-	});
+	};
+	document.body.addEventListener("input", onInput);
 
-	rows(element)[2]?.click();
-	await settle(element);
+	try {
+		rows(element)[2]?.click();
+		await settle(element);
 
-	expect(element.value).toBe("01");
-	expect(seen).toBe(1);
+		expect(element.value).toBe("01");
+		expect(seen).toBe(1);
+	} finally {
+		document.body.removeEventListener("input", onInput);
+	}
 });
 
 test("clicking the None row clears the value", async () => {

@@ -235,9 +235,12 @@ export class EntryPicker extends LitElement {
 
 	/**
 	 * Lit reuses the row nodes it can, so a pick usually leaves focus where it
-	 * was. When the filter has hidden the row that was clicked there is nothing
-	 * to return to, so the search input — the one element that survives every
-	 * render — takes it instead.
+	 * was. The one case with nothing to return to: `options` is reassigned —
+	 * by a listener reacting to the `input` event dispatched below, before this
+	 * await resolves — dropping the very value just picked. `willUpdate` then
+	 * clears `picked` before the render this awaits, so no pin can save the
+	 * row and it does not come back. The search input — the one element that
+	 * survives every render — takes focus instead.
 	 */
 	async #pick(value: string): Promise<void> {
 		this.picked = value === "" ? null : value;
