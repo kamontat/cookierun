@@ -41,6 +41,11 @@ export type TreasureEntry = Entry &
 	);
 
 export type AssetIndex = {
+	/**
+	 * When the last fully successful scrape finished, or `null` if none has.
+	 * A run that failed to download an icon leaves the previous value standing.
+	 */
+	fetchedAt: string | null;
 	cookies: Record<string, Entry>;
 	pets: Record<string, Entry>;
 	treasures: Record<string, TreasureEntry>;
@@ -57,6 +62,19 @@ export function fromId(id: string): number {
 /** The slug is the last path segment of the entry's own page URL. */
 export function slugOf(url: string): string {
 	return url.split("/").pop() ?? "";
+}
+
+/** Exactly the shape `new Date().toISOString()` produces. */
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+
+/**
+ * The timestamp, or `null` for anything that is not one — a missing field, a
+ * hand-written date, a number. Normalising here rather than throwing is what
+ * lets `migrate` accept an index written before the field existed.
+ */
+export function readFetchedAt(value: unknown): string | null {
+	if (typeof value !== "string" || !ISO.test(value)) return null;
+	return Number.isNaN(Date.parse(value)) ? null : value;
 }
 
 const FIELD_ORDER = [
@@ -122,7 +140,16 @@ function isMigrated(keys: string[], width: number): boolean {
  * different entries. That is what lets `fetch-assets` call this unconditionally.
  */
 export function migrate(old: unknown): AssetIndex {
-	const out: AssetIndex = { cookies: {}, pets: {}, treasures: {} };
+	const out: AssetIndex = {
+		fetchedAt: readFetchedAt(
+			typeof old === "object" && old !== null
+				? (old as { fetchedAt?: unknown }).fetchedAt
+				: undefined,
+		),
+		cookies: {},
+		pets: {},
+		treasures: {},
+	};
 	const treasureIds = new Map<string, string>();
 
 	for (const section of SECTIONS) {
@@ -198,6 +225,7 @@ function byId<T extends Entry>(entries: Record<string, T>): Record<string, T> {
 export function serializeIndex(index: AssetIndex): string {
 	return `${JSON.stringify(
 		{
+			fetchedAt: index.fetchedAt,
 			cookies: byId(index.cookies),
 			pets: byId(index.pets),
 			treasures: byId(index.treasures),
@@ -207,126 +235,13 @@ export function serializeIndex(index: AssetIndex): string {
 	)}\n`;
 }
 
-export type Fingerprint = {
-	/** How many of the section's ids the hashes cover, counting from the lowest. */
-	through: number;
-	/** Over `id url`: which entry each id names. A change here is never benign. */
-	identity: string;
-	/** Over `id name|image|key`: how those entries read. A scrape changes this. */
-	display: string;
-};
-
-export type Fingerprints = Record<Section, Fingerprint>;
-
-/**
- * Two hashes per section, because two very different things can change.
- *
- * `identity` binds an id to an entry's page URL. Nothing legitimate moves it:
- * `reconcile` only ever appends, so an id that names a different URL than it
- * did is corruption, and the codes already published for it now mean something
- * else. `display` covers the name, icon and key — which a scrape rewrites
- * whenever the site renames something, so a mismatch there is a prompt to read
- * the diff rather than proof of damage. Hashing them together would have made
- * every upstream rename look like corruption, and taught everyone to reach for
- * `--update` without looking.
- *
- * Both cover the first `through` ids. `verifyIndex` separately requires that to
- * be every id, so nothing sits outside the fingerprint's reach.
- */
-function fingerprintOf(
-	entries: Record<string, Entry>,
-	through: number,
-): { identity: string; display: string } {
-	const ids = Object.keys(entries).sort().slice(0, through);
-
-	return {
-		identity: hashLines(ids.map((id) => `${id} ${entries[id]?.url ?? ""}`)),
-		display: hashLines(
-			ids.map((id) => {
-				const entry = entries[id];
-				return `${id} ${entry?.name ?? ""}|${entry?.image ?? ""}|${entry?.key ?? ""}`;
-			}),
-		),
-	};
-}
-
-function hashLines(lines: string[]): string {
-	const hasher = new Bun.CryptoHasher("sha256");
-	hasher.update(lines.join("\n"));
-	// 64 bits is far more than enough to catch an accident, and short enough to
-	// read in a diff.
-	return hasher.digest("hex").slice(0, 16);
-}
-
-/** Fingerprints covering every entry currently in the index. */
-export function fingerprintsFor(index: AssetIndex): Fingerprints {
-	return {
-		cookies: {
-			through: Object.keys(index.cookies).length,
-			...fingerprintOf(index.cookies, Object.keys(index.cookies).length),
-		},
-		pets: {
-			through: Object.keys(index.pets).length,
-			...fingerprintOf(index.pets, Object.keys(index.pets).length),
-		},
-		treasures: {
-			through: Object.keys(index.treasures).length,
-			...fingerprintOf(index.treasures, Object.keys(index.treasures).length),
-		},
-	};
-}
-
-const HASH = /^[0-9a-f]{16}$/;
-
-/**
- * Whether a parsed `fingerprint.json` is usable. A malformed one must report
- * itself rather than throw halfway through a comparison, since the likeliest
- * cause is the same bad merge the fingerprint exists to catch.
- */
-export function fingerprintProblems(value: unknown): string[] {
-	if (typeof value !== "object" || value === null) {
-		return ["fingerprint.json is not an object"];
-	}
-
-	const holder = value as Record<string, unknown>;
-	const problems: string[] = [];
-
-	for (const section of SECTIONS) {
-		const entry = holder[section];
-		if (typeof entry !== "object" || entry === null) {
-			problems.push(`fingerprint.json has no ${section}`);
-			continue;
-		}
-
-		const { through, identity, display } = entry as Record<string, unknown>;
-		if (
-			typeof through !== "number" ||
-			!Number.isInteger(through) ||
-			through < 0
-		) {
-			problems.push(`fingerprint.json: ${section}.through is not a count`);
-		}
-		if (typeof identity !== "string" || !HASH.test(identity)) {
-			problems.push(
-				`fingerprint.json: ${section}.identity is not 16 hex characters`,
-			);
-		}
-		if (typeof display !== "string" || !HASH.test(display)) {
-			problems.push(
-				`fingerprint.json: ${section}.display is not 16 hex characters`,
-			);
-		}
-	}
-
-	return problems;
-}
-
 /**
  * Everything about the index that can be checked without knowing what it looked
  * like before: that it parses, that `migrate` accepts it and leaves it alone,
- * that it is written the way the scraper writes it, that every id is the right
- * shape and sits where its position says it should, that no two entries claim
- * one slug, and that every treasure chain reference resolves.
+ * that `fetchedAt` is `null` or an ISO 8601 instant, that it is written the way
+ * the scraper writes it, that every id is the right shape and sits where its
+ * position says it should, that no two entries claim one slug, and that every
+ * treasure chain reference resolves.
  *
  * Returns one line per problem, so a caller can report them all at once.
  */
@@ -346,6 +261,22 @@ export function verifyStructure(text: string): string[] {
 	}
 
 	const problems: string[] = [];
+
+	// Read off the parsed input, not off `migrate`'s output: migrate has already
+	// normalised a malformed value to null, so a check downstream of it could
+	// never fire. Without this the fault is still caught — the writer would
+	// produce `null` where the file says otherwise — but only as generic drift.
+	const raw =
+		typeof parsed === "object" && parsed !== null
+			? (parsed as { fetchedAt?: unknown }).fetchedAt
+			: undefined;
+	if (raw === undefined) {
+		problems.push("index.json: fetchedAt is missing");
+	} else if (raw !== null && readFetchedAt(raw) === null) {
+		problems.push(
+			`index.json: fetchedAt ${JSON.stringify(raw)} is neither null nor an ISO 8601 instant`,
+		);
+	}
 
 	// A file the writer would rewrite means the next scrape produces a diff
 	// nobody asked for — field order, key order or indentation has drifted.
@@ -468,81 +399,6 @@ function chainProblems(treasures: Record<string, TreasureEntry>): string[] {
 				);
 			}
 		});
-	}
-
-	return problems;
-}
-
-/**
- * `verifyStructure` plus the question only the committed fingerprint can
- * answer: does every covered id still name the entry it named when the
- * fingerprint was recorded?
- *
- * Says nothing about ids past `through` — that is `verifyIndex`'s job, and
- * keeping the two apart is what lets `--update` refuse to bless a moved id
- * while still being the thing that covers newly appended ones.
- */
-export function verifyCovered(text: string, expected: Fingerprints): string[] {
-	const problems = verifyStructure(text);
-	if (problems.length > 0) return problems;
-
-	problems.push(...fingerprintProblems(expected));
-	if (problems.length > 0) return problems;
-
-	// Structure passed, so this parse and migrate cannot fail.
-	const index = migrate(JSON.parse(text));
-
-	for (const section of SECTIONS) {
-		const { through, identity, display } = expected[section];
-		const count = Object.keys(index[section]).length;
-
-		if (count < through) {
-			problems.push(
-				`${section}: ${count} entries, fewer than the ${through} the fingerprint covers — an entry was removed`,
-			);
-			continue;
-		}
-
-		const actual = fingerprintOf(index[section], through);
-
-		if (actual.identity !== identity) {
-			problems.push(
-				`${section}: an id within the first ${through} names a different entry (identity ${actual.identity}, committed ${identity})`,
-			);
-		}
-		if (actual.display !== display) {
-			problems.push(
-				`${section}: a name, icon or key within the first ${through} changed (display ${actual.display}, committed ${display}) — a scrape does this legitimately, so read the diff, then run \`bun run verify:assets --update\``,
-			);
-		}
-	}
-
-	return problems;
-}
-
-/**
- * `verifyCovered` plus the requirement that the fingerprint covers every id.
- *
- * Without it, an id appended after the last `--update` sits outside every
- * guard: the fingerprint never covered it, and the scraper's own moved-id
- * check compares against what is on disk, where a dropped entry no longer
- * appears — so a later scrape would hand its id to a different entry and
- * nothing would notice.
- */
-export function verifyIndex(text: string, expected: Fingerprints): string[] {
-	const problems = verifyCovered(text, expected);
-	if (problems.length > 0) return problems;
-
-	const index = migrate(JSON.parse(text));
-
-	for (const section of SECTIONS) {
-		const count = Object.keys(index[section]).length;
-		const { through } = expected[section];
-		if (count > through) {
-			problems.push(
-				`${section}: ${count} entries but the fingerprint covers ${through} — run \`bun run verify:assets --update\` so every id is covered`,
-			);
-		}
 	}
 
 	return problems;

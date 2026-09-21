@@ -28,75 +28,30 @@ import { fileURLToPath } from "node:url";
 import {
 	type AssetIndex,
 	type Entry,
-	type Fingerprints,
-	fingerprintProblems,
 	ID_WIDTH,
 	migrate,
+	ordered,
 	reconcile,
 	SECTIONS,
 	type Section,
 	serializeIndex,
 	type TreasureEntry,
-	verifyCovered,
 	verifyStructure,
 } from "./utils/asset-ids";
+import {
+	type Card,
+	fetchEvolution,
+	fetchListing,
+	fetchSitemap,
+	get,
+	ORIGIN,
+} from "./utils/cookierundb";
 
-const ORIGIN = "https://cookierundb.com";
 // `fileURLToPath`, not `.pathname`: the latter percent-encodes, so a checkout
 // under a path containing a space would not resolve.
 const ASSETS = fileURLToPath(new URL("../assets/", import.meta.url));
 const CONCURRENCY = 4;
 const BAR_WIDTH = 24;
-
-/**
- * Each listing page renders one `<a class="ecard">` per entry. The icon frame
- * holds an `<img>` for entries with a sprite and a placeholder `<span>` for
- * the handful that have none, so the `<img>` is matched optionally. Only the
- * treasure listing carries `data-evo`, so that attribute is optional too.
- */
-const CARD_RE =
-	/<a class="ecard" href="([^"]+)"[^>]*?data-name="([^"]*)"(?:[^>]*?data-evo="([^"]*)")?[^>]*>\s*<span class="icon-frame">(?:<img src="([^"]+)")?/g;
-
-/**
- * A treasure detail page renders its relatives as `<a class="rel-card">`, each
- * labelled by an `rc-sub` caption. Three captions matter: `Evolves from` names
- * the base treasure, and `Unblessed form` appears only on a blessed page —
- * an evolved page shows `Blessed form` instead, when a blessed form exists.
- */
-const REL_RE =
-	/<a class="rel-card" href="\.\.\/treasures\/([^"]+)"[\s\S]*?<span class="rc-sub">([^<]*)<\/span>/g;
-
-const LOC_RE = /<loc>https:\/\/cookierundb\.com\/([^<]*)<\/loc>/g;
-
-type Card = {
-	slug: string;
-	name: string;
-	icon: string | null;
-	evolved: boolean;
-};
-
-function unescapeHtml(text: string): string {
-	return text
-		.replace(/&#x27;/g, "'")
-		.replace(/&#39;/g, "'")
-		.replace(/&quot;/g, '"')
-		.replace(/&lt;/g, "<")
-		.replace(/&gt;/g, ">")
-		.replace(/&amp;/g, "&");
-}
-
-async function get(path: string): Promise<Response> {
-	for (let attempt = 1; ; attempt++) {
-		try {
-			const res = await fetch(ORIGIN + path);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			return res;
-		} catch (err) {
-			if (attempt === 3) throw new Error(`${path}: ${err}`);
-			await Bun.sleep(500 * attempt);
-		}
-	}
-}
 
 /**
  * A one-line progress bar for the two loops that run long enough to look hung.
@@ -165,54 +120,6 @@ function bail(problems: string[], label: string) {
 	process.exit(1);
 }
 
-/** Slugs the sitemap declares for each section, ignoring `/th/` translations. */
-async function fetchSitemap(): Promise<Record<Section, Set<string>>> {
-	const xml = await (await get("/sitemap.xml")).text();
-	const slugs: Record<Section, Set<string>> = {
-		cookies: new Set(),
-		pets: new Set(),
-		treasures: new Set(),
-	};
-	for (const [, loc] of xml.matchAll(LOC_RE)) {
-		if (loc === undefined) continue;
-		const [section, slug] = loc.split("/");
-		if (slug && SECTIONS.includes(section as Section)) {
-			slugs[section as Section].add(slug);
-		}
-	}
-	return slugs;
-}
-
-async function fetchListing(section: Section): Promise<Card[]> {
-	const html = await (await get(`/${section}/`)).text();
-	return [...html.matchAll(CARD_RE)].map(
-		([, href = "", name = "", evo = "0", icon]) => ({
-			slug: href.split("/").pop() ?? "",
-			name: unescapeHtml(name),
-			icon: icon ? icon.replace(/^\.\.\//, "/") : null,
-			evolved: evo === "1",
-		}),
-	);
-}
-
-/**
- * The base a treasure evolved from, and whether this page is the blessed form.
- * Returns `null` when the page names no base at all, which the caller reports
- * as drift rather than silently writing a chainless evolved treasure.
- */
-async function fetchEvolution(
-	slug: string,
-): Promise<{ source: string; type: "E" | "B" } | null> {
-	const html = await (await get(`/treasures/${slug}`)).text();
-	let source: string | null = null;
-	let blessed = false;
-	for (const [, target = "", label = ""] of html.matchAll(REL_RE)) {
-		if (label === "Evolves from") source ??= target;
-		if (label === "Unblessed form") blessed = true;
-	}
-	return source === null ? null : { source, type: blessed ? "B" : "E" };
-}
-
 const sitemap = await fetchSitemap();
 const cards: Record<Section, Card[]> = { cookies: [], pets: [], treasures: [] };
 const drift: string[] = [];
@@ -240,7 +147,7 @@ const onDisk = await Bun.file(ASSETS_INDEX).exists();
 const raw: unknown = onDisk ? await Bun.file(ASSETS_INDEX).json() : {};
 const previous: AssetIndex = onDisk
 	? migrate(raw)
-	: { cookies: {}, pets: {}, treasures: {} };
+	: { fetchedAt: null, cookies: {}, pets: {}, treasures: {} };
 
 /**
  * The `ids moved` check below compares the new index against `previous`, which
@@ -472,39 +379,58 @@ console.log(
 );
 for (const failure of failures) console.log("  FAIL", failure);
 
+// Icon downloads are the only partial-success path in this script: sitemap
+// drift, a broken chain and a failed structure check all bail before the write.
+// So an icon that did not arrive means the run was not a success, and the
+// previous timestamp stands while the index itself is still written.
+const fetchedAt =
+	failures.length === 0 ? new Date().toISOString() : previous.fetchedAt;
+
 // Verified before it is written, not after: a broken index that never reaches
 // disk costs nothing, while one that does needs `git checkout` to undo.
-const written = serializeIndex(index);
+const written = serializeIndex({ fetchedAt, ...index });
 bail(verifyStructure(written), "the index this run assembled is not intact");
-
-const FINGERPRINT = `${ASSETS}fingerprint.json`;
-let appended: Section[] = [];
-
-if (await Bun.file(FINGERPRINT).exists()) {
-	const parsed: unknown = await Bun.file(FINGERPRINT).json();
-	bail(fingerprintProblems(parsed), "cannot read the fingerprint");
-	const expected = parsed as Fingerprints;
-
-	// `verifyCovered`, not `verifyIndex`: appending ids is exactly what a scrape
-	// is for, and covering them is `--update`'s job. What must hold is that no id
-	// the fingerprint already covers has changed meaning.
-	bail(
-		verifyCovered(written, expected),
-		"the index this run assembled moved an id",
-	);
-
-	appended = SECTIONS.filter(
-		(section) => Object.keys(index[section]).length > expected[section].through,
-	);
-}
 
 await Bun.write(ASSETS_INDEX, written);
 console.log("index written");
 
-if (appended.length > 0) {
+/**
+ * What a run did to one entry. `restored` is not new behaviour — `reconcile`
+ * matches by slug, so an entry the site lists again keeps its id and is rebuilt
+ * without the flag — it is only newly visible.
+ */
+type Change = "added" | "updated" | "retired" | "restored" | "unchanged";
+
+function classify(before: Entry | undefined, after: Entry): Change {
+	if (before === undefined) return "added";
+	if (before.retired !== true && after.retired === true) return "retired";
+	if (before.retired === true && after.retired !== true) return "restored";
+	return JSON.stringify(ordered(before)) === JSON.stringify(ordered(after))
+		? "unchanged"
+		: "updated";
+}
+
+const reportWidth = Math.max(...SECTIONS.map((section) => section.length)) + 2;
+
+for (const section of SECTIONS) {
+	const tally: Record<Change, number> = {
+		added: 0,
+		updated: 0,
+		retired: 0,
+		restored: 0,
+		unchanged: 0,
+	};
+	// Annotated for the same reason as in verify-assets.ts: the union of the two
+	// record types does not survive Object.entries without widening.
+	const entries: [string, Entry][] = Object.entries(index[section]);
+	for (const [id, entry] of entries) {
+		tally[classify(previous[section][id], entry)]++;
+	}
 	console.log(
-		`appended ids beyond the fingerprint's coverage (${appended.join(", ")});` +
-			" run `bun run verify:assets --update` in the same commit, or the suite will fail",
+		`${`${section}:`.padEnd(reportWidth)} ${entries.length} total —` +
+			` ${tally.added} added, ${tally.updated} updated,` +
+			` ${tally.retired} retired, ${tally.restored} restored,` +
+			` ${tally.unchanged} unchanged`,
 	);
 }
 

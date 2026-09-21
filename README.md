@@ -127,11 +127,11 @@ The build produces one `index.html` per page, the JavaScript and CSS they share 
 ```bash
 bun install
 bun run dev           # dev server on :3000; / is the home pane, /combi-name/ is the combi tool
-bun run test          # 229 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run test          # 235 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run check         # typecheck and Biome, in one pass
 bun run build         # writes dist/index.html, dist/combi-name/index.html, their chunks, and dist/assets/
 bun run preview       # serves the built dist/ on :4000; build first
-bun run verify:assets # checks assets/index.json against its committed fingerprint, offline
+bun run verify:assets # asks cookierundb.com whether assets/index.json is still complete
 ```
 
 The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
