@@ -11,10 +11,12 @@ import {
 	migrate,
 	ordered,
 	reconcile,
+	serializeIndex,
 	type TreasureEntry,
 	toId,
 	verifyCovered,
 	verifyIndex,
+	verifyStructure,
 } from "./asset-ids";
 
 test("an id is fixed-width uppercase base-36", () => {
@@ -440,4 +442,38 @@ test("a malformed fingerprint reports itself rather than throwing", () => {
 	expect(fingerprintProblems(null)).toEqual([
 		"fingerprint.json is not an object",
 	]);
+});
+
+test("fetchedAt round-trips through migrate and serializeIndex, written first", () => {
+	const index = migrate({
+		fetchedAt: "2026-09-21T08:11:04.000Z",
+		cookies: {},
+		pets: {},
+		treasures: {},
+	});
+
+	expect(index.fetchedAt).toBe("2026-09-21T08:11:04.000Z");
+	expect(serializeIndex(index)).toBe(
+		'{\n  "fetchedAt": "2026-09-21T08:11:04.000Z",\n' +
+			'  "cookies": {},\n  "pets": {},\n  "treasures": {}\n}\n',
+	);
+});
+
+// `migrate` normalises a malformed timestamp to null, so the check has to read
+// the parsed input rather than migrate's output, or it could never fire.
+test("a fetchedAt that is not an ISO instant migrates to null and is reported", () => {
+	const text =
+		'{\n  "fetchedAt": "last tuesday",\n' +
+		'  "cookies": {},\n  "pets": {},\n  "treasures": {}\n}\n';
+
+	expect(migrate(JSON.parse(text)).fetchedAt).toBe(null);
+	expect(verifyStructure(text)).toContain(
+		'index.json: fetchedAt "last tuesday" is neither null nor an ISO 8601 instant',
+	);
+});
+
+test("an index with no fetchedAt at all is reported as missing", () => {
+	const text = '{\n  "cookies": {},\n  "pets": {},\n  "treasures": {}\n}\n';
+
+	expect(verifyStructure(text)).toContain("index.json: fetchedAt is missing");
 });

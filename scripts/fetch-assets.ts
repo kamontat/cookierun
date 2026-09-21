@@ -149,7 +149,7 @@ const onDisk = await Bun.file(ASSETS_INDEX).exists();
 const raw: unknown = onDisk ? await Bun.file(ASSETS_INDEX).json() : {};
 const previous: AssetIndex = onDisk
 	? migrate(raw)
-	: { cookies: {}, pets: {}, treasures: {} };
+	: { fetchedAt: null, cookies: {}, pets: {}, treasures: {} };
 
 /**
  * The `ids moved` check below compares the new index against `previous`, which
@@ -383,7 +383,7 @@ for (const failure of failures) console.log("  FAIL", failure);
 
 // Verified before it is written, not after: a broken index that never reaches
 // disk costs nothing, while one that does needs `git checkout` to undo.
-const written = serializeIndex(index);
+const written = serializeIndex({ fetchedAt: previous.fetchedAt, ...index });
 bail(verifyStructure(written), "the index this run assembled is not intact");
 
 const FINGERPRINT = `${ASSETS}fingerprint.json`;

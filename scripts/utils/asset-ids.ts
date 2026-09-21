@@ -41,6 +41,11 @@ export type TreasureEntry = Entry &
 	);
 
 export type AssetIndex = {
+	/**
+	 * When the last fully successful scrape finished, or `null` if none has.
+	 * A run that failed to download an icon leaves the previous value standing.
+	 */
+	fetchedAt: string | null;
 	cookies: Record<string, Entry>;
 	pets: Record<string, Entry>;
 	treasures: Record<string, TreasureEntry>;
@@ -57,6 +62,19 @@ export function fromId(id: string): number {
 /** The slug is the last path segment of the entry's own page URL. */
 export function slugOf(url: string): string {
 	return url.split("/").pop() ?? "";
+}
+
+/** Exactly the shape `new Date().toISOString()` produces. */
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+
+/**
+ * The timestamp, or `null` for anything that is not one — a missing field, a
+ * hand-written date, a number. Normalising here rather than throwing is what
+ * lets `migrate` accept an index written before the field existed.
+ */
+export function readFetchedAt(value: unknown): string | null {
+	if (typeof value !== "string" || !ISO.test(value)) return null;
+	return Number.isNaN(Date.parse(value)) ? null : value;
 }
 
 const FIELD_ORDER = [
@@ -122,7 +140,16 @@ function isMigrated(keys: string[], width: number): boolean {
  * different entries. That is what lets `fetch-assets` call this unconditionally.
  */
 export function migrate(old: unknown): AssetIndex {
-	const out: AssetIndex = { cookies: {}, pets: {}, treasures: {} };
+	const out: AssetIndex = {
+		fetchedAt: readFetchedAt(
+			typeof old === "object" && old !== null
+				? (old as { fetchedAt?: unknown }).fetchedAt
+				: undefined,
+		),
+		cookies: {},
+		pets: {},
+		treasures: {},
+	};
 	const treasureIds = new Map<string, string>();
 
 	for (const section of SECTIONS) {
@@ -198,6 +225,7 @@ function byId<T extends Entry>(entries: Record<string, T>): Record<string, T> {
 export function serializeIndex(index: AssetIndex): string {
 	return `${JSON.stringify(
 		{
+			fetchedAt: index.fetchedAt,
 			cookies: byId(index.cookies),
 			pets: byId(index.pets),
 			treasures: byId(index.treasures),
@@ -346,6 +374,22 @@ export function verifyStructure(text: string): string[] {
 	}
 
 	const problems: string[] = [];
+
+	// Read off the parsed input, not off `migrate`'s output: migrate has already
+	// normalised a malformed value to null, so a check downstream of it could
+	// never fire. Without this the fault is still caught — the writer would
+	// produce `null` where the file says otherwise — but only as generic drift.
+	const raw =
+		typeof parsed === "object" && parsed !== null
+			? (parsed as { fetchedAt?: unknown }).fetchedAt
+			: undefined;
+	if (raw === undefined) {
+		problems.push("index.json: fetchedAt is missing");
+	} else if (raw !== null && readFetchedAt(raw) === null) {
+		problems.push(
+			`index.json: fetchedAt ${JSON.stringify(raw)} is neither null nor an ISO 8601 instant`,
+		);
+	}
 
 	// A file the writer would rewrite means the next scrape produces a diff
 	// nobody asked for — field order, key order or indentation has drifted.
