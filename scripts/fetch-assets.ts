@@ -40,63 +40,20 @@ import {
 	verifyCovered,
 	verifyStructure,
 } from "./utils/asset-ids";
+import {
+	type Card,
+	fetchEvolution,
+	fetchListing,
+	fetchSitemap,
+	get,
+	ORIGIN,
+} from "./utils/cookierundb";
 
-const ORIGIN = "https://cookierundb.com";
 // `fileURLToPath`, not `.pathname`: the latter percent-encodes, so a checkout
 // under a path containing a space would not resolve.
 const ASSETS = fileURLToPath(new URL("../assets/", import.meta.url));
 const CONCURRENCY = 4;
 const BAR_WIDTH = 24;
-
-/**
- * Each listing page renders one `<a class="ecard">` per entry. The icon frame
- * holds an `<img>` for entries with a sprite and a placeholder `<span>` for
- * the handful that have none, so the `<img>` is matched optionally. Only the
- * treasure listing carries `data-evo`, so that attribute is optional too.
- */
-const CARD_RE =
-	/<a class="ecard" href="([^"]+)"[^>]*?data-name="([^"]*)"(?:[^>]*?data-evo="([^"]*)")?[^>]*>\s*<span class="icon-frame">(?:<img src="([^"]+)")?/g;
-
-/**
- * A treasure detail page renders its relatives as `<a class="rel-card">`, each
- * labelled by an `rc-sub` caption. Three captions matter: `Evolves from` names
- * the base treasure, and `Unblessed form` appears only on a blessed page —
- * an evolved page shows `Blessed form` instead, when a blessed form exists.
- */
-const REL_RE =
-	/<a class="rel-card" href="\.\.\/treasures\/([^"]+)"[\s\S]*?<span class="rc-sub">([^<]*)<\/span>/g;
-
-const LOC_RE = /<loc>https:\/\/cookierundb\.com\/([^<]*)<\/loc>/g;
-
-type Card = {
-	slug: string;
-	name: string;
-	icon: string | null;
-	evolved: boolean;
-};
-
-function unescapeHtml(text: string): string {
-	return text
-		.replace(/&#x27;/g, "'")
-		.replace(/&#39;/g, "'")
-		.replace(/&quot;/g, '"')
-		.replace(/&lt;/g, "<")
-		.replace(/&gt;/g, ">")
-		.replace(/&amp;/g, "&");
-}
-
-async function get(path: string): Promise<Response> {
-	for (let attempt = 1; ; attempt++) {
-		try {
-			const res = await fetch(ORIGIN + path);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			return res;
-		} catch (err) {
-			if (attempt === 3) throw new Error(`${path}: ${err}`);
-			await Bun.sleep(500 * attempt);
-		}
-	}
-}
 
 /**
  * A one-line progress bar for the two loops that run long enough to look hung.
@@ -163,54 +120,6 @@ function bail(problems: string[], label: string) {
 	console.error(`${label} (${problems.length}):`);
 	for (const line of problems) console.error(`  ${line}`);
 	process.exit(1);
-}
-
-/** Slugs the sitemap declares for each section, ignoring `/th/` translations. */
-async function fetchSitemap(): Promise<Record<Section, Set<string>>> {
-	const xml = await (await get("/sitemap.xml")).text();
-	const slugs: Record<Section, Set<string>> = {
-		cookies: new Set(),
-		pets: new Set(),
-		treasures: new Set(),
-	};
-	for (const [, loc] of xml.matchAll(LOC_RE)) {
-		if (loc === undefined) continue;
-		const [section, slug] = loc.split("/");
-		if (slug && SECTIONS.includes(section as Section)) {
-			slugs[section as Section].add(slug);
-		}
-	}
-	return slugs;
-}
-
-async function fetchListing(section: Section): Promise<Card[]> {
-	const html = await (await get(`/${section}/`)).text();
-	return [...html.matchAll(CARD_RE)].map(
-		([, href = "", name = "", evo = "0", icon]) => ({
-			slug: href.split("/").pop() ?? "",
-			name: unescapeHtml(name),
-			icon: icon ? icon.replace(/^\.\.\//, "/") : null,
-			evolved: evo === "1",
-		}),
-	);
-}
-
-/**
- * The base a treasure evolved from, and whether this page is the blessed form.
- * Returns `null` when the page names no base at all, which the caller reports
- * as drift rather than silently writing a chainless evolved treasure.
- */
-async function fetchEvolution(
-	slug: string,
-): Promise<{ source: string; type: "E" | "B" } | null> {
-	const html = await (await get(`/treasures/${slug}`)).text();
-	let source: string | null = null;
-	let blessed = false;
-	for (const [, target = "", label = ""] of html.matchAll(REL_RE)) {
-		if (label === "Evolves from") source ??= target;
-		if (label === "Unblessed form") blessed = true;
-	}
-	return source === null ? null : { source, type: blessed ? "B" : "E" };
 }
 
 const sitemap = await fetchSitemap();
