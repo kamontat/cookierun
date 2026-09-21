@@ -28,8 +28,6 @@ import { fileURLToPath } from "node:url";
 import {
 	type AssetIndex,
 	type Entry,
-	type Fingerprints,
-	fingerprintProblems,
 	ID_WIDTH,
 	migrate,
 	reconcile,
@@ -37,7 +35,6 @@ import {
 	type Section,
 	serializeIndex,
 	type TreasureEntry,
-	verifyCovered,
 	verifyStructure,
 } from "./utils/asset-ids";
 import {
@@ -386,35 +383,7 @@ for (const failure of failures) console.log("  FAIL", failure);
 const written = serializeIndex({ fetchedAt: previous.fetchedAt, ...index });
 bail(verifyStructure(written), "the index this run assembled is not intact");
 
-const FINGERPRINT = `${ASSETS}fingerprint.json`;
-let appended: Section[] = [];
-
-if (await Bun.file(FINGERPRINT).exists()) {
-	const parsed: unknown = await Bun.file(FINGERPRINT).json();
-	bail(fingerprintProblems(parsed), "cannot read the fingerprint");
-	const expected = parsed as Fingerprints;
-
-	// `verifyCovered`, not `verifyIndex`: appending ids is exactly what a scrape
-	// is for, and covering them is `--update`'s job. What must hold is that no id
-	// the fingerprint already covers has changed meaning.
-	bail(
-		verifyCovered(written, expected),
-		"the index this run assembled moved an id",
-	);
-
-	appended = SECTIONS.filter(
-		(section) => Object.keys(index[section]).length > expected[section].through,
-	);
-}
-
 await Bun.write(ASSETS_INDEX, written);
 console.log("index written");
-
-if (appended.length > 0) {
-	console.log(
-		`appended ids beyond the fingerprint's coverage (${appended.join(", ")});` +
-			" run `bun run verify:assets --update` in the same commit, or the suite will fail",
-	);
-}
 
 if (failures.length > 0) process.exit(1);

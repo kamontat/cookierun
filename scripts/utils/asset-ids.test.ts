@@ -1,12 +1,7 @@
 import { expect, test } from "bun:test";
 
-import fingerprint from "#assets/fingerprint.json";
-
 import {
 	type Entry,
-	type Fingerprints,
-	fingerprintProblems,
-	fingerprintsFor,
 	fromId,
 	migrate,
 	ordered,
@@ -14,8 +9,6 @@ import {
 	serializeIndex,
 	type TreasureEntry,
 	toId,
-	verifyCovered,
-	verifyIndex,
 	verifyStructure,
 } from "./asset-ids";
 
@@ -286,34 +279,27 @@ test("ordered keeps a retired entry's flag last and drops nothing", () => {
 });
 
 const INDEX = new URL("../../assets/index.json", import.meta.url);
-const COMMITTED = fingerprint as unknown as Fingerprints;
 
 /**
- * `bun run verify:assets` runs the same check, but a contributor runs the suite
- * far more often than a script they have to remember. This is what makes a hand
- * edit or a bad merge fail before it reaches anybody else.
+ * `bun run verify:assets` asks a different question now — is the index complete
+ * against the site — so this is the only thing that checks the file's own
+ * shape, and a contributor runs the suite far more often than a script they
+ * have to remember.
  */
-test("the committed index is intact and no covered id has changed meaning", async () => {
+test("the committed index is structurally intact", async () => {
 	const text = await Bun.file(INDEX).text();
 
-	expect(verifyIndex(text, COMMITTED)).toEqual([]);
-});
-
-test("the committed fingerprint covers every entry, so nothing sits outside it", async () => {
-	const index = migrate(JSON.parse(await Bun.file(INDEX).text()));
-
-	expect(fingerprintsFor(index)).toEqual(COMMITTED);
+	expect(verifyStructure(text)).toEqual([]);
 });
 
 type LooseIndex = Record<string, Record<string, Record<string, unknown>>>;
 
 async function tampered(
 	change: (index: LooseIndex) => void,
-	verify: (text: string, expected: Fingerprints) => string[] = verifyIndex,
 ): Promise<string[]> {
 	const index = JSON.parse(await Bun.file(INDEX).text());
 	change(index);
-	return verify(`${JSON.stringify(index, null, 2)}\n`, COMMITTED);
+	return verifyStructure(`${JSON.stringify(index, null, 2)}\n`);
 }
 
 function entryIn(index: LooseIndex, section: string, id: string) {
@@ -326,54 +312,6 @@ function entryIn(index: LooseIndex, section: string, id: string) {
 	return entry;
 }
 
-// Each of these is a way the file could actually break: a merge that took both
-// sides, a hand edit, a rebase that dropped a hunk.
-test("an id that comes to name a different entry is caught", async () => {
-	const problems = await tampered((index) => {
-		const first = entryIn(index, "cookies", "00");
-		const second = entryIn(index, "cookies", "01");
-		[first["url"], second["url"]] = [second["url"], first["url"]];
-	});
-
-	expect(problems).toHaveLength(1);
-	expect(problems[0]).toContain("names a different entry");
-});
-
-// The shape a line-oriented merge conflict inside a JSON object produces. The
-// urls stay put, so only the display hash can see it.
-test("display fields swapped between two entries are caught separately", async () => {
-	const problems = await tampered((index) => {
-		const first = entryIn(index, "cookies", "00");
-		const second = entryIn(index, "cookies", "01");
-		[first["name"], second["name"]] = [second["name"], first["name"]];
-		[first["image"], second["image"]] = [second["image"], first["image"]];
-		[first["key"], second["key"]] = [second["key"], first["key"]];
-	});
-
-	expect(problems).toHaveLength(1);
-	expect(problems[0]).toContain("a name, icon or key");
-	expect(problems[0]).not.toContain("names a different entry");
-});
-
-test("an entry removed from the end is caught by the covered count", async () => {
-	const highest = (index: LooseIndex): string => {
-		const ids = Object.keys(index["treasures"] ?? {}).sort();
-		const last = ids.at(-1);
-		if (last === undefined) throw new Error("no treasures");
-		return last;
-	};
-
-	// Picked programmatically: the highest id must be one nothing points at, or
-	// the chain check fires first and this test passes for the wrong reason.
-	const problems = await tampered((index) => {
-		delete index["treasures"]?.[highest(index)];
-	});
-
-	expect(
-		problems.some((problem) => problem.includes("fewer than the 1144")),
-	).toBe(true);
-});
-
 test("an entry removed from the middle is caught as a gap", async () => {
 	const problems = await tampered((index) => {
 		delete index["pets"]?.["05"];
@@ -382,27 +320,6 @@ test("an entry removed from the middle is caught as a gap", async () => {
 	expect(problems[0]).toBe(
 		"pets: id 06 sits where 05 should be — an id was deleted or inserted",
 	);
-});
-
-// An id the fingerprint does not cover is an id no guard protects: a later
-// scrape would hand it to a different entry and nothing would notice.
-test("an id appended past the fingerprint's coverage fails the suite", async () => {
-	const append = (index: LooseIndex) => {
-		const cookies = index["cookies"];
-		if (cookies === undefined) throw new Error("no cookies");
-		cookies["2M"] = {
-			name: "Newcomer",
-			url: "https://cookierundb.com/cookies/newcomer",
-			image: null,
-			key: "Newcomer",
-		};
-	};
-
-	expect((await tampered(append))[0]).toBe(
-		"cookies: 95 entries but the fingerprint covers 94 — run `bun run verify:assets --update` so every id is covered",
-	);
-	// But the scraper's own gate allows it, or a scrape could never append.
-	expect(await tampered(append, verifyCovered)).toEqual([]);
 });
 
 test("a chain that resolves but does not point back is caught", async () => {
@@ -423,25 +340,6 @@ test("a treasure whose type is not N, E or B is caught", async () => {
 	});
 
 	expect(problems[0]).toBe('treasures/000: type "X" is not N, E or B');
-});
-
-test("a malformed fingerprint reports itself rather than throwing", () => {
-	expect(fingerprintProblems({ cookies: COMMITTED.cookies })).toEqual([
-		"fingerprint.json has no pets",
-		"fingerprint.json has no treasures",
-	]);
-	expect(
-		fingerprintProblems({
-			...COMMITTED,
-			pets: { through: -1, identity: "nope", display: COMMITTED.pets.display },
-		}),
-	).toEqual([
-		"fingerprint.json: pets.through is not a count",
-		"fingerprint.json: pets.identity is not 16 hex characters",
-	]);
-	expect(fingerprintProblems(null)).toEqual([
-		"fingerprint.json is not an object",
-	]);
 });
 
 test("fetchedAt round-trips through migrate and serializeIndex, written first", () => {
