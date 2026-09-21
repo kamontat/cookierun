@@ -6,6 +6,8 @@
    `data-theme`, so the media query has to exclude an explicit dark choice
    rather than assume one. */
 :root {
+	color-scheme: dark;
+
 	--cr-bg: #0e0e12;
 	--cr-surface: #17171f;
 	--cr-surface-2: #1f1f2b;
@@ -35,6 +37,8 @@
    switch instead of softening into a generic light theme. */
 @media (prefers-color-scheme: light) {
 	:root:not([data-theme="dark"]) {
+		color-scheme: light;
+
 		--cr-bg: #f4f4f0;
 		--cr-surface: #ffffff;
 		--cr-surface-2: #eceae4;
@@ -47,6 +51,8 @@
 }
 
 :root[data-theme="light"] {
+	color-scheme: light;
+
 	--cr-bg: #f4f4f0;
 	--cr-surface: #ffffff;
 	--cr-surface-2: #eceae4;

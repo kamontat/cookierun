@@ -204,7 +204,13 @@ th {
 	padding: 0;
 }
 
-.actions button {
+/* Bare selectors, not `.actions button`: `#load` in the reader is a page-level
+   button outside the actions bar, and the reset strips every button's border
+   and padding same as it does `.actions`'s. Mirrors the `controls` chunk in
+   src/components/theme.ts - the page's own controls read the same tokens the
+   components already do, since a page-level reset does not cross a shadow
+   boundary to give them the component's own copy. */
+button {
 	border: var(--cr-border) solid var(--cr-line);
 	border-radius: var(--cr-radius);
 	background: var(--cr-surface-2);
@@ -218,15 +224,25 @@ th {
 	cursor: pointer;
 }
 
-.actions button:active {
+button:active {
 	transform: translate(2px, 2px);
 	box-shadow: none;
 }
 
-.actions button:focus-visible,
-input:focus-visible {
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
 	outline: var(--cr-border) solid var(--cr-accent);
 	outline-offset: 2px;
+}
+
+input,
+select {
+	width: 100%;
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: var(--cr-radius);
+	background: var(--cr-bg);
+	padding: var(--cr-space-1) var(--cr-space-2);
 }
 
 footer {
