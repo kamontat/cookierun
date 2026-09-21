@@ -238,9 +238,10 @@ export function serializeIndex(index: AssetIndex): string {
 /**
  * Everything about the index that can be checked without knowing what it looked
  * like before: that it parses, that `migrate` accepts it and leaves it alone,
- * that it is written the way the scraper writes it, that every id is the right
- * shape and sits where its position says it should, that no two entries claim
- * one slug, and that every treasure chain reference resolves.
+ * that `fetchedAt` is `null` or an ISO 8601 instant, that it is written the way
+ * the scraper writes it, that every id is the right shape and sits where its
+ * position says it should, that no two entries claim one slug, and that every
+ * treasure chain reference resolves.
  *
  * Returns one line per problem, so a caller can report them all at once.
  */

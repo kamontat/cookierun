@@ -51,6 +51,8 @@ A third, partial guard runs outside a scrape. `verifyStructure` in `scripts/util
 
 What none of them catch is a `url` swapped between two existing ids, or display fields swapped between two entries, or the highest id deleted — ids would still sit dense from zero. A hashed fingerprint used to cover exactly those, at the cost of a `--update` that had to land in the same commit as every append; it was removed because the ritual was paid constantly and the corruption never occurred. **Read `git diff assets/index.json` when a merge touches it** — that is the guard now.
 
+Counts as of this writing: 94 cookies, 103 pets, 1,144 treasures, against capacities of 1,296 (`36^2`) for a 2-character id and 46,656 (`36^3`) for a 3-character one — there is no pressure to widen an id any time soon.
+
 ## Is the index still complete?
 
 `bun run verify:assets` answers that, and nothing else. It fetches the three listing pages and compares, per section, the site's count against the number of entries this index carries without `retired: true`:
