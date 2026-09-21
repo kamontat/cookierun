@@ -1,3 +1,9 @@
+import { css, html, LitElement } from "lit";
+import { property, state } from "lit/decorators.js";
+
+import { entryStyles } from "./entry-picker";
+import { base, controls } from "./theme";
+
 export type Option = readonly [
 	value: string,
 	label: string,
@@ -25,79 +31,70 @@ const NONE = "None";
  * shared type between two components is the first step towards a component that
  * cannot be read on its own.
  */
-export class EntrySet extends HTMLElement {
-	readonly #summary = document.createElement("summary");
-	readonly #chosenText = document.createElement("span");
-	readonly #picked = document.createElement("div");
-	readonly #search = document.createElement("input");
-	readonly #list = document.createElement("div");
-	readonly #more = document.createElement("small");
-	#options: readonly Option[] = [];
-	#chosen = new Set<string>();
-	#built = false;
+export class EntrySet extends LitElement {
+	static override styles = [
+		base,
+		controls,
+		entryStyles,
+		css`
+			.picked {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--cr-space-1);
+				margin-bottom: var(--cr-space-2);
+			}
 
-	connectedCallback(): void {
-		if (this.#built) return;
-		this.#built = true;
+			.chip {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--cr-space-1);
+				margin: 0;
+				width: auto;
+				padding: 0.125rem var(--cr-space-2);
+				font-size: 0.8125rem;
+			}
+		`,
+	];
 
-		const legend = this.getAttribute("legend") ?? "";
+	@property({ type: String })
+	legend = "";
 
-		const name = document.createElement("span");
-		name.className = "name";
-		name.textContent = legend;
-		this.#chosenText.className = "pick";
-		this.#summary.replaceChildren(name, this.#chosenText);
+	@property({ attribute: false })
+	options: readonly Option[] = [];
 
-		this.#picked.className = "picked";
-		this.#list.className = "entries";
-		this.#list.setAttribute("role", "listbox");
-		this.#list.setAttribute("aria-multiselectable", "true");
-		this.#list.setAttribute("aria-label", legend);
-		this.#list.addEventListener("keydown", (event) => {
-			this.#walk(event);
-		});
-		this.#more.className = "more";
+	@state()
+	private chosen: ReadonlySet<string> = new Set();
 
-		this.#search.type = "search";
-		this.#search.autocomplete = "off";
-		this.#search.placeholder = "Type to filter";
-		this.#search.setAttribute("aria-label", `Filter ${legend}`);
-		this.#search.addEventListener("input", (event) => {
-			event.stopPropagation();
-			this.#render();
-		});
-
-		const details = document.createElement("details");
-		details.replaceChildren(
-			this.#summary,
-			this.#picked,
-			this.#search,
-			this.#list,
-			this.#more,
-		);
-		this.replaceChildren(details);
-		this.#render();
-	}
-
-	get options(): readonly Option[] {
-		return this.#options;
-	}
-
-	set options(options: readonly Option[]) {
-		this.#options = options;
-		this.selected = [...this.#chosen];
-	}
+	@state()
+	private filter = "";
 
 	get selected(): string[] {
-		return this.#options
+		return this.options
 			.map(([value]) => value)
-			.filter((value) => this.#chosen.has(value));
+			.filter((value) => this.chosen.has(value));
 	}
 
 	set selected(values: readonly string[]) {
-		const known = new Set(this.#options.map(([value]) => value));
-		this.#chosen = new Set(values.filter((value) => known.has(value)));
-		this.#render();
+		const known = new Set(this.options.map(([value]) => value));
+		this.chosen = new Set(values.filter((value) => known.has(value)));
+	}
+
+	override willUpdate(): void {
+		// An options list that no longer contains a pick drops it, the same rule
+		// the setter applies.
+		const known = new Set(this.options.map(([value]) => value));
+		if ([...this.chosen].every((value) => known.has(value))) return;
+		this.chosen = new Set([...this.chosen].filter((value) => known.has(value)));
+	}
+
+	#rows(): HTMLButtonElement[] {
+		return [
+			...(this.shadowRoot?.querySelectorAll<HTMLButtonElement>(".entry") ?? []),
+		];
+	}
+
+	#search(): HTMLInputElement | null {
+		return this.shadowRoot?.querySelector("input") ?? null;
 	}
 
 	/**
@@ -105,18 +102,14 @@ export class EntrySet extends HTMLElement {
 	 * the click removed the thing it landed on, the search input — the one
 	 * element that survives every render — takes it instead.
 	 */
-	#changed(focusValue: string | null): void {
-		this.#render();
+	async #changed(focusValue: string | null): Promise<void> {
+		this.dispatchEvent(new Event("input", { bubbles: true }));
+		await this.updateComplete;
 		const row =
 			focusValue === null
 				? undefined
 				: this.#rows().find((candidate) => candidate.value === focusValue);
-		(row ?? this.#search).focus();
-		this.dispatchEvent(new Event("input", { bubbles: true }));
-	}
-
-	#rows(): HTMLButtonElement[] {
-		return [...this.#list.querySelectorAll<HTMLButtonElement>("button")];
+		(row ?? this.#search())?.focus();
 	}
 
 	/**
@@ -126,7 +119,9 @@ export class EntrySet extends HTMLElement {
 	 */
 	#walk(event: KeyboardEvent): void {
 		const rows = this.#rows();
-		const at = rows.indexOf(document.activeElement as HTMLButtonElement);
+		const at = rows.indexOf(
+			this.shadowRoot?.activeElement as HTMLButtonElement,
+		);
 		if (at === -1) return;
 
 		const to = {
@@ -143,67 +138,29 @@ export class EntrySet extends HTMLElement {
 		rows[Math.min(Math.max(to, 0), rows.length - 1)]?.focus();
 	}
 
-	#chip(value: string, label: string): HTMLElement {
-		const chip = document.createElement("button");
-		chip.type = "button";
-		chip.value = value;
-		chip.className = "chip";
-		chip.title = `Remove ${label}`;
-		chip.append(document.createTextNode(`${label} ×`));
-		chip.addEventListener("click", () => {
-			this.#chosen.delete(value);
-			this.#changed(null);
-		});
-		return chip;
+	#add(value: string): void {
+		this.chosen = new Set([...this.chosen, value]);
+		void this.#changed(value);
 	}
 
-	#row(option: Option, tabbable: boolean): HTMLElement {
-		const [value, label, image] = option;
-		const button = document.createElement("button");
-		button.type = "button";
-		button.value = value;
-		button.className = "entry";
-		button.tabIndex = tabbable ? 0 : -1;
-		button.setAttribute("role", "option");
-		button.setAttribute("aria-selected", String(this.#chosen.has(value)));
-		button.addEventListener("click", () => {
-			this.#chosen.add(value);
-			this.#changed(value);
-		});
-
-		if (image !== null) {
-			const icon = document.createElement("img");
-			icon.src = image;
-			icon.alt = "";
-			icon.loading = "lazy";
-			button.append(icon);
-		}
-		button.append(document.createTextNode(label));
-		return button;
+	#remove(value: string): void {
+		const next = new Set(this.chosen);
+		next.delete(value);
+		this.chosen = next;
+		void this.#changed(null);
 	}
 
-	#render(): void {
-		if (!this.#built) return;
-
+	override render() {
 		const labels = new Map(
-			this.#options.map(([value, label]) => [value, label]),
+			this.options.map(([value, label]) => [value, label]),
 		);
 		const chosen = this.selected;
-		this.#picked.replaceChildren(
-			...chosen.map((value) => this.#chip(value, labels.get(value) ?? value)),
-		);
-		// The same "this or that" the code reads as, so a closed slot says exactly
-		// what the reader panel would say about it.
-		this.#chosenText.textContent =
-			chosen.length === 0
-				? NONE
-				: chosen.map((value) => labels.get(value) ?? value).join(" or ");
 
-		const needle = this.#search.value.trim().toLowerCase();
+		const needle = this.filter.trim().toLowerCase();
 		const matching =
 			needle === ""
-				? this.#options
-				: this.#options.filter(([, label]) =>
+				? this.options
+				: this.options.filter(([, label]) =>
 						label.toLowerCase().includes(needle),
 					);
 
@@ -211,15 +168,84 @@ export class EntrySet extends HTMLElement {
 		// already holds; with nothing picked that is the first row.
 		const shown = matching.slice(0, LIMIT);
 		const tabbableValue =
-			shown.find(([value]) => this.#chosen.has(value))?.[0] ?? shown[0]?.[0];
+			shown.find(([value]) => this.chosen.has(value))?.[0] ?? shown[0]?.[0];
 
-		this.#list.replaceChildren(
-			...shown.map((option) => this.#row(option, option[0] === tabbableValue)),
-		);
-		this.#more.textContent =
-			matching.length > LIMIT
-				? `Showing ${LIMIT} of ${matching.length}. Type to narrow the list.`
-				: "";
+		return html`<details>
+			<summary>
+				<span class="name">${this.legend}</span>
+				<span class="pick"
+					>${
+						chosen.length === 0
+							? NONE
+							: // The same "this or that" the code reads as, so a closed slot
+								// says exactly what the reader panel would say about it.
+								chosen.map((value) => labels.get(value) ?? value).join(" or ")
+					}</span
+				>
+			</summary>
+			<div class="picked">
+				${chosen.map(
+					(value) => html`<button
+						type="button"
+						class="chip"
+						.value=${value}
+						title=${`Remove ${labels.get(value) ?? value}`}
+						@click=${() => {
+							this.#remove(value);
+						}}
+					>
+						${labels.get(value) ?? value} ×
+					</button>`,
+				)}
+			</div>
+			<input
+				type="search"
+				autocomplete="off"
+				placeholder="Type to filter"
+				aria-label=${`Filter ${this.legend}`}
+				.value=${this.filter}
+				@input=${(event: Event) => {
+					event.stopPropagation();
+					this.filter = (event.target as HTMLInputElement).value;
+				}}
+			/>
+			<div
+				class="entries"
+				role="listbox"
+				aria-multiselectable="true"
+				aria-label=${this.legend}
+				@keydown=${(event: KeyboardEvent) => {
+					this.#walk(event);
+				}}
+			>
+				${shown.map(
+					([value, label, image]) => html`<button
+						type="button"
+						class="entry"
+						.value=${value}
+						role="option"
+						tabindex=${value === tabbableValue ? 0 : -1}
+						aria-selected=${String(this.chosen.has(value))}
+						@click=${() => {
+							this.#add(value);
+						}}
+					>
+						${
+							image === null
+								? ""
+								: html`<img src=${image} alt="" loading="lazy" />`
+						}${label}
+					</button>`,
+				)}
+			</div>
+			<small class="more"
+				>${
+					matching.length > LIMIT
+						? `Showing ${LIMIT} of ${matching.length}. Type to narrow the list.`
+						: ""
+				}</small
+			>
+		</details>`;
 	}
 }
 
