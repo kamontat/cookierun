@@ -2,9 +2,9 @@
 
 import { expect, test } from "bun:test";
 
-import "./copy-code.ts";
+import "./copy-code";
 
-import type { CopyCode } from "./copy-code.ts";
+import type { CopyCode } from "./copy-code";
 
 function mount(value: string): CopyCode {
 	document.body.replaceChildren();

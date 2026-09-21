@@ -16,7 +16,7 @@
  * non-canonical code as written.
  */
 
-import { type CatalogSection, hasId, ID_WIDTH } from "./catalog.ts";
+import { type CatalogSection, hasId, ID_WIDTH } from "./catalog";
 
 export type Loadout = {
 	/** Catalog id, or null when unset. */

@@ -1,7 +1,7 @@
-import { hrefFor } from "#lib/href.ts";
-import { TOOLS, type ToolSlug } from "#lib/tools.ts";
+import { hrefFor } from "#lib/href";
+import { TOOLS, type ToolSlug } from "#lib/tools";
 
-import "./theme-toggle.ts";
+import "./theme-toggle";
 
 type Entry = {
 	readonly href: string;

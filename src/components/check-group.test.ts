@@ -2,9 +2,9 @@
 
 import { expect, test } from "bun:test";
 
-import "./check-group.ts";
+import "./check-group";
 
-import type { CheckGroup } from "./check-group.ts";
+import type { CheckGroup } from "./check-group";
 
 function mount(id: string, legend: string): CheckGroup {
 	document.body.replaceChildren();

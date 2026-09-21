@@ -39,7 +39,7 @@ import {
 	type TreasureEntry,
 	verifyCovered,
 	verifyStructure,
-} from "./utils/asset-ids.ts";
+} from "./utils/asset-ids";
 
 const ORIGIN = "https://cookierundb.com";
 // `fileURLToPath`, not `.pathname`: the latter percent-encodes, so a checkout

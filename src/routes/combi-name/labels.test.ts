@@ -7,7 +7,7 @@ import {
 	ALL_EPISODES,
 	ALL_RANDOM_BOOSTS,
 	ALL_TYPES,
-} from "./codec.ts";
+} from "./codec";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
@@ -15,7 +15,7 @@ import {
 	EPISODE_LABELS,
 	RANDOM_BOOST_LABELS,
 	TYPE_LABELS,
-} from "./labels.ts";
+} from "./labels";
 
 type LabelTable = {
 	field: string;

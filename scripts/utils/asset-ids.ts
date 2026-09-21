@@ -143,7 +143,11 @@ export function migrate(old: unknown): AssetIndex {
 
 		entries.forEach(([oldKey, entry], position) => {
 			const id = migrated ? oldKey : toId(position, width);
-			const key = typeof entry.key === "string" ? entry.key : oldKey;
+			// Destructured rather than read through `entry.key`: the entry comes
+			// from a loose index signature, so a property access is a typecheck
+			// error and a subscript is a lint one.
+			const { key: scraped } = entry;
+			const key = typeof scraped === "string" ? scraped : oldKey;
 			// One cast at the migration boundary: the input is whatever was on
 			// disk, and only the shape written below is guaranteed after this.
 			if (section === "treasures") {

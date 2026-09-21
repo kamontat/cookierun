@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { pageEntrypoints, TOOLS } from "./tools.ts";
+import { pageEntrypoints, TOOLS } from "./tools";
 
 const root = new URL("../../", import.meta.url);
 
@@ -9,9 +9,9 @@ test("tool slugs are unique", () => {
 	expect(new Set(slugs).size).toBe(slugs.length);
 });
 
-// The build takes this list, so a registered tool with no page here is a
-// sidebar link to a page that was never written.
-test("every page the build asks for exists on disk", async () => {
+// The sidebar is generated from this registry, so a registered tool with no
+// page on disk is a link to a page that was never written.
+test("every page the registry names exists on disk", async () => {
 	const entrypoints = pageEntrypoints();
 	expect(entrypoints).toContain("src/routes/index.html");
 	expect(entrypoints.length).toBe(TOOLS.length + 1);
@@ -21,43 +21,19 @@ test("every page the build asks for exists on disk", async () => {
 	}
 });
 
-// scripts/build.ts takes its entrypoints from this function. A hand-maintained
-// list slipped back in there would pass the rest of the suite today, which
-// defeats the reason the derivation exists.
-test("the build script takes its entrypoints from the registry", async () => {
-	expect(await Bun.file(new URL("scripts/build.ts", root)).text()).toContain(
-		"pageEntrypoints()",
+// The other direction, which matters now that `bun-server` takes its
+// entrypoints from the directory rather than from this list: a page nobody
+// registered is built and served, but no sidebar anywhere links to it.
+test("every page on disk is a page the registry names", async () => {
+	const found = await Array.fromAsync(
+		new Bun.Glob("**/*.html").scan({
+			cwd: new URL("src/routes/", root).pathname,
+		}),
 	);
-});
 
-// The dev server serves what it imports, so a tool missing from scripts/dev.ts
-// is a 404 in development even though the build ships it. The
-// Record<ToolSlug> in that file makes typecheck fail too; this catches it at
-// test time.
-test("every tool page is imported by the dev server", async () => {
-	const devServer = await Bun.file(new URL("scripts/dev.ts", root)).text();
-
-	for (const { slug } of TOOLS) {
-		expect(devServer).toContain(`../src/routes/${slug}/index.html`);
-	}
-});
-
-test("the home page is served like the tools are", async () => {
-	const devServer = await Bun.file(new URL("scripts/dev.ts", root)).text();
-
-	expect(devServer).toContain("../src/routes/index.html");
-	expect(devServer).toContain('"/": home');
-});
-
-// Every link the pages carry has to resolve in development too, or the dev
-// server is a different site from the one that ships.
-test("the dev server routes every URL form the pages link to", async () => {
-	const devServer = await Bun.file(new URL("scripts/dev.ts", root)).text();
-
-	expect(devServer).toContain('"/index.html": home');
-	for (const suffix of ["", "/", "/index.html"]) {
-		expect(devServer).toContain(`\`/\${slug}${suffix}\``);
-	}
+	expect(found.map((path) => `src/routes/${path}`).sort()).toEqual(
+		[...pageEntrypoints()].sort(),
+	);
 });
 
 async function pages(): Promise<string[]> {
@@ -74,7 +50,7 @@ test("every page hosts the sidebar", async () => {
 	}
 });
 
-// A tool page built by copying routes/index.html - which is what the
+// A tool page built by copying src/routes/index.html - which is what the
 // add-a-tool checklist tells you to do - carries a bare
 // <site-nav></site-nav> unless this is checked. Without `current`, hrefFor
 // treats the page as the home pane and writes "./" and "./combi-name/",
@@ -122,7 +98,7 @@ test("every page loads its own module script", async () => {
 	}
 });
 
-// Every route's own sheet opens by importing routes/base.css, which is what
+// Every route's own sheet opens by importing src/routes/base.css, which is what
 // gives that page Pico, the sidebar rail, the body grid, and every component's
 // rules. Delete that line and the page is spectacularly broken while the rest
 // of the suite stays green, so check it directly. The home pane sits beside

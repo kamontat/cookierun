@@ -15,7 +15,7 @@ import {
 	toId,
 	verifyCovered,
 	verifyIndex,
-} from "./asset-ids.ts";
+} from "./asset-ids";
 
 test("an id is fixed-width uppercase base-36", () => {
 	expect(toId(0, 2)).toBe("00");
@@ -330,7 +330,7 @@ test("an id that comes to name a different entry is caught", async () => {
 	const problems = await tampered((index) => {
 		const first = entryIn(index, "cookies", "00");
 		const second = entryIn(index, "cookies", "01");
-		[first.url, second.url] = [second.url, first.url];
+		[first["url"], second["url"]] = [second["url"], first["url"]];
 	});
 
 	expect(problems).toHaveLength(1);
@@ -343,9 +343,9 @@ test("display fields swapped between two entries are caught separately", async (
 	const problems = await tampered((index) => {
 		const first = entryIn(index, "cookies", "00");
 		const second = entryIn(index, "cookies", "01");
-		[first.name, second.name] = [second.name, first.name];
-		[first.image, second.image] = [second.image, first.image];
-		[first.key, second.key] = [second.key, first.key];
+		[first["name"], second["name"]] = [second["name"], first["name"]];
+		[first["image"], second["image"]] = [second["image"], first["image"]];
+		[first["key"], second["key"]] = [second["key"], first["key"]];
 	});
 
 	expect(problems).toHaveLength(1);
@@ -355,7 +355,7 @@ test("display fields swapped between two entries are caught separately", async (
 
 test("an entry removed from the end is caught by the covered count", async () => {
 	const highest = (index: LooseIndex): string => {
-		const ids = Object.keys(index.treasures ?? {}).sort();
+		const ids = Object.keys(index["treasures"] ?? {}).sort();
 		const last = ids.at(-1);
 		if (last === undefined) throw new Error("no treasures");
 		return last;
@@ -364,7 +364,7 @@ test("an entry removed from the end is caught by the covered count", async () =>
 	// Picked programmatically: the highest id must be one nothing points at, or
 	// the chain check fires first and this test passes for the wrong reason.
 	const problems = await tampered((index) => {
-		delete index.treasures?.[highest(index)];
+		delete index["treasures"]?.[highest(index)];
 	});
 
 	expect(
@@ -374,7 +374,7 @@ test("an entry removed from the end is caught by the covered count", async () =>
 
 test("an entry removed from the middle is caught as a gap", async () => {
 	const problems = await tampered((index) => {
-		delete index.pets?.["05"];
+		delete index["pets"]?.["05"];
 	});
 
 	expect(problems[0]).toBe(
@@ -386,7 +386,7 @@ test("an entry removed from the middle is caught as a gap", async () => {
 // scrape would hand it to a different entry and nothing would notice.
 test("an id appended past the fingerprint's coverage fails the suite", async () => {
 	const append = (index: LooseIndex) => {
-		const cookies = index.cookies;
+		const cookies = index["cookies"];
 		if (cookies === undefined) throw new Error("no cookies");
 		cookies["2M"] = {
 			name: "Newcomer",
@@ -405,11 +405,11 @@ test("an id appended past the fingerprint's coverage fails the suite", async () 
 
 test("a chain that resolves but does not point back is caught", async () => {
 	const problems = await tampered((index) => {
-		const evolved = Object.entries(index.treasures ?? {}).find(
-			([, entry]) => entry.type === "E",
+		const evolved = Object.entries(index["treasures"] ?? {}).find(
+			([, entry]) => entry["type"] === "E",
 		);
 		if (evolved === undefined) throw new Error("no evolved treasure");
-		evolved[1].source = "000";
+		evolved[1]["source"] = "000";
 	});
 
 	expect(problems[0]).toContain("as its base, but 000 points at");
@@ -417,7 +417,7 @@ test("a chain that resolves but does not point back is caught", async () => {
 
 test("a treasure whose type is not N, E or B is caught", async () => {
 	const problems = await tampered((index) => {
-		entryIn(index, "treasures", "000").type = "X";
+		entryIn(index, "treasures", "000")["type"] = "X";
 	});
 
 	expect(problems[0]).toBe('treasures/000: type "X" is not N, E or B');

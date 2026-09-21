@@ -1,5 +1,5 @@
-import { hrefFor } from "#lib/href.ts";
-import { TOOLS } from "#lib/tools.ts";
+import { hrefFor } from "#lib/href";
+import { TOOLS } from "#lib/tools";
 
 /**
  * The home pane's index. The sidebar carries the same names, but only as

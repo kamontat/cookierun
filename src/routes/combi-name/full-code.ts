@@ -7,14 +7,14 @@
  * game, and what keeps every code written before the loadout existed valid.
  */
 
-import { type Combi, decode, encode } from "./codec.ts";
+import { type Combi, decode, encode } from "./codec";
 import {
 	decodeLoadout,
 	emptyLoadout,
 	encodeLoadout,
 	isEmptyLoadout,
 	type Loadout,
-} from "./loadout.ts";
+} from "./loadout";
 
 export type FullCode = {
 	loadout: Loadout;

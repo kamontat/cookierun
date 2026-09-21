@@ -1,19 +1,15 @@
 ---
 name: repo-scripts
-description: Use when editing anything under scripts/, adding or changing a package script, running the dev server, or fixing a `bun run check:type` / `check:biome` failure. Covers the execAsync contract, Bun Shell binary resolution, Biome/TypeScript strictness and the dev server's route table.
+description: Use when editing anything under scripts/, adding or changing a package script, running the dev server, or fixing a `bun run check:type` / `check:biome` failure. Covers where a package script lives, Biome/TypeScript strictness and what each check reads, and the dev server's route table.
 ---
 
 # Scripts and checks
 
-## Shape of a script
+## Where a package script lives
 
-Every package script is a file under `scripts/`, so `package.json` holds a delegation rather than a command. Each one forwards its arguments and propagates the child's exit code, which is what keeps the filtered test forms (`bun run test <file>`, `bun run test -t <name>`) working and what makes a failure fail whatever called it. Two scripts are chains rather than single files: `check` runs the two check scripts with `&&`, so a type error stops before Biome runs, and `build` runs `build.ts` then `copy-assets.ts`, for the reason in the next paragraph.
+A script that is just a command is that command in `package.json` — `bun-server dev`, `tsc --noEmit`, `biome check`, `wrangler deploy`, `bun test`. `bun run` puts `node_modules/.bin` on `PATH`, so the bare binary name resolves and no wrapper is needed; don't reintroduce `bunx`, and don't wrap one of these in a file under `scripts/` again. Arguments a caller passes are forwarded by `bun run` itself, which is what keeps `bun run test -t "decodes every slot"` and `bun run build --no-minify` working. `check` is the one composite: `bun run check:type && bun run check:biome`, so a type error stops before Biome runs.
 
-Most of them are a docstring plus a single `execAsync` call, from `scripts/utils/shell.ts`. That helper echoes the command, runs it through Bun Shell with `.nothrow()`, and then calls `process.exit` with the child's code — on success as well as on failure. So `execAsync` never returns, anything written after it in a script is dead code, and a script that needs a second step needs a second file.
-
-`fetch-assets.ts` and `verify-assets.ts` are the exceptions: both are programs in their own right rather than delegations, so they call no `execAsync` at all. `bun run fetch:assets` scrapes cookierundb.com and rewrites `assets/index.json`; `bun run verify:assets` checks that file against `assets/fingerprint.json` offline and is what a hand edit or a bad merge trips over. See the `assets` skill before touching either.
-
-Bun Shell resolves `node_modules/.bin` itself, which is why a bare `tsc`, `biome`, or `wrangler` works here even though running a file directly does not put that directory on `PATH` the way an npm-style script does. (These scripts used to spell that out as `bunx`; they no longer do, so don't reintroduce the wrapper on the old reasoning.)
+A script that is a *program* is a file under `scripts/`, and there are exactly two: `bun run fetch:assets` scrapes cookierundb.com and rewrites `assets/index.json`; `bun run verify:assets` checks that file against `assets/fingerprint.json` offline and is what a hand edit or a bad merge trips over. They share `scripts/utils/`. See the `assets` skill before touching either.
 
 ## Biome
 
@@ -25,10 +21,18 @@ The repository's formatting comes from `@kcconfigs/biome` via `biome.json`, whic
 
 `tsconfig.json` sets `noUncheckedIndexedAccess`, so every index and every regex capture group arrives as `T | undefined`; `@kcconfigs/biome` forbids `!`, so the usual escape hatch fails lint. Narrow instead: a destructuring default (`const [, href = ""] = match`), `??`, or pulling the element into a `const` and guarding it. `scripts/fetch-assets.ts` does all three. `!` after `?.` is worse still — that one is an error rather than a warning, and Biome is right that it defeats the optional chain.
 
+`noPropertyAccessFromIndexSignature` is the same squeeze from the other side: a property that comes from an index signature — `element.dataset.theme`, or a field on the loose JSON shape `scripts/utils/asset-ids.ts` reads — cannot be reached with a dot. The subscript that satisfies TypeScript is what `useLiteralKeys` complains about, so reach for neither: use `setAttribute`/`removeAttribute` for `dataset`, and destructure (`const { key: scraped } = entry`) for a plain object.
+
+## What `check:type` covers
+
+`@kcconfigs/tsconfig` includes `src/**/*.ts` and nothing else, and its `rootDir` is `src/`. This repository widens both in `tsconfig.json`: `include` names `scripts/` and `tests/` as well, `rootDir` is the repository root, and `noEmit` is explicit because nothing under `scripts/` belongs in an `outDir`. Narrow the `include` back to the preset's and `bun run check:type` passes over the scripts without reading them.
+
+No import carries a `.ts` extension, which is what keeps `allowImportingTsExtensions` out of that file. The `#lib/*` and `#components/*` aliases supply the extension from `package.json` (`"#lib/*": "./src/lib/*.ts"`) and relative imports resolve without one — so adding `.ts` to an import is a typecheck error, not a style preference.
+
 ## Dev server
 
-`bun run dev` runs `scripts/dev.ts`, a small `Bun.serve()` whose route table is generated from `TOOLS`. Handing Bun the HTML files directly (`bun routes/index.html routes/combi-name/index.html`) registers only `/` and `/combi-name`, which 404s on the trailing-slash links the sidebar renders. So each page answers to every spelling: `/` and `/index.html` for the home pane, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool.
+`bun run dev` is `bun-server dev`, on :3000. It scans `src/routes/` for HTML and registers each page under both an exact route and a wildcard, so every spelling the sidebar renders answers: `/` and `/index.html` for the home pane, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. Nothing lists the pages, so adding one needs no edit to any script — see the `build-and-deploy` skill.
 
-The table also carries `/assets/*`, which serves the repository's own `assets/` directory — the combi page loads its icons from `../assets/`, which wrangler serves out of `dist/`, and nothing writes `dist/` during development. That handler resolves the requested path and requires the result to stay under the assets directory; it deliberately does not test for `".."`, since `URL` normalization has already collapsed literal dot segments and a percent-encoded one would never match a substring test anyway.
+`--statics 'assets/**/*.png'` serves the repository's own icons at `/assets/...`, the path the combi page asks for, so development matches a built `dist/`. Keep the glob quoted: the shell would otherwise expand it and every extra path would arrive as another entrypoint to serve.
 
 An unrouted URL comes back as a 404 with an empty body, which paints as a blank page rather than as an error — check the status code before concluding the page itself broke.

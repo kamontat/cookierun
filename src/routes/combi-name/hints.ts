@@ -9,17 +9,17 @@
  * stale hint behind.
  */
 
-import { ALL_BOOSTS, BOOST_LABELS, CODE_LENGTH, type Combi } from "./codec.ts";
-import { describeLoadout } from "./describe.ts";
-import { combiSectionOf, decodeFull, SECTION_SEPARATOR } from "./full-code.ts";
+import { ALL_BOOSTS, BOOST_LABELS, CODE_LENGTH, type Combi } from "./codec";
+import { describeLoadout } from "./describe";
+import { combiSectionOf, decodeFull, SECTION_SEPARATOR } from "./full-code";
 import {
 	ACTION_LABELS,
 	COOKIE_POWER_LABELS,
 	EPISODE_LABELS,
 	RANDOM_BOOST_LABELS,
 	TYPE_LABELS,
-} from "./labels.ts";
-import type { Loadout } from "./loadout.ts";
+} from "./labels";
+import type { Loadout } from "./loadout";
 
 export type CharHint = {
 	char: string;

@@ -2,9 +2,9 @@
 
 import { expect, test } from "bun:test";
 
-import { TOOLS } from "#lib/tools.ts";
+import { TOOLS } from "#lib/tools";
 
-import "./tool-index.ts";
+import "./tool-index";
 
 test("the home index says what each tool does, not just its name", () => {
 	document.body.replaceChildren();

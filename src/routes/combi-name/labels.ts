@@ -4,10 +4,10 @@ import type {
 	CookiePower,
 	Episode,
 	RandomBoost,
-} from "./codec.ts";
+} from "./codec";
 
 // Boost names live in codec.ts because decode error messages quote them too.
-export { BOOST_LABELS } from "./codec.ts";
+export { BOOST_LABELS } from "./codec";
 
 export const TYPE_LABELS: Record<CombiType, string> = {
 	score: "Score",

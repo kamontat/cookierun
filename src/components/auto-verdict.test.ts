@@ -2,9 +2,9 @@
 
 import { expect, test } from "bun:test";
 
-import "./auto-verdict.ts";
+import "./auto-verdict";
 
-import type { AutoVerdictElement } from "./auto-verdict.ts";
+import type { AutoVerdictElement } from "./auto-verdict";
 
 function mount(prefix: string): AutoVerdictElement {
 	document.body.replaceChildren();

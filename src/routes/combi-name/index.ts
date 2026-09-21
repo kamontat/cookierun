@@ -1,4 +1,4 @@
-import { optionsFor } from "./catalog.ts";
+import { optionsFor } from "./catalog";
 import {
 	type Action,
 	ALL_ACTIONS,
@@ -14,11 +14,11 @@ import {
 	type CookiePower,
 	type Episode,
 	type RandomBoost,
-} from "./codec.ts";
-import { describeFull } from "./describe.ts";
-import type { FullCode } from "./full-code.ts";
-import { combiSectionOf, decodeFull, encodeFull } from "./full-code.ts";
-import { hintsFor } from "./hints.ts";
+} from "./codec";
+import { describeFull } from "./describe";
+import type { FullCode } from "./full-code";
+import { combiSectionOf, decodeFull, encodeFull } from "./full-code";
+import { hintsFor } from "./hints";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
@@ -26,24 +26,24 @@ import {
 	EPISODE_LABELS,
 	RANDOM_BOOST_LABELS,
 	TYPE_LABELS,
-} from "./labels.ts";
-import type { Loadout } from "./loadout.ts";
-import { hashFor, rememberCode, startingCode } from "./state.ts";
+} from "./labels";
+import type { Loadout } from "./loadout";
+import { hashFor, rememberCode, startingCode } from "./state";
 
-import "#components/auto-verdict.ts";
-import "#components/check-group.ts";
-import "#components/copy-code.ts";
-import "#components/entry-picker.ts";
-import "#components/entry-set.ts";
-import "#components/labelled-select.ts";
-import "#components/site-nav.ts";
+import "#components/auto-verdict";
+import "#components/check-group";
+import "#components/copy-code";
+import "#components/entry-picker";
+import "#components/entry-set";
+import "#components/labelled-select";
+import "#components/site-nav";
 
-import type { AutoVerdictElement } from "#components/auto-verdict.ts";
-import type { CheckGroup } from "#components/check-group.ts";
-import type { CopyCode } from "#components/copy-code.ts";
-import type { EntryPicker } from "#components/entry-picker.ts";
-import type { EntrySet } from "#components/entry-set.ts";
-import type { LabelledSelect } from "#components/labelled-select.ts";
+import type { AutoVerdictElement } from "#components/auto-verdict";
+import type { CheckGroup } from "#components/check-group";
+import type { CopyCode } from "#components/copy-code";
+import type { EntryPicker } from "#components/entry-picker";
+import type { EntrySet } from "#components/entry-set";
+import type { LabelledSelect } from "#components/labelled-select";
 
 /** Exported for this route's test, which drives the page through the same lookups. */
 export function need<T extends HTMLElement>(id: string): T {

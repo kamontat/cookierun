@@ -2,9 +2,9 @@
 
 import { expect, test } from "bun:test";
 
-import "./labelled-select.ts";
+import "./labelled-select";
 
-import type { LabelledSelect } from "./labelled-select.ts";
+import type { LabelledSelect } from "./labelled-select";
 
 function mount(id: string, label: string): LabelledSelect {
 	document.body.replaceChildren();

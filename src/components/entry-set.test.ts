@@ -2,9 +2,9 @@
 
 import { expect, test } from "bun:test";
 
-import "./entry-set.ts";
+import "./entry-set";
 
-import type { EntrySet } from "./entry-set.ts";
+import type { EntrySet } from "./entry-set";
 
 function mount(): EntrySet {
 	document.body.replaceChildren();

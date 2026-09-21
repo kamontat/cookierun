@@ -27,7 +27,7 @@ import {
 	verifyCovered,
 	verifyIndex,
 	verifyStructure,
-} from "./utils/asset-ids.ts";
+} from "./utils/asset-ids";
 
 const ASSETS = fileURLToPath(new URL("../assets/", import.meta.url));
 const INDEX = `${ASSETS}index.json`;

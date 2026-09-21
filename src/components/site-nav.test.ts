@@ -2,9 +2,9 @@
 
 import { expect, test } from "bun:test";
 
-import { TOOLS } from "#lib/tools.ts";
+import { TOOLS } from "#lib/tools";
 
-import "./site-nav.ts";
+import "./site-nav";
 
 // Connecting the element is what renders it, so every case mounts one. The
 // default protocol under happy-dom is http:, which is the served form.

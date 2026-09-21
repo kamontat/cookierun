@@ -21,9 +21,11 @@ export const TOOLS = [
 export type ToolSlug = (typeof TOOLS)[number]["slug"];
 
 /**
- * One HTML entrypoint per page, home pane first. The build and the test that
- * guards it both read this, so a registered tool with no page on disk is a
- * failing assertion rather than a sidebar link to nothing.
+ * One HTML page per tool, home pane first, at the paths `bun-server` finds by
+ * scanning `src/routes/`. Neither the build nor the dev server reads this -
+ * both take the directory itself - so it exists for the tests, which assert
+ * the directory and the registry name the same set of pages in both
+ * directions.
  */
 export function pageEntrypoints(): string[] {
 	return [

@@ -8,7 +8,7 @@ import {
 	renderThemeControl,
 	THEME_KEY,
 	writeTheme,
-} from "./theme-toggle.ts";
+} from "./theme-toggle";
 
 function fakeStorage(seed: Record<string, string> = {}) {
 	const store = new Map(Object.entries(seed));

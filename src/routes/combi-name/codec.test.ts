@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { type Combi, decode, encode, isSemiAuto } from "./codec.ts";
+import { type Combi, decode, encode, isSemiAuto } from "./codec";
 
 const fullAuto: Combi = {
 	type: "auto",

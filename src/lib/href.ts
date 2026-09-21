@@ -1,4 +1,4 @@
-import type { ToolSlug } from "./tools.ts";
+import type { ToolSlug } from "./tools";
 
 /**
  * Links are written as directories - `./combi-name/`, `../` - so a served site

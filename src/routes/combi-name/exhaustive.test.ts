@@ -14,7 +14,7 @@ import {
 	decode,
 	encode,
 	type RandomBoost,
-} from "./codec.ts";
+} from "./codec";
 
 function subset<T>(values: readonly T[], mask: number): T[] {
 	return values.filter((_, index) => (mask & (1 << index)) !== 0);

@@ -6,7 +6,7 @@ import {
 	encodeLoadout,
 	isEmptyLoadout,
 	type Loadout,
-} from "./loadout.ts";
+} from "./loadout";
 
 function loadout(over: Partial<Loadout> = {}): Loadout {
 	return { ...emptyLoadout(), ...over };

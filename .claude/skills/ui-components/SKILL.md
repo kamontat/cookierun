@@ -1,13 +1,13 @@
 ---
 name: ui-components
-description: Use when editing anything in components/, using a custom element from a route, styling in routes/base.css, or touching theming (theme-toggle, the theme-boot block) or cross-page links (lib/href.ts). Covers the element contracts, the light-DOM and CSS-scoping rules, and why hrefFor emits two link shapes.
+description: Use when editing anything in src/components/, using a custom element from a route, styling in src/routes/base.css, or touching theming (theme-toggle, the theme-boot block) or cross-page links (src/lib/href.ts). Covers the element contracts, the light-DOM and CSS-scoping rules, and why hrefFor emits two link shapes.
 ---
 
 # Components, theme and links
 
 ## Components
 
-Light DOM, no shadow root: Pico styles by element selector, and the two form components need `<form>` participation and label association. Component styles live in `routes/base.css` alongside the page frame, scoped by element name — including a `display` rule for each, since an unknown element is inline until a stylesheet says otherwise. They sit in the base sheet rather than beside each component or in the route that uses one, so that adopting an existing element in a new route is a markup change and nothing else.
+Light DOM, no shadow root: Pico styles by element selector, and the two form components need `<form>` participation and label association. Component styles live in `src/routes/base.css` alongside the page frame, scoped by element name — including a `display` rule for each, since an unknown element is inline until a stylesheet says otherwise. They sit in the base sheet rather than beside each component or in the route that uses one, so that adopting an existing element in a new route is a markup change and nothing else.
 
 Inside a `<button>` or an `<a>`, write `color: inherit`, never `color: var(--pico-color)`: Pico reassigns that property on both, so reading it back paints the text in the button's own colour — which on the entry rows was black on a dark card until it was fixed. The sidebar links hit the same trap.
 
@@ -37,25 +37,25 @@ Attributes carry markup-authored configuration; properties carry structured data
 
 `<entry-picker>` and `<entry-set>` each render inside a closed `<details>`, with the current pick on the summary line: six open lists over catalogs of 94 to 1,144 entries is a wall of scrolling, and a closed control still has to say what it holds. Their rows are a roving tabindex — one tab stop per list, arrows and Home/End inside it, clamped at the ends — because 50 rendered rows in each of six controls would otherwise be 300 tab stops between the loadout and the rest of the page. After a pick, focus follows the same row into its replacement; when a filter has hidden it, the search input takes focus instead, being the one element that survives every render.
 
-Each component is standalone by design. Only `site-nav.ts` and `tool-index.ts` import anything — `TOOLS` and `hrefFor` from `lib/`, plus `theme-toggle.ts` in the sidebar's case, since it renders one — and the rest import nothing at all. `<labelled-select>` and `<check-group>` even declare an `Option` pair type each rather than sharing one. A shared type between two components is the first step towards a component that cannot be read on its own.
+Each component is standalone by design. Only `site-nav.ts` and `tool-index.ts` import anything — `TOOLS` and `hrefFor` from `src/lib/`, plus `theme-toggle.ts` in the sidebar's case, since it renders one — and the rest import nothing at all. `<labelled-select>` and `<check-group>` even declare an `Option` pair type each rather than sharing one. A shared type between two components is the first step towards a component that cannot be read on its own.
 
-`components/` imports from `lib/` and never from `routes/` — `components/auto-verdict.ts` declares its own `Verdict` type rather than importing the structurally identical `AutoVerdict` from `routes/combi-name/describe.ts`, which is what keeps that arrow pointing one way.
+`src/components/` imports from `src/lib/` and never from `src/routes/` — `src/components/auto-verdict.ts` declares its own `Verdict` type rather than importing the structurally identical `AutoVerdict` from `src/routes/combi-name/describe.ts`, which is what keeps that arrow pointing one way.
 
 ## Theme
 
-`components/theme-toggle.ts` owns the light/dark choice. Pico paints light by default, dark under `prefers-color-scheme`, and obeys `data-theme` on the root over both, so the whole feature is: remember a choice and write that attribute. Three states, and "system" is the absence of one — it removes `data-theme` and deletes the stored key rather than writing a third value, which is what hands the page back to the OS.
+`src/components/theme-toggle.ts` owns the light/dark choice. Pico paints light by default, dark under `prefers-color-scheme`, and obeys `data-theme` on the root over both, so the whole feature is: remember a choice and write that attribute. Three states, and "system" is the absence of one — it removes `data-theme` and deletes the stored key rather than writing a third value, which is what hands the page back to the OS.
 
-Each page's `<head>` carries a small inline copy of the read-and-apply step, marked `id="theme-boot"`. The module scripts are deferred, so without it a page paints in the system theme and flips once the saved choice loads. `lib/tools.test.ts` asserts every page has it.
+Each page's `<head>` carries a small inline copy of the read-and-apply step, marked `id="theme-boot"`. The module scripts are deferred, so without it a page paints in the system theme and flips once the saved choice loads. `src/lib/tools.test.ts` asserts every page has it.
 
-Every storage call is wrapped: a browser that refuses `localStorage` still themes the page for that visit. `components/theme-toggle.ts` exports `renderThemeControl` as a plain function as well as defining `<theme-toggle>` around it, because a custom element hands a `connectedCallback` exception to the global error handler instead of throwing to whoever appended it — the storage-refused test would pass vacuously through the element, so it calls the function directly.
+Every storage call is wrapped: a browser that refuses `localStorage` still themes the page for that visit. `src/components/theme-toggle.ts` exports `renderThemeControl` as a plain function as well as defining `<theme-toggle>` around it, because a custom element hands a `connectedCallback` exception to the global error handler instead of throwing to whoever appended it — the storage-refused test would pass vacuously through the element, so it calls the function directly.
 
 ## Link shape
 
-`hrefFor` in `lib/href.ts` writes every cross-page link, and writes it twice over:
+`hrefFor` in `src/lib/href.ts` writes every cross-page link, and writes it twice over:
 
 - Served over http(s) it emits directories — `./combi-name/`, `../` — so the address bar reads `/combi-name`, not a filename.
 - Under `file:` it appends `index.html`, because opening `dist/` from disk means nothing is there to serve a directory index and the bare directory link would dead-end.
 
 Both forms stay relative, and that outlives the reason it started. The site was served from a GitHub Pages project subpath, where a root-relative `/combi-name` would have resolved against the domain root and missed; it now serves from a Cloudflare Worker at its own root, where such a link would happen to work. Relative links are still what the `file:` build needs, and they cost nothing, so the rule stands — but do not restate the old subpath justification as if it were live. A test covers all four combinations of depth and protocol; that is the guard against someone "simplifying" it back to one form.
 
-`hrefFor` is `lib/`'s one deliberate brush with the DOM: it defaults its `protocol` argument to `globalThis.location?.protocol`, because every caller would otherwise pass the same thing. That is a default rather than a read — `lib/href.test.ts` hands the protocol in on every call and never touches `location`.
+`hrefFor` is `src/lib/`'s one deliberate brush with the DOM: it defaults its `protocol` argument to `globalThis.location?.protocol`, because every caller would otherwise pass the same thing. That is a default rather than a read — `src/lib/href.test.ts` hands the protocol in on every call and never touches `location`.

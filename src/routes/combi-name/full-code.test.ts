@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 
-import type { Combi } from "./codec.ts";
-import { combiSectionOf, decodeFull, encodeFull } from "./full-code.ts";
-import { emptyLoadout, type Loadout } from "./loadout.ts";
+import type { Combi } from "./codec";
+import { combiSectionOf, decodeFull, encodeFull } from "./full-code";
+import { emptyLoadout, type Loadout } from "./loadout";
 
 const combi: Combi = {
 	type: "score",

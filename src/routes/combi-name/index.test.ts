@@ -12,7 +12,7 @@ document.body.innerHTML = body;
 
 // Dynamic, and kept below the assignment: importing the page script runs it,
 // and it looks every element up at module scope.
-const { need } = await import("./index.ts");
+const { need } = await import("./index");
 
 function fire(node: HTMLElement): void {
 	node.dispatchEvent(new Event("input", { bubbles: true }));

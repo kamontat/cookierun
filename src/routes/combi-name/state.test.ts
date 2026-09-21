@@ -7,7 +7,7 @@ import {
 	STORAGE_KEY,
 	startingCode,
 	storedCode,
-} from "./state.ts";
+} from "./state";
 
 function storage(initial: string | null): Storage & { written: string[] } {
 	let held = initial;

@@ -1,6 +1,6 @@
-import { type CatalogSection, isRetired, labelFor } from "./catalog.ts";
-import { type Combi, isSemiAuto } from "./codec.ts";
-import type { FullCode } from "./full-code.ts";
+import { type CatalogSection, isRetired, labelFor } from "./catalog";
+import { type Combi, isSemiAuto } from "./codec";
+import type { FullCode } from "./full-code";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
@@ -8,8 +8,8 @@ import {
 	EPISODE_LABELS,
 	RANDOM_BOOST_LABELS,
 	TYPE_LABELS,
-} from "./labels.ts";
-import type { Loadout } from "./loadout.ts";
+} from "./labels";
+import type { Loadout } from "./loadout";
 
 export type DescribedRow = {
 	field: string;

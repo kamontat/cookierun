@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { hintsFor } from "./hints.ts";
+import { hintsFor } from "./hints";
 
 function hints(code: string): string[] {
 	return hintsFor(code).map(({ hint }) => hint);

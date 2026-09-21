@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { hrefFor } from "./href.ts";
+import { hrefFor } from "./href";
 
 test("links from the home page stay in the current directory", () => {
 	expect(hrefFor(null, null, "https:")).toBe("./");

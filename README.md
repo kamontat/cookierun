@@ -94,7 +94,7 @@ Full auto is therefore one visual pattern — `-` at slot 6, `0` at slot 7, `-` 
 ## Usage
 
 ```ts
-import { encode, decode, isSemiAuto } from "./routes/combi-name/codec.ts";
+import { encode, decode, isSemiAuto } from "./src/routes/combi-name/codec";
 
 encode({
   type: "score",
@@ -120,16 +120,17 @@ The code leads the page and updates as you pick a configuration below it, or pas
 
 Your code lives in the address bar, so a build is a link you can send, and it is remembered between visits — a link wins over the remembered one, and **Reset** goes back to an empty code. **Copy** takes the code, **Copy link** takes the whole address. The sidebar carries a light/dark control that defaults to following your system. Everything runs in the browser — no network calls, no analytics.
 
-The build produces one `index.html` per page with its JavaScript and CSS inlined, so each page works from a file:// URL offline and carries no base-path assumption about where it is served from. The combi page is the one exception: it ships its cookie, pet, and treasure icons as a sibling `assets/` folder rather than inlining them, so that page needs the folder alongside it to show them — every other page stays fully self-contained.
+The build produces one `index.html` per page, the JavaScript and CSS they share as chunks beside them, and the cookie, pet, and treasure icons under `assets/`. Everything is linked relatively, so `dist/` carries no assumption about the base path it is served from — but it does have to be served: module scripts over a `file://` URL are blocked by the browser. `bun run preview` is the local way to open it.
 
 ## Development
 
 ```bash
 bun install
-bun run dev           # dev server with hot reload; / is the home pane, /combi-name/ is the combi tool
-bun run test          # 232 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run dev           # dev server on :3000; / is the home pane, /combi-name/ is the combi tool
+bun run test          # 229 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run check         # typecheck and Biome, in one pass
-bun run build         # writes dist/index.html, dist/combi-name/index.html, and dist/assets/
+bun run build         # writes dist/index.html, dist/combi-name/index.html, their chunks, and dist/assets/
+bun run preview       # serves the built dist/ on :4000; build first
 bun run verify:assets # checks assets/index.json against its committed fingerprint, offline
 ```
 
@@ -139,18 +140,18 @@ The exhaustive test asserts that encoding produces exactly 1,474,560 distinct co
 
 | Path | Role |
 | --- | --- |
-| `routes/` | One directory per page — markup, stylesheet, page script, and that page's own logic. `routes/index.*` is the home pane. |
-| `routes/combi-name/codec.ts` | Slot tables, `encode`, `decode`, `isSemiAuto`. No DOM, no dependencies. |
-| `routes/combi-name/labels.ts` | Display names for every enum value. |
-| `routes/combi-name/describe.ts` | Turns a combi into rows and an auto/semi-auto verdict. |
-| `routes/combi-name/catalog.ts` | Resolves cookie, pet, and treasure ids against `assets/index.json`. |
-| `routes/combi-name/loadout.ts` | The loadout section's grammar: `encodeLoadout`, `decodeLoadout`. |
-| `routes/combi-name/full-code.ts` | Joins a loadout and a combi into `loadout.combi`, or just the bare combi when there is no loadout. |
-| `routes/combi-name/hints.ts` | What each character of a code means, one entry per character, for the tooltips on the built code. |
-| `routes/combi-name/state.ts` | The code in the address bar and in `localStorage`: what a link carries and what a return visit restores. |
-| `components/` | Every custom element the pages declare, the sidebar and the light/dark control among them. |
-| `lib/` | What more than one route needs: the tool registry, and the link writer that keeps every href relative. |
-| `scripts/` | One file per package script — dev server, build, copying built assets, test, the two checks, the formatter, deploy — over a shared `execAsync` in `scripts/utils/`, plus the two asset programs: `fetch-assets.ts` scrapes, `verify-assets.ts` checks the result offline. |
+| `src/routes/` | One directory per page — markup, stylesheet, page script, and that page's own logic. `src/routes/index.*` is the home pane. |
+| `src/routes/combi-name/codec.ts` | Slot tables, `encode`, `decode`, `isSemiAuto`. No DOM, no dependencies. |
+| `src/routes/combi-name/labels.ts` | Display names for every enum value. |
+| `src/routes/combi-name/describe.ts` | Turns a combi into rows and an auto/semi-auto verdict. |
+| `src/routes/combi-name/catalog.ts` | Resolves cookie, pet, and treasure ids against `assets/index.json`. |
+| `src/routes/combi-name/loadout.ts` | The loadout section's grammar: `encodeLoadout`, `decodeLoadout`. |
+| `src/routes/combi-name/full-code.ts` | Joins a loadout and a combi into `loadout.combi`, or just the bare combi when there is no loadout. |
+| `src/routes/combi-name/hints.ts` | What each character of a code means, one entry per character, for the tooltips on the built code. |
+| `src/routes/combi-name/state.ts` | The code in the address bar and in `localStorage`: what a link carries and what a return visit restores. |
+| `src/components/` | Every custom element the pages declare, the sidebar and the light/dark control among them. |
+| `src/lib/` | What more than one route needs: the tool registry, and the link writer that keeps every href relative. |
+| `scripts/` | The two asset programs and their helpers: `fetch-assets.ts` scrapes, `verify-assets.ts` checks the result offline. Every other package script is the command itself, in `package.json`. |
 | `tests/` | Test configuration only; every test sits beside the code it covers. |
 
 The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a boost or episode cannot silently ship a page with a missing option.

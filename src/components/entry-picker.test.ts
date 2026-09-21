@@ -2,9 +2,9 @@
 
 import { expect, test } from "bun:test";
 
-import "./entry-picker.ts";
+import "./entry-picker";
 
-import type { EntryPicker } from "./entry-picker.ts";
+import type { EntryPicker } from "./entry-picker";
 
 function mount(): EntryPicker {
 	document.body.replaceChildren();
