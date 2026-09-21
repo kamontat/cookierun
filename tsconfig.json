@@ -14,6 +14,7 @@
 	"compilerOptions": {
 		"rootDir": "${configDir}",
 		"noEmit": true,
+		// FIXME: https://github.com/oven-sh/bun/issues/43097
 		"experimentalDecorators": true,
 		"useDefineForClassFields": false
 	}
