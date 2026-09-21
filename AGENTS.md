@@ -36,12 +36,12 @@ bun run format:biome                         # the same check with --write --uns
 bun run check                                # both checks, in one pass
 bun run build                                # writes dist/index.html and dist/combi-name/index.html with their shared chunks, plus dist/assets/ for the icons
 bun run preview                              # serves the built dist/ on :4000 the way Cloudflare does; build first
-bun run fetch:assets                         # re-scrapes icons into assets/ (idempotent, skips existing)
-bun run verify:assets                        # checks assets/index.json offline; --update extends the fingerprint's coverage
+bun run fetch:assets                         # re-scrapes into assets/, records fetchedAt, reports what changed
+bun run verify:assets                        # asks cookierundb.com whether index.json is still complete
 bun run deploy                               # publishes to Cloudflare; wrangler builds first
 ```
 
-Every script but two is the command itself in `package.json` — `bun-server`, `tsc`, `biome`, `wrangler`, `bun test` — resolved from `node_modules/.bin` by `bun run`. Only `fetch:assets` and `verify:assets` are files under `scripts/`, because both are programs rather than invocations: `fetch-assets.ts` scrapes the site, `verify-assets.ts` checks the committed index — against a hand edit or a bad merge as much as against a scrape. See the `repo-scripts` skill before editing one.
+Every script but two is the command itself in `package.json` — `bun-server`, `tsc`, `biome`, `wrangler`, `bun test` — resolved from `node_modules/.bin` by `bun run`. Only `fetch:assets` and `verify:assets` are files under `scripts/`, because both are programs rather than invocations: `fetch-assets.ts` scrapes the site, `verify-assets.ts` asks it whether the committed index is still complete. See the `repo-scripts` skill before editing one.
 
 `dev`, `build` and `preview` are all `@kctools/bun-server` invocations. With no input argument it scans `src/routes/` for HTML files, so the route table is the directory itself and adding a page needs no edit anywhere; `--statics 'assets/**/*.png'` puts the icons at `/assets/...` in both the dev server and `dist/`. See the `build-and-deploy` skill.
 

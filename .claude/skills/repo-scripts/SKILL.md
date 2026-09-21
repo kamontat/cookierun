@@ -9,7 +9,7 @@ description: Use when editing anything under scripts/, adding or changing a pack
 
 A script that is just a command is that command in `package.json` — `bun-server dev`, `tsc --noEmit`, `biome check`, `wrangler deploy`, `bun test`. `bun run` puts `node_modules/.bin` on `PATH`, so the bare binary name resolves and no wrapper is needed; don't reintroduce `bunx`, and don't wrap one of these in a file under `scripts/` again. Arguments a caller passes are forwarded by `bun run` itself, which is what keeps `bun run test -t "decodes every slot"` and `bun run build --no-minify` working. `check` is the one composite: `bun run check:type && bun run check:biome`, so a type error stops before Biome runs.
 
-A script that is a *program* is a file under `scripts/`, and there are exactly two: `bun run fetch:assets` scrapes cookierundb.com and rewrites `assets/index.json`; `bun run verify:assets` checks that file against `assets/fingerprint.json` offline and is what a hand edit or a bad merge trips over. They share `scripts/utils/`. See the `assets` skill before touching either.
+A script that is a *program* is a file under `scripts/`, and there are exactly two: `bun run fetch:assets` scrapes cookierundb.com and rewrites `assets/index.json`; `bun run verify:assets` asks cookierundb.com whether that file is still complete, comparing each section's non-retired count against the site's listing. It needs the network, so it runs weekly in `.github/workflows/assets.yml` rather than on push. They share `scripts/utils/`. See the `assets` skill before touching either.
 
 ## Biome
 

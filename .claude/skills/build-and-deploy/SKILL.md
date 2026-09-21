@@ -11,7 +11,7 @@ description: Use when changing `bun run build`, `bun run dev`, `bun run preview`
 
 `build` writes `dist/index.html` and `dist/combi-name/index.html` with `splitting: true` and `sourcemap: "linked"`, so the JavaScript and CSS they share land beside them as `chunk-*.js`, `chunk-*.css`, and `.map` files, and the favicon is extracted as a hashed sibling rather than inlined. Pages link all of it relatively, so `dist/` carries no base-path assumption — but a built page is a directory now, not one self-contained file, and `file://` no longer opens it: module scripts from a `file://` origin are blocked. `bun run preview` serves `dist/` on :4000, which is how you look at a build locally.
 
-`--statics 'assets/**/*.png'` is what ships the icons. Quote the glob — an unquoted one is expanded by the shell, and every extra path lands as a positional argument, which `bun-server` reads as another entrypoint to build. The source root (`assets/`) becomes the target directory, so a file arrives at `dist/assets/cookies/ch26.png` and is served at `/assets/cookies/ch26.png`. `dev.ts` passes the same flag, where the files are served from the repository's own `assets/` rather than copied, so the combi page's icons load identically in development and against a built `dist/`. Only `.png` matches, which is why `assets/index.json` and `assets/fingerprint.json` stay out of `dist/` — the page bundles the index already, and shipping it twice would be 1 MB for nothing.
+`--statics 'assets/**/*.png'` is what ships the icons. Quote the glob — an unquoted one is expanded by the shell, and every extra path lands as a positional argument, which `bun-server` reads as another entrypoint to build. The source root (`assets/`) becomes the target directory, so a file arrives at `dist/assets/cookies/ch26.png` and is served at `/assets/cookies/ch26.png`. `dev.ts` passes the same flag, where the files are served from the repository's own `assets/` rather than copied, so the combi page's icons load identically in development and against a built `dist/`. Only `.png` matches, which is why `assets/index.json` stays out of `dist/` — the page bundles the index already, and shipping it twice would be 1 MB for nothing.
 
 The build refuses to copy a static file over something it just wrote, so a glob that collides with build output fails the run rather than corrupting `dist/` silently. What it does not do is clean: `dist/` is never emptied first, so a stale file from an earlier build with different options survives. `rm -rf dist` before a build whose output shape you intend to inspect.
 
@@ -33,11 +33,12 @@ One declaration is still split across both levels: the base sheet gives `main > 
 
 The site is a Cloudflare Worker serving static assets. `wrangler.jsonc` names the worker `cookierun`, sets `build.command` to `bun run build`, and points `assets.directory` at `dist/` — so wrangler runs the build itself, and neither deploy workflow builds beforehand. Nothing else reads `dist/`; changing where the build writes means changing that file too.
 
-Three workflows, each pinning every action to a full commit SHA with the release tag in a trailing comment:
+Four workflows, each pinning every action to a full commit SHA with the release tag in a trailing comment:
 
 - `main.yml` — install, `bun test`, `bun run check`, `bun run build`. This is the only place the suite runs in CI. It calls `bun test` directly rather than `bun run test`, so the wrapper script is for local callers only.
 - `deploy-preview.yml` — on pull requests, `wrangler versions upload`, reporting into the `preview` environment.
 - `deploy-production.yml` — on pushes to `main`, `wrangler deploy`, reporting into the `production` environment.
+- `assets.yml` — Mondays at 06:00 UTC and on `workflow_dispatch`, `bun run verify:assets`. It is the only workflow that reaches cookierundb.com, and the only one on a schedule. It is deliberately not part of `main.yml`: it fails whenever the site gains an entry, and `main.yml` gates the deploys.
 
 Both deploy workflows need `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in repository secrets, and grant `deployments: write` on the job rather than at the top of the file — the workflows open with `permissions: {}` and hand back only what each job needs. Keep that shape in anything new.
 
