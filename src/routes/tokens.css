@@ -1,0 +1,58 @@
+/* Every colour, space and edge the site uses. Custom properties inherit
+   through shadow boundaries, which is what lets a component read a token
+   without importing anything. A component reads colour no other way.
+
+   Dark is the default and light is the variant: "system" is the absence of
+   `data-theme`, so the media query has to exclude an explicit dark choice
+   rather than assume one. */
+:root {
+	--cr-bg: #0e0e12;
+	--cr-surface: #17171f;
+	--cr-surface-2: #1f1f2b;
+	--cr-text: #f2f2f5;
+	--cr-muted: #9a9aae;
+	--cr-line: #2e2e3d;
+	--cr-accent: #ff3d7f;
+	--cr-accent-2: #ffd23f;
+	--cr-danger: #ff6b5e;
+
+	--cr-border: 2px;
+	--cr-radius: 2px;
+	--cr-block: 4px 4px 0 var(--cr-line);
+
+	--cr-space-1: 0.25rem;
+	--cr-space-2: 0.5rem;
+	--cr-space-3: 0.75rem;
+	--cr-space-4: 1rem;
+	--cr-space-5: 1.5rem;
+
+	--cr-font: system-ui, sans-serif;
+	--cr-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+	--cr-tracking: 0.08em;
+}
+
+/* Paper rather than white, near-black lines: the arcade language survives the
+   switch instead of softening into a generic light theme. */
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme="dark"]) {
+		--cr-bg: #f4f4f0;
+		--cr-surface: #ffffff;
+		--cr-surface-2: #eceae4;
+		--cr-text: #12121a;
+		--cr-muted: #5d5d6b;
+		--cr-line: #12121a;
+		--cr-accent: #d81b60;
+		--cr-accent-2: #a86800;
+	}
+}
+
+:root[data-theme="light"] {
+	--cr-bg: #f4f4f0;
+	--cr-surface: #ffffff;
+	--cr-surface-2: #eceae4;
+	--cr-text: #12121a;
+	--cr-muted: #5d5d6b;
+	--cr-line: #12121a;
+	--cr-accent: #d81b60;
+	--cr-accent-2: #a86800;
+}

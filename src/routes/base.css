@@ -2,6 +2,7 @@
    components any route may use. A route's own `index.css` opens with an
    `@import` of this file and then adds only what that page needs. */
 @import "@picocss/pico/css/pico.amber.min.css";
+@import "./tokens.css";
 
 /* Density.
    Pico scales the root font from 100% up to 131.25% as the viewport grows, so
