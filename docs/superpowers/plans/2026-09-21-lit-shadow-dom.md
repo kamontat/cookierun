@@ -537,16 +537,97 @@ Run: `bun run test src/components/tool-index.test.ts src/components/auto-verdict
 
 Expected: PASS, 8 tests.
 
-- [ ] **Step 6: Run the whole suite and the checks**
+- [ ] **Step 6: Convert the route integration test, once, for every task that follows**
+
+`src/routes/combi-name/index.test.ts` drives the whole page through its
+components, and three separate things in it break as they migrate: an
+`<auto-verdict>`'s text moves into a shadow root (this task), a
+`<check-group>`'s checkboxes move out of reach (Task 4), and the `<code>` node
+captured at module scope stops existing at import time (Task 5).
+
+Convert it once, here, into a shape that works for a migrated component and an
+unmigrated one alike — `host.shadowRoot ?? host` is the whole trick — so Tasks
+4 through 7 need no further edits to this file.
+
+Add these helpers below the existing `fire` function:
+
+```ts
+/**
+ * Where a component's markup lives. A Lit component keeps it in a shadow root;
+ * one that has not been migrated yet keeps it in the light DOM. This reads both,
+ * so this file stops caring which components have moved.
+ */
+function inside(host: HTMLElement): ParentNode {
+	return (host as { shadowRoot?: ShadowRoot | null }).shadowRoot ?? host;
+}
+
+/** What a component renders, whichever DOM it renders into. */
+function shown(host: HTMLElement): string {
+	return inside(host).textContent ?? "";
+}
+
+/** Lit renders on a microtask; the route's own handlers are synchronous. */
+async function settle(): Promise<void> {
+	await Bun.sleep(0);
+	await Bun.sleep(0);
+}
+
+async function codeText(): Promise<string> {
+	await settle();
+	return inside(codeOutput).querySelector("code")?.textContent ?? "";
+}
+```
+
+Then, throughout the file:
+
+- Delete the module-scope `const code = codeOutput.querySelector("code")!;` at
+  line 32. Every `expect(code.textContent).toBe(x)` becomes
+  `expect(await codeText()).toBe(x)`, and its test becomes `async`.
+- `expect(builderVerdict.textContent)` and `expect(readerVerdict.textContent)`
+  become `expect(shown(builderVerdict))` and `expect(shown(readerVerdict))`,
+  each preceded by `await settle()`.
+- `check()` reaches through `inside()` and clicks rather than assigning, because
+  after Task 4 the ticked set lives in the component and assigning `.checked`
+  tells it nothing. Clicking works for the current light-DOM component too:
+
+```ts
+async function check(
+	hostId: string,
+	value: string,
+	checked: boolean,
+): Promise<void> {
+	const input = inside(need(hostId)).querySelector<HTMLInputElement>(
+		`input[value="${value}"]`,
+	);
+	if (input === null)
+		throw new Error(`missing ${value} checkbox in #${hostId}`);
+	if (input.checked !== checked) input.click();
+	await settle();
+}
+```
+
+- `clickEntry()` reaches through `inside()` the same way and awaits `settle()`
+  after the click.
+- `expect(spans…)` in the last test reads
+  `[...inside(codeOutput).querySelectorAll("code span")]`, after `await settle()`.
+
+Every call to `check` and `clickEntry` is now awaited, so their tests become
+`async`. Leave `readerMessage`, `readerRows`, `reader-warnings`, `loadButton`
+and the `<labelled-select>` hosts alone: the first four are plain page elements,
+and a select host keeps its `value` property either way.
+
+- [ ] **Step 7: Run the whole suite and the checks**
 
 Run: `bun run test && bun run check`
 
-Expected: PASS. `src/routes/index.css` still has `tool-index dl { … }` rules that now match nothing — harmless, and Task 8 removes them.
+Expected: PASS, including all 20 tests in `src/routes/combi-name/index.test.ts`.
+`src/routes/index.css` still has `tool-index dl { … }` rules that now match
+nothing — harmless, and Task 8 removes them.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/components/tool-index.ts src/components/auto-verdict.ts src/components/tool-index.test.ts src/components/auto-verdict.test.ts
+git add src/components/tool-index.ts src/components/auto-verdict.ts src/components/tool-index.test.ts src/components/auto-verdict.test.ts src/routes/combi-name/index.test.ts
 git commit -m "feat: tool-index and auto-verdict on Lit"
 ```
 
@@ -1221,7 +1302,7 @@ test("ticking a box bubbles an input event out of the element", async () => {
 });
 ```
 
-Rewrite `src/components/labelled-select.test.ts` the same way. Read the current file first and keep every assertion; the mechanical changes are: `mount` becomes `async` and awaits `updateComplete`, `element.querySelector` becomes `element.shadowRoot?.querySelector`, and any test that sets a property awaits `updateComplete` before asserting. Add one test for the re-dispatched event:
+Rewrite `src/components/labelled-select.test.ts` the same way. Read the current file first and keep every assertion; the mechanical changes are: `mount` becomes `async` and awaits `updateComplete`, `element.querySelector` becomes `element.shadowRoot?.querySelector`, and any test that sets a property awaits `updateComplete` before asserting. Add one test for the re-dispatched event — use a value from that file's own fixture options, not the placeholder below:
 
 ```ts
 test("choosing an option bubbles an input event out of the element", async () => {
@@ -1233,7 +1314,7 @@ test("choosing an option bubbles an input event out of the element", async () =>
 
 	const select = element.shadowRoot?.querySelector("select");
 	if (select == null) throw new Error("no select");
-	select.value = "money";
+	select.value = "<a value from this file's own options fixture>";
 	select.dispatchEvent(new Event("change"));
 
 	expect(seen).toBe(1);
@@ -1504,7 +1585,7 @@ Expected: PASS.
 
 Run: `bun run test && bun run check`
 
-Expected: PASS, including `src/routes/combi-name/index.test.ts`, which drives the builder through these controls. If a route test fails because it set `.checked` on a checkbox directly, change it to `.click()` — that is the same substantive change made in this task's own tests, for the same reason.
+Expected: PASS, including `src/routes/combi-name/index.test.ts`. That file was converted once in Task 2 to reach through `host.shadowRoot ?? host` and to click checkboxes rather than assign `.checked`, so it needs no edit here. If it fails anyway, fix it in place rather than weakening the component.
 
 - [ ] **Step 7: Commit**
 
@@ -1847,17 +1928,16 @@ Run: `bun run test src/components/copy-code.test.ts`
 
 Expected: PASS, 8 tests.
 
-- [ ] **Step 5: Fix the route test's hint assertions**
+- [ ] **Step 5: Confirm the route test still passes**
 
-`src/routes/combi-name/index.test.ts` around lines 220-230 reads `copy-code`'s spans. Change the query that finds them to go through the shadow root, and await the element before asserting:
+`src/routes/combi-name/index.test.ts` was converted in Task 2 to read through
+`inside(codeOutput)` and to await `settle()`, which covers both the hint spans
+and the code readout. It needs no edit here.
 
-```ts
-const output = document.querySelector("copy-code") as CopyCode;
-await output.updateComplete;
-const spans = [...(output.shadowRoot?.querySelectorAll("code span") ?? [])];
-```
+Run: `bun run test src/routes/combi-name/index.test.ts`
 
-Keep every assertion as it stands. If the surrounding test is not already `async`, make it so.
+Expected: PASS, 20 tests. If the hint-span test fails, the cause is the
+`willUpdate` guard in Step 3 — check `#hintsFor`, not the test.
 
 - [ ] **Step 6: Run the whole suite and the checks**
 
@@ -2133,7 +2213,7 @@ if (!customElements.get("entry-picker")) {
 }
 ```
 
-`entryStyles` is the shared look of both entry controls. Define it at the top of this file, above the class, and import it from `entry-set.ts` in Task 7 — it is presentation, not behaviour, so sharing it does not make either component unreadable on its own:
+`entryStyles` is the shared look of both entry controls. It **must be defined above the class**, immediately after the `NONE` constant — `static styles` evaluates when the class is defined, so a constant declared below it throws a temporal-dead-zone error at import. `entry-set.ts` imports it in Task 7. It is presentation, not behaviour, so sharing it does not make either component unreadable on its own:
 
 ```ts
 /**
@@ -2890,7 +2970,13 @@ Run: `bun run test && bun run check && bun run build`
 
 Expected: all pass, and `dist/index.html` plus `dist/combi-name/index.html` are written.
 
-- [ ] **Step 7: Look at it**
+- [ ] **Step 7: Look at it — CONTROLLER ONLY, skip if you are an implementer subagent**
+
+This step belongs to whoever is coordinating the plan, not to the implementer:
+it needs a browser, and it is the only verification the token layer ever gets,
+since happy-dom does not resolve inherited custom properties. An implementer
+subagent does Steps 1-6 and 8 and hands back; the controller runs this between
+the commit and the task review.
 
 Run: `bun run dev`
 
