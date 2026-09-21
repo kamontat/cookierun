@@ -86,16 +86,29 @@ test("a value that is not an option is ignored rather than invented", async () =
 });
 
 // `change` does not cross a shadow boundary, so the component has to say so
-// itself or the page never hears that a box was ticked.
-test("ticking a box bubbles an input event out of the element", async () => {
+// itself or the page never hears that a box was ticked. A real tick fires
+// *two* native events, `input` then `change` - and unlike `change`, `input`
+// is `composed: true`, so it already escapes the shadow root unaided. A
+// handler that only listens for `change` lets that first, composed `input`
+// leak out with yesterday's state before its own handler ever runs, then
+// adds a second, correct one behind it.
+test("ticking a box bubbles exactly one input event, carrying the new selection", async () => {
 	const element = await mount("boosts", "Boosts");
+	const input = inputs(element)[0];
+	if (input == null) throw new Error("no checkbox");
+
+	// Asserted from inside the listener, at the moment the page would see the
+	// event, rather than captured into a variable read afterward: that is
+	// what actually pins down "fresh", not just "eventually correct".
 	let seen = 0;
 	document.body.addEventListener("input", () => {
 		seen += 1;
+		expect(element.selected).toEqual(["hp"]);
 	});
 
-	inputs(element)[0]?.click();
-	await element.updateComplete;
+	input.checked = true;
+	input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+	input.dispatchEvent(new Event("change", { bubbles: true }));
 
 	expect(seen).toBe(1);
 	expect(element.selected).toEqual(["hp"]);

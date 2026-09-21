@@ -90,8 +90,12 @@ export class CheckGroup extends LitElement {
 	}
 
 	/**
-	 * `change` is not composed, so it dies at the shadow boundary. The page
-	 * listens for `input` on the form, so the element says it itself.
+	 * A native checkbox's `input` event is `bubbles: true, composed: true` -
+	 * it already escapes the shadow root on its own, before this handler (or
+	 * this element's own re-dispatch) ever runs, carrying whatever `chosen`
+	 * still said a moment ago. Stopping it here and re-dispatching from the
+	 * host, rather than waiting for the following (non-composed) `change`,
+	 * keeps the page from seeing that stale double.
 	 */
 	#toggle(value: string, checked: boolean): void {
 		const next = new Set(this.chosen);
@@ -111,7 +115,7 @@ export class CheckGroup extends LitElement {
 							type="checkbox"
 							.value=${value}
 							.checked=${this.chosen.has(value)}
-							@change=${(event: Event) => {
+							@input=${(event: Event) => {
 								event.stopPropagation();
 								this.#toggle(value, (event.target as HTMLInputElement).checked);
 							}}

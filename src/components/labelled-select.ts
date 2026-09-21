@@ -37,13 +37,6 @@ export class LabelledSelect extends LitElement {
 
 	#chosen = "";
 
-	// A native, untouched `<select>` reads as its first option's value, not
-	// empty. The route relies on exactly that at import time - it reads
-	// `.value` synchronously to seed its default code, before this element (or
-	// any Lit element) has completed a render - so "nobody has chosen
-	// anything" has to fall back to the first option rather than to "".
-	#explicit = false;
-
 	/**
 	 * Derived from the host id where there is one, so the generated id reads as
 	 * belonging to this control rather than to a counter. Computed on first
@@ -57,54 +50,73 @@ export class LabelledSelect extends LitElement {
 	}
 
 	/**
-	 * Reads and writes `#chosen` directly rather than the rendered `<select>`.
-	 * The route sets `options` and `value` synchronously, before this element's
-	 * first Lit render has run (Lit defers rendering to a microtask), so a
-	 * getter that reached into `shadowRoot` would see no `<select>` yet and
-	 * report the wrong thing. Keeping the source of truth in this field also
-	 * sidesteps the option-vs-value render race below.
+	 * Reads `#chosen` directly rather than the rendered `<select>` - the route
+	 * sets `options` and `value` synchronously, before this element's first
+	 * Lit render has run (Lit defers rendering to a microtask), so a getter
+	 * that reached into `shadowRoot` would see no `<select>` yet.
+	 *
+	 * Falls back to the first option whenever `#chosen` names no option of
+	 * this one's: nothing has been chosen, the chosen value belongs to an
+	 * `options` list that has since been replaced, or `""` was chosen and
+	 * `""` is not itself an option. That is what a native, untouched
+	 * `<select>` reads as too, and it is what `render` below actually marks
+	 * `.selected` - so this can never report a value the DOM disagrees with.
 	 */
 	get value(): string {
-		if (this.#explicit) return this.#chosen;
-		return this.options[0]?.[0] ?? this.#chosen;
+		return this.options.some(([value]) => value === this.#chosen)
+			? this.#chosen
+			: (this.options[0]?.[0] ?? "");
 	}
 
 	set value(value: string) {
 		this.#chosen = value;
-		this.#explicit = true;
 		this.requestUpdate();
 	}
 
 	/**
-	 * `change` is not composed, so it dies at the shadow boundary. The page
-	 * listens for `input` on the form, so the element says it itself.
+	 * A native form control's `input` event is `bubbles: true, composed: true`
+	 * - it already escapes the shadow root on its own, before this handler (or
+	 * this element's own re-dispatch) ever runs, carrying whatever `#chosen`
+	 * still said a moment ago. Stopping it here and re-dispatching from the
+	 * host, rather than waiting for the following (non-composed) `change`,
+	 * keeps the page from seeing that stale double.
+	 *
+	 * `requestUpdate` here, not only in `set value`, is what keeps `render`'s
+	 * `.selected` bindings honest afterward: a real pick changes the browser's
+	 * own selectedness directly, outside Lit's rendering, so without this
+	 * Lit's dirty-check would still think its last commit (from before the
+	 * pick) matches `this.value` and skip reasserting `.selected` the next
+	 * time `value` is written - leaving the picked option showing.
 	 */
 	#changed(event: Event): void {
 		event.stopPropagation();
 		this.#chosen = (event.target as HTMLSelectElement).value;
-		this.#explicit = true;
+		this.requestUpdate();
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 	}
 
 	override render() {
-		// `?selected` is set on each `<option>` as it is created, rather than
-		// `.value` on the `<select>` after the fact. Lit commits an element's own
-		// attribute/property bindings before it renders that element's children,
-		// so a `.value=${this.#chosen}` binding here would run while the
-		// `<select>` still had no `<option>`s - and the browser does not revisit
-		// that assignment once they arrive, so it silently keeps whichever option
-		// lands first instead of the one asked for.
+		// `.selected` is an IDL property assignment, not a `selected` content
+		// attribute. That matters twice over: Lit commits an element's own
+		// property bindings before it renders that element's children, so a
+		// `.value=${this.#chosen}` binding on the `<select>` itself would run
+		// before its `<option>`s existed and be silently dropped; and per the
+		// HTML spec's "pick an option" algorithm, once a user has picked an
+		// option by hand it is marked dirty, and a dirty option's `selected`
+		// *attribute* stops moving it - only the `.selected` *property* setter
+		// still does, unconditionally, on every option, insertion order and
+		// dirtiness alike.
 		return html`
 			<label for=${this.#id}>${this.label}</label>
 			<select
 				id=${this.#id}
-				@change=${(event: Event) => {
+				@input=${(event: Event) => {
 					this.#changed(event);
 				}}
 			>
 				${this.options.map(
 					([value, text]) =>
-						html`<option value=${value} ?selected=${value === this.value}>${text}</option>`,
+						html`<option value=${value} .selected=${value === this.value}>${text}</option>`,
 				)}
 			</select>
 		`;

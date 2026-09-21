@@ -75,8 +75,12 @@ test("value reads and writes through to the select", async () => {
 });
 
 // The page listens for `input` on the enclosing form, so the event has to
-// leave the component.
-test("choosing an option bubbles an input event out of the element", async () => {
+// leave the component. A real pick fires *two* native events, `input` then
+// `change` - and unlike `change`, `input` is `composed: true`, so it already
+// escapes the shadow root unaided. A handler that only listens for `change`
+// lets that first, composed `input` leak out with yesterday's state before
+// its own handler ever runs, then adds a second, correct one behind it.
+test("choosing an option bubbles exactly one input event, carrying the new value", async () => {
 	const element = await mount("type", "Type");
 	element.options = [
 		["a", "Alpha"],
@@ -84,15 +88,20 @@ test("choosing an option bubbles an input event out of the element", async () =>
 	];
 	await element.updateComplete;
 
+	// Asserted from inside the listener, at the moment the page would see the
+	// event, rather than captured into a variable read afterward: that is
+	// what actually pins down "fresh", not just "eventually correct".
 	let seen = 0;
 	document.body.addEventListener("input", () => {
 		seen += 1;
+		expect(element.value).toBe("b");
 	});
 
 	const select = element.shadowRoot?.querySelector("select");
 	if (select == null) throw new Error("no select");
 	select.value = "b";
-	select.dispatchEvent(new Event("change"));
+	select.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+	select.dispatchEvent(new Event("change", { bubbles: true }));
 
 	expect(seen).toBe(1);
 });
@@ -144,6 +153,50 @@ test("options set first, then value, before the element has ever rendered", asyn
 
 	expect(element.value).toBe("b");
 	expect(element.shadowRoot?.querySelector("select")?.value).toBe("b");
+});
+
+// Per the HTML spec's "pick an option" algorithm, a real user pick marks the
+// picked option dirty; once dirty, adding or removing its `selected` content
+// attribute no longer moves it. The route hits this on every Load and every
+// Reset: `writeForm` assigns `.value` straight from a decoded code, and
+// nothing stops that value from being an option the user already picked once
+// before.
+test("assigning value after real picks still moves the rendered select back", async () => {
+	document.body.replaceChildren();
+	const element = document.createElement("labelled-select") as LabelledSelect;
+	element.id = "type";
+	element.setAttribute("label", "Type");
+	document.body.append(element);
+	element.options = [
+		["a", "Alpha"],
+		["b", "Beta"],
+	];
+	await element.updateComplete;
+
+	const select = element.shadowRoot?.querySelector("select");
+	if (select == null) throw new Error("no select");
+
+	function pick(target: HTMLSelectElement, value: string): void {
+		target.value = value;
+		target.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+		target.dispatchEvent(new Event("change", { bubbles: true }));
+	}
+
+	// Dirty both options: pick "a" (already showing, but the pick itself is
+	// what dirties it), then pick "b".
+	pick(select, "a");
+	await element.updateComplete;
+	pick(select, "b");
+	await element.updateComplete;
+	expect(select.value).toBe("b");
+
+	// A Load/Reset-style programmatic write, back to an option already picked
+	// once above.
+	element.value = "a";
+	await element.updateComplete;
+
+	expect(element.value).toBe("a");
+	expect(select.value).toBe("a");
 });
 
 // The reverse order: nothing guarantees a caller sets options before value, so
