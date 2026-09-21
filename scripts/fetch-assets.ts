@@ -30,6 +30,7 @@ import {
 	type Entry,
 	ID_WIDTH,
 	migrate,
+	ordered,
 	reconcile,
 	SECTIONS,
 	type Section,
@@ -378,12 +379,59 @@ console.log(
 );
 for (const failure of failures) console.log("  FAIL", failure);
 
+// Icon downloads are the only partial-success path in this script: sitemap
+// drift, a broken chain and a failed structure check all bail before the write.
+// So an icon that did not arrive means the run was not a success, and the
+// previous timestamp stands while the index itself is still written.
+const fetchedAt =
+	failures.length === 0 ? new Date().toISOString() : previous.fetchedAt;
+
 // Verified before it is written, not after: a broken index that never reaches
 // disk costs nothing, while one that does needs `git checkout` to undo.
-const written = serializeIndex({ fetchedAt: previous.fetchedAt, ...index });
+const written = serializeIndex({ fetchedAt, ...index });
 bail(verifyStructure(written), "the index this run assembled is not intact");
 
 await Bun.write(ASSETS_INDEX, written);
 console.log("index written");
+
+/**
+ * What a run did to one entry. `restored` is not new behaviour — `reconcile`
+ * matches by slug, so an entry the site lists again keeps its id and is rebuilt
+ * without the flag — it is only newly visible.
+ */
+type Change = "added" | "updated" | "retired" | "restored" | "unchanged";
+
+function classify(before: Entry | undefined, after: Entry): Change {
+	if (before === undefined) return "added";
+	if (before.retired !== true && after.retired === true) return "retired";
+	if (before.retired === true && after.retired !== true) return "restored";
+	return JSON.stringify(ordered(before)) === JSON.stringify(ordered(after))
+		? "unchanged"
+		: "updated";
+}
+
+const reportWidth = Math.max(...SECTIONS.map((section) => section.length)) + 2;
+
+for (const section of SECTIONS) {
+	const tally: Record<Change, number> = {
+		added: 0,
+		updated: 0,
+		retired: 0,
+		restored: 0,
+		unchanged: 0,
+	};
+	// Annotated for the same reason as in verify-assets.ts: the union of the two
+	// record types does not survive Object.entries without widening.
+	const entries: [string, Entry][] = Object.entries(index[section]);
+	for (const [id, entry] of entries) {
+		tally[classify(previous[section][id], entry)]++;
+	}
+	console.log(
+		`${`${section}:`.padEnd(reportWidth)} ${entries.length} total —` +
+			` ${tally.added} added, ${tally.updated} updated,` +
+			` ${tally.retired} retired, ${tally.restored} restored,` +
+			` ${tally.unchanged} unchanged`,
+	);
+}
 
 if (failures.length > 0) process.exit(1);
