@@ -6,8 +6,8 @@ description: Use when adding a new tool page (a new src/routes/<slug>/ entry in 
 # Adding a tool
 
 1. Add an entry to `TOOLS` in `src/lib/tools.ts`.
-2. Create `src/routes/<slug>/index.html`: `<a class="skip-link" href="#content">Skip to content</a>` then `<site-nav current="<slug>"></site-nav>` as the first two body children, a `<script id="theme-boot">` block copied from an existing page's head above the stylesheet link, `<link rel="stylesheet" href="./index.css" />`, `<script src="./index.ts" type="module"></script>`, `<main id="content" class="container" tabindex="-1">`, and Pico's `container` class on `header` and `footer` too. The skip link matters because the sidebar comes first in the DOM.
-3. Create `src/routes/<slug>/index.css` starting with `@import "../base.css";`. That import is what gives the page Pico, the body grid, the sidebar rail, and every component's rules. A sheet holding nothing else is fine — the base sheet is its own file, so no route's stylesheet can collide with it.
+2. Create `src/routes/<slug>/index.html`: `<a class="skip-link" href="#content">Skip to content</a>` then `<site-nav current="<slug>"></site-nav>` as the first two body children, a `<script id="theme-boot">` block copied from an existing page's head above the stylesheet link, `<link rel="stylesheet" href="./index.css" />`, `<script src="./index.ts" type="module"></script>`, `<main id="content" class="container" tabindex="-1">`, and the `container` class on `header` and `footer` too. The skip link matters because the sidebar comes first in the DOM.
+3. Create `src/routes/<slug>/index.css` starting with `@import "../base.css";`. That import is what gives the page the reset, the tokens, the body grid, and the sidebar rail; it carries no component styling — each custom element carries its own inside its shadow root. A sheet holding nothing else is fine — the base sheet is its own file, so no route's stylesheet can collide with it.
 4. Create `src/routes/<slug>/index.ts` and import the components the page declares, so their `customElements.define` calls run.
 
 That is the whole list — no script names a page. See "Nothing has to be added to the build" below.

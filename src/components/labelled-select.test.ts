@@ -16,8 +16,9 @@ async function mount(id: string, label: string): Promise<LabelledSelect> {
 	return element;
 }
 
-// Nesting the select inside the label would collapse the gap Pico's own label
-// margin puts between them, so the association is an explicit for/id pair.
+// Nesting the select inside the label would let the select's own margin-top
+// collapse against the label's, rather than opening a gap between the label
+// text and the select, so the association is an explicit for/id pair instead.
 test("the label points at the select and names it", async () => {
 	const element = await mount("type", "Type");
 	const select = element.shadowRoot?.querySelector("select");
