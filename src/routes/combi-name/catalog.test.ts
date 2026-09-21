@@ -114,7 +114,7 @@ test("labelFor falls back to the bare name for an id no picker offers", () => {
 // The catalog declares these itself so a route never imports from scripts/.
 // This is the guard against the two copies drifting apart.
 test("the widths match the ones the scraper assigns ids with", async () => {
-	const scraper = await import("../../scripts/utils/asset-ids.ts");
+	const scraper = await import("../../../scripts/utils/asset-ids.ts");
 
 	expect(ID_WIDTH).toEqual(scraper.ID_WIDTH);
 	expect(CAPACITY).toEqual(scraper.CAPACITY);

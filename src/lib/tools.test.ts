@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 
 import { pageEntrypoints, TOOLS } from "./tools.ts";
 
-const root = new URL("../", import.meta.url);
+const root = new URL("../../", import.meta.url);
 
 test("tool slugs are unique", () => {
 	const slugs = TOOLS.map((tool) => tool.slug);
@@ -13,7 +13,7 @@ test("tool slugs are unique", () => {
 // sidebar link to a page that was never written.
 test("every page the build asks for exists on disk", async () => {
 	const entrypoints = pageEntrypoints();
-	expect(entrypoints).toContain("routes/index.html");
+	expect(entrypoints).toContain("src/routes/index.html");
 	expect(entrypoints.length).toBe(TOOLS.length + 1);
 
 	for (const path of entrypoints) {
@@ -38,14 +38,14 @@ test("every tool page is imported by the dev server", async () => {
 	const devServer = await Bun.file(new URL("scripts/dev.ts", root)).text();
 
 	for (const { slug } of TOOLS) {
-		expect(devServer).toContain(`../routes/${slug}/index.html`);
+		expect(devServer).toContain(`../src/routes/${slug}/index.html`);
 	}
 });
 
 test("the home page is served like the tools are", async () => {
 	const devServer = await Bun.file(new URL("scripts/dev.ts", root)).text();
 
-	expect(devServer).toContain("../routes/index.html");
+	expect(devServer).toContain("../src/routes/index.html");
 	expect(devServer).toContain('"/": home');
 });
 

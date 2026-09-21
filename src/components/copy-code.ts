@@ -96,11 +96,11 @@ export class CopyCode extends HTMLElement {
 		this.#code.replaceChildren(
 			...runs.map((run) => {
 				const span = document.createElement("span");
-				span.dataset.tooltip = run[0]?.hint ?? "";
+				span.setAttribute("data-tooltip", run[0]?.hint ?? "");
 				// Below: the code sits at the top of a sticky panel, so Pico's
 				// default bubble above it would open off the top of the window.
-				span.dataset.placement = "bottom";
-				span.dataset.group = run[0]?.group ?? "";
+				span.setAttribute("data-placement", "bottom");
+				span.setAttribute("data-group", run[0]?.group ?? "");
 				span.textContent = run.map(({ char }) => char).join("");
 				return span;
 			}),

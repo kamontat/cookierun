@@ -27,7 +27,7 @@ export type ToolSlug = (typeof TOOLS)[number]["slug"];
  */
 export function pageEntrypoints(): string[] {
 	return [
-		"routes/index.html",
-		...TOOLS.map(({ slug }) => `routes/${slug}/index.html`),
+		"src/routes/index.html",
+		...TOOLS.map(({ slug }) => `src/routes/${slug}/index.html`),
 	];
 }

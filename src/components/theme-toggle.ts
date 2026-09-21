@@ -46,8 +46,8 @@ export function writeTheme(theme: Theme, storage: ThemeStorage): void {
 
 /** "system" means no attribute at all, which hands the page back to the OS. */
 export function applyTheme(theme: Theme, root: HTMLElement): void {
-	if (theme === "system") delete root.dataset.theme;
-	else root.dataset.theme = theme;
+	if (theme === "system") root.removeAttribute("data-theme");
+	else root.setAttribute("data-theme", theme);
 }
 
 /**
