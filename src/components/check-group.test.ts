@@ -6,9 +6,9 @@ import "./check-group";
 
 import type { CheckGroup } from "./check-group";
 
-function mount(id: string, legend: string): CheckGroup {
+async function mount(id: string, legend: string): Promise<CheckGroup> {
 	document.body.replaceChildren();
-	const element = document.createElement("check-group");
+	const element = document.createElement("check-group") as CheckGroup;
 	element.id = id;
 	element.setAttribute("legend", legend);
 	document.body.append(element);
@@ -17,19 +17,26 @@ function mount(id: string, legend: string): CheckGroup {
 		["power", "Power Jelly Boost"],
 		["fast", "Fast Start"],
 	];
+	await element.updateComplete;
 	return element;
 }
 
-test("the legend names the group", () => {
-	expect(mount("boosts", "Boosts").querySelector("legend")?.textContent).toBe(
+function inputs(element: CheckGroup): HTMLInputElement[] {
+	return [...(element.shadowRoot?.querySelectorAll("input") ?? [])];
+}
+
+test("the legend names the group", async () => {
+	const element = await mount("boosts", "Boosts");
+
+	expect(element.shadowRoot?.querySelector("legend")?.textContent).toBe(
 		"Boosts",
 	);
 });
 
-test("a checkbox is rendered per option, in the order given", () => {
-	const inputs = mount("boosts", "Boosts").querySelectorAll("input");
+test("a checkbox is rendered per option, in the order given", async () => {
+	const element = await mount("boosts", "Boosts");
 
-	expect([...inputs].map((input) => input.value)).toEqual([
+	expect(inputs(element).map((input) => input.value)).toEqual([
 		"hp",
 		"power",
 		"fast",
@@ -37,52 +44,59 @@ test("a checkbox is rendered per option, in the order given", () => {
 });
 
 // This is the wire format. Boosts occupy slots 4-6 and cookie powers are bit
-// positions, so reading back in DOM-click order would reorder the code.
-test("selected reads back in the option order, not the order ticked", () => {
-	const element = mount("boosts", "Boosts");
-	const inputs = [...element.querySelectorAll("input")];
+// positions, so reading back in click order would reorder the code.
+test("selected reads back in the option order, not the order ticked", async () => {
+	const element = await mount("boosts", "Boosts");
 
-	inputs[2]!.checked = true;
-	inputs[0]!.checked = true;
+	inputs(element)[2]?.click();
+	await element.updateComplete;
+	inputs(element)[0]?.click();
+	await element.updateComplete;
 
 	expect(element.selected).toEqual(["hp", "fast"]);
 });
 
-test("setting selected ticks exactly those boxes", () => {
-	const element = mount("boosts", "Boosts");
+test("setting selected ticks exactly those boxes", async () => {
+	const element = await mount("boosts", "Boosts");
 
 	element.selected = ["power"];
-	expect([...element.querySelectorAll("input")].map((i) => i.checked)).toEqual([
+	await element.updateComplete;
+	expect(inputs(element).map((input) => input.checked)).toEqual([
 		false,
 		true,
 		false,
 	]);
 
 	element.selected = [];
-	expect([...element.querySelectorAll("input")].map((i) => i.checked)).toEqual([
+	await element.updateComplete;
+	expect(inputs(element).map((input) => input.checked)).toEqual([
 		false,
 		false,
 		false,
 	]);
 });
 
-test("a value that is not an option is ignored rather than invented", () => {
-	const element = mount("boosts", "Boosts");
+test("a value that is not an option is ignored rather than invented", async () => {
+	const element = await mount("boosts", "Boosts");
 
 	element.selected = ["hp", "nonsense"];
+	await element.updateComplete;
+
 	expect(element.selected).toEqual(["hp"]);
 });
 
-test("an input event from a checkbox bubbles out of the element", () => {
-	const element = mount("boosts", "Boosts");
-
+// `change` does not cross a shadow boundary, so the component has to say so
+// itself or the page never hears that a box was ticked.
+test("ticking a box bubbles an input event out of the element", async () => {
+	const element = await mount("boosts", "Boosts");
 	let seen = 0;
 	document.body.addEventListener("input", () => {
 		seen += 1;
 	});
-	element
-		.querySelector("input")!
-		.dispatchEvent(new Event("input", { bubbles: true }));
+
+	inputs(element)[0]?.click();
+	await element.updateComplete;
 
 	expect(seen).toBe(1);
+	expect(element.selected).toEqual(["hp"]);
 });
