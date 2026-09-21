@@ -98,9 +98,9 @@ test("every page loads its own module script", async () => {
 	}
 });
 
-// Every route's own sheet opens by importing src/routes/base.css, which is what
-// gives that page Pico, the sidebar rail, the body grid, and every component's
-// rules. Delete that line and the page is spectacularly broken while the rest
+// Every route's own sheet opens by importing src/routes/base.css, which is
+// what gives that page the reset, the tokens, the sidebar rail, and the body
+// grid. Delete that line and the page is spectacularly broken while the rest
 // of the suite stays green, so check it directly. The home pane sits beside
 // the base sheet and the rest sit one directory below it, so the prefix is the
 // only thing that differs.

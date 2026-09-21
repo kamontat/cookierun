@@ -45,18 +45,9 @@
         <copy-code id="code-output" value="1S0---000-"></copy-code>
         <auto-verdict id="builder-verdict" prefix="Stored as"></auto-verdict>
 
-        <!-- Pico's own shape for a bar of buttons that belong together. The
-             role is redundant as ARIA - a fieldset is already a group - but
-             Pico styles the bar through `[role=group]`, so the attribute is
-             what draws it. -->
-        <!-- biome-ignore lint/a11y/noRedundantRoles: Pico selects on the attribute -->
-        <fieldset class="actions" role="group">
-          <button id="copy-link" type="button" class="outline secondary">
-            Copy link
-          </button>
-          <button id="reset" type="button" class="outline secondary">
-            Reset
-          </button>
+        <fieldset class="actions">
+          <button id="copy-link" type="button">Copy link</button>
+          <button id="reset" type="button">Reset</button>
         </fieldset>
         <p id="link-status" class="status" role="status"></p>
       </section>
@@ -65,7 +56,7 @@
         <h2 id="builder-heading">Build a code</h2>
 
         <form id="builder" novalidate>
-          <div class="grid">
+          <div class="row">
             <labelled-select id="type" label="Type"></labelled-select>
 
             <labelled-select id="episode" label="Episode"></labelled-select>
@@ -75,7 +66,7 @@
 
           <check-group id="cookiePowers" legend="Cookie power+"></check-group>
 
-          <div class="grid">
+          <div class="row">
             <labelled-select
               id="randomBoost"
               label="Random boost"
@@ -150,7 +141,7 @@ slot:  1  2  3  4 5 6  7  8 9  10
 ex:    1  H  3  H - F  4  1 4  J</pre
         >
 
-        <div class="overflow-auto">
+        <div class="scroll-x">
           <table>
           <thead>
             <tr>
@@ -217,7 +208,7 @@ ex:    1  H  3  H - F  4  1 4  J</pre
           group you did not pick is simply absent.
         </p>
 
-        <div class="overflow-auto">
+        <div class="scroll-x">
           <table>
             <thead>
               <tr>

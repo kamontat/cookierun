@@ -1,53 +1,43 @@
-/* The sheet every route imports. Pico, the page frame, and the rules for the
-   components any route may use. A route's own `index.css` opens with an
-   `@import` of this file and then adds only what that page needs. */
-@import "@picocss/pico/css/pico.amber.min.css";
+/* The sheet every route imports: the reset, the tokens, and the page frame.
+   A route's own `index.css` opens with an `@import` of this file and then adds
+   only what that page needs.
+
+   Component styles are not here. Every custom element carries its own, inside
+   its shadow root, reading colour through the tokens below. */
+@import "@kcstyles/reset.css";
 @import "./tokens.css";
 
-/* Density.
-   Pico scales the root font from 100% up to 131.25% as the viewport grows, so
-   on a wide screen every rem-based margin inflates with it and the page reads
-   like a slide. Pin the root and shrink the spacing scale: a wider window
-   should show more, not bigger. */
 html {
 	font-size: 100%;
 }
 
+body {
+	display: grid;
+	grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+	grid-template-rows: auto 1fr auto;
+	min-height: 100vh;
+	background: var(--cr-bg);
+	color: var(--cr-text);
+	font-family: var(--cr-font);
+	line-height: 1.45;
+}
+
+@media (width < 48rem) {
+	body {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+/* The result panel is sticky, so anything scrolled to by a fragment link or by
+   keyboard focus needs to clear it - about 13rem with the code, the verdict
+   and the button bar in it. */
 :root {
-	--pico-line-height: 1.45;
-	--pico-spacing: 0.75rem;
-	--pico-typography-spacing-vertical: 0.75rem;
-	--pico-block-spacing-vertical: 1rem;
-	--pico-block-spacing-horizontal: 1rem;
-	--pico-form-element-spacing-vertical: 0.4rem;
-	--pico-form-element-spacing-horizontal: 0.6rem;
-	--pico-border-radius: 0.35rem;
+	scroll-padding-top: 13rem;
 }
 
-/* Pico sizes headings for long-form prose and gives them up to 3rem of top
-   margin to separate sections. These are panel titles. */
-h1 {
-	--pico-font-size: 1.5rem;
-	--pico-typography-spacing-top: 0;
-}
-
-h2 {
-	--pico-font-size: 1.15rem;
-	--pico-typography-spacing-top: 1rem;
-}
-
-h3 {
-	--pico-font-size: 1rem;
-	--pico-typography-spacing-top: 1rem;
-}
-
-/* Pico's container tops out at 1450px and drops its side padding at every
-   breakpoint above 576px, on the assumption the max-width keeps content off
-   the edge. A narrower cap has to put that padding back. */
 .container {
 	max-width: 68rem;
-	padding-right: var(--pico-spacing);
-	padding-left: var(--pico-spacing);
+	padding: var(--cr-space-4) var(--cr-space-3);
 }
 
 /* The sidebar comes first in the DOM, so without this every page opens with a
@@ -59,188 +49,26 @@ h3 {
 
 .skip-link:focus {
 	position: fixed;
-	top: 0.5rem;
-	left: 0.5rem;
+	top: var(--cr-space-2);
+	left: var(--cr-space-2);
 	z-index: 2;
-	padding: 0.5rem 0.75rem;
-	border-radius: var(--pico-border-radius);
-	background: var(--pico-primary-background);
-	color: var(--pico-primary-inverse);
-}
-
-/* The result panel is sticky, so anything scrolled to by a fragment link or
-   by keyboard focus needs to clear it - about 13rem with the code, the verdict
-   and the button bar in it. */
-:root {
-	scroll-padding-top: 13rem;
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: var(--cr-radius);
+	background: var(--cr-accent);
+	padding: var(--cr-space-2) var(--cr-space-3);
+	color: var(--cr-bg);
 }
 
 main:focus {
 	outline: none;
 }
 
-/* The sidebar is a body child rather than a wrapper around the page so that
-   Pico's own `body > header|main|footer` padding keeps applying. */
-body {
-	display: grid;
-	grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
-	grid-template-rows: auto 1fr auto;
-	min-height: 100vh;
-}
-
-/* Full viewport height, not the height of its links: a rail that stops
-   halfway down the page reads as a panel that failed to load. */
-site-nav {
-	display: flex;
-	flex-direction: column;
-	position: sticky;
-	top: 0;
-	grid-row: 1 / -1;
-	align-self: start;
-	height: 100dvh;
-	overflow-y: auto;
-	padding: var(--pico-block-spacing-vertical) var(--pico-spacing);
-	border-right: 1px solid var(--pico-muted-border-color);
-	background: var(--pico-card-background-color);
-}
-
-site-nav .title {
-	margin-bottom: var(--pico-spacing);
-	color: var(--pico-muted-color);
-	font-size: 0.8rem;
-	font-weight: 600;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-}
-
-/* Everything below reaches through `nav` on purpose. Two reasons, and they
-   compound.
-
-   Pico styles `aside nav` and `aside li` directly, not `nav`/`li` on their
-   own - rules that matched the old `<aside class="sidebar">` and match
-   nothing now that the wrapper is `<site-nav>`. Without them the inner `<nav>`
-   reverts to Pico's `nav,nav ul{display:flex}` and the list shrinks to fit its
-   labels instead of filling the rail, and each `<li>` reverts to `nav li`'s
-   taller padding.
-
-   Replacing them with bare `site-nav nav` and `site-nav li` would only tie
-   Pico's own selectors and win on source order. The extra `nav` buys a third
-   type selector, so these out-specify outright and stop depending on which
-   sheet the bundler emits last. */
-site-nav nav {
-	display: block;
-}
-
-site-nav nav li {
-	padding: calc(var(--pico-nav-element-spacing-vertical) * 0.5)
-		var(--pico-nav-element-spacing-horizontal);
-}
-
-/* Spaced, or the hovered link and the current one run together into a single
-   slab and neither reads as its own button. */
-site-nav nav ul {
-	display: grid;
-	gap: 0.35rem;
-	margin: 0;
-	padding: 0;
-	list-style: none;
-}
-
-/* `inherit`, not `var(--pico-color)`: Pico's own `a` rule reassigns that
-   property to the primary colour, so reading it back paints every link amber
-   and the current-page marker stops meaning anything. */
-site-nav nav a {
-	display: block;
-	padding: 0.35rem 0.5rem;
-	border-left: 2px solid transparent;
-	border-radius: var(--pico-border-radius);
-	color: inherit;
-	text-decoration: none;
-}
-
-/* Lighter than the current-page tint below, or hovering a link would look more
-   like "you are here" than being there does. */
-site-nav nav a:hover {
-	background: color-mix(in srgb, var(--pico-primary) 7%, transparent);
-}
-
-/* Pico's focus ring lives on its own components; these links are ours. */
-site-nav nav a:focus-visible {
-	outline: 2px solid var(--pico-primary);
-	outline-offset: 2px;
-}
-
-/* A solid amber block here outshouted the code the tool exists to produce.
-   Tint plus a marker is enough to say "you are here" - and a light tint at
-   that: `--pico-primary-focus` is opaque enough to read as a filled slab, and
-   amber label text over it clears no contrast bar worth the name. */
-site-nav nav a[aria-current="page"] {
-	border-left: 2px solid var(--pico-primary);
-	background: color-mix(in srgb, var(--pico-primary) 14%, transparent);
-	font-weight: 600;
-}
-
-/* Settling, not navigating: the theme control sits at the far end of the rail
-   so it never competes with the tool list. */
-theme-toggle {
-	display: block;
-	margin-top: auto;
-	padding-top: var(--pico-spacing);
-}
-
-theme-toggle label {
-	color: var(--pico-muted-color);
-	font-size: 0.8rem;
-}
-
-theme-toggle select {
-	--pico-form-element-spacing-vertical: 0.3rem;
-	--pico-form-element-spacing-horizontal: 0.5rem;
-	margin-bottom: 0;
-	font-size: 0.85rem;
-}
-
-/* Under the breakpoint the sidebar stops being a column and rides along the
-   top as a row of links. */
-@media (width < 48rem) {
-	body {
-		grid-template-columns: minmax(0, 1fr);
-	}
-
-	site-nav {
-		position: static;
-		grid-row: auto;
-		height: auto;
-		border-right: 0;
-		border-bottom: 1px solid var(--pico-muted-border-color);
-	}
-
-	site-nav nav ul {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.4rem;
-	}
-
-	/* In the row layout there is no "far end" to push it to. */
-	theme-toggle {
-		display: flex;
-		gap: 0.5rem;
-		align-items: baseline;
-		margin-top: var(--pico-spacing);
-		padding-top: 0;
-	}
-
-	theme-toggle select {
-		width: auto;
-	}
-}
-
-/* One column of panels, two once there is room for them. `auto-fit` looks
-   right until the container outgrows three tracks, at which point the two
-   panels sit in a three-column grid with a hole beside them. */
+/* One column of panels, two once there is room for them. `auto-fit` looks right
+   until the container outgrows three tracks, at which point the two panels sit
+   in a three-column grid with a hole beside them. */
 main {
 	display: grid;
-	gap: var(--pico-block-spacing-horizontal);
+	gap: var(--cr-space-4);
 	align-items: start;
 }
 
@@ -250,262 +78,159 @@ main {
 	}
 }
 
-/* A page with a single section - the home pane - spans both tracks rather
-   than sitting in the left one with a hole beside it. */
+/* A page with a single section - the home pane - spans both tracks rather than
+   sitting in the left one with a hole beside it. */
 main > :only-child {
 	grid-column: 1 / -1;
 }
 
-/* The grid gap already separates the panels; Pico's own `section` margin
-   would stack a second gap underneath each one. `min-width: 0` lets a panel
-   shrink below the width of the widest thing inside it - without it the
-   legend table props the whole grid open and the page scrolls sideways on a
-   phone. */
+/* `min-width: 0` lets a panel shrink below the width of the widest thing inside
+   it - without it the legend table props the whole grid open and the page
+   scrolls sideways on a phone. */
 .panel {
 	min-width: 0;
-	margin-bottom: 0;
-	padding: var(--pico-block-spacing-vertical)
-		var(--pico-block-spacing-horizontal);
-	border-radius: var(--pico-border-radius);
-	background: var(--pico-card-background-color);
-	box-shadow: var(--pico-card-box-shadow);
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: var(--cr-radius);
+	background: var(--cr-surface);
+	box-shadow: var(--cr-block);
+	padding: var(--cr-space-4);
+}
+
+h1,
+h2,
+h3 {
+	margin: 0 0 var(--cr-space-3);
+	font-family: var(--cr-mono);
+	letter-spacing: var(--cr-tracking);
+	text-transform: uppercase;
+}
+
+h1 {
+	font-size: 1.5rem;
+}
+
+h2 {
+	font-size: 1.15rem;
+}
+
+h3 {
+	margin-top: var(--cr-space-4);
+	font-size: 1rem;
+}
+
+p {
+	margin: 0 0 var(--cr-space-3);
+}
+
+a {
+	color: var(--cr-accent);
+}
+
+code {
+	background: var(--cr-surface-2);
+	padding: 0 0.2em;
+	font-family: var(--cr-mono);
+}
+
+pre {
+	overflow-x: auto;
+	border: var(--cr-border) solid var(--cr-line);
+	background: var(--cr-surface-2);
+	padding: var(--cr-space-3);
+	font-family: var(--cr-mono);
+	font-size: 0.85rem;
+}
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9rem;
+}
+
+th,
+td {
+	border-bottom: 1px solid var(--cr-line);
+	padding: var(--cr-space-1) var(--cr-space-2);
+	text-align: left;
+	vertical-align: top;
+}
+
+th {
+	color: var(--cr-muted);
+	font-family: var(--cr-mono);
+	font-size: 0.8rem;
+	letter-spacing: var(--cr-tracking);
+	text-transform: uppercase;
+}
+
+/* A table wider than its panel scrolls inside its own box rather than pushing
+   the grid open. */
+.scroll-x {
+	overflow-x: auto;
+}
+
+/* Two controls across where there is room, stacked where there is not. */
+.row {
+	display: grid;
+	gap: var(--cr-space-3);
+	grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+	margin-bottom: var(--cr-space-3);
 }
 
 .masthead h1 {
-	margin-bottom: 0.25rem;
+	margin-bottom: var(--cr-space-1);
 }
 
 .masthead p {
 	max-width: 46rem;
-	color: var(--pico-muted-color);
+	color: var(--cr-muted);
 }
 
 .status {
 	min-height: 1.4rem;
-	color: var(--pico-muted-color);
+	color: var(--cr-muted);
 	font-size: 0.9rem;
 }
 
 .status.error {
-	color: var(--pico-del-color);
+	color: var(--cr-danger);
 }
 
-labelled-select {
-	display: block;
-}
-
-check-group {
-	display: block;
-}
-
-/* A group of checkboxes and a single select were styled identically, so the
-   form read as six equal things instead of two pickers and two groups. */
-check-group fieldset {
-	padding-top: 0.5rem;
-	border-top: 1px solid var(--pico-muted-border-color);
-}
-
-check-group legend {
-	padding-right: 0.4rem;
-	font-weight: 600;
-}
-
-/* Seven cookie powers in one column made the builder twice the height of
-   everything beside it. */
-check-group .checks {
-	display: grid;
-	gap: 0.4rem 1rem;
-	grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-}
-
-check-group .checks label {
+.actions {
 	display: flex;
-	gap: 0.5rem;
-	align-items: center;
-}
-
-copy-code {
-	display: block;
-}
-
-copy-code output {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.75rem;
-	align-items: center;
-}
-
-/* Wrapping, not scrolling: a hint bubble inside an `overflow` box is clipped by
-   it, and a long full code has group boundaries to wrap at. */
-copy-code code {
-	flex: 0 1 auto;
-	min-width: 0;
-	overflow-wrap: anywhere;
+	gap: var(--cr-space-2);
+	margin: 0 0 var(--cr-space-2);
+	border: 0;
 	padding: 0;
-	background: none;
-	color: var(--pico-color);
-	font-family: var(--pico-font-family-monospace);
-	font-size: clamp(1.5rem, 5vw, 2.25rem);
-	font-weight: 600;
-	letter-spacing: 0.22em;
-	user-select: all;
 }
 
-/* One span per field of the code. Pico's own `[data-tooltip]` rules give them
-   the dotted underline and the `help` cursor; the gap is what makes the fields
-   read as fields rather than as ten loose characters. */
-copy-code code span {
-	white-space: nowrap;
-}
-
-/* The bubble inherits the code's monospace and its 0.22em tracking, which sets
-   a sentence as if it were a code. */
-copy-code code span::before {
-	font-family: var(--pico-font-family-sans-serif);
-	font-size: 0.8rem;
-	font-weight: 400;
-	letter-spacing: normal;
-}
-
-copy-code code span + span {
-	margin-left: 0.12em;
-}
-
-copy-code code span:hover,
-copy-code code span:focus-visible {
-	color: var(--pico-primary);
-}
-
-auto-verdict {
-	display: block;
-	margin-top: 0.75rem;
-}
-
-auto-verdict strong {
-	color: var(--pico-primary);
-}
-
-/* One control per row rather than several across. Closed, each is a single
-   line, so the column costs almost nothing; side by side, an open list would be
-   a third of a panel wide and wrap every second entry name onto two lines. */
-entry-picker,
-entry-set {
-	display: block;
-	margin-bottom: 0.4rem;
-}
-
-/* Pico's `details` is a bordered block with a rule under it, which stacks into
-   a ladder when six sit in a grid. The summary carries the border instead, so a
-   closed control reads as one field. */
-entry-picker details,
-entry-set details {
-	margin-bottom: 0;
-	border-bottom: 0;
-}
-
-entry-picker summary,
-entry-set summary {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.15rem 0.5rem;
-	align-items: center;
-	justify-content: space-between;
-	padding: var(--pico-form-element-spacing-vertical)
-		var(--pico-form-element-spacing-horizontal);
-	border: var(--pico-border-width) solid var(--pico-form-element-border-color);
-	border-radius: var(--pico-border-radius);
-}
-
-/* What the control holds, said on the closed line — the question a closed
-   control has to answer without being opened. */
-entry-picker summary .pick,
-entry-set summary .pick {
-	display: inline-flex;
-	gap: 0.35rem;
-	align-items: center;
-	color: var(--pico-muted-color);
-	font-size: 0.875rem;
-}
-
-entry-picker summary img,
-entry-set summary img {
-	width: 1.5rem;
-	height: 1.5rem;
-	object-fit: contain;
-}
-
-entry-picker details[open] summary,
-entry-set details[open] summary {
-	margin-bottom: 0.4rem;
-}
-
-entry-picker .entries,
-entry-set .entries {
-	display: flex;
-	flex-direction: column;
-	gap: 0.125rem;
-	max-height: 12rem;
-	overflow-y: auto;
-	border: var(--pico-border-width) solid var(--pico-form-element-border-color);
-	border-radius: var(--pico-border-radius);
-	padding: 0.25rem;
-}
-
-/* `inherit`, not `var(--pico-color)`: inside a button Pico reassigns that
-   property to the button's own text colour, which paints every row in the
-   primary's inverse - black on a dark card. The sidebar links hit the same
-   trap. */
-entry-picker .entry,
-entry-set .entry {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	width: 100%;
-	margin: 0;
-	padding: 0.25rem 0.5rem;
-	border: none;
-	border-left: 2px solid transparent;
-	background: none;
+.actions button {
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: var(--cr-radius);
+	background: var(--cr-surface-2);
+	box-shadow: var(--cr-block);
+	padding: var(--cr-space-1) var(--cr-space-3);
 	color: inherit;
-	text-align: left;
-	font-size: 0.875rem;
+	font-family: var(--cr-mono);
+	font-size: 0.85rem;
+	letter-spacing: var(--cr-tracking);
+	text-transform: uppercase;
+	cursor: pointer;
 }
 
-/* Tint and a marker, the same "you are here" the sidebar uses, and the same
-   light tint: an entry name has to stay readable over it. */
-entry-picker .entry[aria-selected="true"],
-entry-set .entry[aria-selected="true"] {
-	border-left-color: var(--pico-primary);
-	background: color-mix(in srgb, var(--pico-primary) 14%, transparent);
-	font-weight: 600;
+.actions button:active {
+	transform: translate(2px, 2px);
+	box-shadow: none;
 }
 
-entry-picker .entry img,
-entry-set .entry img {
-	width: 1.75rem;
-	height: 1.75rem;
-	object-fit: contain;
+.actions button:focus-visible,
+input:focus-visible {
+	outline: var(--cr-border) solid var(--cr-accent);
+	outline-offset: 2px;
 }
 
-entry-picker .more,
-entry-set .more {
-	color: var(--pico-muted-color);
-}
-
-entry-set .picked {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.25rem;
-	margin-bottom: 0.5rem;
-}
-
-entry-set .chip {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.25rem;
-	margin: 0;
-	padding: 0.125rem 0.5rem;
-	width: auto;
-	font-size: 0.8125rem;
-	border-radius: var(--pico-border-radius);
+footer {
+	grid-column: 1 / -1;
+	color: var(--cr-muted);
+	font-size: 0.85rem;
 }
