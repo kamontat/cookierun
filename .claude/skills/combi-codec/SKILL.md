@@ -43,7 +43,7 @@ every semi-auto code ever written unreadable.
 
 ## The exhaustive test
 
-`src/routes/combi-name/exhaustive.test.ts` round-trips all 3,538,944 combinations and asserts encoding yields exactly 2,949,120 distinct codes (the auto/semi-auto character is derived, so the auto family collapses). Both numbers are hardcoded; changing the configuration space means recomputing them, and a mismatch usually means a table changed size rather than that the test is stale.
+`src/routes/combi-name/exhaustive.test.ts` round-trips all 3,538,944 combinations and asserts encoding yields exactly 2,949,120 distinct codes (the auto/semi-auto character is derived, so the auto family collapses). Both numbers are hardcoded; changing the configuration space means recomputing them, and a mismatch usually means a table changed size rather than that the test is stale. Both tests also carry an explicit 60s timeout: their runtime is the size of the format, and the 5s Bun allows by default was already tight on a CI runner at half this space.
 
 It covers the combi section only. A loadout's alternative treasure slots make its space open-ended rather than a fixed count to enumerate, so the loadout is instead covered by a seeded round-trip sample in `full-code.test.ts` — encode 2,000 random loadouts, decode each back, and check the result re-encodes to the same code.
 
