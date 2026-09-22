@@ -149,7 +149,14 @@ const onDisk = await Bun.file(ASSETS_INDEX).exists();
 const raw: unknown = onDisk ? await Bun.file(ASSETS_INDEX).json() : {};
 const previous: AssetIndex = onDisk
 	? migrate(raw)
-	: { fetchedAt: null, cookies: {}, pets: {}, treasures: {} };
+	: {
+			fetchedAt: null,
+			cookies: {},
+			pets: {},
+			treasures: {},
+			boosts: {},
+			episodes: {},
+		};
 
 /**
  * The `ids moved` check below compares the new index against `previous`, which
@@ -412,7 +419,16 @@ const fetchedAt =
 
 // Verified before it is written, not after: a broken index that never reaches
 // disk costs nothing, while one that does needs `git checkout` to undo.
-const written = serializeIndex({ fetchedAt, ...index });
+//
+// The static sections are copied from what was on disk. This script has no
+// source for them — they are authored — so a scrape must hand them back exactly
+// as it found them rather than dropping them from the file it rewrites.
+const written = serializeIndex({
+	fetchedAt,
+	...index,
+	boosts: previous.boosts,
+	episodes: previous.episodes,
+});
 bail(verifyStructure(written), "the index this run assembled is not intact");
 
 await Bun.write(ASSETS_INDEX, written);

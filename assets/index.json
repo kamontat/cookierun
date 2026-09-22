@@ -13343,5 +13343,99 @@
       ],
       "key": "YellowWhirlDonut"
     }
+  },
+  "boosts": {
+    "cookie-relay": {
+      "name": "Cookie Relay",
+      "url": null,
+      "image": "boosts/cookie-relay.png"
+    },
+    "double-xp": {
+      "name": "Double XP",
+      "url": null,
+      "image": "boosts/double-xp.png"
+    },
+    "fast-start": {
+      "name": "Fast Start",
+      "url": null,
+      "image": "boosts/fast-start.png"
+    },
+    "hp-extension": {
+      "name": "HP Extension",
+      "url": null,
+      "image": "boosts/hp-extension.png"
+    },
+    "power-jellies": {
+      "name": "Power Jelly Boost",
+      "url": null,
+      "image": "boosts/power-jellies.png"
+    }
+  },
+  "episodes": {
+    "ecpr": {
+      "name": "Coin Palace Rush",
+      "url": "https://cookierundb.com/episodes/601",
+      "image": "episodes/ecpr.png"
+    },
+    "eexp": {
+      "name": "XP-Elixir Workshop",
+      "url": "https://cookierundb.com/episodes/602",
+      "image": "episodes/eexp.png"
+    },
+    "ep1": {
+      "name": "Escape from the Oven",
+      "url": "https://cookierundb.com/episodes/1",
+      "image": "episodes/ep1.png"
+    },
+    "ep2": {
+      "name": "Primeval Forest",
+      "url": "https://cookierundb.com/episodes/2",
+      "image": "episodes/ep2.png"
+    },
+    "ep3": {
+      "name": "Dragon's Valley",
+      "url": "https://cookierundb.com/episodes/3",
+      "image": "episodes/ep3.png"
+    },
+    "ep4": {
+      "name": "City of Wizards",
+      "url": "https://cookierundb.com/episodes/4",
+      "image": "episodes/ep4.png"
+    },
+    "ep5": {
+      "name": "Dessert Paradise",
+      "url": "https://cookierundb.com/episodes/5",
+      "image": "episodes/ep5.png"
+    },
+    "ep6": {
+      "name": "Plum Blossom Palace",
+      "url": "https://cookierundb.com/episodes/6",
+      "image": "episodes/ep6.png"
+    },
+    "ep7": {
+      "name": "Land of Enlightenment",
+      "url": "https://cookierundb.com/episodes/7",
+      "image": "episodes/ep7.png"
+    },
+    "epr": {
+      "name": "Party Run",
+      "url": "https://cookierundb.com/episodes/701",
+      "image": "episodes/epr.png"
+    },
+    "sep1": {
+      "name": "Island of Coins",
+      "url": "https://cookierundb.com/episodes/501",
+      "image": "episodes/sep1.png"
+    },
+    "sep2": {
+      "name": "Tower of Frozen Waves",
+      "url": "https://cookierundb.com/episodes/502",
+      "image": "episodes/sep2.png"
+    },
+    "sep3": {
+      "name": "Mysterious Rabbit Hole",
+      "url": "https://cookierundb.com/episodes/503",
+      "image": "episodes/sep3.png"
+    }
   }
 }

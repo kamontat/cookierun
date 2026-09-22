@@ -252,3 +252,39 @@ test("the group carries the radiogroup role and its label", async () => {
 	expect(group?.getAttribute("aria-label")).toBe("Episode");
 	expect(chips(element)[0]?.getAttribute("role")).toBe("radio");
 });
+
+// A row with art and a row without are the same element: the third field is
+// optional, and a chip given nothing for it is the bare chip it always was.
+test("a chip draws the thumbnail its option carries, and none otherwise", async () => {
+	const element = await mount("Episode");
+	element.options = [
+		["any", "Any"],
+		["episode1", "Episode 1", "../assets/episodes/ep1.png"],
+		["episode2", "Episode 2", null],
+	];
+	await element.updateComplete;
+
+	const thumbnails = chips(element).map(
+		(chip) => chip.querySelector("img.thumb")?.getAttribute("src") ?? null,
+	);
+
+	expect(thumbnails).toEqual([null, "../assets/episodes/ep1.png", null]);
+	// The label is still the chip's text whether or not a picture sits beside it.
+	expect(chips(element).map((chip) => chip.textContent?.trim())).toEqual([
+		"Any",
+		"Episode 1",
+		"Episode 2",
+	]);
+});
+
+// Decoration, not content: the name beside it already says which episode this
+// is, so a screen reader reading the picture too would say it twice.
+test("a chip thumbnail is empty-alt and lazy", async () => {
+	const element = await mount("Episode");
+	element.options = [["episode1", "Episode 1", "../assets/episodes/ep1.png"]];
+	await element.updateComplete;
+
+	const image = chips(element)[0]?.querySelector("img.thumb");
+	expect(image?.getAttribute("alt")).toBe("");
+	expect(image?.getAttribute("loading")).toBe("lazy");
+});

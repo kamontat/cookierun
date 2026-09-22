@@ -1,6 +1,6 @@
 ---
 name: assets
-description: Use when touching assets/, assets/index.json, scripts/fetch-assets.ts, scripts/verify-assets.ts or scripts/utils/asset-ids.ts, or when planning to show a cookie, pet or treasure icon in a page — an icon is inlined as a data URI by default, so wiring a new one in has a size consequence (the combi page's own icons are the one deliberate exception, see the `build-and-deploy` skill).
+description: Use when touching assets/, assets/index.json, scripts/fetch-assets.ts, scripts/verify-assets.ts or scripts/utils/asset-ids.ts, or when planning to show a cookie, pet, treasure, boost or episode icon in a page — an icon is inlined as a data URI by default, so wiring a new one in has a size consequence (the combi page's own icons are the one deliberate exception, see the `build-and-deploy` skill). Read it before hand-editing the boosts or episodes section, which no scrape writes.
 ---
 
 # Assets
@@ -11,7 +11,7 @@ Two commands own this directory. `bun run fetch:assets` scrapes cookierundb.com 
 
 `fetchedAt` is written only when the run was a complete success. Icon downloads are the one partial-success path — sitemap drift, a broken chain and a failed structure check all bail before the write — so a run that lost an icon writes the index and leaves the previous timestamp standing. Because a successful run always writes it, a rescrape that changes nothing still produces a one-line diff; that is the cost of having the field, and it was taken deliberately.
 
-`index.json` has one object per section, keyed by the entry's **wire id**: a fixed-width, uppercase base-36 string, 2 characters for a cookie or pet and 3 for a treasure. That id is what a loadout code carries, so it is assigned once and never reused — see below. Every entry also carries a `key`, the old PascalCase handle the id replaced; nothing resolves it, it survives only so a diff or a person reading the file has something readable to search for.
+`index.json` has one object per section. The three the scraper owns — `cookies`, `pets`, `treasures` — are keyed by the entry's **wire id**: a fixed-width, uppercase base-36 string, 2 characters for a cookie or pet and 3 for a treasure. That id is what a loadout code carries, so it is assigned once and never reused — see below. Every entry also carries a `key`, the old PascalCase handle the id replaced; nothing resolves it, it survives only so a diff or a person reading the file has something readable to search for.
 
 ```jsonc
 {
@@ -36,6 +36,31 @@ Treasures also carry a `family`, read from the listing card's `data-fam`: one of
 Treasures carry their chain: `type` is `N` (base), `E` (evolved) or `B` (blessed). A base lists `targets` as `[evolved, blessed]` ids, with either half `null` when that form does not exist — 358 of the 620 bases are `[null, null]`. An evolved or blessed treasure names its base's id as `source`. The two directions are inverses of each other, so either can be walked — the suite checks that they agree, since a reference that merely resolves can still point somewhere the other side does not point back from. `ordered()` in `scripts/utils/asset-ids.ts` fixes one field order for every entry regardless of whether `migrate` or the scraper's own writer built it, so a rescrape rewrites no entry it did not change.
 
 The chain comes from the detail pages, not the listing: a listing card's `data-evo` says only that a treasure is evolved. The `rc-sub` captions on the detail page carry the meaning — `Evolves from` names the base, and `Unblessed form` appears only on a blessed page. Both the sitemap check and the chain checks fail the run loudly rather than writing a partial index.
+
+## The two sections nobody scrapes
+
+`boosts` and `episodes` are written by hand. `STATIC_SECTIONS` in `scripts/utils/asset-ids.ts` names them, `StaticEntry` is their whole shape, and they sit after `treasures` in the file so a hand edit shows up at the end of a 13,000-line diff rather than in the middle of it.
+
+```jsonc
+{
+  "boosts": {
+    "fast-start": { "name": "Fast Start", "url": null, "image": "boosts/fast-start.png" }
+  },
+  "episodes": {
+    "ep1": { "name": "Escape from the Oven", "url": "https://cookierundb.com/episodes/1", "image": "episodes/ep1.png" }
+  }
+}
+```
+
+They are here because the game has a fixed set of each, and a page wanting a boost or episode icon should not need a second file to find one. Neither is a catalog that grows: five boosts and thirteen episodes, unchanged for years.
+
+**The keys are authored, not assigned, and they are not wire values.** `src/routes/combi-name/codec.ts` carries its own character for an episode (`EPISODE_CHARS`) and its own slot for a boost (`BOOST_SLOTS`); a code never carries `ep1`. So none of the id machinery above applies here — no `reconcile`, no capacity, no retirement, no append-only promise — and an entry can be renamed, rekeyed or deleted without breaking a published code. The key exists so a person can find an icon. `STATIC_KEY` requires it to be lowercase and start with a letter, which is what keeps `serializeIndex`'s sorted order equal to the file's own order: a key that is a canonical integer string enumerates ahead of everything else whatever order it was written in.
+
+Neither script touches them. `fetch-assets` has no source for them, so it copies both sections from what was on disk into the file it rewrites — that copy is the only reason a scrape does not delete them. `verify:assets` asks the site about the three scraped sections and says nothing about these two, since there is no `/boosts/` page on cookierundb.com at all.
+
+What does check them is `verifyStructure`, through `staticProblems`: the key shape, a non-empty `name`, a `url` that is a string or `null`, an `image` that is `null` or a path under the section's own directory, and no two entries claiming one `url` or one `image` — copying an entry and changing only one of its two pointers is the mistake hand-writing invites. `asset-ids.test.ts` adds the one check that needs the directory rather than the text: every `image` a static entry names is on disk.
+
+`url` is `null` for every boost. The site has no page for them, and inventing one would be worse than admitting there is none. Episodes all have one, and the site lists thirteen against the eleven the codec can encode — `601` Coin Palace Rush and `701` Party Run are in the index and have no combi character. That is not drift: the index describes the game, the codec describes what a code can say.
 
 ## Ids are assigned once, and never move
 
@@ -70,10 +95,10 @@ It exits non-zero on any mismatch, on an unreachable site, and on an index it ca
 
 ## What consumes it
 
-`src/routes/combi-name/catalog.ts` reads `assets/index.json` through the `#assets/*` import mapping (`package.json`'s `imports` field) to resolve every id a loadout carries and to build the picker options. It also exposes `imageForKey`, which finds an entry's picture by the scraper's own `key` rather than by its wire id; `src/routes/combi-name/art.ts` uses it to give each cookie power+ the faces of the cookies or pets it belongs to, without the codec ever learning a cookie id. Five name one cookie each, Serenade of Love names the two pets that sing it, and EXP Party the four cookies that throw it.
+`src/routes/combi-name/catalog.ts` reads `assets/index.json` through the `#assets/*` import mapping (`package.json`'s `imports` field) to resolve every id a loadout carries and to build the picker options. Its `staticImage` is the one reader of the two authored sections, and it reads only their pictures: display names come from `labels.ts`, which has a parity test and which `decode` quotes in its error messages. `src/routes/combi-name/art.ts` maps each codec boost and episode to the key its icon is filed under, so the boost cards and episode chips wear them. It also exposes `imageForKey`, which finds an entry's picture by the scraper's own `key` rather than by its wire id; `src/routes/combi-name/art.ts` uses it to give each cookie power+ the faces of the cookies or pets it belongs to, without the codec ever learning a cookie id. Five name one cookie each, Serenade of Love names the two pets that sing it, and EXP Party the four cookies that throw it.
 
 `HIDDEN_TREASURE_FAMILIES` in `catalog.ts` is what the `family` field is for: `optionsFor("treasures")` leaves out the `consumable` and `special` families, 208 of the 1,144 entries, because a run cannot equip any of them. It hides them from the picker and from nowhere else — `nameFor`, `labelFor` and `hasId` still resolve a hidden entry, the same promise a retired one gets, and `labelFor`'s map is built from the unfiltered listing so a hidden treasure keeps its disambiguated name. The combi page goes one step further: a code that already carries a hidden treasure has that id appended to the slot's own `options` before the pick is written, since a slot drops a pick its options do not contain and the page must never rewrite someone's saved build on the way in. The page build inlines that JSON straight into the bundle like any other imported module, but the icons themselves are too large to inline — see the `build-and-deploy` skill for how the combi page instead ships `dist/assets/` as a sibling folder. Read that skill before wiring a new icon into a page; it has a size consequence.
 
-`assets/` is 14 MB (868 treasure icon files, shared across 1,144 treasure entries, account for 11 MB of it — 8 entries have no icon) and, unlike `dist/`, is committed on purpose: `catalog.ts` reads it, so the scrape output stays in the repository rather than being fetched per clone.
+`assets/` is 15 MB (868 treasure icon files, shared across 1,144 treasure entries, account for 11 MB of it — 8 entries have no icon; the 13 episode icons are a further 808 KB, which is why an episode icon belongs in `dist/assets/` and not inlined) and, unlike `dist/`, is committed on purpose: `catalog.ts` reads it, so the scrape output stays in the repository rather than being fetched per clone.
 
 `biome.json` ignores `assets/` — reformatting 14 MB of generated scrape output would bury every real diff.

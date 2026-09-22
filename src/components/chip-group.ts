@@ -3,7 +3,18 @@ import { property } from "lit/decorators.js";
 
 import { base, controls } from "./theme";
 
-export type Option = readonly [value: string, label: string];
+export type Option = readonly [
+	value: string,
+	label: string,
+	/**
+	 * A thumbnail for the chip, drawn before its label. Optional because most
+	 * rows here have no art at all — a run type or an action is a word, not a
+	 * place — and `null` where a row that does have art has none for this one
+	 * value. Either way the chip is its label alone, which is what every row
+	 * looked like before pictures arrived.
+	 */
+	image?: string | null,
+];
 
 /**
  * A row of chips that resolves to one pick — a radio group wearing the site's
@@ -40,10 +51,28 @@ export class ChipGroup extends LitElement {
 			}
 
 			.chip {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--cr-space-2);
 				box-shadow: none;
 				background: var(--cr-surface-2);
 				padding: var(--cr-space-2) var(--cr-space-3);
 				font-size: 0.8rem;
+			}
+
+			/* The thumbnail is sized by height and lets its width follow, rather
+			   than being boxed into a square: an episode card is landscape (320
+			   by 210) and a square frame would letterbox it down to a stamp with
+			   air on both sides. Height is what has to stay equal across the row,
+			   since that is what sets how tall every chip is. The length is
+			   written here rather than taken as a percentage of the chip, which
+			   is sized by its own text and so has nothing definite to offer. */
+			.thumb {
+				flex: none;
+				width: auto;
+				height: 1.5rem;
+				max-width: 3rem;
+				object-fit: contain;
 			}
 
 			/* The chosen chip is the one carrying the accent, and it keeps the
@@ -194,7 +223,7 @@ export class ChipGroup extends LitElement {
 				}}
 			>
 				${this.options.map(
-					([value, text]) => html`<button
+					([value, text, image]) => html`<button
 						type="button"
 						class="chip"
 						role="radio"
@@ -205,7 +234,12 @@ export class ChipGroup extends LitElement {
 							this.#click(value);
 						}}
 					>
-						${text}
+						${
+							image
+								? html`<img class="thumb" src=${image} alt="" loading="lazy" />`
+								: null
+						}
+						<span>${text}</span>
 					</button>`,
 				)}
 			</div>
