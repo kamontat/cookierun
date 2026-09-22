@@ -28,6 +28,13 @@
 	--cr-space-4: 1rem;
 	--cr-space-5: 1.5rem;
 
+	/* The hit area a control grows to where the pointer is coarse - 44px, the
+	   floor both phone platforms publish. A token rather than a literal because
+	   every shadow root needs it and none of them can import a stylesheet. It
+	   is the same on both themes, so the light block below does not restate it
+	   the way the colours have to. */
+	--cr-tap: 2.75rem;
+
 	--cr-font: system-ui, sans-serif;
 	--cr-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 	--cr-tracking: 0.08em;

@@ -59,6 +59,16 @@ export class ChipGroup extends LitElement {
 			.chip:active {
 				transform: translate(1px, 1px);
 			}
+
+			/* The shared chunk has already given every button here the platform
+			   hit height. A chip whose label is one character - an episode
+			   number - is still a sliver to aim at, so under the same pointer it
+			   is at least as wide as it is tall. */
+			@media (pointer: coarse) {
+				.chip {
+					min-width: var(--cr-tap);
+				}
+			}
 		`,
 	];
 

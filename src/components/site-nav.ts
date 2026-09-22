@@ -88,25 +88,64 @@ export class SiteNav extends LitElement {
 			}
 
 			/* Under the breakpoint the rail stops being a column and rides along
-			   the top as a row of links. */
+			   the top as a single row: links on the left, theme control at the
+			   far end, nothing wrapping onto a second line. Everything this bar
+			   costs is taken off the top of a phone screen, above a page whose
+			   own code panel is pinned there. */
 			@media (width < 48rem) {
 				:host {
+					flex-direction: row;
+					align-items: center;
+					gap: var(--cr-space-3);
 					position: static;
 					grid-row: auto;
 					height: auto;
+					overflow: visible;
+					padding: var(--cr-space-2) var(--cr-space-3);
 					border-right: 0;
 					border-bottom: var(--cr-border) solid var(--cr-line);
 				}
 
+				/* The masthead's own h1 names the site on every page, and on one
+				   line there is no room to say it twice. */
+				.title {
+					display: none;
+				}
+
+				/* The list scrolls sideways rather than wrapping. A second row of
+				   links costs the same screen the code panel below it wants, and
+				   the registry can grow without the bar growing with it. */
+				nav {
+					flex: 1 1 auto;
+					min-width: 0;
+					overflow-x: auto;
+				}
+
 				ul {
 					display: flex;
-					flex-wrap: wrap;
+					flex-wrap: nowrap;
 					gap: var(--cr-space-2);
 				}
 
+				a {
+					white-space: nowrap;
+				}
+
 				theme-toggle {
-					margin-top: var(--cr-space-3);
+					flex: 0 0 auto;
+					margin-top: 0;
 					padding-top: 0;
+				}
+			}
+
+			/* A link is not a button, so the shared chunk's hit area never
+			   reaches it. Flex rather than block, or the label sits at the top of
+			   the taller box instead of in the middle of it. */
+			@media (pointer: coarse) {
+				a {
+					display: flex;
+					align-items: center;
+					min-height: var(--cr-tap);
 				}
 			}
 		`,

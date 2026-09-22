@@ -144,6 +144,41 @@ test("clicking a run asks the page to jump to the control that owns it", async (
 	expect(jumped).toBe("episode");
 });
 
+// The hover bubble is behind a hover query, so on a phone this line is the only
+// place the run's meaning is said at all.
+test("clicking a run names it under the code", async () => {
+	const element = await mount();
+	element.hints = HINTS;
+	await element.updateComplete;
+
+	runs(element)[2]?.click();
+	await element.updateComplete;
+
+	expect(
+		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
+	).toBe("Slot 3 · Episode · Any");
+	expect(
+		element.shadowRoot?.querySelector(".message")?.classList.contains("error"),
+	).toBe(false);
+});
+
+// The page's line answers a question being asked right now; the name answers
+// one asked a moment ago, and an error is never displaced by a label.
+test("a decode error outranks the name of a clicked run", async () => {
+	const element = await mount();
+	element.hints = HINTS;
+	element.message = "Unknown character Q in slot 2.";
+	element.invalid = true;
+	await element.updateComplete;
+
+	runs(element)[2]?.click();
+	await element.updateComplete;
+
+	expect(
+		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
+	).toBe("Unknown character Q in slot 2.");
+});
+
 test("clicking the code opens it for editing, prefilled", async () => {
 	const element = await mount();
 
