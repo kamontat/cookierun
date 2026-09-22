@@ -148,6 +148,21 @@ test("typing a code with a loadout fills the loadout controls too", async () => 
 	await reset();
 });
 
+// The picker does not offer the consumable and special families, but a code
+// written before that — or by hand — can still carry one, and dropping it
+// would rewrite someone's saved build behind their back.
+test("a code carrying a treasure the picker hides keeps it", async () => {
+	await typeCode("1TU00Z.1S0---000-");
+
+	// The built code, read off the bar rather than off its rendering: the
+	// editor is still open, so the rendered code is the field, not the runs.
+	expect((codeBar as HTMLElement & { value: string }).value).toBe(
+		"1TU00Z.1S0---000-",
+	);
+	expect(shown(need("treasure1"))).toContain("XP-Elixir");
+	await reset();
+});
+
 // A half-typed code is not an error, so it says how far along it is rather
 // than complaining.
 test("an unfinished code reports how many characters are in it", async () => {

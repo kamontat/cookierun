@@ -120,7 +120,7 @@ The code is the whole interface. It leads the page, updating as you pick a confi
 
 Each field of the code is drawn as its own run. Hover one and it names its slot and what it currently says; click it and the page jumps to the control that writes it. That is why the slot tables sit folded away at the bottom — they confirm the format rather than being where you look things up.
 
-Below the code, the controls run in the order the code reads: run type and episode as chips, boosts and cookie power+ as picture cards, then the loadout. Cookie power+ wears the portrait of the cookie it belongs to. The cookie, relay, pet, and treasure controls stay closed with their pick on the line, and open onto a filterable grid of faces that takes the full width while it is open.
+Below the code, the controls run in the order the code reads: run type and episode as chips, boosts and cookie power+ as picture cards, then the loadout. Cookie power+ wears the portrait of the cookie it belongs to. The cookie, relay, pet, and treasure controls stay closed with their pick on the line, and open onto a filterable grid of faces that takes the full width while it is open; clicking anywhere outside closes them again. The treasure grid offers only what a run can equip — the consumable and commemorative families, 208 of the 1,144 entries, are left out of the picker, though a code that already carries one still reads and still keeps it.
 
 Your code lives in the address bar, so a build is a link you can send, and it is remembered between visits — a link wins over the remembered one, and **Reset** goes back to an empty code. Pasting a link into the address bar of a tab that is already open works too: the page notices the new code rather than overwriting it. **Copy** takes the code, **Copy link** takes the whole address. The sidebar carries a light/dark control that defaults to following your system. Everything runs in the browser — no network calls, no analytics.
 
@@ -131,7 +131,7 @@ The build produces one `index.html` per page, the JavaScript and CSS they share 
 ```bash
 bun install
 bun run dev           # dev server on :3000; / is the home pane, /combi-name/ is the combi tool
-bun run test          # 267 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run test          # 283 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run check         # typecheck and Biome, in one pass
 bun run build         # writes dist/index.html, dist/combi-name/index.html, their chunks, and dist/assets/
 bun run preview       # serves the built dist/ on :4000; build first

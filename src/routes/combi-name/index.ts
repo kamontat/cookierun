@@ -1,5 +1,5 @@
 import { cookiePowerArt } from "./art";
-import { optionsFor } from "./catalog";
+import { imageFor, labelFor, optionsFor } from "./catalog";
 import {
 	type Action,
 	ALL_ACTIONS,
@@ -89,6 +89,9 @@ function pickerOptions(
 	);
 }
 
+/** What the treasure slots offer: the families a run can equip. */
+const treasureCatalog = pickerOptions("treasures");
+
 const ORDER_OPTIONS = [
 	["any", "Any order"],
 	["ordered", "Exact order"],
@@ -109,13 +112,49 @@ function readLoadout(): Loadout {
 	};
 }
 
+/**
+ * The treasure list the slots offer, plus whatever this code already carries.
+ *
+ * The picker leaves out the families a run cannot equip, but a code can carry
+ * one all the same — written by hand, or before the list was narrowed. A slot
+ * drops any pick its `options` do not contain, so without this the page would
+ * quietly rewrite someone's saved build on the way in.
+ */
+function treasureOptions(
+	carried: readonly string[],
+): readonly (readonly [string, string, string | null])[] {
+	const offered = treasureCatalog;
+	const extra = carried
+		.filter((id) => !offered.some(([candidate]) => candidate === id))
+		.map(
+			(id) =>
+				[
+					id,
+					labelFor("treasures", id),
+					imageFor("treasures", id) === null
+						? null
+						: ASSET_BASE + imageFor("treasures", id),
+				] as const,
+		);
+	if (extra.length === 0) return offered;
+
+	// Id order, the order every wire-format sort uses.
+	return [...offered, ...extra].sort(([a], [b]) =>
+		a === b ? 0 : a < b ? -1 : 1,
+	);
+}
+
 function writeLoadout(loadout: Loadout): void {
 	cookieTile.value = loadout.cookie;
 	relayTile.value = loadout.relay;
 	petTile.value = loadout.pet;
 	orderChips.value = loadout.ordered ? "ordered" : "any";
 	treasureSlots.forEach((slot, index) => {
-		slot.selected = loadout.treasures[index] ?? [];
+		const carried = loadout.treasures[index] ?? [];
+		// Options before the picks: the two are separate writes, and a slot
+		// prunes a pick its current options do not hold.
+		slot.options = treasureOptions(carried);
+		slot.selected = carried;
 	});
 }
 
@@ -328,7 +367,7 @@ orderChips.options = ORDER_OPTIONS;
 
 // The boosts have no art of their own; their cards wear the lettered tile.
 boostCards.options = ALL_BOOSTS.map(
-	(boost) => [boost, BOOST_LABELS[boost], null] as const,
+	(boost) => [boost, BOOST_LABELS[boost], []] as const,
 );
 cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 	(power) =>
@@ -340,12 +379,11 @@ cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 );
 
 const cookieOptions = pickerOptions("cookies");
-const treasureOptions = pickerOptions("treasures");
 
 cookieTile.options = cookieOptions;
 relayTile.options = cookieOptions;
 petTile.options = pickerOptions("pets");
-for (const slot of treasureSlots) slot.options = treasureOptions;
+for (const slot of treasureSlots) slot.options = treasureCatalog;
 
 buildForm.addEventListener("input", () => {
 	render();

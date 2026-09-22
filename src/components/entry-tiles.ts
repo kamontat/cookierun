@@ -68,6 +68,28 @@ export class EntryTiles extends LitElement {
 		this.chosen = new Set(values.filter((value) => this.#has(value)));
 	}
 
+	/**
+	 * Closes on a click that lands outside, the same rule `<entry-tile>` follows
+	 * and for the same reason: six open grids is a page you have to tidy up
+	 * after. `pointerdown` fires before focus moves, so the grid is gone by the
+	 * time whatever was clicked takes over.
+	 */
+	#closeOnOutside = (event: Event): void => {
+		if (!this.open) return;
+		if (event.composedPath().includes(this)) return;
+		this.open = false;
+	};
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+		document.addEventListener("pointerdown", this.#closeOnOutside);
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		document.removeEventListener("pointerdown", this.#closeOnOutside);
+	}
+
 	override willUpdate(): void {
 		// `options` and the picks are two separate writes, so a list replaced
 		// under a slot would otherwise keep a dropped value in the set —

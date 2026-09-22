@@ -211,6 +211,28 @@ export class EntryTile extends LitElement {
 		this.picked = value !== null && this.#has(value) ? value : null;
 	}
 
+	/**
+	 * A list left open once you have gone elsewhere is a list you have to come
+	 * back and close, and the page holds six of them. `pointerdown` rather than
+	 * `click`: it fires before focus moves, so the list is already gone by the
+	 * time whatever was clicked takes over.
+	 */
+	#closeOnOutside = (event: Event): void => {
+		if (!this.open) return;
+		if (event.composedPath().includes(this)) return;
+		this.open = false;
+	};
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+		document.addEventListener("pointerdown", this.#closeOnOutside);
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		document.removeEventListener("pointerdown", this.#closeOnOutside);
+	}
+
 	override willUpdate(): void {
 		// An options list that no longer contains the pick drops it, rather than
 		// leaving the tile naming an entry the grid cannot show.

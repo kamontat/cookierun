@@ -34,8 +34,30 @@ export type Entry = {
 	retired?: true;
 };
 
-export type TreasureEntry = Entry &
-	(
+/**
+ * How the site sorts its treasures, read from the listing card's `data-fam`.
+ * The combi page offers only the families a run can equip, so this is a closed
+ * set the index is checked against rather than whatever the site happens to
+ * say — a family nobody has decided about should stop a scrape, not slip into
+ * the picker or out of it.
+ */
+export const TREASURE_FAMILIES = [
+	"cookie",
+	"consumable",
+	"draw",
+	"pet",
+	"special",
+] as const;
+
+export type TreasureFamily = (typeof TREASURE_FAMILIES)[number];
+
+/**
+ * `family` is optional in the type and required by `verifyStructure`, the same
+ * split `fetchedAt` has: `migrate` has to accept a file written before the
+ * field existed, and it cannot invent one — only a scrape can. So the type
+ * describes what may arrive, and the check describes what may be committed.
+ */
+export type TreasureEntry = Entry & { family?: TreasureFamily } & (
 		| { type: "N"; targets: [string | null, string | null] }
 		| { type: "E" | "B"; source: string }
 	);
@@ -81,6 +103,7 @@ const FIELD_ORDER = [
 	"name",
 	"url",
 	"image",
+	"family",
 	"type",
 	"targets",
 	"source",
@@ -341,6 +364,16 @@ function chainProblems(treasures: Record<string, TreasureEntry>): string[] {
 		Object.hasOwn(treasures, reference);
 
 	for (const [id, entry] of Object.entries(treasures)) {
+		const { family } = entry as { family?: unknown };
+		if (
+			typeof family !== "string" ||
+			!(TREASURE_FAMILIES as readonly string[]).includes(family)
+		) {
+			problems.push(
+				`treasures/${id}: family ${JSON.stringify(family)} is not one of ${TREASURE_FAMILIES.join(", ")}`,
+			);
+		}
+
 		const type = (entry as { type?: unknown }).type;
 		if (type !== "N" && type !== "E" && type !== "B") {
 			problems.push(

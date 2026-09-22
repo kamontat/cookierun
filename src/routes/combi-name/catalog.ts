@@ -39,8 +39,23 @@ export type CatalogEntry = {
 	key: string;
 	name: string;
 	image: string | null;
+	/** Which family the site sorts this entry into; treasures only. */
+	family?: string;
 	retired?: true;
 };
+
+/**
+ * The treasure families the picker does not offer. A run equips treasures from
+ * the draw, pet and cookie families; `consumable` is the XP-Elixirs and their
+ * like, and `special` is trophies, certificates and commemorative frames —
+ * between them 208 of the 1,144 entries, none of which can go in a slot.
+ *
+ * This hides them from the picker and from nowhere else. A code that already
+ * carries one still decodes and still names it, the same promise a retired
+ * entry gets: what can be chosen is a question about the page, what can be
+ * named is a question about the wire format.
+ */
+export const HIDDEN_TREASURE_FAMILIES = ["consumable", "special"] as const;
 
 // One cast at the boundary. A JSON import's inferred type has no index
 // signature, and propagating 1,300 literal property types through every lookup
@@ -125,21 +140,40 @@ export function optionsFrom(
 
 // Built once at module load: three sections, 1,341 entries, and the page asks
 // for them six times over.
-const OPTIONS: Record<CatalogSection, readonly PickerOption[]> = {
+const LISTED: Record<CatalogSection, readonly PickerOption[]> = {
 	cookies: optionsFrom(DATA.cookies),
 	pets: optionsFrom(DATA.pets),
 	treasures: optionsFrom(DATA.treasures),
 };
 
-/** Live entries only, in id order. See optionsFrom for the logic. */
+function isOffered(section: CatalogSection, id: string): boolean {
+	if (section !== "treasures") return true;
+	const family = entryFor(section, id)?.family;
+	return (
+		family === undefined ||
+		!(HIDDEN_TREASURE_FAMILIES as readonly string[]).includes(family)
+	);
+}
+
+const OPTIONS: Record<CatalogSection, readonly PickerOption[]> = {
+	cookies: LISTED.cookies,
+	pets: LISTED.pets,
+	treasures: LISTED.treasures.filter(([id]) => isOffered("treasures", id)),
+};
+
+/** What a picker offers: live entries of an offered family, in id order. */
 export function optionsFor(section: CatalogSection): readonly PickerOption[] {
 	return OPTIONS[section];
 }
 
+/**
+ * Built from the full listing rather than from what the picker offers, so a
+ * code carrying a hidden treasure still reads with its disambiguated name.
+ */
 const LABELS: Record<CatalogSection, ReadonlyMap<string, string>> = {
-	cookies: new Map(OPTIONS.cookies.map(([id, label]) => [id, label])),
-	pets: new Map(OPTIONS.pets.map(([id, label]) => [id, label])),
-	treasures: new Map(OPTIONS.treasures.map(([id, label]) => [id, label])),
+	cookies: new Map(LISTED.cookies.map(([id, label]) => [id, label])),
+	pets: new Map(LISTED.pets.map(([id, label]) => [id, label])),
+	treasures: new Map(LISTED.treasures.map(([id, label]) => [id, label])),
 };
 
 /**

@@ -212,6 +212,39 @@ test("the host says whether its list is open", async () => {
 	expect(element.hasAttribute("open")).toBe(true);
 });
 
+test("a click outside the slot closes it", async () => {
+	const element = await mount();
+	const details = element.shadowRoot?.querySelector("details");
+	if (details == null) throw new Error("the slot has no details");
+
+	details.open = true;
+	details.dispatchEvent(new Event("toggle"));
+	await element.updateComplete;
+
+	document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+	await element.updateComplete;
+
+	expect(element.open).toBe(false);
+	expect(details.open).toBe(false);
+});
+
+test("a click inside the slot leaves it open", async () => {
+	const element = await mount();
+	const details = element.shadowRoot?.querySelector("details");
+	if (details == null) throw new Error("the slot has no details");
+
+	details.open = true;
+	details.dispatchEvent(new Event("toggle"));
+	await element.updateComplete;
+
+	entries(element)[0]?.dispatchEvent(
+		new MouseEvent("pointerdown", { bubbles: true, composed: true }),
+	);
+	await element.updateComplete;
+
+	expect(element.open).toBe(true);
+});
+
 test("an arrow walks to the next entry", async () => {
 	const element = await mount();
 

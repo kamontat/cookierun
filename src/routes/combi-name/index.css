@@ -43,10 +43,38 @@ main {
 	margin-bottom: 0;
 }
 
+/* What the code says, under the panel rather than pinned inside it. */
+.readout {
+	display: block;
+	padding: 0 var(--cr-space-4);
+}
+
 .tip {
 	margin: var(--cr-space-2) 0 0;
 	color: var(--cr-muted);
 	font-size: 0.8rem;
+}
+
+/* A phone gives the sticky panel about half its screen at the sizes above, so
+   everything that is not the code itself comes off it: the heading the code
+   does not need, the reserved line for a status that is usually empty, and the
+   padding around both. */
+@media (width < 48rem) {
+	.codepanel {
+		padding: var(--cr-space-2) var(--cr-space-3);
+	}
+
+	.codepanel h2 {
+		display: none;
+	}
+
+	#link-status:empty {
+		min-height: 0;
+	}
+
+	.readout {
+		padding: 0 var(--cr-space-3);
+	}
 }
 
 .tip kbd {

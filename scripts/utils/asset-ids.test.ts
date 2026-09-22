@@ -342,6 +342,26 @@ test("a treasure whose type is not N, E or B is caught", async () => {
 	expect(problems[0]).toBe('treasures/000: type "X" is not N, E or B');
 });
 
+// The combi page offers only the families a run can equip, so a family it does
+// not know would quietly land in — or vanish from — the treasure picker.
+test("a treasure whose family is not one the site uses is caught", async () => {
+	const problems = await tampered((index) => {
+		entryIn(index, "treasures", "000")["family"] = "snack";
+	});
+
+	expect(problems[0]).toBe(
+		'treasures/000: family "snack" is not one of cookie, consumable, draw, pet, special',
+	);
+});
+
+test("a treasure with no family at all is caught", async () => {
+	const problems = await tampered((index) => {
+		delete entryIn(index, "treasures", "000")["family"];
+	});
+
+	expect(problems.some((problem) => problem.includes("family"))).toBe(true);
+});
+
 test("fetchedAt round-trips through migrate and serializeIndex, written first", () => {
 	const index = migrate({
 		fetchedAt: "2026-09-21T08:11:04.000Z",

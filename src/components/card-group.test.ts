@@ -6,10 +6,17 @@ import "./card-group";
 
 import type { CardGroup } from "./card-group";
 
+// A card's art is a list, because some of these powers belong to several
+// cookies or pets at once rather than to one.
 const POWERS = [
-	["cheerleader", "Cheerleader Cookie", "../assets/cookies/ch20.png"],
-	["fairy", "Fairy Cookie", "../assets/cookies/ch26.png"],
-	["expParty", "EXP Party", null],
+	["cheerleader", "Cheerleader Cookie", ["../assets/cookies/ch20.png"]],
+	["fairy", "Fairy Cookie", ["../assets/cookies/ch26.png"]],
+	["expParty", "EXP Party", []],
+	[
+		"serenadeOfLove",
+		"Serenade of Love",
+		["../assets/pets/pet57.png", "../assets/pets/pet58.png"],
+	],
 ] as const;
 
 async function mount(legend = "Cookie power+"): Promise<CardGroup> {
@@ -45,6 +52,7 @@ test("a card is rendered per option, in the order given", async () => {
 		"cheerleader",
 		"fairy",
 		"expParty",
+		"serenadeOfLove",
 	]);
 });
 
@@ -69,7 +77,7 @@ test("setting selected checks exactly those cards", async () => {
 
 	expect(
 		cards(element).map((card) => card.getAttribute("aria-checked")),
-	).toEqual(["false", "true", "false"]);
+	).toEqual(["false", "true", "false", "false"]);
 });
 
 test("clicking a checked card unchecks it", async () => {
@@ -112,7 +120,7 @@ test("a value the replaced options no longer contain is dropped", async () => {
 	const element = await mount();
 
 	element.selected = ["fairy"];
-	element.options = [["cheerleader", "Cheerleader Cookie", null]];
+	element.options = [["cheerleader", "Cheerleader Cookie", []]];
 	await element.updateComplete;
 
 	expect(element.selected).toEqual([]);
@@ -124,6 +132,26 @@ test("an option with art renders its image", async () => {
 	expect(cards(element)[0]?.querySelector("img")?.getAttribute("src")).toBe(
 		"../assets/cookies/ch20.png",
 	);
+});
+
+// Serenade of Love belongs to a pair of pets and EXP Party to four cookies, so
+// a card has to be able to wear more than one face.
+test("an option with several pictures renders all of them", async () => {
+	const element = await mount();
+
+	expect(
+		[...(cards(element)[3]?.querySelectorAll("img") ?? [])].map((img) =>
+			img.getAttribute("src"),
+		),
+	).toEqual(["../assets/pets/pet57.png", "../assets/pets/pet58.png"]);
+});
+
+test("a card says how many pictures it carries, so the frame can lay them out", async () => {
+	const element = await mount();
+
+	expect(
+		cards(element)[3]?.querySelector(".art")?.getAttribute("data-count"),
+	).toBe("2");
 });
 
 // Two of the cookie powers are not cookies and have no portrait, so the card

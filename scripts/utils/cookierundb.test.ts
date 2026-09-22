@@ -18,6 +18,11 @@ const evolvedCard =
 	'<a class="ecard" href="../treasures/stretched-acorn" data-name="Stretched Acorn" data-evo="1">' +
 	'<span class="icon-frame"><img src="../img/treasures/tr034.png" alt=""></span></a>';
 
+const familyCard =
+	'<a class="ecard" href="../treasures/xp-elixir-l" data-name="XP-Elixir (L)" ' +
+	'data-grade="C" data-fam="consumable" data-evo="0">' +
+	'<span class="icon-frame"><img src="../img/treasures/tr_medal_03.png" alt=""></span></a>';
+
 test("a listing card yields its slug, name and icon, rooted at the site", () => {
 	expect(parseListing(withIcon)).toEqual([
 		{
@@ -25,13 +30,27 @@ test("a listing card yields its slug, name and icon, rooted at the site", () => 
 			name: "GingerBrave",
 			icon: "/img/cookies/ch01.png",
 			evolved: false,
+			family: null,
 		},
 	]);
 });
 
+// The treasure listing sorts its entries into families, and the combi page
+// offers only the ones a run can equip. Nothing else carries the attribute.
+test("data-fam names a treasure's family", () => {
+	expect(parseListing(familyCard)[0]?.family).toBe("consumable");
+	expect(parseListing(withIcon)[0]?.family).toBe(null);
+});
+
 test("a card whose frame holds no img is spriteless, not skipped", () => {
 	expect(parseListing(spriteless)).toEqual([
-		{ slug: "ch99", name: "No Sprite", icon: null, evolved: false },
+		{
+			slug: "ch99",
+			name: "No Sprite",
+			icon: null,
+			evolved: false,
+			family: null,
+		},
 	]);
 });
 

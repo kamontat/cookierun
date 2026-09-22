@@ -50,20 +50,25 @@
           value="1S0---000-"
           placeholder="1C00TU000.1S0HPF014-"
         ></code-bar>
-        <verdict-line id="verdict"></verdict-line>
-        <ul id="warnings" class="warnings" aria-live="polite"></ul>
 
         <div class="actions">
           <button id="copy-link" type="button">Copy link</button>
           <button id="reset" type="button">Reset</button>
         </div>
         <p id="link-status" class="status" role="status"></p>
+      </section>
+
+      <!-- Outside the sticky panel on purpose: what the code says is reading
+           matter, and pinning it costs half a phone screen. -->
+      <div class="readout">
+        <verdict-line id="verdict"></verdict-line>
+        <ul id="warnings" class="warnings" aria-live="polite"></ul>
         <p class="tip">
           Click any part of the code to jump to the control that writes it, or
           press <kbd>Edit</kbd> and type one. Pasting a code anywhere on the
           page loads it.
         </p>
-      </section>
+      </div>
 
       <form id="build" novalidate>
         <section class="panel" aria-labelledby="run-heading">
@@ -257,12 +262,5 @@ ex:    1  H  3  H - F  4  1 4  J</pre
         </p>
       </details>
     </main>
-
-    <footer class="container">
-      <p>
-        Codes are computed in your browser. Nothing is sent anywhere, and the
-        page works offline.
-      </p>
-    </footer>
   </body>
 </html>

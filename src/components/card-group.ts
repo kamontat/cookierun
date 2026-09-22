@@ -6,7 +6,12 @@ import { base, controls } from "./theme";
 export type Option = readonly [
 	value: string,
 	label: string,
-	image: string | null,
+	/**
+	 * Every picture this option wears. A list rather than one image because some
+	 * cookie power+ entries belong to several cookies or pets at once; empty
+	 * means the option has no art and falls back to a lettered tile.
+	 */
+	images: readonly string[],
 ];
 
 /** The initials a card falls back to when the entry has no portrait. */
@@ -101,6 +106,31 @@ export class CardGroup extends LitElement {
 				object-fit: contain;
 			}
 
+			/* Several faces share the one frame: a pair side by side, three or
+			   four in a square. Each is sized to its share of it, since the
+			   frame is what the row of cards is aligned to. */
+			.art[data-count="2"] {
+				grid-template-columns: repeat(2, 1fr);
+				gap: 0.1rem;
+			}
+
+			.art[data-count="2"] img {
+				width: 1.7rem;
+				height: 3.5rem;
+			}
+
+			.art[data-count="3"],
+			.art[data-count="4"] {
+				grid-template-columns: repeat(2, 1fr);
+				gap: 0.1rem;
+			}
+
+			.art[data-count="3"] img,
+			.art[data-count="4"] img {
+				width: 1.7rem;
+				height: 1.7rem;
+			}
+
 			.glyph {
 				display: grid;
 				place-items: center;
@@ -186,7 +216,7 @@ export class CardGroup extends LitElement {
 			<fieldset>
 				<legend>${this.legend}</legend>
 				<div class="cards">
-					${this.options.map(([value, label, image]) => {
+					${this.options.map(([value, label, images]) => {
 						const on = this.ticked.has(value);
 						return html`<button
 							type="button"
@@ -198,13 +228,16 @@ export class CardGroup extends LitElement {
 								this.#toggle(value);
 							}}
 						>
-							<span class="art">
+							<span class="art" data-count=${String(images.length)}>
 								${
-									image === null
+									images.length === 0
 										? html`<span class="glyph" aria-hidden="true"
 												>${glyphFor(label)}</span
 											>`
-										: html`<img src=${image} alt="" loading="lazy" />`
+										: images.map(
+												(image) =>
+													html`<img src=${image} alt="" loading="lazy" />`,
+											)
 								}
 							</span>
 							<span class="name">${label}</span>

@@ -220,6 +220,58 @@ test("the host says whether its list is open", async () => {
 	expect(element.hasAttribute("open")).toBe(false);
 });
 
+// A list that stays open once you have gone elsewhere is a list you have to
+// come back and close, and six of these are open at once soon enough.
+test("a click outside the control closes it", async () => {
+	const element = await mount();
+	const details = element.shadowRoot?.querySelector("details");
+	if (details == null) throw new Error("the control has no details");
+
+	details.open = true;
+	details.dispatchEvent(new Event("toggle"));
+	await element.updateComplete;
+
+	document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+	await element.updateComplete;
+
+	expect(element.open).toBe(false);
+	expect(details.open).toBe(false);
+});
+
+test("a click inside the control leaves it open", async () => {
+	const element = await mount();
+	const details = element.shadowRoot?.querySelector("details");
+	if (details == null) throw new Error("the control has no details");
+
+	details.open = true;
+	details.dispatchEvent(new Event("toggle"));
+	await element.updateComplete;
+
+	entries(element)[1]?.dispatchEvent(
+		new MouseEvent("pointerdown", { bubbles: true, composed: true }),
+	);
+	await element.updateComplete;
+
+	expect(element.open).toBe(true);
+});
+
+// Nothing should be listening on behalf of a control that has left the page.
+test("a control taken off the page stops listening", async () => {
+	const element = await mount();
+	const details = element.shadowRoot?.querySelector("details");
+	if (details == null) throw new Error("the control has no details");
+
+	details.open = true;
+	details.dispatchEvent(new Event("toggle"));
+	await element.updateComplete;
+	element.remove();
+
+	document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+	await element.updateComplete;
+
+	expect(element.open).toBe(true);
+});
+
 test("an arrow walks to the next entry", async () => {
 	const element = await mount();
 
