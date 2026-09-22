@@ -85,6 +85,40 @@ test("a value that is not an option is ignored rather than invented", async () =
 	expect(element.selected).toEqual(["hp"]);
 });
 
+// `options` and `selected` are two separate writes, so the setter alone cannot
+// see a list that is replaced underneath a tick. Dropping the tick has to
+// happen at render time, which is where `<entry-picker>` and `<entry-set>` do
+// it too - and it has to be a drop rather than a hide, or the value comes back
+// ticked the moment a later list contains it again.
+test("replacing the options drops a tick the new list does not contain", async () => {
+	const element = await mount("boosts", "Boosts");
+	element.selected = ["hp", "fast"];
+	await element.updateComplete;
+
+	element.options = [
+		["power", "Power Jelly Boost"],
+		["fast", "Fast Start"],
+	];
+	await element.updateComplete;
+
+	expect(element.selected).toEqual(["fast"]);
+	expect(inputs(element).map((input) => input.checked)).toEqual([false, true]);
+
+	element.options = [
+		["hp", "HP Extension"],
+		["power", "Power Jelly Boost"],
+		["fast", "Fast Start"],
+	];
+	await element.updateComplete;
+
+	expect(element.selected).toEqual(["fast"]);
+	expect(inputs(element).map((input) => input.checked)).toEqual([
+		false,
+		false,
+		true,
+	]);
+});
+
 // `change` does not cross a shadow boundary, so the component has to say so
 // itself or the page never hears that a box was ticked. A real tick fires
 // *two* native events, `input` then `change` - and unlike `change`, `input`

@@ -89,6 +89,19 @@ export class CheckGroup extends LitElement {
 		this.chosen = new Set(values.filter((value) => known.has(value)));
 	}
 
+	override willUpdate(): void {
+		// An options list that no longer contains a tick drops it, the same rule
+		// the setter applies - `<entry-picker>` and `<entry-set>` both prune here
+		// too. The setter alone is not enough: `options` and `selected` are two
+		// separate writes, so a route that replaces the list without rewriting
+		// the selection would otherwise keep the dropped value in `chosen`,
+		// invisible while its box is gone and ticked again the moment a later
+		// list brings the value back.
+		const known = new Set(this.options.map(([value]) => value));
+		if ([...this.chosen].every((value) => known.has(value))) return;
+		this.chosen = new Set([...this.chosen].filter((value) => known.has(value)));
+	}
+
 	/**
 	 * A native checkbox's `input` event is `bubbles: true, composed: true` -
 	 * it already escapes the shadow root on its own, before this handler (or

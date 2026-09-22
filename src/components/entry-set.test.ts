@@ -156,6 +156,39 @@ test("a value that is not an option is ignored rather than invented", async () =
 	expect(element.selected).toEqual(["000"]);
 });
 
+// `options` and `selected` are two separate writes, so the setter alone cannot
+// see a catalog that is replaced underneath a pick - the combi page swaps all
+// three slots' options together when the treasure order changes. Dropping the
+// pick has to happen at render time, and it has to be a drop rather than a
+// hide, or the summary starts naming an entry again the moment a later catalog
+// contains it.
+test("replacing the options drops a pick the new list does not contain", async () => {
+	const element = await mount();
+	element.selected = ["000", "002"];
+	await settle(element);
+
+	element.options = [
+		["001", "Mushroom", null],
+		["002", "Slate", null],
+	];
+	await settle(element);
+
+	expect(element.selected).toEqual(["002"]);
+	expect(chips(element).map((chip) => chip.value)).toEqual(["002"]);
+
+	element.options = [
+		["000", "Acorn", "treasures/tr_ga034.png"],
+		["001", "Mushroom", null],
+		["002", "Slate", null],
+	];
+	await settle(element);
+
+	expect(element.selected).toEqual(["002"]);
+	expect(
+		addRows(element).map((row) => row.getAttribute("aria-selected")),
+	).toEqual(["false", "false", "true"]);
+});
+
 // aria-selected is only valid on option/tab/row/gridcell/treeitem roles; a
 // plain button ignores it, so assistive technology needs both roles present.
 // aria-multiselectable also has to be on the listbox, since this one accepts
