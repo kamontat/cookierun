@@ -1,4 +1,5 @@
 import { css, html, LitElement } from "lit";
+import { state } from "lit/decorators.js";
 
 import { base, controls } from "./theme";
 
@@ -70,32 +71,60 @@ export class ThemeToggle extends LitElement {
 		`,
 	];
 
+	/**
+	 * The stored choice, held here rather than read back out of `localStorage`
+	 * on every render, so that a pick re-renders the control. Storage is read
+	 * once per connection, before the first render, which is what puts the
+	 * `<select>` on the remembered theme rather than on `system`.
+	 */
+	@state()
+	private choice: Theme = "system";
+
 	override connectedCallback(): void {
 		super.connectedCallback();
-		applyTheme(readTheme(localStorage), document.documentElement);
+		this.choice = readTheme(localStorage);
+		applyTheme(this.choice, document.documentElement);
 	}
 
+	/**
+	 * `input`, not `change`, and stopped: a native select's `input` event is
+	 * `bubbles: true, composed: true`, so it escapes this shadow root on its own
+	 * carrying nothing the page can use, while the `change` that follows is not
+	 * composed and never arrives at all. The host's own `input` is the one
+	 * event a listener outside can rely on. Nothing listens for it today - the
+	 * rail sits outside both of the combi page's forms - but the rule is the
+	 * rule every other control here follows, and a component that is an
+	 * exception to it is a trap for whoever wires the next page.
+	 */
 	#choose(event: Event): void {
+		event.stopPropagation();
 		const value = (event.target as HTMLSelectElement).value;
 		const chosen = isTheme(value) ? value : "system";
+		this.choice = chosen;
 		applyTheme(chosen, document.documentElement);
 		writeTheme(chosen, localStorage);
+		this.dispatchEvent(new Event("input", { bubbles: true }));
 	}
 
 	override render() {
-		const current = readTheme(localStorage);
+		// `.selected`, the IDL property, rather than a `selected` content
+		// attribute: once the user has picked an option by hand that option is
+		// marked dirty and the attribute stops moving the selection, while the
+		// property setter still does. A `.value` binding on the `<select>` itself
+		// would not work either - Lit commits an element's own property bindings
+		// before rendering its children, so it would run before these `<option>`s
+		// existed.
 		return html`
 			<label for="theme-choice">Theme</label>
 			<select
 				id="theme-choice"
-				.value=${current}
-				@change=${(event: Event) => {
+				@input=${(event: Event) => {
 					this.#choose(event);
 				}}
 			>
 				${THEMES.map(
 					(theme) =>
-						html`<option value=${theme} ?selected=${theme === current}>
+						html`<option value=${theme} .selected=${theme === this.choice}>
 							${LABELS[theme]}
 						</option>`,
 				)}

@@ -102,20 +102,84 @@ test("the control offers the three choices and starts on the stored one", async 
 	applyTheme("system", document.documentElement);
 });
 
-test("choosing a theme paints the page and remembers it", async () => {
+// A real pick fires two native events, `input` then `change`. Only `input` is
+// `composed: true`, so only `input` escapes the shadow root unaided - and it
+// does so before any handler on the control has run, carrying the theme that
+// was in force a moment ago. Handling `change` instead leaves that stale echo
+// as the only thing a page outside ever hears, since `change` dies at the
+// boundary. So: handle `input`, stop it, and re-dispatch from the host.
+test("choosing a theme paints the page, remembers it, and says so once", async () => {
+	localStorage.removeItem(THEME_KEY);
+	const element = await mount();
+	const control = select(element);
+
+	// Recorded rather than asserted in the listener: happy-dom's default
+	// `errorCapture: "tryAndCatch"` swallows whatever a listener throws, so an
+	// assertion in here would pass whether or not it held.
+	const heard: { count: number; theme: string | null } = {
+		count: 0,
+		theme: null,
+	};
+	const onInput = () => {
+		heard.count += 1;
+		heard.theme = document.documentElement.getAttribute("data-theme");
+	};
+	document.body.addEventListener("input", onInput);
+
+	try {
+		control.value = "dark";
+		control.dispatchEvent(
+			new Event("input", { bubbles: true, composed: true }),
+		);
+		control.dispatchEvent(new Event("change", { bubbles: true }));
+
+		expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+		expect(localStorage.getItem(THEME_KEY)).toBe("dark");
+		expect(heard.count).toBe(1);
+		// The page was already dark when the event arrived, which is what tells
+		// this apart from the control's own leaked echo.
+		expect(heard.theme).toBe("dark");
+
+		control.value = "system";
+		control.dispatchEvent(
+			new Event("input", { bubbles: true, composed: true }),
+		);
+
+		expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+		expect(localStorage.getItem(THEME_KEY)).toBe(null);
+		expect(heard.count).toBe(2);
+	} finally {
+		// document.body outlives this test, and replaceChildren() in the next
+		// mount() clears its children rather than its listeners.
+		document.body.removeEventListener("input", onInput);
+	}
+});
+
+// The choice is this element's own state, not a view onto localStorage: a
+// browser that refuses writes still gets the theme for the visit, and the
+// control has to keep showing what is actually in force rather than snapping
+// back to whatever the store does or does not hold at the next render.
+test("a re-render keeps showing the chosen theme, not what storage says", async () => {
 	localStorage.removeItem(THEME_KEY);
 	const element = await mount();
 	const control = select(element);
 
 	control.value = "dark";
-	control.dispatchEvent(new Event("change"));
+	control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+	await element.updateComplete;
 
-	expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
-	expect(localStorage.getItem(THEME_KEY)).toBe("dark");
+	// A store the choice never reached - exactly the state a browser that
+	// refuses `setItem` leaves behind.
+	localStorage.removeItem(THEME_KEY);
+	element.requestUpdate();
+	await element.updateComplete;
 
-	control.value = "system";
-	control.dispatchEvent(new Event("change"));
+	expect(select(element).value).toBe("dark");
+	expect(
+		[...select(element).options]
+			.filter((option) => option.selected)
+			.map((option) => option.value),
+	).toEqual(["dark"]);
 
-	expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
-	expect(localStorage.getItem(THEME_KEY)).toBe(null);
+	applyTheme("system", document.documentElement);
 });
