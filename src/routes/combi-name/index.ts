@@ -1,4 +1,4 @@
-import { cookiePowerArt } from "./art";
+import { boostArt, cookiePowerArt, episodeArt } from "./art";
 import { imageFor, labelFor, optionsFor } from "./catalog";
 import {
 	type Action,
@@ -369,7 +369,16 @@ function pairs<K extends string>(
 const PICKABLE_TYPES = ALL_TYPES.filter((type) => type !== "semiauto");
 
 typeChips.options = pairs(PICKABLE_TYPES, TYPE_LABELS);
-episodeChips.options = pairs(ALL_EPISODES, EPISODE_LABELS);
+// The one chip row with art. `any` has no icon and is drawn as a bare chip,
+// which is what every other row here still looks like.
+episodeChips.options = ALL_EPISODES.map(
+	(episode) =>
+		[
+			episode,
+			EPISODE_LABELS[episode],
+			episodeArt(episode, ASSET_BASE),
+		] as const,
+);
 randomBoostChips.options = [
 	// `as const` or this literal infers as string[] and will not assign to a
 	// [value, label] tuple.
@@ -385,9 +394,8 @@ randomBoostChips.resettable = true;
 actionChips.resettable = true;
 orderChips.options = ORDER_OPTIONS;
 
-// The boosts have no art of their own; their cards wear the lettered tile.
 boostCards.options = ALL_BOOSTS.map(
-	(boost) => [boost, BOOST_LABELS[boost], []] as const,
+	(boost) => [boost, BOOST_LABELS[boost], boostArt(boost, ASSET_BASE)] as const,
 );
 cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 	(power) =>

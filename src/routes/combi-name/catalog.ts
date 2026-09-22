@@ -72,6 +72,37 @@ function entryFor(
 	return Object.hasOwn(DATA[section], id) ? DATA[section][id] : undefined;
 }
 
+/**
+ * The two sections of `assets/index.json` nobody scrapes. Their keys are
+ * authored rather than assigned, and a code never carries one — the codec has
+ * its own character for an episode and its own slot for a boost — so nothing
+ * here is a wire id and none of the promises above apply to it.
+ */
+export type StaticSection = "boosts" | "episodes";
+
+const STATIC = index as unknown as Record<
+	StaticSection,
+	Record<string, { name: string; image: string | null }>
+>;
+
+/**
+ * A boost's or an episode's picture, found by the key the index files it
+ * under. `null` covers both an unknown key and an entry with no icon, since
+ * the caller does the same thing with either — a chip or a card without art
+ * falls back to its own lettered tile.
+ *
+ * Display names are not read from here: `labels.ts` owns those, and `decode`
+ * quotes the boost ones in its error messages.
+ */
+export function staticImage(
+	section: StaticSection,
+	key: string,
+): string | null {
+	const entries = STATIC[section];
+	if (!Object.hasOwn(entries, key)) return null;
+	return entries[key]?.image ?? null;
+}
+
 export function hasId(section: CatalogSection, id: string): boolean {
 	return entryFor(section, id) !== undefined;
 }

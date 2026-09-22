@@ -15,6 +15,7 @@ import {
 	nameFor,
 	optionsFor,
 	optionsFrom,
+	staticImage,
 } from "./catalog";
 
 const SECTIONS: CatalogSection[] = ["cookies", "pets", "treasures"];
@@ -202,4 +203,16 @@ test("every hidden family is one the index actually uses", () => {
 	for (const family of HIDDEN_TREASURE_FAMILIES) {
 		expect([...used]).toContain(family);
 	}
+});
+
+test("a static entry's picture is found by its authored key", () => {
+	expect(staticImage("boosts", "fast-start")).toBe("boosts/fast-start.png");
+	expect(staticImage("episodes", "ep1")).toBe("episodes/ep1.png");
+});
+
+// An unknown key and an entry with no icon come back the same, because the
+// caller does the same thing with either: draw the chip or card without art.
+test("an unknown static key is null rather than an error", () => {
+	expect(staticImage("boosts", "no-such-boost")).toBe(null);
+	expect(staticImage("episodes", "constructor")).toBe(null);
 });
