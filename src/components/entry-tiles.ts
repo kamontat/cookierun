@@ -27,11 +27,63 @@ export class EntryTiles extends LitElement {
 		css`
 			/* The word between two alternatives, quieter than either of them. */
 			.or {
+				flex: 0 0 auto;
 				color: var(--cr-muted);
 				font-family: var(--cr-mono);
 				font-size: 0.7rem;
 				text-transform: uppercase;
 				letter-spacing: var(--cr-tracking);
+			}
+
+			/* One pick, small enough that four of them wrap across a line rather
+			   than stacking into a column of portraits. */
+			.chip {
+				display: inline-flex;
+				flex: 0 1 auto;
+				gap: var(--cr-space-1);
+				align-items: center;
+				max-width: 100%;
+				border: var(--cr-border) solid var(--cr-line);
+				border-radius: var(--cr-radius);
+				background: var(--cr-surface-2);
+				padding: 0 var(--cr-space-1);
+			}
+
+			.chip .art,
+			.chip .art img {
+				width: 1.4rem;
+				height: 1.4rem;
+			}
+
+			.chip .name {
+				overflow: hidden;
+				font-size: 0.8rem;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			/* A hit area that still reads as a quiet × until you go for it. */
+			.remove {
+				flex: 0 0 auto;
+				border: none;
+				border-radius: var(--cr-radius);
+				background: none;
+				box-shadow: none;
+				padding: 0 var(--cr-space-1);
+				color: var(--cr-muted);
+				font-family: var(--cr-mono);
+				font-size: 0.95rem;
+				line-height: 1;
+				letter-spacing: normal;
+			}
+
+			.remove:hover,
+			.remove:focus-visible {
+				color: var(--cr-danger);
+			}
+
+			.remove:active {
+				transform: none;
 			}
 		`,
 	];
@@ -137,6 +189,31 @@ export class EntryTiles extends LitElement {
 		cells[Math.min(Math.max(to, 0), cells.length - 1)]?.focus();
 	}
 
+	/**
+	 * Drops one pick from the closed line, where someone can see what they are
+	 * removing. Focus lands on whichever remove button takes the gone one's
+	 * place, or on the summary when the slot has emptied — the chip it was on
+	 * has stopped existing either way.
+	 */
+	async #drop(value: string): Promise<void> {
+		const at = this.selected.indexOf(value);
+		const next = new Set(this.chosen);
+		next.delete(value);
+		this.chosen = next;
+		this.dispatchEvent(new Event("input", { bubbles: true }));
+		await this.updateComplete;
+
+		const buttons = [
+			...(this.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+				"summary button.remove",
+			) ?? []),
+		];
+		(
+			buttons[Math.min(at, buttons.length - 1)] ??
+			this.shadowRoot?.querySelector("summary")
+		)?.focus();
+	}
+
 	/** Focus follows the toggled cell into its replacement, as in `<entry-tile>`. */
 	async #toggle(value: string): Promise<void> {
 		const next = new Set(this.chosen);
@@ -195,15 +272,29 @@ export class EntryTiles extends LitElement {
 					${
 						chosen.length === 0
 							? NONE
-							: chosen.map(
-									(value, index) =>
-										html`${
-											index === 0 ? "" : html`<span class="or">or</span>`
-										}${this.#art(
-											labels.get(value) ?? value,
-											images.get(value) ?? null,
-										)}<span class="name">${labels.get(value) ?? value}</span>`,
-								)
+							: chosen.map((value, index) => {
+									const name = labels.get(value) ?? value;
+									return html`${
+										index === 0 ? "" : html`<span class="or">or</span>`
+									}<span class="chip"
+											>${this.#art(name, images.get(value) ?? null)}<span
+												class="name"
+												>${name}</span
+											><button
+												type="button"
+												class="remove"
+												aria-label=${`Remove ${name}`}
+												@click=${(event: MouseEvent) => {
+													// Inside the summary, so a click would otherwise
+													// open the list — the opposite of tidying a slot.
+													event.preventDefault();
+													event.stopPropagation();
+													void this.#drop(value);
+												}}
+												>×</button
+											></span
+										>`;
+								})
 					}
 				</span>
 			</summary>

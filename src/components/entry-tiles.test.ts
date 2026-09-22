@@ -30,6 +30,17 @@ function entries(element: EntryTiles): HTMLButtonElement[] {
 	];
 }
 
+function remove(
+	element: EntryTiles,
+	index: number,
+): HTMLButtonElement | undefined {
+	return [
+		...(element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+			"summary button.remove",
+		) ?? []),
+	][index];
+}
+
 function search(element: EntryTiles): HTMLInputElement | null {
 	return element.shadowRoot?.querySelector("input") ?? null;
 }
@@ -74,6 +85,93 @@ test("alternatives read as this or that on the closed line", async () => {
 			word.textContent?.trim(),
 		),
 	).toEqual(["or"]);
+});
+
+// Four alternatives in one slot used to stack into a tall column of full-size
+// portraits. They are chips now: thumbnail, name, and a way out.
+test("each pick is a chip carrying its own remove button", async () => {
+	const element = await mount();
+
+	element.selected = ["001", "003"];
+	await element.updateComplete;
+
+	const removes = [
+		...(element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+			"summary button.remove",
+		) ?? []),
+	];
+	expect(removes.map((button) => button.getAttribute("aria-label"))).toEqual([
+		"Remove Always Cute Acorn",
+		"Remove Cheesecake Slice",
+	]);
+});
+
+test("the remove button drops that pick and leaves the others", async () => {
+	const element = await mount();
+
+	element.selected = ["001", "003"];
+	await element.updateComplete;
+	remove(element, 0)?.click();
+	await settle(element);
+
+	expect(element.selected).toEqual(["003"]);
+});
+
+test("removing a pick dispatches exactly one input event from the host", async () => {
+	const element = await mount();
+	element.selected = ["001", "003"];
+	await element.updateComplete;
+	let seen = 0;
+	element.addEventListener("input", () => {
+		seen += 1;
+	});
+
+	remove(element, 0)?.click();
+	await settle(element);
+
+	expect(seen).toBe(1);
+});
+
+// The button sits inside the summary, where any click would otherwise open the
+// list — which is the opposite of what someone tidying a slot is asking for.
+test("removing a pick does not open the list", async () => {
+	const element = await mount();
+
+	element.selected = ["001"];
+	await element.updateComplete;
+	const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+	remove(element, 0)?.dispatchEvent(click);
+	await settle(element);
+
+	expect(click.defaultPrevented).toBe(true);
+	expect(element.open).toBe(false);
+});
+
+test("removing the last pick leaves the slot saying None", async () => {
+	const element = await mount();
+
+	element.selected = ["001"];
+	await element.updateComplete;
+	remove(element, 0)?.click();
+	await settle(element);
+
+	expect(element.selected).toEqual([]);
+	expect(element.shadowRoot?.querySelector(".pick")?.textContent?.trim()).toBe(
+		"None",
+	);
+});
+
+// Focus has to land somewhere after the chip it was on stops existing.
+test("focus moves to the next remove button when one is taken away", async () => {
+	const element = await mount();
+
+	element.selected = ["001", "003"];
+	await element.updateComplete;
+	remove(element, 0)?.focus();
+	remove(element, 0)?.click();
+	await settle(element);
+
+	expect(element.shadowRoot?.activeElement).toBe(remove(element, 0) ?? null);
 });
 
 test("the picked entries show their thumbnails on the closed line", async () => {
