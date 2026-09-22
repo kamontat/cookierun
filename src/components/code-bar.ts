@@ -15,6 +15,9 @@ export type CharHint = {
 	group: string;
 };
 
+/** How long the copy button says it worked before going back to its label. */
+const COPIED_FOR = 2000;
+
 /**
  * The code, and the only place a code is entered. It shows the current code as
  * one run per field — each run says what it means and jumps to the control that
@@ -175,11 +178,40 @@ export class CodeBar extends LitElement {
 				font-size: 0.75rem;
 			}
 
+			/* Both labels sit in one grid cell, so the button is as wide as the
+			   wider of the two and holds still when it swaps. The hidden one is
+			   hidden by visibility rather than display, which keeps it out of the
+			   accessible name while it still takes up its width. */
+			.swap {
+				display: grid;
+				place-items: center;
+			}
+
+			.swap > span {
+				grid-area: 1 / 1;
+			}
+
+			.swap > .said,
+			.swap.done > .rest {
+				visibility: hidden;
+			}
+
+			.swap.done > .said {
+				visibility: visible;
+			}
+
+			/* No reserved height: the line is empty most of the time, and an empty
+			   line held open under the code is a band of nothing in a panel that is
+			   pinned to the top of the screen. It stays in the tree rather than
+			   being hidden, so it is still the live region it claims to be. */
 			.message {
-				min-height: 1.4rem;
 				margin: var(--cr-space-2) 0 0;
 				color: var(--cr-muted);
 				font-size: 0.9rem;
+			}
+
+			.message:empty {
+				margin-top: 0;
 			}
 
 			.message.error {
@@ -215,6 +247,17 @@ export class CodeBar extends LitElement {
 	private failed = false;
 
 	/**
+	 * Whether the copy button is currently saying it worked. A confirmation that
+	 * succeeded belongs on the control that did it: the message line under the
+	 * code would otherwise have to stand open for a sentence it shows for two
+	 * seconds at a time, and an empty line held open is what the panel pays for
+	 * it the rest of the time. A blocked clipboard still goes to the line — it
+	 * has an instruction to give, which is more than a label holds.
+	 */
+	@state()
+	private copied = false;
+
+	/**
 	 * Which run is the single tab stop, by index. A render never writes it back,
 	 * it only clamps a stale index against however many runs currently exist, so
 	 * the invariant — exactly one run in range, tabbable — holds even after the
@@ -233,6 +276,9 @@ export class CodeBar extends LitElement {
 
 	/** The code the current hints were computed against. */
 	#hintsFor = "";
+
+	/** Puts the copy button back to its resting label. */
+	#copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
 	get hints(): readonly CharHint[] {
 		return this.hintList;
@@ -263,6 +309,20 @@ export class CodeBar extends LitElement {
 		if (this.#hintsFor !== this.value) this.hintList = [];
 		this.status = "";
 		this.failed = false;
+		this.#rest();
+	}
+
+	/** Nothing should outlive the element that started it. */
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		this.#rest();
+	}
+
+	/** Puts the copy button back, and drops the timer that would have done it. */
+	#rest(): void {
+		clearTimeout(this.#copiedTimer);
+		this.#copiedTimer = undefined;
+		this.copied = false;
 	}
 
 	protected override updated(changed: PropertyValues<this>): void {
@@ -275,9 +335,15 @@ export class CodeBar extends LitElement {
 	async #copy(): Promise<void> {
 		try {
 			await navigator.clipboard.writeText(this.value);
-			this.status = "Copied.";
+			this.status = "";
 			this.failed = false;
+			this.#rest();
+			this.copied = true;
+			this.#copiedTimer = setTimeout(() => {
+				this.#rest();
+			}, COPIED_FOR);
 		} catch {
+			this.#rest();
 			this.status =
 				"The browser blocked the clipboard. Select the code and copy it by hand.";
 			this.failed = true;
@@ -456,7 +522,10 @@ export class CodeBar extends LitElement {
 						void this.#copy();
 					}}
 				>
-					Copy
+					<span class=${classMap({ swap: true, done: this.copied })}>
+						<span class="rest">Copy</span>
+						<span class="said">Copied</span>
+					</span>
 				</button>
 			</span>`;
 	}

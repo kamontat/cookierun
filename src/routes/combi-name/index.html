@@ -53,7 +53,14 @@
         <summary-line id="summary"></summary-line>
 
         <div class="actions">
-          <button id="copy-link" type="button">Copy link</button>
+          <!-- Two labels in one cell: the button says the copy worked without
+               changing width, so Reset does not shuffle sideways for it. -->
+          <button id="copy-link" type="button">
+            <span class="swap">
+              <span class="rest">Copy link</span>
+              <span class="said">Copied</span>
+            </span>
+          </button>
           <button id="reset" type="button">Reset</button>
         </div>
         <p id="link-status" class="status" role="status"></p>

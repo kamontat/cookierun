@@ -382,6 +382,57 @@ test("a hash the page cannot read leaves the build alone", async () => {
 	await reset();
 });
 
+/** Runs `body` with the clipboard answering however the test needs it to. */
+async function withClipboard(
+	writeText: () => Promise<void>,
+	body: () => Promise<void>,
+): Promise<void> {
+	const real = navigator.clipboard;
+	Object.defineProperty(navigator, "clipboard", {
+		configurable: true,
+		value: { writeText },
+	});
+	try {
+		await body();
+	} finally {
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: real,
+		});
+	}
+}
+
+// The confirmation rides on the button, so the line under it stays closed
+// unless the clipboard actually refused.
+test("copying the link says so on the button, not in the status line", async () => {
+	await withClipboard(
+		() => Promise.resolve(),
+		async () => {
+			need<HTMLButtonElement>("copy-link").click();
+			await settle();
+
+			expect(
+				need("copy-link").querySelector(".swap")?.classList.contains("done"),
+			).toBe(true);
+			expect(shown(need("link-status")).trim()).toBe("");
+		},
+	);
+});
+
+// A blocked clipboard has an instruction to give, and an instruction does not
+// fit on a button.
+test("a blocked clipboard writes the instruction into the status line", async () => {
+	await withClipboard(
+		() => Promise.reject(new Error("blocked")),
+		async () => {
+			need<HTMLButtonElement>("copy-link").click();
+			await settle();
+
+			expect(shown(need("link-status"))).toContain("blocked the clipboard");
+		},
+	);
+});
+
 test("every character of the code carries a hint", async () => {
 	await settle();
 	const runs = [

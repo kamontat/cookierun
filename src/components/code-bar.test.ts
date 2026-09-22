@@ -307,7 +307,9 @@ test("an invalid message is marked as an error", async () => {
 	).toBe(true);
 });
 
-test("copying reports that it worked", async () => {
+// The button says it, not the line under the code: an empty line held open for
+// a message this brief costs the panel its height all the time.
+test("copying reports that it worked, on the button", async () => {
 	const element = await mount();
 	let copied = "";
 	stubClipboard(async () => {
@@ -319,8 +321,13 @@ test("copying reports that it worked", async () => {
 
 	expect(copied).toBe(CODE);
 	expect(
+		element.shadowRoot
+			?.querySelector(".copy .swap")
+			?.classList.contains("done"),
+	).toBe(true);
+	expect(
 		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
-	).toBe("Copied.");
+	).toBe("");
 });
 
 test("a blocked clipboard says so instead", async () => {
@@ -335,8 +342,8 @@ test("a blocked clipboard says so instead", async () => {
 	).toBe(true);
 });
 
-// A stale "Copied." beside a code that has since changed is a lie.
-test("a new value clears the copy status", async () => {
+// A button still saying "Copied" beside a code that has since changed is a lie.
+test("a new value puts the copy button back", async () => {
 	const element = await mount();
 	stubClipboard(async () => {});
 
@@ -346,6 +353,30 @@ test("a new value clears the copy status", async () => {
 	await settle(element);
 
 	expect(
+		element.shadowRoot
+			?.querySelector(".copy .swap")
+			?.classList.contains("done"),
+	).toBe(false);
+	expect(
 		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
 	).toBe("");
+});
+
+// A blocked clipboard has an instruction to give, and an instruction does not
+// fit on a button.
+test("a blocked clipboard leaves the button alone and speaks in the line", async () => {
+	const element = await mount();
+	stubClipboard(() => Promise.reject(new Error("blocked")));
+
+	element.shadowRoot?.querySelector<HTMLButtonElement>(".copy")?.click();
+	await settle(element);
+
+	expect(
+		element.shadowRoot
+			?.querySelector(".copy .swap")
+			?.classList.contains("done"),
+	).toBe(false);
+	expect(
+		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
+	).toContain("blocked the clipboard");
 });
