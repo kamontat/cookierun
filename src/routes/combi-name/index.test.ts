@@ -232,6 +232,35 @@ test("a code carrying a treasure the picker hides keeps it", async () => {
 	await reset();
 });
 
+// An evolved treasure and its blessed form share a picture and all but a
+// prefix of a name, so every cell says which of the three it is.
+test("every treasure cell carries its kind", async () => {
+	const cells = [
+		...inside(need("treasure1")).querySelectorAll<HTMLElement>("button.entry"),
+	];
+
+	expect(cells.length).toBeGreaterThan(0);
+	for (const cell of cells) {
+		expect([cell.dataset["kind"], cell.textContent?.trim()]).toEqual([
+			expect.stringMatching(/^(base|evolved|blessed)$/) as unknown as string,
+			cell.textContent?.trim(),
+		]);
+	}
+});
+
+// The kind travels with a carried id the same way its name does — the picker
+// appends this one itself, so it is a second place the kind has to be written.
+test("a treasure the picker hides still says which kind it is", async () => {
+	await typeCode("1TU00Z.1S00--000-");
+
+	expect(
+		inside(need("treasure1")).querySelector<HTMLElement>(".chip")?.dataset[
+			"kind"
+		],
+	).toBe("base");
+	await reset();
+});
+
 // A half-typed code is not an error, so it says how far along it is rather
 // than complaining.
 test("an unfinished code reports how many characters are in it", async () => {

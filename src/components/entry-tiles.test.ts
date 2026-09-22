@@ -12,12 +12,32 @@ const TREASURES = [
 	["003", "Cheesecake Slice", null],
 ] as const;
 
+// The evolved entry and the blessed one deliberately share a picture and all
+// but a prefix of their name, which is the pair the badge exists to tell apart.
+const KINDED = [
+	["001", "Always Cute Acorn", "../assets/treasures/tr_ga034.png", "base"],
+	["002", "Chewy Cheese Ball", "../assets/treasures/tr_pet04_m.png", "evolved"],
+	[
+		"003",
+		"Blessed Chewy Cheese Ball",
+		"../assets/treasures/tr_pet04_m.png",
+		"blessed",
+	],
+] as const;
+
 async function mount(legend = "Treasure slot 1"): Promise<EntryTiles> {
 	document.body.replaceChildren();
 	const element = document.createElement("entry-tiles") as EntryTiles;
 	element.setAttribute("legend", legend);
 	document.body.append(element);
 	element.options = TREASURES;
+	await element.updateComplete;
+	return element;
+}
+
+async function mountKinded(): Promise<EntryTiles> {
+	const element = await mount();
+	element.options = KINDED;
 	await element.updateComplete;
 	return element;
 }
@@ -341,6 +361,180 @@ test("a click inside the slot leaves it open", async () => {
 	await element.updateComplete;
 
 	expect(element.open).toBe(true);
+});
+
+// Two cells can carry the same picture and nearly the same name, so the kind
+// is what the eye has left to go on.
+test("each entry wears the badge of its kind", async () => {
+	const element = await mountKinded();
+
+	expect(entries(element).map((entry) => entry.dataset["kind"])).toEqual([
+		"base",
+		"evolved",
+		"blessed",
+	]);
+	expect(
+		entries(element).map((entry) =>
+			entry.querySelector(".badge")?.textContent?.trim(),
+		),
+	).toEqual(["N", "E", "B"]);
+});
+
+// Colour and a letter are no help to a screen reader, so the cell says it.
+test("an entry names its kind in its accessible name", async () => {
+	const element = await mountKinded();
+
+	expect(
+		entries(element).map((entry) => entry.getAttribute("aria-label")),
+	).toEqual([
+		"Always Cute Acorn, Base",
+		"Chewy Cheese Ball, Evolved",
+		"Blessed Chewy Cheese Ball, Blessed",
+	]);
+});
+
+// Cookies and pets have no chain, and neither does an option list written
+// before this existed. Nothing is claimed about either.
+test("an entry with no kind wears no badge and claims nothing", async () => {
+	const element = await mount();
+
+	expect(entries(element).map((entry) => entry.dataset["kind"])).toEqual([
+		undefined,
+		undefined,
+		undefined,
+	]);
+	expect(element.shadowRoot?.querySelector(".entry .badge")).toBe(null);
+	expect(entries(element)[0]?.getAttribute("aria-label")).toBe(
+		"Always Cute Acorn",
+	);
+});
+
+// The closed line is where a built slot is read back, so it has to answer the
+// same question the grid does — and a chip has a border to answer it with.
+test("a pick carries its kind onto the closed line", async () => {
+	const element = await mountKinded();
+
+	element.selected = ["002", "003"];
+	await element.updateComplete;
+
+	expect(
+		[...(element.shadowRoot?.querySelectorAll<HTMLElement>(".chip") ?? [])].map(
+			(chip) => chip.dataset["kind"],
+		),
+	).toEqual(["evolved", "blessed"]);
+});
+
+function kindFilters(element: EntryTiles): HTMLButtonElement[] {
+	return [
+		...(element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+			".kinds button",
+		) ?? []),
+	];
+}
+
+function pressKind(element: EntryTiles, kind: string): void {
+	kindFilters(element)
+		.find((button) => button.dataset["kind"] === kind)
+		?.click();
+}
+
+test("the filter row offers every kind, plus all of them", async () => {
+	const element = await mountKinded();
+
+	expect(kindFilters(element).map((button) => button.dataset["kind"])).toEqual([
+		"all",
+		"base",
+		"evolved",
+		"blessed",
+	]);
+	expect(
+		kindFilters(element).map((button) => button.textContent?.trim()),
+	).toEqual(["All", "Base", "Evolved", "Blessed"]);
+});
+
+test("a list carrying no kinds has no filter row to offer", async () => {
+	const element = await mount();
+
+	expect(kindFilters(element)).toEqual([]);
+});
+
+test("picking a kind narrows the grid to it", async () => {
+	const element = await mountKinded();
+
+	pressKind(element, "blessed");
+	await settle(element);
+
+	expect(entries(element).map((entry) => entry.value)).toEqual(["003"]);
+});
+
+test("All brings the rest of the list back", async () => {
+	const element = await mountKinded();
+
+	pressKind(element, "evolved");
+	await settle(element);
+	pressKind(element, "all");
+	await settle(element);
+
+	expect(entries(element).map((entry) => entry.value)).toEqual([
+		"001",
+		"002",
+		"003",
+	]);
+});
+
+test("the row says which kind it is filtering by", async () => {
+	const element = await mountKinded();
+
+	pressKind(element, "evolved");
+	await settle(element);
+
+	expect(
+		kindFilters(element).map((button) => button.getAttribute("aria-pressed")),
+	).toEqual(["false", "false", "true", "false"]);
+});
+
+// Two narrowings of one list, not two lists.
+test("the kind filter and the search box narrow together", async () => {
+	const element = await mountKinded();
+	const box = search(element);
+	if (box === null) throw new Error("no search box");
+
+	pressKind(element, "blessed");
+	await settle(element);
+	box.value = "chewy";
+	box.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+	await settle(element);
+
+	expect(entries(element).map((entry) => entry.value)).toEqual(["003"]);
+});
+
+// Narrowing a list is not a change of what the slot holds — the same rule the
+// search box follows.
+test("filtering by kind does not escape the shadow root as a change", async () => {
+	const element = await mountKinded();
+	let escaped = 0;
+	element.addEventListener("input", () => {
+		escaped += 1;
+	});
+
+	pressKind(element, "base");
+	await settle(element);
+
+	expect(escaped).toBe(0);
+});
+
+test("a pick the kind filter hides is still held, and still on the closed line", async () => {
+	const element = await mountKinded();
+
+	element.selected = ["002"];
+	await element.updateComplete;
+	pressKind(element, "blessed");
+	await settle(element);
+
+	expect(element.selected).toEqual(["002"]);
+	expect(
+		element.shadowRoot?.querySelector(".chip .name")?.textContent?.trim(),
+	).toBe("Chewy Cheese Ball");
 });
 
 test("an arrow walks to the next entry", async () => {

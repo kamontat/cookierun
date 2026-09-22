@@ -1,5 +1,11 @@
 import { boostArt, cookiePowerArt, episodeArt } from "./art";
-import { imageFor, labelFor, optionsFor } from "./catalog";
+import {
+	type EntryKind,
+	imageFor,
+	kindFor,
+	labelFor,
+	optionsFor,
+} from "./catalog";
 import {
 	type Action,
 	ALL_ACTIONS,
@@ -85,10 +91,23 @@ const ASSET_BASE = "../assets/";
 
 function pickerOptions(
 	section: "cookies" | "pets" | "treasures",
-): readonly (readonly [string, string, string | null])[] {
+): readonly (readonly [string, string, string | null, EntryKind | null])[] {
 	return optionsFor(section).map(
-		([id, label, image]) =>
-			[id, label, image === null ? null : ASSET_BASE + image] as const,
+		([id, label, image, kind]) =>
+			[id, label, image === null ? null : ASSET_BASE + image, kind] as const,
+	);
+}
+
+/**
+ * The same list without the kind, for the three `<entry-tile>` pickers. Nothing
+ * a cookie or a pet picker holds evolves, so the kind is always null there and
+ * the element has no field for one.
+ */
+function tileOptions(
+	section: "cookies" | "pets",
+): readonly (readonly [string, string, string | null])[] {
+	return pickerOptions(section).map(
+		([id, label, image]) => [id, label, image] as const,
 	);
 }
 
@@ -125,7 +144,7 @@ function readLoadout(): Loadout {
  */
 function treasureOptions(
 	carried: readonly string[],
-): readonly (readonly [string, string, string | null])[] {
+): readonly (readonly [string, string, string | null, EntryKind | null])[] {
 	const offered = treasureCatalog;
 	const extra = carried
 		.filter((id) => !offered.some(([candidate]) => candidate === id))
@@ -137,6 +156,7 @@ function treasureOptions(
 					imageFor("treasures", id) === null
 						? null
 						: ASSET_BASE + imageFor("treasures", id),
+					kindFor("treasures", id),
 				] as const,
 		);
 	if (extra.length === 0) return offered;
@@ -430,11 +450,11 @@ cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 		] as const,
 );
 
-const cookieOptions = pickerOptions("cookies");
+const cookieOptions = tileOptions("cookies");
 
 cookieTile.options = cookieOptions;
 relayTile.options = cookieOptions;
-petTile.options = pickerOptions("pets");
+petTile.options = tileOptions("pets");
 for (const slot of treasureSlots) slot.options = treasureCatalog;
 
 buildForm.addEventListener("input", () => {

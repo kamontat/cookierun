@@ -18,6 +18,14 @@
 	--cr-accent-2: #ffd23f;
 	--cr-danger: #ff6b5e;
 
+	/* An evolved treasure and the blessed form beside it share one picture and
+	   all but a prefix of one name, so colour is what the picker has left to
+	   tell them apart with. A base form wears --cr-muted rather than a third
+	   colour: it is the common case, and 900 tinted cells is no distinction at
+	   all. */
+	--cr-evolved: #4ade80;
+	--cr-blessed: #ffd23f;
+
 	--cr-border: 2px;
 	--cr-radius: 2px;
 	--cr-block: 4px 4px 0 var(--cr-line);
@@ -61,6 +69,8 @@
 		--cr-accent: #d81b60;
 		--cr-accent-2: #a86800;
 		--cr-danger: #c62828;
+		--cr-evolved: #1b7a43;
+		--cr-blessed: #a86800;
 	}
 }
 
@@ -76,4 +86,6 @@
 	--cr-accent: #d81b60;
 	--cr-accent-2: #a86800;
 	--cr-danger: #c62828;
+	--cr-evolved: #1b7a43;
+	--cr-blessed: #a86800;
 }

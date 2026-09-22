@@ -29,10 +29,24 @@ export const CAPACITY: Record<CatalogSection, number> = {
 	treasures: 36 ** ID_WIDTH.treasures,
 };
 
+/**
+ * Where an entry sits in its evolution chain, named rather than lettered: the
+ * index writes `N`, `E` and `B`, and a control drawing a badge should not have
+ * to know that alphabet. Treasures only — nothing else in the catalog evolves.
+ */
+export type EntryKind = "base" | "evolved" | "blessed";
+
+const KIND_OF: Record<string, EntryKind> = {
+	N: "base",
+	E: "evolved",
+	B: "blessed",
+};
+
 export type PickerOption = readonly [
 	id: string,
 	label: string,
 	image: string | null,
+	kind: EntryKind | null,
 ];
 
 export type CatalogEntry = {
@@ -41,6 +55,8 @@ export type CatalogEntry = {
 	image: string | null;
 	/** Which family the site sorts this entry into; treasures only. */
 	family?: string;
+	/** Where in its evolution chain the site files this entry; treasures only. */
+	type?: string;
 	retired?: true;
 };
 
@@ -119,6 +135,19 @@ export function imageFor(section: CatalogSection, id: string): string | null {
 	return entryFor(section, id)?.image ?? null;
 }
 
+/**
+ * Which of base, evolved and blessed an id is, or `null` where the question
+ * does not apply — a cookie, a pet, or an id the catalog does not carry.
+ *
+ * An evolved treasure and the blessed form beside it share one picture and a
+ * name that differs only by its prefix, so this is the only thing telling the
+ * picker's two cells apart.
+ */
+export function kindFor(section: CatalogSection, id: string): EntryKind | null {
+	const type = entryFor(section, id)?.type;
+	return type === undefined ? null : (KIND_OF[type] ?? null);
+}
+
 const BY_KEY: Record<CatalogSection, ReadonlyMap<string, CatalogEntry>> = {
 	cookies: new Map(Object.values(DATA.cookies).map((e) => [e.key, e])),
 	pets: new Map(Object.values(DATA.pets).map((e) => [e.key, e])),
@@ -164,7 +193,12 @@ export function optionsFrom(
 	return live
 		.map(([id, entry]): PickerOption => {
 			const shared = (counts.get(entry.name) ?? 0) > 1;
-			return [id, shared ? `${entry.name} [${id}]` : entry.name, entry.image];
+			return [
+				id,
+				shared ? `${entry.name} [${id}]` : entry.name,
+				entry.image,
+				entry.type === undefined ? null : (KIND_OF[entry.type] ?? null),
+			];
 		})
 		.sort(([a], [b]) => (a === b ? 0 : a < b ? -1 : 1));
 }

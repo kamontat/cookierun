@@ -11,6 +11,7 @@ import {
 	imageFor,
 	imageForKey,
 	isRetired,
+	kindFor,
 	labelFor,
 	nameFor,
 	optionsFor,
@@ -97,8 +98,8 @@ test("a retired entry stays out of the options, and out of the name count", () =
 	// The live "Sotdae Flock" is alone once the retired one is out, so it keeps
 	// its plain name rather than being disambiguated against a dead entry.
 	expect(options).toEqual([
-		["00", "Sotdae Flock", null],
-		["02", "Other", "pets/pet02.png"],
+		["00", "Sotdae Flock", null, null],
+		["02", "Other", "pets/pet02.png", null],
 	]);
 });
 
@@ -203,6 +204,53 @@ test("every hidden family is one the index actually uses", () => {
 	for (const family of HIDDEN_TREASURE_FAMILIES) {
 		expect([...used]).toContain(family);
 	}
+});
+
+// An evolved treasure and the blessed form beside it share one picture — 267
+// of the 1,144 entries are half of such a pair — and their names differ only
+// by a prefix. The picker cannot tell them apart on art alone, so the option
+// carries which of the three it is and the control draws it.
+test("a treasure option carries its kind", () => {
+	const options = optionsFrom({
+		"000": { key: "Base", name: "Base", image: null, type: "N" },
+		"001": { key: "Evo", name: "Evo", image: null, type: "E" },
+		"002": { key: "Bless", name: "Bless", image: null, type: "B" },
+	});
+
+	expect(options.map(([, , , kind]) => kind)).toEqual([
+		"base",
+		"evolved",
+		"blessed",
+	]);
+});
+
+// Cookies and pets have no evolution chain, so their options say nothing about
+// one rather than claiming every entry is a base form.
+test("an entry with no type carries no kind", () => {
+	expect(optionsFor("cookies").every(([, , , kind]) => kind === null)).toBe(
+		true,
+	);
+	expect(optionsFor("pets").every(([, , , kind]) => kind === null)).toBe(true);
+});
+
+test("every offered treasure knows which of the three it is", () => {
+	for (const [id, , , kind] of optionsFor("treasures")) {
+		expect([kind, id]).toEqual([kindFor("treasures", id), id]);
+		expect(["base", "evolved", "blessed"]).toContain(kind ?? "none");
+	}
+});
+
+test("the blessed forms in the catalog read as blessed", () => {
+	expect(kindFor("treasures", "002")).toBe("blessed");
+	expect(kindFor("treasures", "009")).toBe("evolved");
+	expect(kindFor("treasures", "000")).toBe("base");
+});
+
+// The same promise `nameFor` makes: an id the catalog does not carry is
+// answered, not thrown at.
+test("an id outside the catalog has no kind", () => {
+	expect(kindFor("treasures", "ZZZ")).toBe(null);
+	expect(kindFor("cookies", "00")).toBe(null);
 });
 
 test("a static entry's picture is found by its authored key", () => {
