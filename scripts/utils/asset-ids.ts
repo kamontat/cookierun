@@ -13,6 +13,39 @@ export type Section = "cookies" | "pets" | "treasures";
 
 export const SECTIONS: Section[] = ["cookies", "pets", "treasures"];
 
+/**
+ * Sections the scraper does not own. Boosts have no page on cookierundb.com at
+ * all, and episodes have one this project deliberately does not scrape: both
+ * describe a fixed part of the game rather than a catalog that grows, so they
+ * are written by hand and left alone by `fetch:assets` and `verify:assets`.
+ *
+ * Their keys are authored too — `ep1`, `hp-extension` — not assigned. Nothing
+ * here is reachable from a loadout code: the combi codec carries its own
+ * character for an episode or a boost, so these keys are a way to find an icon
+ * and a name, never a wire value. That is why none of the id machinery above
+ * applies to them, and why an entry may be renamed or removed without breaking
+ * a published code.
+ */
+export type StaticSection = "boosts" | "episodes";
+
+export const STATIC_SECTIONS: StaticSection[] = ["boosts", "episodes"];
+
+export type StaticEntry = {
+	name: string;
+	/** The entry's own page, or `null` where the site has none — every boost. */
+	url: string | null;
+	/** Path under `assets/`, or `null` where no icon has been collected yet. */
+	image: string | null;
+};
+
+/**
+ * What an authored key may look like. It has to start with a letter: a key that
+ * is a canonical integer string enumerates ahead of every other key whatever
+ * order it was inserted in, which would put the written file out of step with
+ * the sorted order `serializeIndex` produces.
+ */
+const STATIC_KEY = /^[a-z][a-z0-9-]*$/;
+
 export const ID_WIDTH: Record<Section, number> = {
 	cookies: 2,
 	pets: 2,
@@ -71,6 +104,8 @@ export type AssetIndex = {
 	cookies: Record<string, Entry>;
 	pets: Record<string, Entry>;
 	treasures: Record<string, TreasureEntry>;
+	boosts: Record<string, StaticEntry>;
+	episodes: Record<string, StaticEntry>;
 };
 
 export function toId(n: number, width: number): string {
@@ -126,9 +161,22 @@ export function ordered<T extends Entry>(entry: T): T {
 	return out as T;
 }
 
+/**
+ * The static counterpart of `ordered`, and the only place a static entry's
+ * shape is fixed. It keeps the three fields and drops anything else, so a hand
+ * edit that invents a field is not silently carried — `verifyStructure` sees
+ * the file differ from what the writer would produce and says so.
+ */
+export function orderedStatic(entry: StaticEntry): StaticEntry {
+	return { name: entry.name, url: entry.url, image: entry.image };
+}
+
 type OldEntry = Record<string, unknown>;
 
-function sectionOf(old: unknown, section: Section): Record<string, OldEntry> {
+function sectionOf(
+	old: unknown,
+	section: Section | StaticSection,
+): Record<string, OldEntry> {
 	const holder = old as Record<string, unknown>;
 	const found = holder[section];
 	if (found === undefined || found === null) return {};
@@ -172,8 +220,19 @@ export function migrate(old: unknown): AssetIndex {
 		cookies: {},
 		pets: {},
 		treasures: {},
+		boosts: {},
+		episodes: {},
 	};
 	const treasureIds = new Map<string, string>();
+
+	// Carried through, not derived: a static section has no ids to assign and no
+	// old key shape to move away from. A file written before these sections
+	// existed simply has none, which is what keeps `migrate` able to read it.
+	for (const section of STATIC_SECTIONS) {
+		for (const [key, entry] of Object.entries(sectionOf(old, section))) {
+			out[section][key] = orderedStatic(entry as unknown as StaticEntry);
+		}
+	}
 
 	for (const section of SECTIONS) {
 		const entries = Object.entries(sectionOf(old, section));
@@ -241,9 +300,25 @@ function byId<T extends Entry>(entries: Record<string, T>): Record<string, T> {
 	return sorted;
 }
 
+/** `byId` for a static section, whose keys are authored rather than assigned. */
+function byKey(
+	entries: Record<string, StaticEntry>,
+): Record<string, StaticEntry> {
+	const sorted: Record<string, StaticEntry> = {};
+	for (const key of Object.keys(entries).sort()) {
+		const entry = entries[key];
+		if (entry !== undefined) sorted[key] = orderedStatic(entry);
+	}
+	return sorted;
+}
+
 /**
  * The one way `assets/index.json` is written, so the scraper and the verifier
  * cannot disagree about what the file should look like.
+ *
+ * The static sections come last so that adding them left the 1,341 scraped
+ * entries above them untouched, and so a hand edit to one shows up as a diff at
+ * the end of the file rather than in the middle of the treasures.
  */
 export function serializeIndex(index: AssetIndex): string {
 	return `${JSON.stringify(
@@ -252,6 +327,8 @@ export function serializeIndex(index: AssetIndex): string {
 			cookies: byId(index.cookies),
 			pets: byId(index.pets),
 			treasures: byId(index.treasures),
+			boosts: byKey(index.boosts),
+			episodes: byKey(index.episodes),
 		},
 		null,
 		2,
@@ -263,8 +340,9 @@ export function serializeIndex(index: AssetIndex): string {
  * like before: that it parses, that `migrate` accepts it and leaves it alone,
  * that `fetchedAt` is `null` or an ISO 8601 instant, that it is written the way
  * the scraper writes it, that every id is the right shape and sits where its
- * position says it should, that no two entries claim one slug, and that every
- * treasure chain reference resolves.
+ * position says it should, that no two entries claim one slug, that every
+ * treasure chain reference resolves, and that each authored entry in a static
+ * section is shaped the way `staticProblems` describes.
  *
  * Returns one line per problem, so a caller can report them all at once.
  */
@@ -346,7 +424,76 @@ export function verifyStructure(text: string): string[] {
 		}
 	}
 
+	for (const section of STATIC_SECTIONS) {
+		problems.push(...staticProblems(section, index[section]));
+	}
+
 	problems.push(...chainProblems(index.treasures));
+
+	return problems;
+}
+
+/**
+ * What can be checked about an authored section without a listing page to
+ * compare it against: that each key is shaped the way the writer's sort
+ * assumes, that the three fields are present and of the right type, that an
+ * image sits under the section's own directory, and that no two entries claim
+ * one page or one picture — a copied-and-edited entry whose url or image was
+ * not changed is the mistake hand-writing invites.
+ *
+ * It cannot check that the image is on disk, since it is given the text and not
+ * the directory; `asset-ids.test.ts` does that against the committed file.
+ */
+function staticProblems(
+	section: StaticSection,
+	entries: Record<string, StaticEntry>,
+): string[] {
+	const problems: string[] = [];
+	const urls = new Map<string, string>();
+	const images = new Map<string, string>();
+
+	for (const [key, entry] of Object.entries(entries)) {
+		if (!STATIC_KEY.test(key)) {
+			problems.push(
+				`${section}/${key} is not a key of ${String(STATIC_KEY)} — lowercase, starting with a letter`,
+			);
+		}
+
+		const { name, url, image } = entry as Record<string, unknown>;
+
+		if (typeof name !== "string" || name === "") {
+			problems.push(`${section}/${key}: name ${JSON.stringify(name)} is empty`);
+		}
+
+		if (url !== null && (typeof url !== "string" || url === "")) {
+			problems.push(
+				`${section}/${key}: url ${JSON.stringify(url)} is neither null nor a URL`,
+			);
+		} else if (typeof url === "string") {
+			const first = urls.get(url);
+			if (first !== undefined) {
+				problems.push(
+					`${section}: ${url} is claimed by both ${first} and ${key}`,
+				);
+			}
+			urls.set(url, key);
+		}
+
+		if (image === null) continue;
+		if (typeof image !== "string" || !image.startsWith(`${section}/`)) {
+			problems.push(
+				`${section}/${key}: image ${JSON.stringify(image)} is neither null nor a path under ${section}/`,
+			);
+			continue;
+		}
+		const first = images.get(image);
+		if (first !== undefined) {
+			problems.push(
+				`${section}: ${image} is claimed by both ${first} and ${key}`,
+			);
+		}
+		images.set(image, key);
+	}
 
 	return problems;
 }

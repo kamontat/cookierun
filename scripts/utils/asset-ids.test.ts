@@ -5,7 +5,10 @@ import {
 	fromId,
 	migrate,
 	ordered,
+	orderedStatic,
 	reconcile,
+	STATIC_SECTIONS,
+	type StaticEntry,
 	serializeIndex,
 	type TreasureEntry,
 	toId,
@@ -373,7 +376,8 @@ test("fetchedAt round-trips through migrate and serializeIndex, written first", 
 	expect(index.fetchedAt).toBe("2026-09-21T08:11:04.000Z");
 	expect(serializeIndex(index)).toBe(
 		'{\n  "fetchedAt": "2026-09-21T08:11:04.000Z",\n' +
-			'  "cookies": {},\n  "pets": {},\n  "treasures": {}\n}\n',
+			'  "cookies": {},\n  "pets": {},\n  "treasures": {},\n' +
+			'  "boosts": {},\n  "episodes": {}\n}\n',
 	);
 });
 
@@ -394,4 +398,137 @@ test("an index with no fetchedAt at all is reported as missing", () => {
 	const text = '{\n  "cookies": {},\n  "pets": {},\n  "treasures": {}\n}\n';
 
 	expect(verifyStructure(text)).toContain("index.json: fetchedAt is missing");
+});
+
+// The static sections: boosts and episodes, authored rather than scraped. None
+// of the id machinery above applies to them, so what is checked instead is that
+// they survive a scrape unchanged and that a hand edit cannot go unnoticed.
+
+test("an index written before the static sections existed still migrates", () => {
+	const index = migrate({
+		fetchedAt: null,
+		cookies: {},
+		pets: {},
+		treasures: {},
+	});
+
+	expect(index.boosts).toEqual({});
+	expect(index.episodes).toEqual({});
+});
+
+test("a static entry keeps its three fields, in order, and loses the rest", () => {
+	expect(
+		orderedStatic({
+			image: "boosts/fast-start.png",
+			name: "Fast Start",
+			url: null,
+			note: "hand-added",
+		} as unknown as StaticEntry),
+	).toEqual({ name: "Fast Start", url: null, image: "boosts/fast-start.png" });
+
+	expect(
+		Object.keys(orderedStatic({ image: null, url: null, name: "Fast Start" })),
+	).toEqual(["name", "url", "image"]);
+});
+
+test("the writer sorts a static section by its authored key", () => {
+	const written = serializeIndex(
+		migrate({
+			fetchedAt: null,
+			cookies: {},
+			pets: {},
+			treasures: {},
+			episodes: {
+				sep1: { name: "Island of Coins", url: null, image: null },
+				ep1: { name: "Escape from the Oven", url: null, image: null },
+			},
+		}),
+	);
+
+	expect(written.indexOf('"ep1"')).toBeLessThan(written.indexOf('"sep1"'));
+});
+
+test("migrate leaves an already-written static section exactly as it is", async () => {
+	const index = migrate(await Bun.file(INDEX).json());
+
+	expect(migrate(JSON.parse(serializeIndex(index)))).toEqual(index);
+	expect(Object.keys(index.boosts).length).toBeGreaterThan(0);
+	expect(Object.keys(index.episodes).length).toBeGreaterThan(0);
+});
+
+test("a static key that is not lowercase and letter-first is caught", async () => {
+	const problems = await tampered((index) => {
+		const episodes = index["episodes"];
+		const entry = entryIn(index, "episodes", "ep1");
+		if (episodes === undefined) throw new Error("no episodes section");
+		episodes["EP1"] = entry;
+		delete episodes["ep1"];
+	});
+
+	expect(problems.some((problem) => problem.includes("episodes/EP1"))).toBe(
+		true,
+	);
+});
+
+test("a static entry with an empty name is caught", async () => {
+	const problems = await tampered((index) => {
+		entryIn(index, "boosts", "fast-start")["name"] = "";
+	});
+
+	expect(problems).toContain('boosts/fast-start: name "" is empty');
+});
+
+test("a static image outside the section's own directory is caught", async () => {
+	const problems = await tampered((index) => {
+		entryIn(index, "boosts", "fast-start")["image"] = "cookies/ch01.png";
+	});
+
+	expect(problems).toContain(
+		'boosts/fast-start: image "cookies/ch01.png" is neither null nor a path under boosts/',
+	);
+});
+
+// Copying an entry and changing only one of its two pointers is the mistake
+// hand-writing invites, so both are checked for collisions.
+test("two static entries claiming one image are caught", async () => {
+	const problems = await tampered((index) => {
+		entryIn(index, "boosts", "double-xp")["image"] = "boosts/fast-start.png";
+	});
+
+	expect(problems).toContain(
+		"boosts: boosts/fast-start.png is claimed by both double-xp and fast-start",
+	);
+});
+
+test("two static entries claiming one url are caught", async () => {
+	const problems = await tampered((index) => {
+		entryIn(index, "episodes", "ep2")["url"] = entryIn(
+			index,
+			"episodes",
+			"ep1",
+		)["url"];
+	});
+
+	expect(
+		problems.some((problem) => problem.includes("is claimed by both")),
+	).toBe(true);
+});
+
+// `verifyStructure` is handed the text and not the directory, so this is the
+// only thing between a hand-written path and a broken image on the page.
+test("every static image the committed index names is on disk", async () => {
+	const index = migrate(await Bun.file(INDEX).json());
+	const missing: string[] = [];
+
+	for (const section of STATIC_SECTIONS) {
+		for (const [key, entry] of Object.entries(index[section])) {
+			if (entry.image === null) continue;
+			const file = new URL(`../../assets/${entry.image}`, import.meta.url);
+			if (!(await Bun.file(file).exists())) {
+				missing.push(`${section}/${key} -> ${entry.image}`);
+			}
+		}
+	}
+
+	expect(missing).toEqual([]);
 });
