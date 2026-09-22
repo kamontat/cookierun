@@ -377,6 +377,12 @@ randomBoostChips.options = [
 	...pairs(ALL_RANDOM_BOOSTS, RANDOM_BOOST_LABELS),
 ];
 actionChips.options = pairs(ALL_ACTIONS, ACTION_LABELS);
+
+// The two rows whose first option is a "none" of their own: clicking the chip
+// already picked goes back to it. Set here rather than in the markup because
+// it is the same decision as putting that option first, which happens here.
+randomBoostChips.resettable = true;
+actionChips.resettable = true;
 orderChips.options = ORDER_OPTIONS;
 
 // The boosts have no art of their own; their cards wear the lettered tile.

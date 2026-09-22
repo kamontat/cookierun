@@ -25,7 +25,7 @@ Attributes carry markup-authored configuration; properties carry structured data
 | `<code-bar>` | `value`, `message`, `invalid`, `placeholder`, `editing` | `value`, `hints`, `message`, `invalid`, `editing` |
 | `<summary-line>` | — | `fields` |
 | `<verdict-line>` | — | `verdict` |
-| `<chip-group>` | `label` | `options`, `value` |
+| `<chip-group>` | `label` | `options`, `value`, `resettable` |
 | `<card-group>` | `legend` | `options`, `selected` |
 | `<entry-tile>` | `label` | `options`, `value`, `open` |
 | `<entry-tiles>` | `legend` | `options`, `selected`, `open` |
@@ -61,6 +61,8 @@ A CSS comment inside a `css` tagged template must not contain a backtick: it clo
 Tests reach into a component through `shadowRoot` and await `updateComplete` after any change, since Lit's render is a microtask rather than synchronous. A handler that restores focus — the pick handlers of both catalog controls, and `<chip-group>`'s arrow walk — awaits its own `updateComplete` before it does, so a test asserting where focus lands has to settle twice: once for its own await, which resumes after the handler's, and again to actually observe the result. The component test files carry a `settle()` helper (`updateComplete` plus a zero-length `Bun.sleep`) for exactly this. A value bound with `.value=${...}` is a property and not an attribute, so a test looking for one control among several finds it by reading `button.value` back, not with an attribute selector.
 
 What no test can show: happy-dom never resolves an inherited custom property, so nothing here proves a `--cr-*` token actually reaches a component, or that a colour, a border, or a layout looks right. The browser is the only verification that layer gets — a full green suite is not evidence the page is styled.
+
+Nor does happy-dom replay an attribute that was already on an element when the element upgraded. The route test sets `document.body.innerHTML` before importing the page script, which is what defines the components, so every attribute in that markup is invisible to the property it configures — `label` reads back as `""` there, and a boolean like `resettable` as `false`, while both work in a browser. So a behaviour the markup turns on cannot be tested through that harness at all. `<chip-group>`'s `resettable` is a property rather than an attribute for that reason as much as for tidiness: the route that decides which option comes first is the honest place to say that clicking the chosen chip goes back to it.
 
 ## Theme
 

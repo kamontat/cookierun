@@ -68,6 +68,20 @@ export class ChipGroup extends LitElement {
 	@property({ attribute: false })
 	options: readonly Option[] = [];
 
+	/**
+	 * Whether clicking the chip already chosen goes back to the first option.
+	 *
+	 * For a row whose first option is its own "none" — no random boost, no
+	 * action — that is how someone undoes a pick, rather than hunting along the
+	 * row for the None chip. A row with no "none" to go back to leaves this off,
+	 * since a type or an episode is always something.
+	 *
+	 * A property rather than an attribute: it is the same decision as which
+	 * option the route puts first, and it is made where that one is.
+	 */
+	@property({ attribute: false })
+	resettable = false;
+
 	#chosen = "";
 
 	/**
@@ -105,6 +119,24 @@ export class ChipGroup extends LitElement {
 		this.requestUpdate();
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 		await this.updateComplete;
+	}
+
+	/**
+	 * A click, which is the one route that can reset: the arrow walk moves along
+	 * the row and clamps at its ends, so an arrow landing on the chip already
+	 * chosen must leave it alone rather than undo it.
+	 *
+	 * A click that changes nothing says nothing — no event — since `input` from
+	 * this host means the value moved.
+	 */
+	#click(value: string): void {
+		const chosen = this.value;
+		const next =
+			this.resettable && value === chosen
+				? (this.options[0]?.[0] ?? "")
+				: value;
+		if (next === chosen) return;
+		void this.#choose(next);
 	}
 
 	async #walk(event: KeyboardEvent): Promise<void> {
@@ -160,7 +192,7 @@ export class ChipGroup extends LitElement {
 						aria-checked=${String(value === chosen)}
 						tabindex=${value === chosen ? 0 : -1}
 						@click=${() => {
-							void this.#choose(value);
+							this.#click(value);
 						}}
 					>
 						${text}

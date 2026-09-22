@@ -141,6 +141,37 @@ test("a semi-auto code re-encodes as itself", async () => {
 	await reset();
 });
 
+// Clicking the random boost you already picked is how you go back to none —
+// the two rows that have a "none" of their own say so.
+test("clicking the chosen random boost puts it back to none", async () => {
+	await choose("randomBoost", "revive");
+	expect(await codeText()).toBe("1S0---400-");
+
+	await choose("randomBoost", "revive");
+
+	expect(await codeText()).toBe("1S0---000-");
+	await reset();
+});
+
+test("clicking the chosen action puts it back to no action", async () => {
+	await choose("action", "jumpAtStart");
+	expect(await codeText()).toBe("1S0---000J");
+
+	await choose("action", "jumpAtStart");
+
+	expect(await codeText()).toBe("1S0---000-");
+	await reset();
+});
+
+// A type is always something, so the row that holds them does not reset.
+test("clicking the chosen type leaves it chosen", async () => {
+	await choose("type", "money");
+	await choose("type", "money");
+
+	expect(await codeText()).toBe("1M0---000-");
+	await reset();
+});
+
 // The summary rides in the sticky panel with the code it describes; the
 // verdict stays down the page with the warnings.
 test("the summary line says what the build is, beside the code", async () => {

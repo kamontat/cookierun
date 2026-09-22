@@ -161,6 +161,90 @@ test("Home chooses the first chip and End the last", async () => {
 	expect(element.value).toBe("score");
 });
 
+// Some of these rows have a "none" of their own sitting first — no random
+// boost, no action — and clicking the chip you already picked is the obvious
+// way to go back to it, rather than hunting for the None chip.
+test("clicking the chosen chip on a resettable group goes back to the first option", async () => {
+	const element = await mount();
+	element.resettable = true;
+	element.value = "exp";
+	await element.updateComplete;
+
+	chips(element)[2]?.click();
+	await element.updateComplete;
+
+	expect(element.value).toBe("score");
+});
+
+test("resetting dispatches exactly one input event from the host", async () => {
+	const element = await mount();
+	element.resettable = true;
+	element.value = "exp";
+	await element.updateComplete;
+	let seen = 0;
+	element.addEventListener("input", () => {
+		seen += 1;
+	});
+
+	chips(element)[2]?.click();
+	await element.updateComplete;
+
+	expect(seen).toBe(1);
+});
+
+// Nothing changed, so nothing is announced: the first chip is already what a
+// reset would land on.
+test("clicking the first chip on a resettable group changes nothing and says nothing", async () => {
+	const element = await mount();
+	element.resettable = true;
+	await element.updateComplete;
+	let seen = 0;
+	element.addEventListener("input", () => {
+		seen += 1;
+	});
+
+	chips(element)[0]?.click();
+	await element.updateComplete;
+
+	expect(element.value).toBe("score");
+	expect(seen).toBe(0);
+});
+
+// A type or an episode has no "none" to go back to, so the chip you picked
+// stays picked however many times you click it.
+test("clicking the chosen chip does nothing when the group is not resettable", async () => {
+	const element = await mount();
+	element.value = "exp";
+	await element.updateComplete;
+	let seen = 0;
+	element.addEventListener("input", () => {
+		seen += 1;
+	});
+
+	chips(element)[2]?.click();
+	await element.updateComplete;
+
+	expect(element.value).toBe("exp");
+	expect(seen).toBe(0);
+});
+
+// The arrow walk is how you move along the row, and it clamps at the ends —
+// so an arrow that lands on the chip already chosen must not reset it.
+test("an arrow onto the chosen chip does not reset a resettable group", async () => {
+	const element = await mount();
+	element.resettable = true;
+	element.value = "exp";
+	await element.updateComplete;
+
+	chips(element)[2]?.focus();
+	chips(element)[2]?.dispatchEvent(
+		new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+	);
+	await settle(element);
+
+	expect(element.value).toBe("exp");
+});
+
 test("the group carries the radiogroup role and its label", async () => {
 	const element = await mount("Episode");
 
