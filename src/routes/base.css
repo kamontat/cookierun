@@ -245,8 +245,34 @@ select {
 	padding: var(--cr-space-1) var(--cr-space-2);
 }
 
+/* The reader's `<label for="code-input">` is the site's one page-level label.
+   Without this it renders as body text beside nine pieces of the same uppercase
+   tracked chrome the components draw from the `controls` chunk. */
+label {
+	display: block;
+	color: var(--cr-muted);
+	font-size: 0.8rem;
+	letter-spacing: var(--cr-tracking);
+	text-transform: uppercase;
+}
+
 footer {
 	grid-column: 1 / -1;
 	color: var(--cr-muted);
 	font-size: 0.85rem;
+}
+
+/* Beside the rail, not under it. `<site-nav>`'s `:host` is `position: sticky`
+   with `height: 100dvh` over `grid-row: 1 / -1`, so its box is as tall as the
+   viewport whatever the three explicit rows measure. A footer spanning both
+   columns auto-places into an implicit fourth row *below* those rows, which the
+   rail's box then overhangs - and the rail is positioned where the footer is
+   not, so it paints on top of the footer's left 14rem. In column 2 the footer
+   shares the explicit third row instead, ending the grid where the rail ends.
+   Below the breakpoint there is one column and the rail is a static row, so the
+   rule above already spans the full width. */
+@media (width >= 48rem) {
+	footer {
+		grid-column: 2;
+	}
 }

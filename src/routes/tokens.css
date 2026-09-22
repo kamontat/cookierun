@@ -34,7 +34,13 @@
 }
 
 /* Paper rather than white, near-black lines: the arcade language survives the
-   switch instead of softening into a generic light theme. */
+   switch instead of softening into a generic light theme.
+
+   Every coloured token is restated, not only the greys: the neon accent, the
+   amber and the danger red are all readable on near-black and none of them
+   clears 4.5:1 on paper. #ff6b5e on #ffffff is 2.79:1; the #c62828 below is
+   5.62:1 on --cr-surface, 5.10:1 on --cr-bg and 4.67:1 on --cr-surface-2, so
+   the reader's "unknown character" line clears AA wherever it is drawn. */
 @media (prefers-color-scheme: light) {
 	:root:not([data-theme="dark"]) {
 		color-scheme: light;
@@ -47,6 +53,7 @@
 		--cr-line: #12121a;
 		--cr-accent: #d81b60;
 		--cr-accent-2: #a86800;
+		--cr-danger: #c62828;
 	}
 }
 
@@ -61,4 +68,5 @@
 	--cr-line: #12121a;
 	--cr-accent: #d81b60;
 	--cr-accent-2: #a86800;
+	--cr-danger: #c62828;
 }
