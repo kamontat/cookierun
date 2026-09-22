@@ -13,7 +13,7 @@
 		"verify:assets": "bun scripts/verify-assets.ts",
 		"test": "bun test",
 		"dev": "bun-server dev --statics 'assets/**/*.png'",
-		"build": "bun-server build --statics 'assets/**/*.png'",
+		"build": "NODE_ENV=production bun-server build --statics 'assets/**/*.png'",
 		"preview": "bun-server preview",
 		"check": "bun run check:type && bun run check:biome",
 		"check:biome": "biome check",
