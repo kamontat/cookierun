@@ -165,6 +165,15 @@ export const tileStyles = css`
 		color: var(--cr-muted);
 		font-size: 0.75rem;
 	}
+
+	/* The summary is what opens the control, and it is not a button, so the
+	   shared chunk's hit area never reaches it. Its own contents come to 41px
+	   unaided - close enough to read as deliberate, far enough to miss. */
+	@media (pointer: coarse) {
+		summary {
+			min-height: var(--cr-tap);
+		}
+	}
 `;
 
 /**

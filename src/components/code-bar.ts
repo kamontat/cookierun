@@ -88,35 +88,57 @@ export class CodeBar extends LitElement {
 				transform: none;
 			}
 
-			/* The bubble opens below the code on purpose: the bar sits at the top
-			   of a sticky panel, so one above it would open off the window. */
-			code button::after {
-				content: attr(data-tooltip);
-				position: absolute;
-				top: calc(100% + var(--cr-space-1));
-				left: 50%;
-				transform: translateX(-50%);
-				z-index: 2;
-				width: max-content;
-				max-width: 16rem;
-				border: var(--cr-border) solid var(--cr-line);
-				border-radius: var(--cr-radius);
-				background: var(--cr-surface-2);
-				box-shadow: var(--cr-block);
-				padding: var(--cr-space-1) var(--cr-space-2);
-				color: var(--cr-text);
-				font-family: var(--cr-font);
-				font-size: 0.8rem;
-				font-weight: 400;
-				letter-spacing: normal;
-				white-space: normal;
-				opacity: 0;
-				pointer-events: none;
+			/* Behind a hover query, and that is the whole point: the bubble is
+			   16rem wide and centred on its run, so on a phone one opened over a
+			   run near either edge hangs off the screen and scrolls the page
+			   sideways. A touch has no hover to open it with in any case - there
+			   the run's meaning goes into the message line under the code, which
+			   the same tap writes on its way to the control.
+
+			   It opens below the code on purpose: the bar sits at the top of a
+			   sticky panel, so one above it would open off the window. */
+			@media (hover: hover) {
+				code button::after {
+					content: attr(data-tooltip);
+					position: absolute;
+					top: calc(100% + var(--cr-space-1));
+					left: 50%;
+					transform: translateX(-50%);
+					z-index: 2;
+					width: max-content;
+					max-width: 16rem;
+					border: var(--cr-border) solid var(--cr-line);
+					border-radius: var(--cr-radius);
+					background: var(--cr-surface-2);
+					box-shadow: var(--cr-block);
+					padding: var(--cr-space-1) var(--cr-space-2);
+					color: var(--cr-text);
+					font-family: var(--cr-font);
+					font-size: 0.8rem;
+					font-weight: 400;
+					letter-spacing: normal;
+					white-space: normal;
+					opacity: 0;
+					pointer-events: none;
+				}
+
+				code button:hover::after,
+				code button:focus-visible::after {
+					opacity: 1;
+				}
 			}
 
-			code button:hover::after,
-			code button:focus-visible::after {
-				opacity: 1;
+			/* Shorter than the hit area the shared chunk gives every other
+			   button, and deliberately so: a full code wraps onto two lines, and
+			   two rows of 44px inside a panel already pinned to the top of a
+			   phone screen costs more than the taller target buys. The run is
+			   text first, and the controls below it are the way this page is
+			   meant to be driven. */
+			@media (pointer: coarse) {
+				code button {
+					min-height: 2.25rem;
+					padding: var(--cr-space-1) 0.12em;
+				}
 			}
 
 			.plain {
@@ -262,6 +284,24 @@ export class CodeBar extends LitElement {
 		}
 	}
 
+	/**
+	 * Says what the tapped run is, in the line under the code.
+	 *
+	 * That line is the only place a phone can be told: the tooltip bubble is
+	 * behind a hover query, because it is drawn wide and centred and would hang
+	 * off the screen over a run near either edge. The write is unconditional
+	 * rather than behind a matchMedia check — naming the field someone just
+	 * jumped to is worth saying with a mouse too, and a branch here would be a
+	 * second definition of "is this a touch" to keep in step with the CSS.
+	 *
+	 * The page's own `message` still wins over this, so a decode error is never
+	 * displaced by a label.
+	 */
+	#name(hint: string): void {
+		this.status = hint;
+		this.failed = false;
+	}
+
 	/** Characters sharing a group are one run, drawn and labelled together. */
 	#runs(): CharHint[][] {
 		const runs: CharHint[][] = [];
@@ -386,6 +426,7 @@ export class CodeBar extends LitElement {
 								data-group=${run[0]?.group ?? ""}
 								aria-label=${`${run[0]?.hint ?? ""} — go to this control`}
 								@click=${() => {
+									this.#name(run[0]?.hint ?? "");
 									this.dispatchEvent(
 										new CustomEvent<string>("slot-jump", {
 											detail: run[0]?.group ?? "",

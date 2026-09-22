@@ -15,16 +15,28 @@ body {
 	display: grid;
 	grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
 	grid-template-rows: auto 1fr auto;
-	min-height: 100vh;
+	/* `dvh`, not `vh`: a phone browser measures `vh` against the viewport with
+	   the URL bar retracted, so a `100vh` page is taller than the screen it is
+	   on and scrolls by the height of that bar with nothing in the gap. The
+	   rail's own height has always been `100dvh`; this is the page catching
+	   up. */
+	min-height: 100dvh;
 	background: var(--cr-bg);
 	color: var(--cr-text);
 	font-family: var(--cr-font);
 	line-height: 1.45;
 }
 
+/* The rows above are counted for a rail that spans all of them, leaving the
+   masthead and the page on rows 2 and 3. Under the breakpoint the rail stops
+   spanning and takes row 1 itself, so every element shifts down one and the
+   `1fr` lands on the masthead - which then stretches to fill a short page and
+   opens a screen's worth of nothing above the content. The flexible row has to
+   move with them. */
 @media (width < 48rem) {
 	body {
 		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto auto 1fr;
 	}
 }
 
@@ -225,6 +237,12 @@ button {
 	letter-spacing: var(--cr-tracking);
 	text-transform: uppercase;
 	cursor: pointer;
+	/* The press gesture below is the feedback; the platform's own grey wash
+	   over it just makes the button look broken for 200ms. `manipulation`
+	   turns off the double-tap-to-zoom wait, which is the whole reason a tap
+	   here ever felt late. */
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
 }
 
 button:active {
@@ -246,6 +264,22 @@ select {
 	border-radius: var(--cr-radius);
 	background: var(--cr-bg);
 	padding: var(--cr-space-1) var(--cr-space-2);
+}
+
+/* A finger is not a cursor. The sizes above are drawn for a pointer that lands
+   where it is aimed; under one that does not, every control the page draws
+   itself grows to the platform hit area. Keyed off the pointer rather than the
+   width, because a narrow window on a desktop is still a mouse.
+
+   Mirrors the `controls` chunk in src/components/theme.ts, same as the button
+   rule above does: a page-level rule does not cross a shadow boundary, so each
+   side carries its own copy. */
+@media (pointer: coarse) {
+	button,
+	input,
+	select {
+		min-height: var(--cr-tap);
+	}
 }
 
 /* Every label on the site today is inside a component's shadow root, where the

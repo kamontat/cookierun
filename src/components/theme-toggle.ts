@@ -68,6 +68,42 @@ export class ThemeToggle extends LitElement {
 				margin-top: var(--cr-space-1);
 				font-size: 0.85rem;
 			}
+
+			/* iOS Safari zooms the page in on any field it focuses whose text is
+			   under 16px, and never zooms back out. A full-size select is the
+			   whole fix; the 0.85rem above is a rail-sized detail that is not
+			   worth a viewport for. */
+			@media (pointer: coarse) {
+				select {
+					font-size: 1rem;
+				}
+			}
+
+			/* In the rail this control is a labelled field in a column; across
+			   the top of a phone it is the last thing in a single row, where a
+			   stacked label would set the height of the whole bar. The label
+			   stays in the accessibility tree - it is the select's name - it
+			   just stops taking up space. */
+			@media (width < 48rem) {
+				:host {
+					position: relative;
+				}
+
+				label {
+					position: absolute;
+					width: 1px;
+					height: 1px;
+					margin: -1px;
+					overflow: hidden;
+					clip-path: inset(50%);
+					white-space: nowrap;
+				}
+
+				select {
+					width: auto;
+					margin-top: 0;
+				}
+			}
 		`,
 	];
 

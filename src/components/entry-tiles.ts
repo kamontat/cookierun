@@ -85,6 +85,18 @@ export class EntryTiles extends LitElement {
 			.remove:active {
 				transform: none;
 			}
+
+			/* Smaller than the hit area the shared chunk gives every other
+			   button: this one sits inside a chip, and at the full 44px four
+			   alternatives in a slot would stack into a column as tall as the
+			   panel beside them - which is the thing the chip layout exists to
+			   avoid. Square, so it is as easy to hit across as down. */
+			@media (pointer: coarse) {
+				.remove {
+					min-width: 2.25rem;
+					min-height: 2.25rem;
+				}
+			}
 		`,
 	];
 

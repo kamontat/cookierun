@@ -44,6 +44,11 @@ export const controls = css`
 		text-transform: uppercase;
 		letter-spacing: var(--cr-tracking);
 		cursor: pointer;
+		/* The press gesture below is the feedback; the platform's own grey wash
+		   over it just makes the button look broken for a moment.
+		   manipulation turns off the double-tap-to-zoom wait. */
+		touch-action: manipulation;
+		-webkit-tap-highlight-color: transparent;
 	}
 
 	/* Pressed means moved into its own shadow, which is the arcade gesture. */
@@ -75,5 +80,20 @@ export const controls = css`
 		font-size: 0.8rem;
 		text-transform: uppercase;
 		letter-spacing: var(--cr-tracking);
+	}
+
+	/* Under a coarse pointer every control grows to the platform hit area.
+	   Keyed off the pointer rather than the width, because a narrow window on
+	   a desktop is still a mouse.
+
+	   A component whose control is deliberately smaller than this - a code run,
+	   a chip's remove button - says so with a more specific selector, which
+	   outbids these bare ones. */
+	@media (pointer: coarse) {
+		button,
+		input,
+		select {
+			min-height: var(--cr-tap);
+		}
 	}
 `;
