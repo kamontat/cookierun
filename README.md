@@ -116,9 +116,15 @@ isSemiAuto(combi); // true
 
 Every page carries a sidebar listing the available tools, generated from the registry rather than written out. The site root is a short home pane; the combi builder itself lives at `/combi-name/`.
 
-The code leads the page and updates as you pick a configuration below it, or paste one into the reader and it comes back in plain words. Hover any part of the built code and it names its slot and what it currently says, so the legend further down the page is there to confirm rather than to look things up in. The cookie, relay, pet, and treasure pickers stay closed with their pick on the line, and open onto a filterable list one at a time.
+The code is the whole interface. It leads the page, updating as you pick a configuration below it, and it is also where a code goes in: press **Edit** and type or paste one, and every control below follows it as you type. Pasting a code anywhere on the page loads it without opening the editor at all. A half-typed code says how far along it is rather than complaining, and a code that contradicts itself loads with a warning rather than being refused.
 
-Your code lives in the address bar, so a build is a link you can send, and it is remembered between visits — a link wins over the remembered one, and **Reset** goes back to an empty code. **Copy** takes the code, **Copy link** takes the whole address. The sidebar carries a light/dark control that defaults to following your system. Everything runs in the browser — no network calls, no analytics.
+The code and what it says in words stay pinned at the top of the page as you work the controls under them; the auto/semi-auto verdict, any warnings and the tip sit just below, where you read them once.
+
+Each field of the code is drawn as its own run. Hover one and it names its slot and what it currently says; click it and the page jumps to the control that writes it. That is why the slot tables sit folded away at the bottom — they confirm the format rather than being where you look things up.
+
+Below the code, the controls run in the order the code reads: run type and episode as chips, boosts and cookie power+ as picture cards, then the loadout. There is no Semi-auto chip — pick **Auto**, and the code turns semi-auto by itself the moment Fast Start, a random boost or a jump action is on, which is what the format says anyway. The summary and the verdict say which of the two you ended up with. Random boost and Action each open with a none of their own, and clicking the chip you already picked goes back to it. Cookie power+ wears the portrait of the cookie it belongs to. The cookie, relay, pet, and treasure controls stay closed with their pick on the line, and open onto a filterable grid of faces that takes the full width while it is open; clicking anywhere outside closes them again. A treasure slot holding several alternatives lists them as chips on its own line, each with an × that drops it without opening the list. The treasure grid offers only what a run can equip — the consumable and commemorative families, 208 of the 1,144 entries, are left out of the picker, though a code that already carries one still reads and still keeps it.
+
+Your code lives in the address bar, so a build is a link you can send, and it is remembered between visits — a link wins over the remembered one, and **Reset** goes back to an empty code. Pasting a link into the address bar of a tab that is already open works too: the page notices the new code rather than overwriting it. **Copy** takes the code, **Copy link** takes the whole address. The sidebar carries a light/dark control that defaults to following your system. Everything runs in the browser — no network calls, no analytics.
 
 The build produces one `index.html` per page, the JavaScript and CSS they share as chunks beside them, and the cookie, pet, and treasure icons under `assets/`. Everything is linked relatively, so `dist/` carries no assumption about the base path it is served from — but it does have to be served: module scripts over a `file://` URL are blocked by the browser. `bun run preview` is the local way to open it.
 
@@ -127,7 +133,7 @@ The build produces one `index.html` per page, the JavaScript and CSS they share 
 ```bash
 bun install
 bun run dev           # dev server on :3000; / is the home pane, /combi-name/ is the combi tool
-bun run test          # 247 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run test          # 302 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run check         # typecheck and Biome, in one pass
 bun run build         # writes dist/index.html, dist/combi-name/index.html, their chunks, and dist/assets/
 bun run preview       # serves the built dist/ on :4000; build first

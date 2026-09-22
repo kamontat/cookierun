@@ -11,7 +11,8 @@ The character tables at the top of `src/routes/combi-name/codec.ts` are the sing
 - `ALL_TYPES`, `ALL_EPISODES`, `ALL_BOOSTS`, `ALL_RANDOM_BOOSTS`, `ALL_COOKIE_POWERS`, `ALL_ACTIONS`, and `BOOST_LABELS` are computed from those tables — never hand-maintain a parallel list.
 - `src/routes/combi-name/labels.ts` maps every value to a display name. A test asserts key-for-key parity with the `ALL_*` arrays, so a new value cannot ship unlabeled. Boost names live in `codec.ts` instead, because `decode`'s error messages quote them.
 - `src/routes/combi-name/describe.ts` turns a `Combi` into display rows plus an auto/semi-auto verdict. It is the only place that decides how a combi reads in prose.
-- `src/routes/combi-name/hints.ts` says what each character of a code means, one entry per character, for the tooltips on the built code. Slot numbers come from the codec's own tables and the values from `describe.ts`, so a table that grows cannot leave a stale hint behind. A code it cannot decode gets no hints at all rather than half a labelling, which would point at the wrong characters.
+- `src/routes/combi-name/hints.ts` says what each character of a code means, one entry per character, for the tooltips on the built code. Slot numbers come from the codec's own tables and the values from `describe.ts`, so a table that grows cannot leave a stale hint behind. A code it cannot decode gets no hints at all rather than half a labelling, which would point at the wrong characters. Its `group` field carries a second job now: `<code-bar>` draws each run of one group as a single button and emits that group name when the run is clicked, and `index.ts`'s `OWNER` map turns the name into the control to focus. A group added here without an `OWNER` entry simply does not jump — it does not break.
+- `src/routes/combi-name/art.ts` says which cookies or pets each cookie power+ belongs to, so the cards can wear their faces. Each entry is a list of `{ section, key }` against the catalog's own keys rather than wire ids — five powers name one cookie, Serenade of Love the two pets that sing it, EXP Party the four cookies that throw it. A test asserts key-for-key parity with `ALL_COOKIE_POWERS`, the same guard `labels.ts` has, so a new power cannot ship without the page deciding what face it wears. The codec still does not model a cookie — this mapping is the page's, not the format's.
 - `src/routes/combi-name/index.ts` pairs each `ALL_*` array with its label table and hands the result to the form components as their `options` property. `src/routes/combi-name/index.html` declares those elements empty on purpose — do not hardcode options into the markup.
 
 To add a boost, episode, or cookie power: add it to its character table and its label table. Nothing else needs touching, and tests fail until both are done.
@@ -20,7 +21,21 @@ To add a boost, episode, or cookie power: add it to its character table and its 
 
 `Object.keys` order determines the `ALL_*` order, which determines the boost slot order (slots 4-6) and the cookie power+ bit values. Reordering a table silently changes what existing codes mean. If the slot layout or a character mapping has to change, bump `VERSION` in `src/routes/combi-name/codec.ts` — `decode` rejects any other version outright.
 
-The form end of that guarantee is `<check-group>`'s `selected` getter: it filters the element's own `options` rather than reading DOM order, which is what keeps boosts in slot order and cookie powers in bit order.
+The form end of that guarantee is `<card-group>`'s `selected` getter: it filters the element's own `options` rather than reading DOM order, which is what keeps boosts in slot order and cookie powers in bit order.
+
+## Semi-auto is derived, and the page says so by not offering it
+
+`ALL_TYPES` carries `semiauto` and `TYPE_CHARS` maps it to `H`, because a code
+carrying `H` has to decode — but the page's type chips are `ALL_TYPES` minus
+that one. Semi-auto is what `normalizeType` makes of an auto run when Fast
+Start, a random boost or a jump action is on, so a chip for it could only
+disagree with the code the flags produce. `writeForm` lands a decoded
+`semiauto` on the Auto chip, and the summary and verdict lines are where the
+page says which of the two you ended up with.
+
+That is a page decision, not a format one. Do not remove `semiauto` from
+`codec.ts` to match the picker: it is slot 2's `H`, and dropping it would make
+every semi-auto code ever written unreadable.
 
 ## Hard errors vs soft warnings
 
@@ -42,7 +57,15 @@ Encoding a loadout always writes its canonical form: ids sorted within a slot, w
 
 The combi section still does not model the cookie, relay, pet, or treasure: the game already stores those four in the combi, which is precisely why the 10 characters are spent on everything else. Don't add them to `codec.ts`. The loadout section is the exception — it exists to model exactly those four, for a code that needs to carry them anyway.
 
-Route-only logic stays in the route. The codec is imported by exactly one page, so it lives at `src/routes/combi-name/codec.ts` rather than in `src/lib/`; the same is true of `loadout.ts`, `catalog.ts`, `full-code.ts`, `hints.ts`, and `state.ts`.
+Route-only logic stays in the route. The codec is imported by exactly one page, so it lives at `src/routes/combi-name/codec.ts` rather than in `src/lib/`; the same is true of `loadout.ts`, `catalog.ts`, `full-code.ts`, `hints.ts`, `art.ts`, and `state.ts`.
+
+## One code, one state
+
+The page holds exactly one thing: a `FullCode`. Every control writes it and the code bar writes it, and everything on screen is rendered from it by the route's single `render`. There is no second copy of the code and no separate reader — building a code and reading one are the same screen, which is why `<code-bar>` is both the output and the input.
+
+The treasure slots are the one place where what the page offers and what the format allows come apart. `optionsFor("treasures")` leaves out the consumable and special families — see the `assets` skill — but a code can still carry one, so `writeLoadout` appends any carried id the offered list lacks to that slot's own `options`, and writes the options before the picks. Both halves matter: a slot prunes a pick its options do not hold, and the two are separate writes. Without it, opening a saved link would quietly drop a treasure and rewrite the code in the address bar.
+
+A code typed into the bar is decoded on every keystroke. A code that does not read yet is not an error to argue with: the controls are left exactly where they are, and the bar says how many of the ten characters have arrived. Only a code that decodes is applied. That distinction is the reason `readDraft` tests the length before it calls `decodeFull`, rather than letting the codec's own error speak for a half-typed code.
 
 ## Where the code lives between visits
 

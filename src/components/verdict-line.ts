@@ -14,15 +14,24 @@ export type Verdict = {
 	readonly reasons: readonly string[];
 };
 
-export class AutoVerdictElement extends LitElement {
+/**
+ * Whether the code in front of you plays itself, and what stops it. A judgment
+ * about the build rather than a reading of it, which is why it sits down the
+ * page with the warnings while `<summary-line>` rides in the sticky panel.
+ */
+export class VerdictLine extends LitElement {
 	static override styles = [
 		base,
 		css`
 			:host {
 				display: block;
-				margin-top: var(--cr-space-3);
+			}
+
+			.verdict {
+				margin: 0;
+				color: var(--cr-muted);
 				font-family: var(--cr-mono);
-				font-size: 0.9rem;
+				font-size: 0.85rem;
 			}
 
 			strong {
@@ -33,12 +42,6 @@ export class AutoVerdictElement extends LitElement {
 		`,
 	];
 
-	// `Element` already declares a readonly `prefix` (its XML namespace
-	// prefix), so this reactive property has to say it is deliberately
-	// shadowing that, not extending it.
-	@property({ type: String })
-	override prefix = "";
-
 	@property({ attribute: false })
 	verdict: Verdict | null = null;
 
@@ -47,30 +50,32 @@ export class AutoVerdictElement extends LitElement {
 		this.setAttribute("aria-live", "polite");
 	}
 
-	override render() {
+	#verdictLine() {
 		if (this.verdict === null) return nothing;
 
 		const { semi, reasons } = this.verdict;
 		const tail = semi
-			? ` - ${reasons.join(", ")} ${
+			? `${reasons.join(", ")} ${
 					reasons.length === 1 ? "needs" : "need"
 				} manual work each run.`
-			: " - nothing needs manual work each run.";
+			: "nothing needs manual work each run.";
 
-		// The separating space belongs to the prefix, not to the verdict, or an
-		// element without one opens with a stray space before "Full auto".
-		return html`${this.prefix === "" ? nothing : `${this.prefix} `}<strong
-				>${semi ? "Semi-auto" : "Full auto"}</strong
-			>${tail}`;
+		return html`<p class="verdict"
+			><strong>${semi ? "Semi-auto" : "Full auto"}</strong> — ${tail}</p
+		>`;
+	}
+
+	override render() {
+		return this.#verdictLine();
 	}
 }
 
 declare global {
 	interface HTMLElementTagNameMap {
-		"auto-verdict": AutoVerdictElement;
+		"verdict-line": VerdictLine;
 	}
 }
 
-if (!customElements.get("auto-verdict")) {
-	customElements.define("auto-verdict", AutoVerdictElement);
+if (!customElements.get("verdict-line")) {
+	customElements.define("verdict-line", VerdictLine);
 }

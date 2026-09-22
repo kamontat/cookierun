@@ -35,7 +35,9 @@ import {
 	SECTIONS,
 	type Section,
 	serializeIndex,
+	TREASURE_FAMILIES,
 	type TreasureEntry,
+	type TreasureFamily,
 	verifyStructure,
 } from "./utils/asset-ids";
 import {
@@ -301,9 +303,31 @@ for (const section of ["cookies", "pets"] as const) {
 	}
 }
 
+/**
+ * The listing sorts every treasure into a family, and the combi page offers
+ * only the ones a run can equip. A family the index does not know is a scrape
+ * that stops here rather than one that quietly drops treasures out of the
+ * picker, or lets new ones in without anyone deciding.
+ */
+function familyFor(card: Card): TreasureFamily {
+	const { family } = card;
+	if (
+		family === null ||
+		!(TREASURE_FAMILIES as readonly string[]).includes(family)
+	) {
+		throw new Error(
+			`treasures/${card.slug}: family ${JSON.stringify(family)} is not one of ${TREASURE_FAMILIES.join(", ")}`,
+		);
+	}
+	return family as TreasureFamily;
+}
+
 for (const card of cards.treasures) {
 	const id = idFor("treasures", card.slug);
-	const entry = entryFor("treasures", card, keyFor("treasures", id, card));
+	const entry = {
+		...entryFor("treasures", card, keyFor("treasures", id, card)),
+		family: familyFor(card),
+	};
 	const chain = chains.get(card.slug);
 	if (chain === undefined) {
 		const pair = targets.get(card.slug) ?? [null, null];
