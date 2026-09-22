@@ -116,6 +116,31 @@ test("a boost card writes its slot and rewrites the type slot to semi-auto", asy
 	await reset();
 });
 
+// Semi-auto is not a choice anyone makes: it is what Fast Start, a random
+// boost or a jump action make of an auto run. Offering it as a chip invited
+// picking one and getting the other.
+test("the type chips do not offer semi-auto", () => {
+	expect(() => control("type", "semiauto")).toThrow();
+	expect(() => control("type", "auto")).not.toThrow();
+});
+
+test("a semi-auto code shows Auto picked, and says semi-auto in words", async () => {
+	await typeCode("1H0--F000-");
+
+	expect(isOn("type", "auto")).toBe(true);
+	expect(shown(need("summary"))).toContain("Semi-auto");
+	await reset();
+});
+
+// The chips carry auto, the code carries H: reading one back must not quietly
+// turn it into the other.
+test("a semi-auto code re-encodes as itself", async () => {
+	await typeCode("1H0--F000-");
+
+	expect((codeBar as HTMLElement & { value: string }).value).toBe("1H0--F000-");
+	await reset();
+});
+
 // The summary rides in the sticky panel with the code it describes; the
 // verdict stays down the page with the warnings.
 test("the summary line says what the build is, beside the code", async () => {

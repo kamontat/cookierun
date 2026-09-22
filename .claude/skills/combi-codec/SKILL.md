@@ -23,6 +23,20 @@ To add a boost, episode, or cookie power: add it to its character table and its 
 
 The form end of that guarantee is `<card-group>`'s `selected` getter: it filters the element's own `options` rather than reading DOM order, which is what keeps boosts in slot order and cookie powers in bit order.
 
+## Semi-auto is derived, and the page says so by not offering it
+
+`ALL_TYPES` carries `semiauto` and `TYPE_CHARS` maps it to `H`, because a code
+carrying `H` has to decode — but the page's type chips are `ALL_TYPES` minus
+that one. Semi-auto is what `normalizeType` makes of an auto run when Fast
+Start, a random boost or a jump action is on, so a chip for it could only
+disagree with the code the flags produce. `writeForm` lands a decoded
+`semiauto` on the Auto chip, and the summary and verdict lines are where the
+page says which of the two you ended up with.
+
+That is a page decision, not a format one. Do not remove `semiauto` from
+`codec.ts` to match the picker: it is slot 2's `H`, and dropping it would make
+every semi-auto code ever written unreadable.
+
 ## Hard errors vs soft warnings
 
 `decode` throws only when a code is unreadable: wrong length, unknown version, an unknown character in a slot, or a cookie mask above `7F`. It returns `{ combi, warnings }` and never throws when slot 2 (`A` vs `H`) disagrees with the flag slots, because hand-typed codes can contradict themselves. `isSemiAuto` is always the authority; `encode` normalizes slot 2 to match it. Keep that split — the UI depends on being able to show a contradictory code rather than refusing it.

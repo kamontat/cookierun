@@ -176,7 +176,9 @@ function readForm(): Combi {
 }
 
 function writeForm(combi: Combi): void {
-	typeChips.value = combi.type;
+	// A semi-auto code lands on the Auto chip: semi-auto is what the flag slots
+	// make of an auto run, not a type anyone picks, so there is no chip for it.
+	typeChips.value = combi.type === "semiauto" ? "auto" : combi.type;
 	episodeChips.value = combi.episode;
 	randomBoostChips.value = combi.randomBoost ?? NO_RANDOM_BOOST;
 	actionChips.value = combi.action;
@@ -357,7 +359,16 @@ function pairs<K extends string>(
 	return values.map((value) => [value, labels[value]] as const);
 }
 
-typeChips.options = pairs(ALL_TYPES, TYPE_LABELS);
+/**
+ * Every type but semi-auto. That one is derived, not chosen: `encode` writes
+ * slot 2 from the flag slots — Fast Start, a random boost, a jump action — so
+ * an auto run becomes semi-auto by what else is on, and a chip for it could
+ * only disagree with the code. The codec still knows the value, and a code
+ * carrying `H` still decodes to it; `writeForm` lands that on the Auto chip.
+ */
+const PICKABLE_TYPES = ALL_TYPES.filter((type) => type !== "semiauto");
+
+typeChips.options = pairs(PICKABLE_TYPES, TYPE_LABELS);
 episodeChips.options = pairs(ALL_EPISODES, EPISODE_LABELS);
 randomBoostChips.options = [
 	// `as const` or this literal infers as string[] and will not assign to a
