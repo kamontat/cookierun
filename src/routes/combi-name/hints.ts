@@ -9,7 +9,7 @@
  * stale hint behind.
  */
 
-import { ALL_BOOSTS, BOOST_LABELS, CODE_LENGTH, type Combi } from "./codec";
+import { BOOST_LABELS, CODE_LENGTH, type Combi } from "./codec";
 import { describeLoadout } from "./describe";
 import { combiSectionOf, decodeFull, SECTION_SEPARATOR } from "./full-code";
 import {
@@ -36,6 +36,7 @@ const NONE = "None";
 type Span = { length: number; group: string; hint: string };
 
 function spansOfCombi(combi: Combi): Span[] {
+	const boosts = combi.boosts.map((boost) => BOOST_LABELS[boost]);
 	const powers = combi.cookiePowers.map((power) => COOKIE_POWER_LABELS[power]);
 
 	return [
@@ -50,16 +51,17 @@ function spansOfCombi(combi: Combi): Span[] {
 			group: "episode",
 			hint: `Slot 3 · Episode${SEPARATOR}${EPISODE_LABELS[combi.episode]}`,
 		},
-		// A group of its own per boost slot, not one group for all three: the
-		// characters differ from each other, so a shared group would label all
-		// three with whatever the first one says.
-		...ALL_BOOSTS.map((boost, index) => ({
+		{
 			length: 1,
-			group: `boost${index + 1}`,
-			hint: `Slot ${4 + index} · Boost${SEPARATOR}${BOOST_LABELS[boost]}: ${
-				combi.boosts.includes(boost) ? "on" : "off"
+			group: "boosts",
+			hint: `Slot 4 · Boosts${SEPARATOR}${
+				boosts.length === 0 ? NONE : boosts.join(", ")
 			}`,
-		})),
+		},
+		// Reserved characters own a group of their own so the code bar draws them
+		// as one run, and no control claims them: `index.ts`'s OWNER map has no
+		// entry for this group, which is what keeps a click on them from jumping.
+		{ length: 2, group: "reserved", hint: "Slots 5-6 · Reserved" },
 		{
 			length: 1,
 			group: "randomBoost",

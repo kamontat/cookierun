@@ -94,25 +94,35 @@ async function reset(): Promise<void> {
 }
 
 test("the page opens on a valid code", async () => {
-	expect(await codeText()).toBe("1S0---000-");
+	expect(await codeText()).toBe("1S00--000-");
 });
 
 test("choosing a type writes it into the code", async () => {
 	await choose("type", "money");
 
-	expect(await codeText()).toBe("1M0---000-");
+	expect(await codeText()).toBe("1M00--000-");
 	await reset();
 });
 
-test("a boost card writes its slot and rewrites the type slot to semi-auto", async () => {
+test("a boost card writes its bit and rewrites the type slot to semi-auto", async () => {
 	await choose("type", "auto");
-	expect(await codeText()).toBe("1A0---000-");
+	expect(await codeText()).toBe("1A00--000-");
 
 	await choose("boosts", "fastStart");
 
-	expect(await codeText()).toBe("1H0--F000-");
+	expect(await codeText()).toBe("1H04--000-");
 	expect(shown(verdict)).toContain("Semi-auto");
 	expect(shown(verdict)).toContain("Fast Start");
+	await reset();
+});
+
+test("Double XP adds its bit and leaves the run on full auto", async () => {
+	await choose("type", "auto");
+	await choose("boosts", "doubleXp");
+
+	expect(await codeText()).toBe("1A08--000-");
+	expect(shown(verdict)).toContain("Full auto");
+	expect(shown(need("summary"))).toContain("Double XP");
 	await reset();
 });
 
@@ -125,7 +135,7 @@ test("the type chips do not offer semi-auto", () => {
 });
 
 test("a semi-auto code shows Auto picked, and says semi-auto in words", async () => {
-	await typeCode("1H0--F000-");
+	await typeCode("1H04--000-");
 
 	expect(isOn("type", "auto")).toBe(true);
 	expect(shown(need("summary"))).toContain("Semi-auto");
@@ -135,9 +145,9 @@ test("a semi-auto code shows Auto picked, and says semi-auto in words", async ()
 // The chips carry auto, the code carries H: reading one back must not quietly
 // turn it into the other.
 test("a semi-auto code re-encodes as itself", async () => {
-	await typeCode("1H0--F000-");
+	await typeCode("1H04--000-");
 
-	expect((codeBar as HTMLElement & { value: string }).value).toBe("1H0--F000-");
+	expect((codeBar as HTMLElement & { value: string }).value).toBe("1H04--000-");
 	await reset();
 });
 
@@ -145,21 +155,21 @@ test("a semi-auto code re-encodes as itself", async () => {
 // the two rows that have a "none" of their own say so.
 test("clicking the chosen random boost puts it back to none", async () => {
 	await choose("randomBoost", "revive");
-	expect(await codeText()).toBe("1S0---400-");
+	expect(await codeText()).toBe("1S00--400-");
 
 	await choose("randomBoost", "revive");
 
-	expect(await codeText()).toBe("1S0---000-");
+	expect(await codeText()).toBe("1S00--000-");
 	await reset();
 });
 
 test("clicking the chosen action puts it back to no action", async () => {
 	await choose("action", "jumpAtStart");
-	expect(await codeText()).toBe("1S0---000J");
+	expect(await codeText()).toBe("1S00--000J");
 
 	await choose("action", "jumpAtStart");
 
-	expect(await codeText()).toBe("1S0---000-");
+	expect(await codeText()).toBe("1S00--000-");
 	await reset();
 });
 
@@ -168,7 +178,7 @@ test("clicking the chosen type leaves it chosen", async () => {
 	await choose("type", "money");
 	await choose("type", "money");
 
-	expect(await codeText()).toBe("1M0---000-");
+	expect(await codeText()).toBe("1M00--000-");
 	await reset();
 });
 
@@ -185,12 +195,12 @@ test("the summary line says what the build is, beside the code", async () => {
 test("a cookie power card writes its bit into the code", async () => {
 	await choose("cookiePowers", "cheerleader");
 
-	expect(await codeText()).toBe("1S0---001-");
+	expect(await codeText()).toBe("1S00--001-");
 	await reset();
 });
 
 test("typing a code moves every control to match it", async () => {
-	await typeCode("1M3HPF214J");
+	await typeCode("1M37--214J");
 
 	expect(isOn("type", "money")).toBe(true);
 	expect(isOn("episode", "episode3")).toBe(true);
@@ -201,7 +211,7 @@ test("typing a code moves every control to match it", async () => {
 });
 
 test("typing a code with a loadout fills the loadout controls too", async () => {
-	await typeCode("1C0O.1S0---000-");
+	await typeCode("1C0O.1S00--000-");
 
 	expect(shown(need("cookie"))).toContain("Fairy Cookie");
 	await reset();
@@ -211,12 +221,12 @@ test("typing a code with a loadout fills the loadout controls too", async () => 
 // written before that — or by hand — can still carry one, and dropping it
 // would rewrite someone's saved build behind their back.
 test("a code carrying a treasure the picker hides keeps it", async () => {
-	await typeCode("1TU00Z.1S0---000-");
+	await typeCode("1TU00Z.1S00--000-");
 
 	// The built code, read off the bar rather than off its rendering: the
 	// editor is still open, so the rendered code is the field, not the runs.
 	expect((codeBar as HTMLElement & { value: string }).value).toBe(
-		"1TU00Z.1S0---000-",
+		"1TU00Z.1S00--000-",
 	);
 	expect(shown(need("treasure1"))).toContain("XP-Elixir");
 	await reset();
@@ -240,7 +250,7 @@ test("an unfinished code leaves the controls where they were", async () => {
 });
 
 test("an unreadable code says what is wrong with it", async () => {
-	await typeCode("1Q0---000-");
+	await typeCode("1Q00--000-");
 
 	expect(message()).toContain("Q");
 	await reset();
@@ -248,7 +258,7 @@ test("an unreadable code says what is wrong with it", async () => {
 
 test("an unreadable code leaves the controls where they were", async () => {
 	await choose("type", "money");
-	await typeCode("1Q0---000-");
+	await typeCode("1Q00--000-");
 
 	expect(isOn("type", "money")).toBe(true);
 	await reset();
@@ -257,7 +267,7 @@ test("an unreadable code leaves the controls where they were", async () => {
 // Hand-typed codes contradict themselves; the page shows one rather than
 // refusing it, and says what it did about it.
 test("a code that contradicts itself still loads, with a warning", async () => {
-	await typeCode("1A0--F000-");
+	await typeCode("1A04--000-");
 
 	expect(isOn("boosts", "fastStart")).toBe(true);
 	expect(warnings.textContent).toContain("Semi-auto");
@@ -265,10 +275,10 @@ test("a code that contradicts itself still loads, with a warning", async () => {
 });
 
 test("the warning goes away once the code stops contradicting itself", async () => {
-	await typeCode("1A0--F000-");
+	await typeCode("1A04--000-");
 	expect(warnings.textContent).not.toBe("");
 
-	await typeCode("1S0---000-");
+	await typeCode("1S00--000-");
 
 	expect(warnings.textContent).toBe("");
 	await reset();
@@ -277,13 +287,13 @@ test("the warning goes away once the code stops contradicting itself", async () 
 test("pasting a code anywhere on the page loads it", async () => {
 	const event = new Event("paste", { bubbles: true, cancelable: true });
 	Object.defineProperty(event, "clipboardData", {
-		value: { getData: () => "1M3---000-" },
+		value: { getData: () => "1M30--000-" },
 	});
 	document.dispatchEvent(event);
 	await settle();
 
 	expect(isOn("type", "money")).toBe(true);
-	expect(await codeText()).toBe("1M3---000-");
+	expect(await codeText()).toBe("1M30--000-");
 	await reset();
 });
 
@@ -292,7 +302,7 @@ test("pasting a code anywhere on the page loads it", async () => {
 test("a message from the last code goes away once a control moves", async () => {
 	const event = new Event("paste", { bubbles: true, cancelable: true });
 	Object.defineProperty(event, "clipboardData", {
-		value: { getData: () => "1M3---000-" },
+		value: { getData: () => "1M30--000-" },
 	});
 	document.dispatchEvent(event);
 	await settle();
@@ -338,14 +348,14 @@ test("reset goes back to the code the page opened on", async () => {
 
 	await reset();
 
-	expect(await codeText()).toBe("1S0---000-");
+	expect(await codeText()).toBe("1S00--000-");
 	expect(isOn("boosts", "fastStart")).toBe(false);
 });
 
 test("the code is remembered for the next visit", async () => {
 	await choose("type", "exp");
 
-	expect(localStorage.getItem("combi-name:code")).toBe("1E0---000-");
+	expect(localStorage.getItem("combi-name:code")).toBe("1E00--000-");
 	await reset();
 });
 
@@ -353,7 +363,7 @@ test("the code is remembered for the next visit", async () => {
 // so without this the page would ignore the code someone just pasted into the
 // address bar — and then overwrite it on the next click.
 test("a code arriving in the address bar loads without a reload", async () => {
-	location.hash = "#1B5---000-";
+	location.hash = "#1B50--000-";
 	window.dispatchEvent(new Event("hashchange"));
 	await settle();
 
@@ -370,6 +380,57 @@ test("a hash the page cannot read leaves the build alone", async () => {
 
 	expect(isOn("type", "money")).toBe(true);
 	await reset();
+});
+
+/** Runs `body` with the clipboard answering however the test needs it to. */
+async function withClipboard(
+	writeText: () => Promise<void>,
+	body: () => Promise<void>,
+): Promise<void> {
+	const real = navigator.clipboard;
+	Object.defineProperty(navigator, "clipboard", {
+		configurable: true,
+		value: { writeText },
+	});
+	try {
+		await body();
+	} finally {
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: real,
+		});
+	}
+}
+
+// The confirmation rides on the button, so the line under it stays closed
+// unless the clipboard actually refused.
+test("copying the link says so on the button, not in the status line", async () => {
+	await withClipboard(
+		() => Promise.resolve(),
+		async () => {
+			need<HTMLButtonElement>("copy-link").click();
+			await settle();
+
+			expect(
+				need("copy-link").querySelector(".swap")?.classList.contains("done"),
+			).toBe(true);
+			expect(shown(need("link-status")).trim()).toBe("");
+		},
+	);
+});
+
+// A blocked clipboard has an instruction to give, and an instruction does not
+// fit on a button.
+test("a blocked clipboard writes the instruction into the status line", async () => {
+	await withClipboard(
+		() => Promise.reject(new Error("blocked")),
+		async () => {
+			need<HTMLButtonElement>("copy-link").click();
+			await settle();
+
+			expect(shown(need("link-status"))).toContain("blocked the clipboard");
+		},
+	);
 });
 
 test("every character of the code carries a hint", async () => {

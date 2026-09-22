@@ -191,6 +191,32 @@ function setStatus(host: HTMLElement, text: string, isError = false): void {
 	host.classList.toggle("error", isError);
 }
 
+/** How long a button says it worked before going back to its own label. */
+const CONFIRM_FOR = 2000;
+
+const confirmTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+
+/**
+ * Says a button's work is done on the button itself, by swapping which of its
+ * two labels is visible. The alternative is a line under it that stands open
+ * for a sentence it shows two seconds at a time, and in a panel pinned to the
+ * top of the screen an empty line costs the same room as a full one.
+ */
+function confirmOn(button: HTMLButtonElement): void {
+	const swap = button.querySelector(".swap");
+	if (swap === null) return;
+
+	clearTimeout(confirmTimers.get(button));
+	swap.classList.add("done");
+	confirmTimers.set(
+		button,
+		setTimeout(() => {
+			swap.classList.remove("done");
+			confirmTimers.delete(button);
+		}, CONFIRM_FOR),
+	);
+}
+
 /**
  * The address bar is the page's own copy of the code, so a build is a link
  * someone can send. `replaceState` rather than assigning the hash: one history
@@ -304,9 +330,7 @@ function readDraft(text: string): void {
 const OWNER: Record<string, HTMLElement> = {
 	type: typeChips,
 	episode: episodeChips,
-	boost1: boostCards,
-	boost2: boostCards,
-	boost3: boostCards,
+	boosts: boostCards,
 	randomBoost: randomBoostChips,
 	cookiePowers: cookiePowerCards,
 	action: actionChips,
@@ -481,7 +505,8 @@ copyLinkButton.addEventListener("click", () => {
 	void navigator.clipboard
 		.writeText(location.href)
 		.then(() => {
-			setStatus(linkStatus, "Link copied.");
+			setStatus(linkStatus, "");
+			confirmOn(copyLinkButton);
 		})
 		.catch(() => {
 			setStatus(

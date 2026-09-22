@@ -14,7 +14,11 @@ export type Episode =
 	| "special3"
 	| "specialExp";
 
-export type Boost = "hpExtension" | "powerJellyBoost" | "fastStart";
+export type Boost =
+	| "hpExtension"
+	| "powerJellyBoost"
+	| "fastStart"
+	| "doubleXp";
 
 export type RandomBoost =
 	| "doubleCoins"
@@ -75,11 +79,17 @@ const EPISODE_CHARS: Record<Episode, string> = {
 	specialExp: "X",
 };
 
-/** Slot order for the three boost flag slots (4, 5, 6). */
-const BOOST_SLOTS: { boost: Boost; char: string; label: string }[] = [
-	{ boost: "hpExtension", char: "H", label: "HP Extension" },
-	{ boost: "powerJellyBoost", char: "P", label: "Power Jelly Boost" },
-	{ boost: "fastStart", char: "F", label: "Fast Start" },
+/**
+ * Bit values for the boost mask in slot 4, one hex digit. A flag slot each was
+ * more legible, but three slots for three boosts left nowhere to put a fourth
+ * inside ten characters, and the game's field is ten characters. Bit order is
+ * the wire format.
+ */
+const BOOST_BITS: { boost: Boost; bit: number; label: string }[] = [
+	{ boost: "hpExtension", bit: 0x1, label: "HP Extension" },
+	{ boost: "powerJellyBoost", bit: 0x2, label: "Power Jelly Boost" },
+	{ boost: "fastStart", bit: 0x4, label: "Fast Start" },
+	{ boost: "doubleXp", bit: 0x8, label: "Double XP" },
 ];
 
 const RANDOM_BOOST_CHARS: Record<RandomBoost, string> = {
@@ -113,10 +123,17 @@ const ACTION_CHARS: Record<Action, string> = {
 
 const OFF = "-";
 
+/**
+ * Slots 5 and 6, left over when the boosts moved into one slot. They are held
+ * open rather than dropped so the ten characters keep their fixed positions —
+ * and so the next field to arrive has somewhere to go.
+ */
+const RESERVED = "--";
+
 // Derived from the tables above so the lists can never drift from the codes.
 export const ALL_TYPES = Object.keys(TYPE_CHARS) as CombiType[];
 export const ALL_EPISODES = Object.keys(EPISODE_CHARS) as Episode[];
-export const ALL_BOOSTS = BOOST_SLOTS.map(({ boost }) => boost);
+export const ALL_BOOSTS = BOOST_BITS.map(({ boost }) => boost);
 export const ALL_RANDOM_BOOSTS = Object.keys(
 	RANDOM_BOOST_CHARS,
 ) as RandomBoost[];
@@ -127,7 +144,7 @@ export const ALL_ACTIONS = Object.keys(ACTION_CHARS) as Action[];
 
 /** Boost display names, shared by decode error messages and the UI. */
 export const BOOST_LABELS = Object.fromEntries(
-	BOOST_SLOTS.map(({ boost, label }) => [boost, label]),
+	BOOST_BITS.map(({ boost, label }) => [boost, label]),
 ) as Record<Boost, string>;
 
 export type DecodeResult = {
@@ -167,9 +184,11 @@ function normalizeType(combi: Combi): CombiType {
 }
 
 export function encode(combi: Combi): string {
-	const boostSlots = BOOST_SLOTS.map(({ boost, char }) =>
-		combi.boosts.includes(boost) ? char : OFF,
-	).join("");
+	const boostMask = BOOST_BITS.reduce(
+		(mask, { boost, bit }) =>
+			combi.boosts.includes(boost) ? mask | bit : mask,
+		0,
+	);
 
 	const cookieMask = combi.cookiePowers.reduce(
 		(mask, power) => mask | COOKIE_POWER_BITS[power],
@@ -180,7 +199,8 @@ export function encode(combi: Combi): string {
 		VERSION,
 		TYPE_CHARS[normalizeType(combi)],
 		EPISODE_CHARS[combi.episode],
-		boostSlots,
+		boostMask.toString(16).toUpperCase(),
+		RESERVED,
 		combi.randomBoost === null ? "0" : RANDOM_BOOST_CHARS[combi.randomBoost],
 		cookieMask.toString(16).toUpperCase().padStart(2, "0"),
 		ACTION_CHARS[combi.action],
@@ -192,20 +212,35 @@ export const CODE_LENGTH = 10;
 const COOKIE_MASK_MAX = 0x7f;
 
 function decodeBoosts(code: string): Boost[] {
-	const boosts: Boost[] = [];
+	const maskText = code[3] as string;
 
-	BOOST_SLOTS.forEach(({ boost, char, label }, index) => {
-		const slotChar = code[3 + index];
-		if (slotChar === char) {
-			boosts.push(boost);
-		} else if (slotChar !== OFF) {
+	if (!/^[0-9A-F]$/.test(maskText)) {
+		throw new Error(
+			`slot 4 (boosts): "${maskText}" is not an uppercase hex digit`,
+		);
+	}
+
+	const mask = Number.parseInt(maskText, 16);
+
+	return BOOST_BITS.filter(({ bit }) => (mask & bit) !== 0).map(
+		({ boost }) => boost,
+	);
+}
+
+/**
+ * The reserved slots carry no meaning yet, so the only thing to check is that
+ * nobody has written meaning into them: a code using them says something this
+ * version cannot read, which is exactly what the hard errors are for.
+ */
+function checkReserved(code: string): void {
+	RESERVED.split("").forEach((char, index) => {
+		const slotChar = code[4 + index];
+		if (slotChar !== char) {
 			throw new Error(
-				`slot ${4 + index} (${label}): unknown char "${slotChar}", expected "${char}" or "${OFF}"`,
+				`slot ${5 + index} (reserved): unknown char "${slotChar}", expected "${OFF}"`,
 			);
 		}
 	});
-
-	return boosts;
 }
 
 function decodeCookiePowers(code: string): CookiePower[] {
@@ -237,6 +272,8 @@ export function decode(code: string): DecodeResult {
 	if (code[0] !== VERSION) {
 		throw new Error(`unsupported version "${code[0]}"`);
 	}
+
+	checkReserved(code);
 
 	const combi: Combi = {
 		type: lookup(TYPE_BY_CHAR, code[1] as string, "2 (type)"),

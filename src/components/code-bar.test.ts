@@ -6,19 +6,15 @@ import "./code-bar";
 
 import type { CharHint, CodeBar } from "./code-bar";
 
-const CODE = "1S0---000-";
+const CODE = "1S00--000-";
 
 const HINTS: CharHint[] = [
 	{ char: "1", hint: "Slot 1 · Format version", group: "version" },
 	{ char: "S", hint: "Slot 2 · Type · Score", group: "type" },
 	{ char: "0", hint: "Slot 3 · Episode · Any", group: "episode" },
-	{ char: "-", hint: "Slot 4 · Boost · HP Extension: off", group: "boost1" },
-	{
-		char: "-",
-		hint: "Slot 5 · Boost · Power Jelly Boost: off",
-		group: "boost2",
-	},
-	{ char: "-", hint: "Slot 6 · Boost · Fast Start: off", group: "boost3" },
+	{ char: "0", hint: "Slot 4 · Boosts · None", group: "boosts" },
+	{ char: "-", hint: "Slots 5-6 · Reserved", group: "reserved" },
+	{ char: "-", hint: "Slots 5-6 · Reserved", group: "reserved" },
 	{ char: "0", hint: "Slot 7 · Random boost · None", group: "randomBoost" },
 	{
 		char: "0",
@@ -88,9 +84,8 @@ test("characters sharing a group are drawn as one run", async () => {
 		"1",
 		"S",
 		"0",
-		"-",
-		"-",
-		"-",
+		"0",
+		"--",
 		"0",
 		"00",
 		"-",
@@ -124,7 +119,7 @@ test("a new value drops hints that described the old one", async () => {
 
 	element.hints = HINTS;
 	await element.updateComplete;
-	element.value = "1H0--F000-";
+	element.value = "1H04--000-";
 	await element.updateComplete;
 
 	expect(runs(element)).toHaveLength(0);
@@ -199,10 +194,10 @@ test("typing a code reports the draft to the page", async () => {
 	await settle(element);
 	const input = field(element);
 	if (input === null) throw new Error("no input");
-	input.value = "1M3H-F214J";
+	input.value = "1M35--214J";
 	input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
 
-	expect(drafts).toEqual(["1M3H-F214J"]);
+	expect(drafts).toEqual(["1M35--214J"]);
 });
 
 // Filtering-style noise must not reach the page's form listener as a change of
@@ -269,7 +264,7 @@ test("a value set while editing leaves the typed text alone", async () => {
 	const input = field(element);
 	if (input === null) throw new Error("no input");
 	input.value = "1M3";
-	element.value = "1M0---000-";
+	element.value = "1M00--000-";
 	await settle(element);
 
 	expect(field(element)?.value).toBe("1M3");
@@ -280,12 +275,12 @@ test("leaving the editor shows the current value again", async () => {
 
 	element.editing = true;
 	await settle(element);
-	element.value = "1M0---000-";
+	element.value = "1M00--000-";
 	element.editing = false;
 	await settle(element);
 
 	expect(element.shadowRoot?.querySelector("code")?.textContent?.trim()).toBe(
-		"1M0---000-",
+		"1M00--000-",
 	);
 });
 
@@ -312,7 +307,9 @@ test("an invalid message is marked as an error", async () => {
 	).toBe(true);
 });
 
-test("copying reports that it worked", async () => {
+// The button says it, not the line under the code: an empty line held open for
+// a message this brief costs the panel its height all the time.
+test("copying reports that it worked, on the button", async () => {
 	const element = await mount();
 	let copied = "";
 	stubClipboard(async () => {
@@ -324,8 +321,13 @@ test("copying reports that it worked", async () => {
 
 	expect(copied).toBe(CODE);
 	expect(
+		element.shadowRoot
+			?.querySelector(".copy .swap")
+			?.classList.contains("done"),
+	).toBe(true);
+	expect(
 		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
-	).toBe("Copied.");
+	).toBe("");
 });
 
 test("a blocked clipboard says so instead", async () => {
@@ -340,17 +342,41 @@ test("a blocked clipboard says so instead", async () => {
 	).toBe(true);
 });
 
-// A stale "Copied." beside a code that has since changed is a lie.
-test("a new value clears the copy status", async () => {
+// A button still saying "Copied" beside a code that has since changed is a lie.
+test("a new value puts the copy button back", async () => {
 	const element = await mount();
 	stubClipboard(async () => {});
 
 	element.shadowRoot?.querySelector<HTMLButtonElement>(".copy")?.click();
 	await settle(element);
-	element.value = "1M0---000-";
+	element.value = "1M00--000-";
 	await settle(element);
 
 	expect(
+		element.shadowRoot
+			?.querySelector(".copy .swap")
+			?.classList.contains("done"),
+	).toBe(false);
+	expect(
 		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
 	).toBe("");
+});
+
+// A blocked clipboard has an instruction to give, and an instruction does not
+// fit on a button.
+test("a blocked clipboard leaves the button alone and speaks in the line", async () => {
+	const element = await mount();
+	stubClipboard(() => Promise.reject(new Error("blocked")));
+
+	element.shadowRoot?.querySelector<HTMLButtonElement>(".copy")?.click();
+	await settle(element);
+
+	expect(
+		element.shadowRoot
+			?.querySelector(".copy .swap")
+			?.classList.contains("done"),
+	).toBe(false);
+	expect(
+		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
+	).toContain("blocked the clipboard");
 });

@@ -27,11 +27,13 @@ main {
 	border-radius: var(--cr-radius);
 	background: var(--cr-surface);
 	box-shadow: var(--cr-block);
-	padding: var(--cr-space-4);
+	padding: var(--cr-space-3) var(--cr-space-4);
 }
 
+/* A label rather than a title: it belongs to the code under it, so it sits
+   closer to the code than to the edge of the panel. */
 .codepanel h2 {
-	margin-bottom: var(--cr-space-2);
+	margin-bottom: var(--cr-space-1);
 	color: var(--cr-muted);
 	font-size: 0.75rem;
 	font-weight: 500;
@@ -42,10 +44,42 @@ main {
 	margin-top: var(--cr-space-2);
 }
 
-/* The panel is sticky, so a status line that appears on copy would otherwise
-   shove the page under it. */
+/* The summary reads as the code's own line, so the buttons stand off it by
+   more than it stands off the code. */
+.codepanel .actions {
+	margin: var(--cr-space-3) 0 0;
+}
+
+/* Both labels share one grid cell, so a button saying its work is done is the
+   width of the wider label either way and nothing beside it moves. Hidden by
+   visibility, not display: the hidden label keeps its width and stays out of
+   the accessible name. */
+.swap {
+	display: grid;
+	place-items: center;
+}
+
+.swap > span {
+	grid-area: 1 / 1;
+}
+
+.swap > .said,
+.swap.done > .rest {
+	visibility: hidden;
+}
+
+.swap.done > .said {
+	visibility: visible;
+}
+
+/* Only a blocked clipboard writes here now — a copy that worked says so on the
+   button itself — so the line takes no room until it has something to say. */
 #link-status {
 	margin-bottom: 0;
+}
+
+#link-status:empty {
+	min-height: 0;
 }
 
 /* What the code says, under the panel rather than pinned inside it. */
@@ -62,8 +96,7 @@ main {
 
 /* A phone gives the sticky panel about half its screen at the sizes above, so
    everything that is not the code itself comes off it: the heading the code
-   does not need, the reserved line for a status that is usually empty, and the
-   padding around both. */
+   does not need, and the padding around it. */
 @media (width < 48rem) {
 	.codepanel {
 		padding: var(--cr-space-2) var(--cr-space-3);
@@ -71,10 +104,6 @@ main {
 
 	.codepanel h2 {
 		display: none;
-	}
-
-	#link-status:empty {
-		min-height: 0;
 	}
 
 	.readout {

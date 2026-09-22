@@ -2,14 +2,14 @@
 
 A Cookie Run combi stores a cookie, relay, pet, and treasure, but nothing else — the run type, episode, boosts, and cookie power+ selections would otherwise live only in your head. The combi name is 10 characters, which is enough room to carry all of it. An optional loadout section goes further still, writing down the cookie, relay, pet, and treasure choices themselves, so a whole build travels as one code even without the game in front of you.
 
-The full configuration space is 6 types x 12 episodes x 8 boost subsets x 12 random-boost choices x 128 cookie-power+ subsets x 2 actions = 1,769,472 combinations, or about 21 bits. Ten characters of `A-Z0-9` hold roughly 52 bits, so this encoding spends the surplus on legibility instead of packing: every field gets a fixed slot you can read at a glance.
+The full configuration space is 6 types x 12 episodes x 16 boost subsets x 12 random-boost choices x 128 cookie-power+ subsets x 2 actions = 3,538,944 combinations, or about 22 bits. Ten characters of `A-Z0-9` hold roughly 52 bits, so this encoding spends the surplus on legibility instead of packing: every field gets a fixed slot you can read at a glance.
 
 ## Format
 
 ```
-slot:  1  2  3  4 5 6  7  8 9  10
-       V  T  E  B B B  R  C C  A
-ex:    1  H  3  H - F  4  1 4  J
+slot:  1  2  3  4  5 6  7  8 9  10
+       V  T  E  B  . .  R  C C  A
+ex:    1  H  3  5  - -  4  1 4  J
 ```
 
 | Slot | Field | Encoding |
@@ -17,14 +17,26 @@ ex:    1  H  3  H - F  4  1 4  J
 | 1 | Format version | `1` |
 | 2 | Type | `S` Score, `M` Money, `E` Exp, `B` Box, `A` Auto, `H` Semi-auto |
 | 3 | Episode | `0` Any, `1`-`7` Episode 1-7, `A`/`B`/`C` Special Episode 1-3, `X` Special Exp Episode |
-| 4 | HP Extension | `H` on, `-` off |
-| 5 | Power Jelly Boost | `P` on, `-` off |
-| 6 | Fast Start | `F` on, `-` off |
+| 4 | Boosts | Bitmask as one uppercase hex digit, `0`-`F` |
+| 5-6 | Reserved | Always `-`, both |
 | 7 | Random boost | `0` none, otherwise one of the eleven below |
 | 8-9 | Cookie power+ | Bitmask as two uppercase hex digits, `00`-`7F` |
 | 10 | Action | `-` none, `J` jump at start |
 
 `-` means off or none in a flag slot; `0` means none in a numeric slot.
+
+Slots 5 and 6 are held open, not used. The boosts had a flag slot each until a fourth boost arrived and there were only ten characters to have; they moved into one slot, and the two that came free stay where they are so every field after them keeps its position — and so the next field to arrive has somewhere to go. A code that writes anything but `-` in either one is rejected outright.
+
+### Boost bitmask (slot 4)
+
+| Value | Boost | Value | Boost |
+| --- | --- | --- | --- |
+| `1` | HP Extension | `4` | Fast Start |
+| `2` | Power Jelly Boost | `8` | Double XP |
+
+Add the values of every boost you turned on and write the sum in hex, the same way as the cookie power+ mask below. HP Extension plus Fast Start is `1 + 4 = 5`; all four is `F`.
+
+Cookie Relay is not here: a run that uses one says so by naming a relay cookie in the loadout section.
 
 ### Random boost (slot 7)
 
@@ -65,9 +77,9 @@ The loadout writes down the cookie, relay, pet, and treasure a build uses. The g
 `C`, `R`, `P`, and `T` are each written at most once and, when present, always in that order. A group that has nothing to say is simply missing — there is no placeholder character for "unset."
 
 ```
-1S0HPF014-                   no loadout, exactly as before
-1C2L.1S0HPF014-              a cookie only
-1C2LR0BP1ZTU0FZ_0RB-0QQ.1H3H-F400J
+1S07--014-                   no loadout, exactly as before
+1C2L.1S07--014-              a cookie only
+1C2LR0BP1ZTU0FZ_0RB-0QQ.1H35--400J
                              cookie, relay, pet, two treasure slots, any order
 ```
 
@@ -79,16 +91,15 @@ An id must not repeat within one treasure slot — `TU0FZ_0FZ` is invalid, since
 
 ## Auto vs semi-auto
 
-Semi-auto is a run that needs manual work each time. A combi is semi-auto when **any** of these is true: Fast Start is on (slot 6), a random boost is selected (slot 7), or there is a jump action (slot 10).
+Semi-auto is a run that needs manual work each time. A combi is semi-auto when **any** of these is true: Fast Start is on (bit `4` of slot 4), a random boost is selected (slot 7), or there is a jump action (slot 10). The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
 
-Slot 2 stores `A` or `H` for readability, but those three slots are the authority. `encode` normalizes slot 2 so a generated code never contradicts itself. `decode` accepts a hand-typed code that does contradict, keeps `combi.type` as written, and returns a warning; `isSemiAuto` always answers from the flag slots.
-
-Full auto is therefore one visual pattern — `-` at slot 6, `0` at slot 7, `-` at slot 10:
+Slot 2 stores `A` or `H` for readability, but those three are the authority. `encode` normalizes slot 2 so a generated code never contradicts itself. `decode` accepts a hand-typed code that does contradict, keeps `combi.type` as written, and returns a warning; `isSemiAuto` always answers from the fields above.
 
 ```
-1A3H---00-    full auto
-1H3H-F400-    semi-auto (Fast Start + Revive)
-1H3H---00J    semi-auto (jump only)
+1A31--000-    full auto (HP Extension only)
+1H35--400-    semi-auto (Fast Start + Revive)
+1H31--000J    semi-auto (jump only)
+1A39--000-    full auto (HP Extension + Double XP)
 ```
 
 ## Usage
@@ -104,9 +115,9 @@ encode({
   cookiePowers: ["fairy", "seaFairy"],
   action: "none",
 });
-// "1S0HPF014-"
+// "1S07--014-"
 
-const { combi, warnings } = decode("1E3-PF400J");
+const { combi, warnings } = decode("1E36--400J");
 isSemiAuto(combi); // true
 ```
 
@@ -133,14 +144,14 @@ The build produces one `index.html` per page, the JavaScript and CSS they share 
 ```bash
 bun install
 bun run dev           # dev server on :3000; / is the home pane, /combi-name/ is the combi tool
-bun run test          # 302 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run test          # 332 tests, including an exhaustive round-trip over all 3,538,944 combis
 bun run check         # typecheck and Biome, in one pass
 bun run build         # writes dist/index.html, dist/combi-name/index.html, their chunks, and dist/assets/
 bun run preview       # serves the built dist/ on :4000; build first
 bun run verify:assets # asks cookierundb.com whether assets/index.json is still complete
 ```
 
-The exhaustive test asserts that encoding produces exactly 1,474,560 distinct codes — 1,769,472 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
+The exhaustive test asserts that encoding produces exactly 2,949,120 distinct codes — 3,538,944 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
 
 ### Layout
 

@@ -56,46 +56,63 @@ function* everyCombi(): Generator<Combi> {
 
 const CODE_PATTERN = /^[0-9A-Z-]{10}$/;
 
-test("every combi round-trips through a 10-character code", () => {
-	const failures: string[] = [];
-	let checked = 0;
+/**
+ * Both tests below walk the whole configuration space, so their runtime is the
+ * size of the format rather than anything about the machine. Bun's 5s default
+ * was already close when the space was half this size, and a CI runner is
+ * slower than a laptop — the explicit budget is what keeps a growing format
+ * from reading as a flaky test.
+ */
+const WHOLE_SPACE_TIMEOUT = 60_000;
 
-	for (const combi of everyCombi()) {
-		checked++;
-		const code = encode(combi);
+test(
+	"every combi round-trips through a 10-character code",
+	() => {
+		const failures: string[] = [];
+		let checked = 0;
 
-		if (code.length !== CODE_LENGTH || !CODE_PATTERN.test(code)) {
-			failures.push(`${JSON.stringify(combi)} produced bad code "${code}"`);
-			continue;
+		for (const combi of everyCombi()) {
+			checked++;
+			const code = encode(combi);
+
+			if (code.length !== CODE_LENGTH || !CODE_PATTERN.test(code)) {
+				failures.push(`${JSON.stringify(combi)} produced bad code "${code}"`);
+				continue;
+			}
+
+			const { combi: back } = decode(code);
+
+			const same =
+				back.episode === combi.episode &&
+				back.randomBoost === combi.randomBoost &&
+				back.action === combi.action &&
+				back.boosts.join() === combi.boosts.join() &&
+				back.cookiePowers.join() === combi.cookiePowers.join() &&
+				encode(back) === code;
+
+			if (!same) {
+				failures.push(
+					`${code} decoded to ${JSON.stringify(back)}, expected ${JSON.stringify(combi)}`,
+				);
+			}
+
+			if (failures.length >= 5) break;
 		}
 
-		const { combi: back } = decode(code);
+		expect(failures).toEqual([]);
+		expect(checked).toBe(6 * 12 * 16 * 12 * 128 * 2);
+	},
+	WHOLE_SPACE_TIMEOUT,
+);
 
-		const same =
-			back.episode === combi.episode &&
-			back.randomBoost === combi.randomBoost &&
-			back.action === combi.action &&
-			back.boosts.join() === combi.boosts.join() &&
-			back.cookiePowers.join() === combi.cookiePowers.join() &&
-			encode(back) === code;
+test(
+	"codes are unique — the auto family is the only collapse",
+	() => {
+		const codes = new Set<string>();
+		for (const combi of everyCombi()) codes.add(encode(combi));
 
-		if (!same) {
-			failures.push(
-				`${code} decoded to ${JSON.stringify(back)}, expected ${JSON.stringify(combi)}`,
-			);
-		}
-
-		if (failures.length >= 5) break;
-	}
-
-	expect(failures).toEqual([]);
-	expect(checked).toBe(6 * 12 * 8 * 12 * 128 * 2);
-});
-
-test("codes are unique — the auto family is the only collapse", () => {
-	const codes = new Set<string>();
-	for (const combi of everyCombi()) codes.add(encode(combi));
-
-	// 4 manual types + 1 auto family, since the auto/semi char is derived.
-	expect(codes.size).toBe(5 * 12 * 8 * 12 * 128 * 2);
-});
+		// 4 manual types + 1 auto family, since the auto/semi char is derived.
+		expect(codes.size).toBe(5 * 12 * 16 * 12 * 128 * 2);
+	},
+	WHOLE_SPACE_TIMEOUT,
+);
