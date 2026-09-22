@@ -73,6 +73,26 @@ export function imageFor(section: CatalogSection, id: string): string | null {
 	return entryFor(section, id)?.image ?? null;
 }
 
+const BY_KEY: Record<CatalogSection, ReadonlyMap<string, CatalogEntry>> = {
+	cookies: new Map(Object.values(DATA.cookies).map((e) => [e.key, e])),
+	pets: new Map(Object.values(DATA.pets).map((e) => [e.key, e])),
+	treasures: new Map(Object.values(DATA.treasures).map((e) => [e.key, e])),
+};
+
+/**
+ * An entry's picture, found by the scraper's own key rather than by its wire
+ * id. Cookie power+ is a list of cookies the codec models as its own values, so
+ * the page needs their portraits without the codec ever learning a cookie id;
+ * naming the key keeps that lookup readable, and keeps a renumbering — which
+ * `scripts/utils/asset-ids.ts` forbids anyway — from silently repointing it.
+ */
+export function imageForKey(
+	section: CatalogSection,
+	key: string,
+): string | null {
+	return BY_KEY[section].get(key)?.image ?? null;
+}
+
 /**
  * Live entries only, in id order — the order every wire-format sort uses. A
  * name shared by two live entries carries its id, since the id is what tells

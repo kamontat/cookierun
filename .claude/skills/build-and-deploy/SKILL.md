@@ -29,7 +29,7 @@ Everything else a page references still gets inlined as a data URI — read the 
 
 The base sheet is a separate file rather than the home pane's sheet doubling as one, which it used to be. Two things fell out of that arrangement: the home pane could never hold a rule the other routes should not see, and a new route whose sheet held only the import hashed byte-identical to the base and stopped the build with `Multiple files share the same output path` — two entry stylesheets that hash alike cannot both be written, and nothing in that message says so.
 
-One declaration is still split across both levels: the base sheet gives `main > :only-child` the full grid width, which is what makes a single-section page span both columns, and the combi page's sheet spans `.result, .legend` the same way. Neither file can see the other's selectors, and losing either half is a layout break no test catches.
+The two levels still have to be read together. The base sheet lays `main` out as two columns above 62rem and gives `main > :only-child` the full width, which is what makes the single-section home pane span both; the combi page's sheet overrides that back to one column, because its own sections are a sequence rather than a pair of panels, and does the widening inside them instead. Two other base rules are only correct because of what the routes do with them: the reset lays every `div` out as a flex column, so `.actions` spells out `flex-flow: row wrap`, and `scroll-padding-top` is sized to the combi page's sticky code panel, which is what a jump from a clicked run of the code has to clear. Neither file can see the other's selectors, and losing either half is a layout break no test catches.
 
 ## Deployment
 

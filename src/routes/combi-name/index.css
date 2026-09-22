@@ -1,37 +1,39 @@
 @import "../base.css";
 
-/* The result and the legend are full-width. */
-.result,
-.legend {
-	grid-column: 1 / -1;
+/* One column, whatever the width. The page is a sequence — the code, then the
+   controls that write it, in the order the code reads — and a second track
+   would break that sequence into two things to scan instead of one. The grids
+   that do the widening are inside the sections, where the cards are. */
+main {
+	grid-template-columns: minmax(0, 1fr);
+	max-width: 58rem;
+	gap: var(--cr-space-3);
 }
 
-/* Once there are two tracks, the builder takes the left one whole and the
-   loadout and the reader stack in the right. Left to flow, the full-width
-   loadout used to sit between them and leave a hole beside each. */
 @media (width >= 62rem) {
-	.builder {
-		grid-column: 1;
-		grid-row: span 2;
-	}
-
-	.loadout,
-	.reader {
-		grid-column: 2;
+	main {
+		grid-template-columns: minmax(0, 1fr);
 	}
 }
 
 /* The code is what the page is for, so it stays in view while you work the
    controls under it. */
-.result {
+.codepanel {
 	position: sticky;
 	top: 0;
-	z-index: 1;
+	z-index: 2;
+	min-width: 0;
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: var(--cr-radius);
+	background: var(--cr-surface);
+	box-shadow: var(--cr-block);
+	padding: var(--cr-space-4);
 }
 
-.result h2 {
+.codepanel h2 {
+	margin-bottom: var(--cr-space-2);
 	color: var(--cr-muted);
-	font-size: 0.8rem;
+	font-size: 0.75rem;
 	font-weight: 500;
 }
 
@@ -41,30 +43,72 @@
 	margin-bottom: 0;
 }
 
-.code-input {
+.tip {
+	margin: var(--cr-space-2) 0 0;
+	color: var(--cr-muted);
+	font-size: 0.8rem;
+}
+
+.tip kbd {
+	border: 1px solid var(--cr-line);
+	border-radius: var(--cr-radius);
+	background: var(--cr-surface-2);
+	padding: 0 0.3em;
 	font-family: var(--cr-mono);
-	letter-spacing: 0.16em;
-	text-transform: uppercase;
+	font-size: 0.85em;
 }
 
-/* A placeholder at full value colour reads as a code someone already typed. */
-.code-input::placeholder {
-	color: var(--cr-muted);
-	opacity: 0.6;
-	text-transform: none;
+/* The form is not a box of its own — its sections are the boxes. */
+#build {
+	display: grid;
+	gap: var(--cr-space-3);
 }
 
-.hint {
+/* Cookie, relay and pet across the top; the three treasure slots across the
+   next row. Both collapse to one column where there is no room.
+
+   Ahead of the `.panel >` rules below, which are more specific: a lower
+   specificity selector written afterwards never applies, and Biome says so. */
+.tiles {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+	gap: var(--cr-space-2);
+	align-items: start;
+}
+
+/* An open control takes the whole row: its grid of faces is the reason to open
+   it, and a third of a row shows three columns of them. Both catalog controls
+   reflect `open` onto their host for exactly this. */
+.tiles > [open] {
+	grid-column: 1 / -1;
+}
+
+/* A section's controls breathe: each chip row and card grid is its own block,
+   and the last one does not leave a gap above the panel edge. */
+.panel > chip-group,
+.panel > card-group {
 	display: block;
-	margin-top: 0.35rem;
-	color: var(--cr-muted);
+	margin-bottom: var(--cr-space-4);
+}
+
+.panel > .tiles {
+	margin-bottom: var(--cr-space-4);
+}
+
+.panel > :last-child {
+	margin-bottom: 0;
 }
 
 .warnings {
 	display: grid;
-	gap: 0.5rem;
+	gap: var(--cr-space-2);
+	margin: var(--cr-space-3) 0 0;
 	padding: 0;
 	list-style: none;
+}
+
+.warnings:empty {
+	margin: 0;
 }
 
 .warnings li {
@@ -75,18 +119,19 @@
 	font-size: 0.9rem;
 }
 
-.rows {
-	display: grid;
-	grid-template-columns: max-content 1fr;
-	gap: 0.35rem 1rem;
+/* The reference is a `<details>`, so its heading sits on the summary line and
+   has to stop being a block to get there. */
+.reference summary {
+	cursor: pointer;
 }
 
-.rows dt {
-	color: var(--cr-muted);
+.reference summary h2 {
+	display: inline;
+	font-size: 1rem;
 }
 
-.rows dd {
-	margin: 0;
+.reference[open] summary {
+	margin-bottom: var(--cr-space-3);
 }
 
 .diagram {

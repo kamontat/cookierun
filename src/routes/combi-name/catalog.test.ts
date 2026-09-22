@@ -8,6 +8,7 @@ import {
 	hasId,
 	ID_WIDTH,
 	imageFor,
+	imageForKey,
 	isRetired,
 	labelFor,
 	nameFor,
@@ -147,4 +148,21 @@ test("every targets/source reference resolves to a treasure id", () => {
 	}
 	// Guards against the loop above silently checking nothing.
 	expect(checked).toBeGreaterThan(0);
+});
+
+// Cookie power+ is a list of cookies, so the page wants their portraits. It
+// looks them up by key rather than by id: an id is the wire format's business,
+// while a key names the entry the way the scraper found it.
+test("an entry's art is reachable by its key", () => {
+	expect(imageForKey("cookies", "FairyCookie")).toBe("cookies/ch26.png");
+});
+
+test("a key no section carries has no art rather than a broken link", () => {
+	expect(imageForKey("cookies", "NotACookie")).toBe(null);
+});
+
+test("every cookie key resolves to the same entry its id does", () => {
+	for (const [id, entry] of Object.entries(index.cookies)) {
+		expect(imageForKey("cookies", entry.key)).toBe(imageFor("cookies", id));
+	}
 });

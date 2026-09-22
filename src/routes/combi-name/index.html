@@ -31,109 +31,97 @@
     <header class="masthead container">
       <h1>Cookie Run combi codes</h1>
       <p>
-        A combi name holds 10 characters. That is enough to carry the run type,
+        A combi name holds 10 characters - enough to carry the run type,
         episode, boosts, random boost, cookie power+ selections, and starting
-        action. Put a loadout section in front of it and the same code carries
-        your cookie, relay, pet, and treasures too.
+        action. Put a loadout section in front and the same code carries your
+        cookie, relay, pet, and treasures too. Build one below, or edit the
+        code itself and watch the controls follow.
       </p>
     </header>
 
     <main id="content" class="container" tabindex="-1">
-      <section class="panel result" aria-labelledby="result-heading">
-        <h2 id="result-heading">Your combi name</h2>
+      <!-- The code is the whole interface: it is the output, and it is also
+           the input. Nothing else on the page shows a code. -->
+      <section class="codepanel" aria-labelledby="code-heading">
+        <h2 id="code-heading">Your code</h2>
 
-        <copy-code id="code-output" value="1S0---000-"></copy-code>
-        <auto-verdict id="builder-verdict" prefix="Stored as"></auto-verdict>
+        <code-bar
+          id="code"
+          value="1S0---000-"
+          placeholder="1C00TU000.1S0HPF014-"
+        ></code-bar>
+        <verdict-line id="verdict"></verdict-line>
+        <ul id="warnings" class="warnings" aria-live="polite"></ul>
 
-        <fieldset class="actions">
+        <div class="actions">
           <button id="copy-link" type="button">Copy link</button>
           <button id="reset" type="button">Reset</button>
-        </fieldset>
+        </div>
         <p id="link-status" class="status" role="status"></p>
-      </section>
-
-      <section class="panel builder" aria-labelledby="builder-heading">
-        <h2 id="builder-heading">Build a code</h2>
-
-        <form id="builder" novalidate>
-          <div class="row">
-            <labelled-select id="type" label="Type"></labelled-select>
-
-            <labelled-select id="episode" label="Episode"></labelled-select>
-          </div>
-
-          <check-group id="boosts" legend="Boosts"></check-group>
-
-          <check-group id="cookiePowers" legend="Cookie power+"></check-group>
-
-          <div class="row">
-            <labelled-select
-              id="randomBoost"
-              label="Random boost"
-            ></labelled-select>
-
-            <labelled-select id="action" label="Action"></labelled-select>
-          </div>
-        </form>
-      </section>
-
-      <section class="panel loadout" aria-labelledby="loadout-heading">
-        <h2 id="loadout-heading">Cookie, relay, pet, treasures</h2>
-        <p>
-          The game stores these four in the combi itself, so they live in the
-          left-hand section of the code rather than in the 10-character name.
-          Leave them alone and the code stays exactly 10 characters. Each
-          control opens onto its own list; what it holds is on the line.
+        <p class="tip">
+          Click any part of the code to jump to the control that writes it, or
+          press <kbd>Edit</kbd> and type one. Pasting a code anywhere on the
+          page loads it.
         </p>
+      </section>
 
-        <form id="loadout" novalidate>
-          <entry-picker id="cookie" label="Cookie"></entry-picker>
-          <entry-picker id="relay" label="Relay"></entry-picker>
-          <entry-picker id="pet" label="Pet"></entry-picker>
+      <form id="build" novalidate>
+        <section class="panel" aria-labelledby="run-heading">
+          <h2 id="run-heading">Run</h2>
 
-          <entry-set id="treasure1" legend="Treasure slot 1"></entry-set>
-          <entry-set id="treasure2" legend="Treasure slot 2"></entry-set>
-          <entry-set id="treasure3" legend="Treasure slot 3"></entry-set>
+          <chip-group id="type" label="Type"></chip-group>
+          <chip-group id="episode" label="Episode"></chip-group>
+        </section>
 
-          <labelled-select
+        <section class="panel" aria-labelledby="boosts-heading">
+          <h2 id="boosts-heading">Boosts and start</h2>
+
+          <card-group id="boosts" legend="Boosts"></card-group>
+          <chip-group id="randomBoost" label="Random boost"></chip-group>
+          <chip-group id="action" label="Action"></chip-group>
+        </section>
+
+        <section class="panel" aria-labelledby="powers-heading">
+          <h2 id="powers-heading">Cookie power+</h2>
+
+          <card-group
+            id="cookiePowers"
+            legend="Cookies whose power+ is on"
+          ></card-group>
+        </section>
+
+        <section class="panel" aria-labelledby="loadout-heading">
+          <h2 id="loadout-heading">Loadout</h2>
+          <p>
+            The game stores these four in the combi itself, so they ride in the
+            section before the dot rather than in the 10-character name. Leave
+            them alone and the code stays exactly 10 characters.
+          </p>
+
+          <div class="tiles">
+            <entry-tile id="cookie" label="Cookie"></entry-tile>
+            <entry-tile id="relay" label="Relay"></entry-tile>
+            <entry-tile id="pet" label="Pet"></entry-tile>
+          </div>
+
+          <div class="tiles">
+            <entry-tiles id="treasure1" legend="Treasure 1"></entry-tiles>
+            <entry-tiles id="treasure2" legend="Treasure 2"></entry-tiles>
+            <entry-tiles id="treasure3" legend="Treasure 3"></entry-tiles>
+          </div>
+
+          <chip-group
             id="treasureOrder"
             label="Treasure order"
-          ></labelled-select>
-        </form>
-      </section>
+          ></chip-group>
+        </section>
+      </form>
 
-      <section class="panel reader" aria-labelledby="reader-heading">
-        <h2 id="reader-heading">Read a code</h2>
-
-        <div class="field">
-          <label for="code-input">Combi name</label>
-          <input
-            id="code-input"
-            class="code-input"
-            type="text"
-            inputmode="latin"
-            autocapitalize="characters"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="1C00TU000.1S0HPF014-"
-            aria-describedby="code-input-hint"
-          />
-          <small id="code-input-hint" class="hint">
-            A bare 10-character name, or a full code with a loadout in front
-            of the dot. It reads back as you type, and a code that contradicts
-            itself still reads - you get a warning, not a refusal.
-          </small>
-        </div>
-
-        <p id="reader-message" class="status" aria-live="polite"></p>
-        <dl id="reader-rows" class="rows"></dl>
-        <auto-verdict id="reader-verdict" prefix="This code is"></auto-verdict>
-        <ul id="reader-warnings" class="warnings" aria-live="polite"></ul>
-        <button id="load" type="button" hidden>Load into builder</button>
-      </section>
-
-      <section class="panel legend" aria-labelledby="legend-heading">
-        <h2 id="legend-heading">Reading a code by eye</h2>
+      <!-- Folded away: the tooltips on the code above answer "which one is the
+           episode?" for the code actually in front of you, which is the
+           question this table used to be here to answer. -->
+      <details class="panel reference">
+        <summary><h2>Reading a code by eye</h2></summary>
 
         <pre class="diagram">
 slot:  1  2  3  4 5 6  7  8 9  10
@@ -143,61 +131,66 @@ ex:    1  H  3  H - F  4  1 4  J</pre
 
         <div class="scroll-x">
           <table>
-          <thead>
-            <tr>
-              <th scope="col">Slot</th>
-              <th scope="col">Field</th>
-              <th scope="col">Characters</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>1</td>
-              <td>Format version</td>
-              <td><code>1</code></td>
-            </tr>
-            <tr>
-              <td>2</td>
-              <td>Type</td>
-              <td>
-                <code>S</code> Score, <code>M</code> Money, <code>E</code> Exp,
-                <code>B</code> Box, <code>A</code> Auto, <code>H</code>
-                Semi-auto
-              </td>
-            </tr>
-            <tr>
-              <td>3</td>
-              <td>Episode</td>
-              <td>
-                <code>0</code> Any, <code>1</code>-<code>7</code> Episode 1-7,
-                <code>A</code>/<code>B</code>/<code>C</code> Special Episode
-                1-3, <code>X</code> Special Exp Episode
-              </td>
-            </tr>
-            <tr>
-              <td>4-6</td>
-              <td>Boosts</td>
-              <td>
-                <code>H</code> HP Extension, <code>P</code> Power Jelly Boost,
-                <code>F</code> Fast Start, <code>-</code> when off
-              </td>
-            </tr>
-            <tr>
-              <td>7</td>
-              <td>Random boost</td>
-              <td><code>0</code> none, otherwise <code>1</code>-<code>9</code>, <code>A</code>, <code>B</code></td>
-            </tr>
-            <tr>
-              <td>8-9</td>
-              <td>Cookie power+</td>
-              <td>Bitmask as two hex digits, <code>00</code>-<code>7F</code></td>
-            </tr>
-            <tr>
-              <td>10</td>
-              <td>Action</td>
-              <td><code>-</code> none, <code>J</code> jump at start</td>
-            </tr>
-          </tbody>
+            <thead>
+              <tr>
+                <th scope="col">Slot</th>
+                <th scope="col">Field</th>
+                <th scope="col">Characters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>Format version</td>
+                <td><code>1</code></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>Type</td>
+                <td>
+                  <code>S</code> Score, <code>M</code> Money, <code>E</code>
+                  Exp, <code>B</code> Box, <code>A</code> Auto, <code>H</code>
+                  Semi-auto
+                </td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>Episode</td>
+                <td>
+                  <code>0</code> Any, <code>1</code>-<code>7</code> Episode 1-7,
+                  <code>A</code>/<code>B</code>/<code>C</code> Special Episode
+                  1-3, <code>X</code> Special Exp Episode
+                </td>
+              </tr>
+              <tr>
+                <td>4-6</td>
+                <td>Boosts</td>
+                <td>
+                  <code>H</code> HP Extension, <code>P</code> Power Jelly Boost,
+                  <code>F</code> Fast Start, <code>-</code> when off
+                </td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>Random boost</td>
+                <td>
+                  <code>0</code> none, otherwise <code>1</code>-<code>9</code>,
+                  <code>A</code>, <code>B</code>
+                </td>
+              </tr>
+              <tr>
+                <td>8-9</td>
+                <td>Cookie power+</td>
+                <td>
+                  Bitmask as two hex digits, <code>00</code>-<code>7F</code>
+                </td>
+              </tr>
+              <tr>
+                <td>10</td>
+                <td>Action</td>
+                <td><code>-</code> none, <code>J</code> jump at start</td>
+              </tr>
+            </tbody>
           </table>
         </div>
 
@@ -221,7 +214,9 @@ ex:    1  H  3  H - F  4  1 4  J</pre
               <tr>
                 <td><code>1</code></td>
                 <td>Loadout version</td>
-                <td>Always <code>1</code>, and separate from the name's version</td>
+                <td>
+                  Always <code>1</code>, and separate from the name's version
+                </td>
               </tr>
               <tr>
                 <td><code>C</code></td>
@@ -242,9 +237,10 @@ ex:    1  H  3  H - F  4  1 4  J</pre
                 <td><code>T</code></td>
                 <td>Treasures</td>
                 <td>
-                  <code>U</code> any order or <code>O</code> exact order, then up
-                  to 3 slots of 3 characters each, separated by <code>-</code>.
-                  Alternatives within a slot are joined by <code>_</code>
+                  <code>U</code> any order or <code>O</code> exact order, then
+                  up to 3 slots of 3 characters each, separated by
+                  <code>-</code>. Alternatives within a slot are joined by
+                  <code>_</code>
                 </td>
               </tr>
             </tbody>
@@ -259,7 +255,7 @@ ex:    1  H  3  H - F  4  1 4  J</pre
           <code>H</code> so the name reads plainly, but those three slots are
           the authority - building a code always rewrites slot 2 to match them.
         </p>
-      </section>
+      </details>
     </main>
 
     <footer class="container">

@@ -28,11 +28,11 @@ body {
 	}
 }
 
-/* The result panel is sticky, so anything scrolled to by a fragment link or by
-   keyboard focus needs to clear it - about 13rem with the code, the verdict
-   and the button bar in it. */
+/* The code panel is sticky, so anything scrolled to by a fragment link, by
+   keyboard focus, or by clicking a run of the code needs to clear it - about
+   15rem with the code, the summary, the button bar and the tip in it. */
 :root {
-	scroll-padding-top: 13rem;
+	scroll-padding-top: 15rem;
 }
 
 .container {
@@ -196,20 +196,23 @@ th {
 	color: var(--cr-danger);
 }
 
+/* `flex-flow` spelled out because the reset lays every `div` out as a flex
+   column, and this bar is a div. */
 .actions {
 	display: flex;
+	flex-flow: row wrap;
 	gap: var(--cr-space-2);
 	margin: 0 0 var(--cr-space-2);
 	border: 0;
 	padding: 0;
 }
 
-/* Bare selectors, not `.actions button`: `#load` in the reader is a page-level
-   button outside the actions bar, and the reset strips every button's border
-   and padding same as it does `.actions`'s. Mirrors the `controls` chunk in
-   src/components/theme.ts - the page's own controls read the same tokens the
-   components already do, since a page-level reset does not cross a shadow
-   boundary to give them the component's own copy. */
+/* Bare selectors, not `.actions button`: the reset strips every button's border
+   and padding same as it does `.actions`'s, and a page-level button need not sit
+   in an actions bar. Mirrors the `controls` chunk in src/components/theme.ts -
+   the page's own controls read the same tokens the components already do, since
+   a page-level reset does not cross a shadow boundary to give them the
+   component's own copy. */
 button {
 	border: var(--cr-border) solid var(--cr-line);
 	border-radius: var(--cr-radius);
@@ -245,9 +248,9 @@ select {
 	padding: var(--cr-space-1) var(--cr-space-2);
 }
 
-/* The reader's `<label for="code-input">` is the site's one page-level label.
-   Without this it renders as body text beside nine pieces of the same uppercase
-   tracked chrome the components draw from the `controls` chunk. */
+/* Every label on the site today is inside a component's shadow root, where the
+   `controls` chunk styles it. This keeps a page-level one — should a route grow
+   one — from rendering as body text beside that uppercase tracked chrome. */
 label {
 	display: block;
 	color: var(--cr-muted);
