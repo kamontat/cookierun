@@ -19,9 +19,12 @@ function fire(node: HTMLElement): void {
 }
 
 /**
- * Where a component's markup lives. A Lit component keeps it in a shadow root;
- * one that has not been migrated yet keeps it in the light DOM. This reads both,
- * so this file stops caring which components have moved.
+ * Where a component's markup lives: its shadow root, or the element itself for
+ * anything that renders into the light DOM. Every component on the site has a
+ * shadow root today, so in practice this is the shadow-root accessor - written
+ * as a fallback rather than a bare `host.shadowRoot` so that these tests state
+ * what they are after, the component's markup, and not which DOM it happens to
+ * put it in.
  */
 function inside(host: HTMLElement): ParentNode {
 	return (host as { shadowRoot?: ShadowRoot | null }).shadowRoot ?? host;

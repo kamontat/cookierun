@@ -53,6 +53,22 @@ test("several reasons read as a plural, joined by commas", async () => {
 	);
 });
 
+// `clearReader` in the combi route sets this back to null on every keystroke
+// that shortens a code below ten characters, so a verdict that has rendered
+// has to be able to go away again - leaving the last one on screen would say
+// "Semi-auto" about a code the reader has already given up on.
+test("clearing the verdict empties the line again", async () => {
+	const element = await mount("This code is");
+	element.verdict = { semi: true, reasons: ["Fast Start"] };
+	expect(await text(element)).toBe(
+		"This code is Semi-auto - Fast Start needs manual work each run.",
+	);
+
+	element.verdict = null;
+
+	expect(await text(element)).toBe("");
+});
+
 // Without a prefix the line has to open on the verdict, not on a stray space.
 test("an element without a prefix opens on the verdict", async () => {
 	const element = await mount(null);

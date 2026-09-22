@@ -228,12 +228,29 @@ test("the arrow keys walk the rows and Home and End jump to the ends", async () 
 	).toBe("");
 });
 
+// Each end is walked to first and then pressed past, so the assertion is that
+// the arrow did not move focus - not merely that focus is where the test put
+// it, which would hold against a component with no key handling at all.
 test("the arrows stop at the ends rather than wrapping around", async () => {
 	const element = await mount();
 	rows(element)[0]?.focus();
 
-	press(element, "ArrowUp");
+	press(element, "End");
+	expect(
+		(element.shadowRoot?.activeElement as HTMLButtonElement | null)?.value,
+	).toBe("02");
 
+	press(element, "ArrowDown");
+	expect(
+		(element.shadowRoot?.activeElement as HTMLButtonElement | null)?.value,
+	).toBe("02");
+
+	press(element, "Home");
+	expect(
+		(element.shadowRoot?.activeElement as HTMLButtonElement | null)?.value,
+	).toBe("");
+
+	press(element, "ArrowUp");
 	expect(
 		(element.shadowRoot?.activeElement as HTMLButtonElement | null)?.value,
 	).toBe("");
