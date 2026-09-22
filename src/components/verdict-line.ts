@@ -14,13 +14,10 @@ export type Verdict = {
 	readonly reasons: readonly string[];
 };
 
-const SEPARATOR = " · ";
-
 /**
- * What the code in front of you actually says, in two lines: the build as
- * prose, and whether it plays itself. It sits under the code because those two
- * answers are why anyone reads a code at all — the controls below only say how
- * to change it.
+ * Whether the code in front of you plays itself, and what stops it. A judgment
+ * about the build rather than a reading of it, which is why it sits down the
+ * page with the warnings while `<summary-line>` rides in the sticky panel.
  */
 export class VerdictLine extends LitElement {
 	static override styles = [
@@ -30,15 +27,8 @@ export class VerdictLine extends LitElement {
 				display: block;
 			}
 
-			.summary {
-				margin: 0;
-				color: var(--cr-text);
-				font-size: 0.95rem;
-				line-height: 1.5;
-			}
-
 			.verdict {
-				margin: var(--cr-space-1) 0 0;
+				margin: 0;
 				color: var(--cr-muted);
 				font-family: var(--cr-mono);
 				font-size: 0.85rem;
@@ -51,10 +41,6 @@ export class VerdictLine extends LitElement {
 			}
 		`,
 	];
-
-	/** One entry per field worth saying out loud, in reading order. */
-	@property({ attribute: false })
-	summary: readonly string[] = [];
 
 	@property({ attribute: false })
 	verdict: Verdict | null = null;
@@ -80,11 +66,7 @@ export class VerdictLine extends LitElement {
 	}
 
 	override render() {
-		return html`${
-			this.summary.length === 0
-				? nothing
-				: html`<p class="summary">${this.summary.join(SEPARATOR)}</p>`
-		}${this.#verdictLine()}`;
+		return this.#verdictLine();
 	}
 }
 

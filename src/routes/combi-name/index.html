@@ -50,6 +50,7 @@
           value="1S0---000-"
           placeholder="1C00TU000.1S0HPF014-"
         ></code-bar>
+        <summary-line id="summary"></summary-line>
 
         <div class="actions">
           <button id="copy-link" type="button">Copy link</button>
@@ -58,8 +59,9 @@
         <p id="link-status" class="status" role="status"></p>
       </section>
 
-      <!-- Outside the sticky panel on purpose: what the code says is reading
-           matter, and pinning it costs half a phone screen. -->
+      <!-- Outside the sticky panel on purpose: the verdict is a judgment to
+           read once, and pinning all of this cost half a phone screen. The
+           one line that does ride along is the summary, above. -->
       <div class="readout">
         <verdict-line id="verdict"></verdict-line>
         <ul id="warnings" class="warnings" aria-live="polite"></ul>

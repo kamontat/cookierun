@@ -18,21 +18,6 @@ function text(element: VerdictLine, selector: string): string {
 	return element.shadowRoot?.querySelector(selector)?.textContent?.trim() ?? "";
 }
 
-test("the summary reads as one line of prose", async () => {
-	const element = await mount();
-
-	element.summary = ["Score", "Any episode", "Fast Start"];
-	await element.updateComplete;
-
-	expect(text(element, ".summary")).toBe("Score · Any episode · Fast Start");
-});
-
-test("an empty summary renders nothing in its place", async () => {
-	const element = await mount();
-
-	expect(element.shadowRoot?.querySelector(".summary")).toBe(null);
-});
-
 test("a full-auto verdict says nothing needs manual work", async () => {
 	const element = await mount();
 

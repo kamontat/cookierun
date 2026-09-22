@@ -36,6 +36,7 @@ import "#components/code-bar";
 import "#components/entry-tile";
 import "#components/entry-tiles";
 import "#components/site-nav";
+import "#components/summary-line";
 import "#components/verdict-line";
 
 import type { CardGroup } from "#components/card-group";
@@ -43,6 +44,7 @@ import type { ChipGroup } from "#components/chip-group";
 import type { CodeBar } from "#components/code-bar";
 import type { EntryTile } from "#components/entry-tile";
 import type { EntryTiles } from "#components/entry-tiles";
+import type { SummaryLine } from "#components/summary-line";
 import type { VerdictLine } from "#components/verdict-line";
 
 /** Exported for this route's test, which drives the page through the same lookups. */
@@ -53,6 +55,7 @@ export function need<T extends HTMLElement>(id: string): T {
 }
 
 const codeBar = need<CodeBar>("code");
+const summaryLine = need<SummaryLine>("summary");
 const verdictLine = need<VerdictLine>("verdict");
 const warningList = need<HTMLUListElement>("warnings");
 const copyLinkButton = need<HTMLButtonElement>("copy-link");
@@ -247,7 +250,7 @@ function render(warnings: readonly string[] = []): void {
 	// into slot 2, not the type the chips still show.
 	const { full } = decodeFull(code);
 	const described = describeFull(full);
-	verdictLine.summary = summaryOf(full.combi);
+	summaryLine.fields = summaryOf(full.combi);
 	verdictLine.verdict = described.auto;
 	showWarnings(warnings);
 	publish(code);

@@ -116,10 +116,13 @@ test("a boost card writes its slot and rewrites the type slot to semi-auto", asy
 	await reset();
 });
 
-test("the summary line says what the build is", async () => {
+// The summary rides in the sticky panel with the code it describes; the
+// verdict stays down the page with the warnings.
+test("the summary line says what the build is, beside the code", async () => {
 	await choose("episode", "episode3");
 
-	expect(shown(verdict)).toContain("Episode 3");
+	expect(shown(need("summary"))).toContain("Episode 3");
+	expect(need("summary").closest(".codepanel")).not.toBe(null);
 	await reset();
 });
 

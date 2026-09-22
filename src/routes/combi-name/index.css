@@ -37,6 +37,11 @@ main {
 	font-weight: 500;
 }
 
+/* What the code says in words, pinned with the code it describes. */
+#summary {
+	margin-top: var(--cr-space-2);
+}
+
 /* The panel is sticky, so a status line that appears on copy would otherwise
    shove the page under it. */
 #link-status {

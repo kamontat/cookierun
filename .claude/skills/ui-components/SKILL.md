@@ -23,7 +23,8 @@ Attributes carry markup-authored configuration; properties carry structured data
 | `<theme-toggle>` | — | — |
 | `<tool-index>` | — | — |
 | `<code-bar>` | `value`, `message`, `invalid`, `placeholder`, `editing` | `value`, `hints`, `message`, `invalid`, `editing` |
-| `<verdict-line>` | — | `summary`, `verdict` |
+| `<summary-line>` | — | `fields` |
+| `<verdict-line>` | — | `verdict` |
 | `<chip-group>` | `label` | `options`, `value` |
 | `<card-group>` | `legend` | `options`, `selected` |
 | `<entry-tile>` | `label` | `options`, `value`, `open` |
@@ -42,6 +43,8 @@ The editor's text is held in the element's own `draft` state, seeded from `value
 All four value-holding list elements — `<card-group>`, `<entry-tile>`, `<entry-tiles>` and, in its own way, `<chip-group>` — refuse a value their current `options` do not contain, and the three multi-value ones do it in `willUpdate` as well as in the setter. The setter alone is not enough: `options` and the selection are two separate writes, so a list replaced underneath a pick would leave the dropped value in the internal set, invisible while it has no card and back the moment a later list contains it again. `<chip-group>` needs no pruning pass because it stores one value and its getter falls back to the first option whenever that value names none of them — which is what the `<select>` it replaced read as, and what `render` marks checked, so the getter can never disagree with the screen.
 
 `<chip-group>` is a radio group wearing the site's button look: one tab stop for the whole row, arrows moving the choice as well as the focus, Home and End at the ends, clamped rather than wrapped. It replaces a `<select>` wherever the list is short enough to show whole — seeing the twelve episodes at once is the point, and a closed select hides eleven of them.
+
+`<summary-line>` and `<verdict-line>` were one element and are two because the page pins them in different places: the summary is what the code says, so it rides in the sticky panel beside the code, while the verdict is a judgment about the build and sits down the page with the warnings. `<summary-line>` renders nothing at all — not an empty paragraph — when it has no fields, since an empty line in a sticky panel still costs its height on a phone.
 
 `<card-group>`'s third option field is a *list* of pictures, not one: a cookie power+ can belong to several cookies or pets at once — Serenade of Love to two, EXP Party to four — and the card lays them out from a `data-count` attribute on its own frame. An empty list is what falls back to the lettered tile, so "no art" and "one picture" are the same code path with a different length.
 
