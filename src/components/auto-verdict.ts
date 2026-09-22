@@ -1,3 +1,8 @@
+import { css, html, LitElement, nothing } from "lit";
+import { property } from "lit/decorators.js";
+
+import { base } from "./theme";
+
 /**
  * Declared here rather than imported from the combi route: components never
  * import from routes. `AutoVerdict` in the route's describe.ts is structurally
@@ -9,34 +14,43 @@ export type Verdict = {
 	readonly reasons: readonly string[];
 };
 
-export class AutoVerdictElement extends HTMLElement {
-	#verdict: Verdict | null = null;
+export class AutoVerdictElement extends LitElement {
+	static override styles = [
+		base,
+		css`
+			:host {
+				display: block;
+				margin-top: var(--cr-space-3);
+				font-family: var(--cr-mono);
+				font-size: 0.9rem;
+			}
 
-	connectedCallback(): void {
+			strong {
+				color: var(--cr-accent);
+				text-transform: uppercase;
+				letter-spacing: var(--cr-tracking);
+			}
+		`,
+	];
+
+	// `Element` already declares a readonly `prefix` (its XML namespace
+	// prefix), so this reactive property has to say it is deliberately
+	// shadowing that, not extending it.
+	@property({ type: String })
+	override prefix = "";
+
+	@property({ attribute: false })
+	verdict: Verdict | null = null;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
 		this.setAttribute("aria-live", "polite");
-		this.#render();
 	}
 
-	get verdict(): Verdict | null {
-		return this.#verdict;
-	}
+	override render() {
+		if (this.verdict === null) return nothing;
 
-	set verdict(verdict: Verdict | null) {
-		this.#verdict = verdict;
-		this.#render();
-	}
-
-	#render(): void {
-		if (this.#verdict === null) {
-			this.replaceChildren();
-			return;
-		}
-
-		const { semi, reasons } = this.#verdict;
-
-		const name = document.createElement("strong");
-		name.textContent = semi ? "Semi-auto" : "Full auto";
-
+		const { semi, reasons } = this.verdict;
 		const tail = semi
 			? ` - ${reasons.join(", ")} ${
 					reasons.length === 1 ? "needs" : "need"
@@ -45,13 +59,9 @@ export class AutoVerdictElement extends HTMLElement {
 
 		// The separating space belongs to the prefix, not to the verdict, or an
 		// element without one opens with a stray space before "Full auto".
-		const prefix = this.getAttribute("prefix") ?? "";
-
-		this.replaceChildren(
-			...(prefix === "" ? [] : [document.createTextNode(`${prefix} `)]),
-			name,
-			document.createTextNode(tail),
-		);
+		return html`${this.prefix === "" ? nothing : `${this.prefix} `}<strong
+				>${semi ? "Semi-auto" : "Full auto"}</strong
+			>${tail}`;
 	}
 }
 

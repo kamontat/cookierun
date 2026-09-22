@@ -30,17 +30,9 @@
 }
 
 .result h2 {
-	--pico-typography-spacing-top: 0;
-	color: var(--pico-muted-color);
+	color: var(--cr-muted);
 	font-size: 0.8rem;
 	font-weight: 500;
-}
-
-/* Pico's `[role=group]` bar is full width by default, which would stretch two
-   buttons across the panel. */
-.result .actions {
-	width: fit-content;
-	margin-bottom: 0;
 }
 
 /* The panel is sticky, so a status line that appears on copy would otherwise
@@ -50,14 +42,14 @@
 }
 
 .code-input {
-	font-family: var(--pico-font-family-monospace);
+	font-family: var(--cr-mono);
 	letter-spacing: 0.16em;
 	text-transform: uppercase;
 }
 
 /* A placeholder at full value colour reads as a code someone already typed. */
 .code-input::placeholder {
-	color: var(--pico-muted-color);
+	color: var(--cr-muted);
 	opacity: 0.6;
 	text-transform: none;
 }
@@ -65,7 +57,7 @@
 .hint {
 	display: block;
 	margin-top: 0.35rem;
-	color: var(--pico-muted-color);
+	color: var(--cr-muted);
 }
 
 .warnings {
@@ -75,14 +67,11 @@
 	list-style: none;
 }
 
-/* `list-style: none` on the list is not enough: Pico sets `ul li` to a square
-   directly, so the bullet outlives it and sits beside the warning's box. */
 .warnings li {
-	list-style: none;
-	padding: 0.5rem 0.65rem;
-	border-radius: var(--pico-border-radius);
-	background: var(--pico-mark-background-color);
-	color: var(--pico-mark-color);
+	border-left: var(--cr-border) solid var(--cr-accent-2);
+	background: var(--cr-surface-2);
+	padding: var(--cr-space-2);
+	color: var(--cr-text);
 	font-size: 0.9rem;
 }
 
@@ -93,7 +82,7 @@
 }
 
 .rows dt {
-	color: var(--pico-muted-color);
+	color: var(--cr-muted);
 }
 
 .rows dd {
@@ -102,6 +91,6 @@
 
 .diagram {
 	overflow-x: auto;
-	padding: var(--pico-spacing);
+	padding: var(--cr-space-3);
 	font-size: 0.85rem;
 }

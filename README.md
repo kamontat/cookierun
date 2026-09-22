@@ -127,7 +127,7 @@ The build produces one `index.html` per page, the JavaScript and CSS they share 
 ```bash
 bun install
 bun run dev           # dev server on :3000; / is the home pane, /combi-name/ is the combi tool
-bun run test          # 235 tests, including an exhaustive round-trip over all 1,769,472 combis
+bun run test          # 247 tests, including an exhaustive round-trip over all 1,769,472 combis
 bun run check         # typecheck and Biome, in one pass
 bun run build         # writes dist/index.html, dist/combi-name/index.html, their chunks, and dist/assets/
 bun run preview       # serves the built dist/ on :4000; build first
