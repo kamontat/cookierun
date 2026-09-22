@@ -5,9 +5,11 @@ import index from "#assets/index.json";
 import {
 	CAPACITY,
 	type CatalogSection,
+	HIDDEN_TREASURE_FAMILIES,
 	hasId,
 	ID_WIDTH,
 	imageFor,
+	imageForKey,
 	isRetired,
 	labelFor,
 	nameFor,
@@ -147,4 +149,57 @@ test("every targets/source reference resolves to a treasure id", () => {
 	}
 	// Guards against the loop above silently checking nothing.
 	expect(checked).toBeGreaterThan(0);
+});
+
+// Cookie power+ is a list of cookies, so the page wants their portraits. It
+// looks them up by key rather than by id: an id is the wire format's business,
+// while a key names the entry the way the scraper found it.
+test("an entry's art is reachable by its key", () => {
+	expect(imageForKey("cookies", "FairyCookie")).toBe("cookies/ch26.png");
+});
+
+test("a key no section carries has no art rather than a broken link", () => {
+	expect(imageForKey("cookies", "NotACookie")).toBe(null);
+});
+
+test("every cookie key resolves to the same entry its id does", () => {
+	for (const [id, entry] of Object.entries(index.cookies)) {
+		expect(imageForKey("cookies", entry.key)).toBe(imageFor("cookies", id));
+	}
+});
+
+// The picker offers what a run can equip. Consumables and the commemorative
+// "special" family are neither, and between them they are 208 of the 1,144
+// entries someone would otherwise scroll past.
+test("the treasure picker leaves out the families a run cannot equip", () => {
+	const offered = new Set(optionsFor("treasures").map(([id]) => id));
+
+	for (const [id, entry] of Object.entries(index.treasures)) {
+		expect(offered.has(id)).toBe(
+			!(HIDDEN_TREASURE_FAMILIES as readonly string[]).includes(entry.family),
+		);
+	}
+});
+
+// A code that already carries a hidden treasure has to keep reading. The
+// picker decides what can be chosen, never what can be named.
+test("a treasure the picker hides is still named", () => {
+	const hidden = Object.entries(index.treasures).find(([, entry]) =>
+		(HIDDEN_TREASURE_FAMILIES as readonly string[]).includes(entry.family),
+	);
+	if (hidden === undefined) throw new Error("no hidden treasure in the index");
+	const [id, entry] = hidden;
+
+	expect(hasId("treasures", id)).toBe(true);
+	expect(labelFor("treasures", id)).toContain(entry.name);
+});
+
+test("every hidden family is one the index actually uses", () => {
+	const used = new Set(
+		Object.values(index.treasures).map((entry) => entry.family),
+	);
+
+	for (const family of HIDDEN_TREASURE_FAMILIES) {
+		expect([...used]).toContain(family);
+	}
 });

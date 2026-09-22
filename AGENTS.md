@@ -49,7 +49,7 @@ Every script but two is the command itself in `package.json` — `bun-server`, `
 
 Everything the site is built from lives under `src/`; `assets/`, `scripts/`, and `tests/` sit beside it at the root. `tsconfig.json`'s `rootDir` is the repository root and its `include` names all four, so a script is typechecked like a route is.
 
-Cross-directory imports go through `#lib/*` and `#components/*`, declared in `package.json`'s `imports` field, so a route writes `from "#components/check-group"` rather than counting `../`s. The subpaths keep their short names — the alias is `#lib/*`, not `#src/lib/*` — so moving a directory is a change in `package.json` and nowhere else.
+Cross-directory imports go through `#lib/*` and `#components/*`, declared in `package.json`'s `imports` field, so a route writes `from "#components/card-group"` rather than counting `../`s. The subpaths keep their short names — the alias is `#lib/*`, not `#src/lib/*` — so moving a directory is a change in `package.json` and nowhere else.
 
 No import carries a file extension. The two aliases supply it (`"#lib/*": "./src/lib/*.ts"`), and a relative import is resolved without one, so `tsconfig.json` needs no `allowImportingTsExtensions`. `#assets/*` is the exception: it maps to `./assets/*` unchanged, since `#assets/index.json` names the extension itself. `lit/decorators.js` is another: it is a published package subpath, not a local import, and the extension is part of its name — the no-extension rule only governs imports this repository resolves itself.
 

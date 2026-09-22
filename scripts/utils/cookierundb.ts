@@ -17,10 +17,12 @@ export const ORIGIN = "https://cookierundb.com";
  * Each listing page renders one `<a class="ecard">` per entry. The icon frame
  * holds an `<img>` for entries with a sprite and a placeholder `<span>` for
  * the handful that have none, so the `<img>` is matched optionally. Only the
- * treasure listing carries `data-evo`, so that attribute is optional too.
+ * treasure listing carries `data-fam` and `data-evo`, so both are optional —
+ * and `data-fam` is written before `data-evo` on every card that has them,
+ * which is the order this pattern reads them in.
  */
 const CARD_RE =
-	/<a class="ecard" href="([^"]+)"[^>]*?data-name="([^"]*)"(?:[^>]*?data-evo="([^"]*)")?[^>]*>\s*<span class="icon-frame">(?:<img src="([^"]+)")?/g;
+	/<a class="ecard" href="([^"]+)"[^>]*?data-name="([^"]*)"(?:[^>]*?data-fam="([^"]*)")?(?:[^>]*?data-evo="([^"]*)")?[^>]*>\s*<span class="icon-frame">(?:<img src="([^"]+)")?/g;
 
 /**
  * A treasure detail page renders its relatives as `<a class="rel-card">`, each
@@ -38,6 +40,8 @@ export type Card = {
 	name: string;
 	icon: string | null;
 	evolved: boolean;
+	/** Which family the listing sorts this entry into; treasures only. */
+	family: string | null;
 };
 
 export function unescapeHtml(text: string): string {
@@ -65,11 +69,12 @@ export async function get(path: string): Promise<Response> {
 
 export function parseListing(html: string): Card[] {
 	return [...html.matchAll(CARD_RE)].map(
-		([, href = "", name = "", evo = "0", icon]) => ({
+		([, href = "", name = "", fam, evo = "0", icon]) => ({
 			slug: href.split("/").pop() ?? "",
 			name: unescapeHtml(name),
 			icon: icon ? icon.replace(/^\.\.\//, "/") : null,
 			evolved: evo === "1",
+			family: fam ?? null,
 		}),
 	);
 }
