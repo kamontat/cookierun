@@ -47,8 +47,8 @@
 
         <code-bar
           id="code"
-          value="1S0---000-"
-          placeholder="1C00TU000.1S0HPF014-"
+          value="1S00--000-"
+          placeholder="1C00TU000.1S07--014-"
         ></code-bar>
         <summary-line id="summary"></summary-line>
 
@@ -170,12 +170,19 @@ ex:    1  H  3  H - F  4  1 4  J</pre
                 </td>
               </tr>
               <tr>
-                <td>4-6</td>
+                <td>4</td>
                 <td>Boosts</td>
                 <td>
-                  <code>H</code> HP Extension, <code>P</code> Power Jelly Boost,
-                  <code>F</code> Fast Start, <code>-</code> when off
+                  Bitmask as one hex digit: <code>1</code> HP Extension,
+                  <code>2</code> Power Jelly Boost, <code>4</code> Fast Start,
+                  <code>8</code> Double XP. Add up what is on - all four is
+                  <code>F</code>
                 </td>
+              </tr>
+              <tr>
+                <td>5-6</td>
+                <td>Reserved</td>
+                <td>Always <code>-</code>, both</td>
               </tr>
               <tr>
                 <td>7</td>
@@ -257,10 +264,11 @@ ex:    1  H  3  H - F  4  1 4  J</pre
         <h3>Auto vs semi-auto</h3>
         <p>
           A combi is semi-auto when <strong>any</strong> of these is true: Fast
-          Start is on (slot 6), a random boost is selected (slot 7), or there is
-          a jump action (slot 10). Slot 2 stores <code>A</code> or
-          <code>H</code> so the name reads plainly, but those three slots are
-          the authority - building a code always rewrites slot 2 to match them.
+          Start is on (bit <code>4</code> of slot 4), a random boost is selected
+          (slot 7), or there is a jump action (slot 10). Slot 2 stores
+          <code>A</code> or <code>H</code> so the name reads plainly, but those
+          three are the authority - building a code always rewrites slot 2 to
+          match them.
         </p>
       </details>
     </main>

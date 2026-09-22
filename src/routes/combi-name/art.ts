@@ -57,13 +57,15 @@ export function cookiePowerArt(
 
 /**
  * Which icon each boost wears, named by the key the index files it under. The
- * index carries two boosts the codec has no slot for — Cookie Relay and Double
- * XP — so this maps the three a code can say and ignores the rest.
+ * index carries one boost the codec has no bit for — Cookie Relay, which the
+ * loadout section already says by naming a relay cookie — so this maps the
+ * four a code can say and ignores it.
  */
 export const BOOST_ART: Record<Boost, string> = {
 	hpExtension: "hp-extension",
 	powerJellyBoost: "power-jellies",
 	fastStart: "fast-start",
+	doubleXp: "double-xp",
 };
 
 /**

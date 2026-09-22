@@ -89,7 +89,7 @@ test("every combi round-trips through a 10-character code", () => {
 	}
 
 	expect(failures).toEqual([]);
-	expect(checked).toBe(6 * 12 * 8 * 12 * 128 * 2);
+	expect(checked).toBe(6 * 12 * 16 * 12 * 128 * 2);
 });
 
 test("codes are unique — the auto family is the only collapse", () => {
@@ -97,5 +97,5 @@ test("codes are unique — the auto family is the only collapse", () => {
 	for (const combi of everyCombi()) codes.add(encode(combi));
 
 	// 4 manual types + 1 auto family, since the auto/semi char is derived.
-	expect(codes.size).toBe(5 * 12 * 8 * 12 * 128 * 2);
+	expect(codes.size).toBe(5 * 12 * 16 * 12 * 128 * 2);
 });

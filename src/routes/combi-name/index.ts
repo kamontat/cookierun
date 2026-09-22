@@ -304,9 +304,7 @@ function readDraft(text: string): void {
 const OWNER: Record<string, HTMLElement> = {
 	type: typeChips,
 	episode: episodeChips,
-	boost1: boostCards,
-	boost2: boostCards,
-	boost3: boostCards,
+	boosts: boostCards,
 	randomBoost: randomBoostChips,
 	cookiePowers: cookiePowerCards,
 	action: actionChips,

@@ -18,7 +18,7 @@ function loadout(over: Partial<Loadout> = {}): Loadout {
 }
 
 test("an empty loadout writes the bare ten-character code", () => {
-	expect(encodeFull({ loadout: emptyLoadout(), combi })).toBe("1S0---000-");
+	expect(encodeFull({ loadout: emptyLoadout(), combi })).toBe("1S00--000-");
 });
 
 test("a loadout is written before the combi, separated by a dot", () => {
@@ -27,12 +27,12 @@ test("a loadout is written before the combi, separated by a dot", () => {
 			loadout: loadout({ cookie: "00", treasures: [["000"]] }),
 			combi,
 		}),
-	).toBe("1C00TU000.1S0---000-");
+	).toBe("1C00TU000.1S00--000-");
 });
 
 // Every code that worked before this feature has to keep working.
 test("a bare code decodes with an empty loadout and the same combi", () => {
-	const { full, warnings } = decodeFull("1E3-PF400J");
+	const { full, warnings } = decodeFull("1E36--400J");
 
 	expect(full.loadout).toEqual(emptyLoadout());
 	expect(full.combi.type).toBe("exp");
@@ -43,7 +43,7 @@ test("a bare code decodes with an empty loadout and the same combi", () => {
 });
 
 test("both sections decode together", () => {
-	const { full } = decodeFull("1C00P02TU000.1S0HPF014-");
+	const { full } = decodeFull("1C00P02TU000.1S07--014-");
 
 	expect(full.loadout.cookie).toBe("00");
 	expect(full.loadout.pet).toBe("02");
@@ -52,27 +52,27 @@ test("both sections decode together", () => {
 });
 
 test("the combi section's soft warning survives the join", () => {
-	const { warnings } = decodeFull("1C00.1A3H-F400-");
+	const { warnings } = decodeFull("1C00.1A35--400-");
 
 	expect(warnings).toHaveLength(1);
 	expect(warnings[0]).toContain("slot 2 says Auto");
 });
 
 test("a second dot is refused", () => {
-	expect(() => decodeFull("1C00.1S0---000-.x")).toThrow(
+	expect(() => decodeFull("1C00.1S00--000-.x")).toThrow(
 		'a code holds at most one ".", got 2',
 	);
 });
 
 test("an unreadable combi section still throws from the combi codec", () => {
-	expect(() => decodeFull("1C00.1S0---000")).toThrow(
+	expect(() => decodeFull("1C00.1S00--000")).toThrow(
 		"code must be exactly 10 characters",
 	);
 });
 
 test("combiSectionOf picks the right half, or the whole code", () => {
-	expect(combiSectionOf("1C00.1S0---000-")).toBe("1S0---000-");
-	expect(combiSectionOf("1S0---000-")).toBe("1S0---000-");
+	expect(combiSectionOf("1C00.1S00--000-")).toBe("1S00--000-");
+	expect(combiSectionOf("1S00--000-")).toBe("1S00--000-");
 	expect(combiSectionOf("1C0")).toBe("1C0");
 });
 

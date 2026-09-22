@@ -57,7 +57,7 @@ test("a card is rendered per option, in the order given", async () => {
 });
 
 // This is the wire format: cookie powers are bit positions and boosts occupy
-// slots 4-6, so reading back in click order would reorder the code.
+// the slot 4 mask, so reading back in click order would reorder the code.
 test("selected reads back in the option order, not the order clicked", async () => {
 	const element = await mount();
 
