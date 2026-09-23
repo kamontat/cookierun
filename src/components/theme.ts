@@ -86,9 +86,9 @@ export const controls = css`
 	   Keyed off the pointer rather than the width, because a narrow window on
 	   a desktop is still a mouse.
 
-	   A component whose control is deliberately smaller than this - a code run,
-	   a chip's remove button - says so with a more specific selector, which
-	   outbids these bare ones. */
+	   A component whose control is deliberately smaller than this - a code run
+	   in <code-bar> - says so with a more specific selector, which outbids
+	   these bare ones. */
 	@media (pointer: coarse) {
 		button,
 		input,

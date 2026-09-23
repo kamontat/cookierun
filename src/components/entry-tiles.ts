@@ -309,7 +309,8 @@ export class EntryTiles extends LitElement {
 		cells[Math.min(Math.max(to, 0), cells.length - 1)]?.focus();
 	}
 
-	/** Focus follows the toggled cell into its replacement, as in `<entry-tile>`. */
+	/** Focus follows the toggled cell into its replacement; once a filter has
+	 * hidden it, the search box takes focus instead. */
 	async #toggle(value: string): Promise<void> {
 		const next = new Set(this.draft);
 		if (next.has(value)) next.delete(value);
