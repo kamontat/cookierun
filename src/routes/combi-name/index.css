@@ -39,10 +39,33 @@ main {
 	font-weight: 500;
 }
 
-/* The panel is the code and the two buttons under it, and nothing else: what
-   the code says is drawn out in the card below, where there is room for it. */
+/* The panel is the code and its buttons, and nothing else: what the code says
+   is drawn out in the board below, where there is room for it. */
 .codepanel .actions {
 	margin: var(--cr-space-3) 0 0;
+}
+
+/* Where there is room, the code and every button share one line — Edit and
+   Copy come with the code bar, Copy link and Reset from here. The panel is
+   pinned to the top of the window, so a second row of buttons is a row the
+   board below never gets back. The heading and the status line span both
+   tracks: neither belongs beside the code. */
+@media (width >= 48rem) {
+	.codepanel {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		column-gap: var(--cr-space-3);
+		align-items: center;
+	}
+
+	.codepanel h2,
+	.codepanel #link-status {
+		grid-column: 1 / -1;
+	}
+
+	.codepanel .actions {
+		margin: 0;
+	}
 }
 
 /* Both labels share one grid cell, so a button saying its work is done is the
