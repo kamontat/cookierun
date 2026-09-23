@@ -63,7 +63,12 @@ export const tileStyles = css`
 		border-color: var(--cr-muted);
 	}
 
-	/* The flex column is what lets max-height below actually bound .sheet: a
+	/* Keyed to [open], because the browser hides a closed dialog with its own
+	   display: none and an author display wins over that whatever its
+	   specificity — an unkeyed rule here draws every dialog on the page
+	   inline, all the time.
+
+	   The flex column is what lets max-height below actually bound .sheet: a
 	   native <dialog> defaults to overflow-y: auto, so an unbounded child
 	   simply grows the dialog past its cap and the whole dialog scrolls —
 	   header, search box and all — instead of just .entries. Making the
@@ -73,7 +78,7 @@ export const tileStyles = css`
 	   number: box-sizing: border-box already prices the border into this
 	   max-height, and the flex algorithm carries that resolved size down
 	   without a second calculation to keep in sync. */
-	dialog {
+	dialog[open] {
 		display: flex;
 		flex-direction: column;
 		width: min(52rem, 94vw);

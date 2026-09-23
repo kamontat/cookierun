@@ -5,6 +5,7 @@ import { expect, test } from "bun:test";
 import "./entry-tile";
 
 import type { EntryTile } from "./entry-tile";
+import { tileStyles } from "./entry-tile";
 
 const COOKIES = [
 	["0A", "Adventurer Cookie", "../assets/cookies/ch38.png"],
@@ -371,4 +372,16 @@ test("closing the dialog puts focus back on the tile", async () => {
 	await settle(element);
 
 	expect(element.shadowRoot?.activeElement).toBe(tile(element));
+});
+
+// A browser hides a closed dialog with its own display: none, and an author
+// display wins over that whatever its specificity — so a `dialog` rule that
+// is not keyed to [open] draws every dialog on the page inline, all the time.
+// happy-dom resolves no styles, so the rule text is the only thing a test here
+// can hold: the guard is against deleting the selector, not against the layout.
+test("the dialog's own styles are keyed to an open dialog", () => {
+	const css = [tileStyles.cssText].join("");
+
+	expect(css).toContain("dialog[open]");
+	expect(css).not.toMatch(/(^|[^[\]\w])dialog\s*\{/);
 });
