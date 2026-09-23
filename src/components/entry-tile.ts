@@ -33,18 +33,61 @@ export const tileStyles = css`
 		display: block;
 	}
 
-	details {
-		border: var(--cr-border) solid var(--cr-line);
-		border-radius: var(--cr-radius);
-		background: var(--cr-surface);
-	}
-
-	summary {
+	button.tile {
 		display: flex;
 		gap: var(--cr-space-3);
 		align-items: center;
+		width: 100%;
+		border: var(--cr-border) solid var(--cr-line);
+		border-radius: var(--cr-radius);
+		background: var(--cr-surface);
+		box-shadow: none;
 		padding: var(--cr-space-2);
-		cursor: pointer;
+		color: inherit;
+		font-family: var(--cr-font);
+		font-size: 0.9rem;
+		text-align: left;
+		text-transform: none;
+		letter-spacing: normal;
+	}
+
+	button.tile:active {
+		transform: none;
+	}
+
+	dialog {
+		width: min(52rem, 94vw);
+		max-height: 85vh;
+		border: var(--cr-border) solid var(--cr-line);
+		border-radius: var(--cr-radius);
+		background: var(--cr-surface);
+		padding: 0;
+		color: var(--cr-text);
+	}
+
+	dialog::backdrop {
+		background: rgb(0 0 0 / 55%);
+	}
+
+	.sheet {
+		display: grid;
+		grid-template-rows: auto auto minmax(0, 1fr) auto;
+		gap: var(--cr-space-2);
+		max-height: 85vh;
+		padding: var(--cr-space-3);
+	}
+
+	.sheet header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--cr-space-2);
+	}
+
+	.sheet h2 {
+		margin: 0;
+		font-family: var(--cr-mono);
+		font-size: 1rem;
 	}
 
 	.label {
@@ -118,7 +161,6 @@ export const tileStyles = css`
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
 		gap: var(--cr-space-1);
-		max-height: 18rem;
 		overflow-y: auto;
 	}
 
@@ -165,24 +207,15 @@ export const tileStyles = css`
 		color: var(--cr-muted);
 		font-size: 0.75rem;
 	}
-
-	/* The summary is what opens the control, and it is not a button, so the
-	   shared chunk's hit area never reaches it. Its own contents come to 41px
-	   unaided - close enough to read as deliberate, far enough to miss. */
-	@media (pointer: coarse) {
-		summary {
-			min-height: var(--cr-tap);
-		}
-	}
 `;
 
 /**
  * A type-to-filter grid that resolves to one pick, for catalogs too long for a
  * `<select>` — the treasure list alone is over a thousand entries.
  *
- * It lives inside a closed `<details>`: six open grids at once is a wall of
- * scrolling, and the summary already shows what is picked, which is what a
- * closed control has to answer.
+ * The grid opens in a modal dialog rather than inline: six open grids at once
+ * is a wall of scrolling, and the tile already shows what is picked, which is
+ * what a closed control has to answer.
  *
  * Only the first `LIMIT` matches are rendered, because three of these plus
  * three treasure slots over the same catalog would otherwise put tens of
@@ -198,14 +231,6 @@ export class EntryTile extends LitElement {
 	@property({ attribute: false })
 	options: readonly Option[] = [];
 
-	/**
-	 * Reflected so the page can widen an open control: the grid inside wants
-	 * more room than the closed line needs, and `details[open]` is behind a
-	 * shadow boundary no page selector can reach across.
-	 */
-	@property({ type: Boolean, reflect: true })
-	open = false;
-
 	@state()
 	private picked: string | null = null;
 
@@ -218,28 +243,6 @@ export class EntryTile extends LitElement {
 
 	set value(value: string | null) {
 		this.picked = value !== null && this.#has(value) ? value : null;
-	}
-
-	/**
-	 * A list left open once you have gone elsewhere is a list you have to come
-	 * back and close, and the page holds six of them. `pointerdown` rather than
-	 * `click`: it fires before focus moves, so the list is already gone by the
-	 * time whatever was clicked takes over.
-	 */
-	#closeOnOutside = (event: Event): void => {
-		if (!this.open) return;
-		if (event.composedPath().includes(this)) return;
-		this.open = false;
-	};
-
-	override connectedCallback(): void {
-		super.connectedCallback();
-		document.addEventListener("pointerdown", this.#closeOnOutside);
-	}
-
-	override disconnectedCallback(): void {
-		super.disconnectedCallback();
-		document.removeEventListener("pointerdown", this.#closeOnOutside);
 	}
 
 	override willUpdate(): void {
@@ -291,6 +294,31 @@ export class EntryTile extends LitElement {
 		return this.shadowRoot?.querySelector("input") ?? null;
 	}
 
+	#dialog(): HTMLDialogElement | null {
+		return this.shadowRoot?.querySelector("dialog") ?? null;
+	}
+
+	#tile(): HTMLButtonElement | null {
+		return this.shadowRoot?.querySelector("button.tile") ?? null;
+	}
+
+	/**
+	 * A modal rather than an inline list: the grid wants the width of the page,
+	 * and six inline grids was a page you had to tidy up after. The platform
+	 * takes care of the backdrop, the focus trap and Escape.
+	 */
+	async #openPicker(): Promise<void> {
+		this.filter = "";
+		await this.updateComplete;
+		this.#dialog()?.showModal();
+		this.#search()?.focus();
+	}
+
+	#closePicker(): void {
+		this.#dialog()?.close();
+		this.#tile()?.focus();
+	}
+
 	/**
 	 * One tab stop for the whole grid, arrows inside it: 50 cells in each of six
 	 * controls would otherwise be 300 stops between the loadout and the rest of
@@ -324,19 +352,13 @@ export class EntryTile extends LitElement {
 	}
 
 	/**
-	 * Lit reuses the cells it can, so a pick usually leaves focus where it was.
-	 * The one case with nothing to return to: `options` is reassigned — by a
-	 * listener reacting to the `input` dispatched below — dropping the value
-	 * just picked. The search box, the one element that survives every render,
-	 * takes focus instead.
+	 * A click is the commit: one pick, one value, and the dialog has nothing
+	 * left to ask. Focus goes back to the tile, which is where it came from.
 	 */
-	async #pick(value: string): Promise<void> {
+	#pick(value: string): void {
 		this.picked = value === "" ? null : value;
 		this.dispatchEvent(new Event("input", { bubbles: true }));
-		await this.updateComplete;
-		(
-			this.#cells().find((cell) => cell.value === value) ?? this.#search()
-		)?.focus();
+		this.#closePicker();
 	}
 
 	#art(label: string, image: string | null) {
@@ -359,7 +381,7 @@ export class EntryTile extends LitElement {
 			tabindex=${tabbable ? 0 : -1}
 			aria-selected=${String((this.picked ?? "") === value)}
 			@click=${() => {
-				void this.#pick(value);
+				this.#pick(value);
 			}}
 		>
 			${this.#art(label, image)}<span class="name">${label}</span>
@@ -368,18 +390,16 @@ export class EntryTile extends LitElement {
 
 	override render() {
 		const { shown, total } = this.#matches();
-		// The tab stop is the pick, so tabbing in lands on what the control
-		// currently says; with nothing picked that is the None cell.
 		const tabbableValue = this.picked ?? "";
 		const picked = this.#pickedOption();
 
-		return html`<details
-			?open=${this.open}
-			@toggle=${(event: Event) => {
-				this.open = (event.target as HTMLDetailsElement).open;
-			}}
-		>
-			<summary>
+		return html`<button
+				type="button"
+				class="tile"
+				@click=${() => {
+					void this.#openPicker();
+				}}
+			>
 				<span class="label">${this.label}</span>
 				<span class=${picked === undefined ? "pick empty" : "pick"}>
 					${
@@ -388,40 +408,56 @@ export class EntryTile extends LitElement {
 							: html`${this.#art(picked[1], picked[2])}${picked[1]}`
 					}
 				</span>
-			</summary>
-			<div class="body">
-				<input
-					type="search"
-					autocomplete="off"
-					placeholder="Type to filter"
-					aria-label=${`Filter ${this.label}`}
-					.value=${this.filter}
-					@input=${(event: Event) => {
-						// Filtering is not a change of value, so it must not read as one.
-						event.stopPropagation();
-						this.filter = (event.target as HTMLInputElement).value;
-					}}
-				/>
-				<div
-					class="entries"
-					role="listbox"
-					aria-label=${this.label}
-					@keydown=${(event: KeyboardEvent) => {
-						this.#walk(event);
-					}}
-				>
-					${this.#cell(["", NONE, null], tabbableValue === "")}
-					${shown.map((option) => this.#cell(option, option[0] === tabbableValue))}
+			</button>
+			<dialog
+				@close=${() => {
+					this.#tile()?.focus();
+				}}
+			>
+				<div class="sheet">
+					<header>
+						<h2>${this.label}</h2>
+						<button
+							type="button"
+							class="close"
+							@click=${() => {
+								this.#closePicker();
+							}}
+						>
+							Close
+						</button>
+					</header>
+					<input
+						type="search"
+						autocomplete="off"
+						placeholder="Type to filter"
+						aria-label=${`Filter ${this.label}`}
+						.value=${this.filter}
+						@input=${(event: Event) => {
+							event.stopPropagation();
+							this.filter = (event.target as HTMLInputElement).value;
+						}}
+					/>
+					<div
+						class="entries"
+						role="listbox"
+						aria-label=${this.label}
+						@keydown=${(event: KeyboardEvent) => {
+							this.#walk(event);
+						}}
+					>
+						${this.#cell(["", NONE, null], tabbableValue === "")}
+						${shown.map((option) => this.#cell(option, option[0] === tabbableValue))}
+					</div>
+					<small class="more"
+						>${
+							total > LIMIT
+								? `Showing ${LIMIT} of ${total}. Type to narrow the list.`
+								: ""
+						}</small
+					>
 				</div>
-				<small class="more"
-					>${
-						total > LIMIT
-							? `Showing ${LIMIT} of ${total}. Type to narrow the list.`
-							: ""
-					}</small
-				>
-			</div>
-		</details>`;
+			</dialog>`;
 	}
 }
 

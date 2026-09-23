@@ -34,6 +34,29 @@ function search(element: EntryTile): HTMLInputElement | null {
 	return element.shadowRoot?.querySelector("input") ?? null;
 }
 
+function tile(element: EntryTile): HTMLButtonElement {
+	const node =
+		element.shadowRoot?.querySelector<HTMLButtonElement>("button.tile");
+	if (node === null || node === undefined) throw new Error("no tile button");
+	return node;
+}
+
+function dialog(element: EntryTile): HTMLDialogElement {
+	const node = element.shadowRoot?.querySelector("dialog");
+	if (node === null || node === undefined) throw new Error("no dialog");
+	return node;
+}
+
+function cell(element: EntryTile, value: string): HTMLButtonElement {
+	const found = [
+		...(element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+			"button.entry",
+		) ?? []),
+	].find((button) => button.value === value);
+	if (found === undefined) throw new Error(`no cell for ${value}`);
+	return found;
+}
+
 async function settle(element: EntryTile): Promise<void> {
 	await element.updateComplete;
 	await Bun.sleep(0);
@@ -96,6 +119,8 @@ test("an entry is rendered per option, after the None row", async () => {
 test("clicking an entry reads back as the value", async () => {
 	const element = await mount();
 
+	tile(element).click();
+	await settle(element);
 	entries(element)[2]?.click();
 	await settle(element);
 
@@ -110,6 +135,8 @@ test("clicking an entry dispatches exactly one input event from the host", async
 		expect(event.target).toBe(element);
 	});
 
+	tile(element).click();
+	await settle(element);
 	entries(element)[1]?.click();
 	await settle(element);
 
@@ -121,6 +148,8 @@ test("the None row clears the pick", async () => {
 
 	element.value = "0A";
 	await element.updateComplete;
+	tile(element).click();
+	await settle(element);
 	entries(element)[0]?.click();
 	await settle(element);
 
@@ -150,6 +179,8 @@ test("a pick the replaced options no longer contain is dropped", async () => {
 
 test("typing in the search box narrows the list", async () => {
 	const element = await mount();
+	tile(element).click();
+	await settle(element);
 	const box = search(element);
 	if (box === null) throw new Error("no search box");
 
@@ -169,6 +200,8 @@ test("the search box's own event does not escape the shadow root", async () => {
 		escaped += 1;
 	});
 
+	tile(element).click();
+	await settle(element);
 	search(element)?.dispatchEvent(
 		new Event("input", { bubbles: true, composed: true }),
 	);
@@ -182,6 +215,8 @@ test("the picked entry stays on the list even when the filter excludes it", asyn
 
 	element.value = "0A";
 	await element.updateComplete;
+	tile(element).click();
+	await settle(element);
 	const box = search(element);
 	if (box === null) throw new Error("no search box");
 	box.value = "brave";
@@ -202,78 +237,10 @@ test("only the picked entry is tabbable", async () => {
 	]);
 });
 
-// The grid of faces wants more room than the closed tile occupies, and the
-// page can only widen the control it can see is open.
-test("the host says whether its list is open", async () => {
-	const element = await mount();
-	const details = element.shadowRoot?.querySelector("details");
-	if (details == null) throw new Error("the control has no details");
-
-	details.open = true;
-	details.dispatchEvent(new Event("toggle"));
-	await element.updateComplete;
-	expect(element.hasAttribute("open")).toBe(true);
-
-	details.open = false;
-	details.dispatchEvent(new Event("toggle"));
-	await element.updateComplete;
-	expect(element.hasAttribute("open")).toBe(false);
-});
-
-// A list that stays open once you have gone elsewhere is a list you have to
-// come back and close, and six of these are open at once soon enough.
-test("a click outside the control closes it", async () => {
-	const element = await mount();
-	const details = element.shadowRoot?.querySelector("details");
-	if (details == null) throw new Error("the control has no details");
-
-	details.open = true;
-	details.dispatchEvent(new Event("toggle"));
-	await element.updateComplete;
-
-	document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
-	await element.updateComplete;
-
-	expect(element.open).toBe(false);
-	expect(details.open).toBe(false);
-});
-
-test("a click inside the control leaves it open", async () => {
-	const element = await mount();
-	const details = element.shadowRoot?.querySelector("details");
-	if (details == null) throw new Error("the control has no details");
-
-	details.open = true;
-	details.dispatchEvent(new Event("toggle"));
-	await element.updateComplete;
-
-	entries(element)[1]?.dispatchEvent(
-		new MouseEvent("pointerdown", { bubbles: true, composed: true }),
-	);
-	await element.updateComplete;
-
-	expect(element.open).toBe(true);
-});
-
-// Nothing should be listening on behalf of a control that has left the page.
-test("a control taken off the page stops listening", async () => {
-	const element = await mount();
-	const details = element.shadowRoot?.querySelector("details");
-	if (details == null) throw new Error("the control has no details");
-
-	details.open = true;
-	details.dispatchEvent(new Event("toggle"));
-	await element.updateComplete;
-	element.remove();
-
-	document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
-	await element.updateComplete;
-
-	expect(element.open).toBe(true);
-});
-
 test("an arrow walks to the next entry", async () => {
 	const element = await mount();
+	tile(element).click();
+	await settle(element);
 
 	entries(element)[0]?.focus();
 	entries(element)[0]?.dispatchEvent(
@@ -288,6 +255,8 @@ test("an arrow walks to the next entry", async () => {
 // first reads as a lost keypress.
 test("an arrow on the last entry stays there", async () => {
 	const element = await mount();
+	tile(element).click();
+	await settle(element);
 
 	entries(element)[3]?.focus();
 	entries(element)[3]?.dispatchEvent(
@@ -298,13 +267,58 @@ test("an arrow on the last entry stays there", async () => {
 	expect(element.shadowRoot?.activeElement).toBe(entries(element)[3] ?? null);
 });
 
-test("focus follows the picked entry into the next render", async () => {
+test("the tile says what the control holds", async () => {
 	const element = await mount();
-
-	entries(element)[2]?.click();
+	element.options = [["0O", "Fairy Cookie", null]];
+	element.value = "0O";
 	await settle(element);
 
-	expect(
-		(element.shadowRoot?.activeElement as HTMLButtonElement | null)?.value,
-	).toBe("0B");
+	expect(tile(element).textContent).toContain("Fairy Cookie");
+	expect(dialog(element).open).toBe(false);
+});
+
+test("clicking the tile opens the dialog", async () => {
+	const element = await mount();
+	element.options = [["0O", "Fairy Cookie", null]];
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+
+	expect(dialog(element).open).toBe(true);
+});
+
+test("picking a cell writes the value, dispatches input and closes", async () => {
+	const element = await mount();
+	element.options = [["0O", "Fairy Cookie", null]];
+	await settle(element);
+	let heard = 0;
+	element.addEventListener("input", () => {
+		heard += 1;
+	});
+
+	tile(element).click();
+	await settle(element);
+	cell(element, "0O").click();
+	await settle(element);
+
+	expect([element.value, heard, dialog(element).open]).toEqual([
+		"0O",
+		1,
+		false,
+	]);
+});
+
+test("closing the dialog puts focus back on the tile", async () => {
+	const element = await mount();
+	element.options = [["0O", "Fairy Cookie", null]];
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+	cell(element, "0O").click();
+	await settle(element);
+	await settle(element);
+
+	expect(element.shadowRoot?.activeElement).toBe(tile(element));
 });
