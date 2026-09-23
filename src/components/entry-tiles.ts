@@ -398,6 +398,13 @@ export class EntryTiles extends LitElement {
 				@close=${() => {
 					this.#tile()?.focus();
 				}}
+				@click=${(event: Event) => {
+					// A native dialog does not light-dismiss: nothing closes it on a
+					// backdrop click unless this does. The target is the dialog itself
+					// only when the click lands outside .sheet, so a click inside the
+					// sheet passes through untouched.
+					if (event.target === this.#dialog()) this.#dialog()?.close();
+				}}
 			>
 				<div class="sheet">
 					<header>

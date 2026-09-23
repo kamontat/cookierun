@@ -210,6 +210,24 @@ test("closing without Done leaves the slot as it was", async () => {
 	expect(element.selected).toEqual(["000"]);
 });
 
+// Native <dialog> does not light-dismiss on its own; a click on the backdrop
+// has to be wired up by hand, and it has to cancel rather than commit.
+test("a click on the backdrop cancels the dialog", async () => {
+	const element = await mount();
+	element.options = [["000", "Always Cute Acorn", null, "base"]];
+	element.selected = ["000"];
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+	cell(element, "000").click();
+	await settle(element);
+	dialog(element).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+	await settle(element);
+
+	expect([dialog(element).open, element.selected]).toEqual([false, ["000"]]);
+});
+
 test("Clear empties the draft without closing or committing", async () => {
 	const element = await mount();
 	element.options = [["000", "Always Cute Acorn", null, "base"]];

@@ -309,6 +309,22 @@ test("picking a cell writes the value, dispatches input and closes", async () =>
 	]);
 });
 
+// Native <dialog> does not light-dismiss on its own; a click on the backdrop
+// has to be wired up by hand, and it has to leave the value untouched.
+test("a click on the backdrop cancels the dialog", async () => {
+	const element = await mount();
+	element.options = [["0O", "Fairy Cookie", null]];
+	element.value = "0O";
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+	dialog(element).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+	await settle(element);
+
+	expect([dialog(element).open, element.value]).toEqual([false, "0O"]);
+});
+
 test("closing the dialog puts focus back on the tile", async () => {
 	const element = await mount();
 	element.options = [["0O", "Fairy Cookie", null]];
