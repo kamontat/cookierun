@@ -172,40 +172,27 @@ export class EntryTiles extends LitElement {
 				font-weight: 600;
 			}
 
-			/* A hit area that still reads as a quiet × until you go for it. */
-			.remove {
-				flex: 0 0 auto;
-				border: none;
-				border-radius: var(--cr-radius);
-				background: none;
-				box-shadow: none;
-				padding: 0 var(--cr-space-1);
+			footer {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: var(--cr-space-2);
+			}
+
+			footer .picked {
 				color: var(--cr-muted);
-				font-family: var(--cr-mono);
-				font-size: 0.95rem;
-				line-height: 1;
-				letter-spacing: normal;
+				font-size: 0.78rem;
 			}
 
-			.remove:hover,
-			.remove:focus-visible {
-				color: var(--cr-danger);
+			footer .buttons {
+				display: flex;
+				gap: var(--cr-space-2);
 			}
 
-			.remove:active {
-				transform: none;
-			}
-
-			/* Smaller than the hit area the shared chunk gives every other
-			   button: this one sits inside a chip, and at the full 44px four
-			   alternatives in a slot would stack into a column as tall as the
-			   panel beside them - which is the thing the chip layout exists to
-			   avoid. Square, so it is as easy to hit across as down. */
-			@media (pointer: coarse) {
-				.remove {
-					min-width: 2.25rem;
-					min-height: 2.25rem;
-				}
+			footer button.done {
+				border-color: var(--cr-accent);
+				background: var(--cr-accent);
+				color: var(--cr-bg);
 			}
 		`,
 	];
@@ -216,13 +203,16 @@ export class EntryTiles extends LitElement {
 	@property({ attribute: false })
 	options: readonly Option[] = [];
 
-	/** Reflected for the same reason `<entry-tile>`'s is: so the page can widen
-	 * an open control whose `details[open]` it cannot see across the boundary. */
-	@property({ type: Boolean, reflect: true })
-	open = false;
-
 	@state()
 	private chosen: ReadonlySet<string> = new Set();
+
+	/**
+	 * What the dialog is showing, which is not yet what the slot holds. A slot is
+	 * a set: applying half of one on the way out would leave a code nobody built,
+	 * so the draft is committed by Done and thrown away by everything else.
+	 */
+	@state()
+	private draft: ReadonlySet<string> = new Set();
 
 	@state()
 	private filter = "";
@@ -250,28 +240,6 @@ export class EntryTiles extends LitElement {
 		this.chosen = new Set(values.filter((value) => this.#has(value)));
 	}
 
-	/**
-	 * Closes on a click that lands outside, the same rule `<entry-tile>` follows
-	 * and for the same reason: six open grids is a page you have to tidy up
-	 * after. `pointerdown` fires before focus moves, so the grid is gone by the
-	 * time whatever was clicked takes over.
-	 */
-	#closeOnOutside = (event: Event): void => {
-		if (!this.open) return;
-		if (event.composedPath().includes(this)) return;
-		this.open = false;
-	};
-
-	override connectedCallback(): void {
-		super.connectedCallback();
-		document.addEventListener("pointerdown", this.#closeOnOutside);
-	}
-
-	override disconnectedCallback(): void {
-		super.disconnectedCallback();
-		document.removeEventListener("pointerdown", this.#closeOnOutside);
-	}
-
 	override willUpdate(): void {
 		// `options` and the picks are two separate writes, so a list replaced
 		// under a slot would otherwise keep a dropped value in the set —
@@ -297,6 +265,28 @@ export class EntryTiles extends LitElement {
 		return this.shadowRoot?.querySelector("input") ?? null;
 	}
 
+	#dialog(): HTMLDialogElement | null {
+		return this.shadowRoot?.querySelector("dialog") ?? null;
+	}
+
+	#tile(): HTMLButtonElement | null {
+		return this.shadowRoot?.querySelector("button.tile") ?? null;
+	}
+
+	async #openPicker(): Promise<void> {
+		this.draft = new Set(this.chosen);
+		this.filter = "";
+		await this.updateComplete;
+		this.#dialog()?.showModal();
+		this.#search()?.focus();
+	}
+
+	#commit(): void {
+		this.chosen = new Set(this.draft);
+		this.dispatchEvent(new Event("input", { bubbles: true }));
+		this.#dialog()?.close();
+	}
+
 	/** One tab stop for the grid, arrows inside it, clamped at both ends. */
 	#walk(event: KeyboardEvent): void {
 		const cells = this.#cells();
@@ -319,38 +309,12 @@ export class EntryTiles extends LitElement {
 		cells[Math.min(Math.max(to, 0), cells.length - 1)]?.focus();
 	}
 
-	/**
-	 * Drops one pick from the closed line, where someone can see what they are
-	 * removing. Focus lands on whichever remove button takes the gone one's
-	 * place, or on the summary when the slot has emptied — the chip it was on
-	 * has stopped existing either way.
-	 */
-	async #drop(value: string): Promise<void> {
-		const at = this.selected.indexOf(value);
-		const next = new Set(this.chosen);
-		next.delete(value);
-		this.chosen = next;
-		this.dispatchEvent(new Event("input", { bubbles: true }));
-		await this.updateComplete;
-
-		const buttons = [
-			...(this.shadowRoot?.querySelectorAll<HTMLButtonElement>(
-				"summary button.remove",
-			) ?? []),
-		];
-		(
-			buttons[Math.min(at, buttons.length - 1)] ??
-			this.shadowRoot?.querySelector("summary")
-		)?.focus();
-	}
-
 	/** Focus follows the toggled cell into its replacement, as in `<entry-tile>`. */
 	async #toggle(value: string): Promise<void> {
-		const next = new Set(this.chosen);
+		const next = new Set(this.draft);
 		if (next.has(value)) next.delete(value);
 		else next.add(value);
-		this.chosen = next;
-		this.dispatchEvent(new Event("input", { bubbles: true }));
+		this.draft = next;
 		await this.updateComplete;
 		(
 			this.#cells().find((cell) => cell.value === value) ?? this.#search()
@@ -400,18 +364,18 @@ export class EntryTiles extends LitElement {
 		);
 
 		const shown = matching.slice(0, LIMIT);
-		// The tab stop is the first pick, so tabbing in lands on what the slot
-		// already holds; with nothing picked that is the first cell.
+		// The tab stop is whatever the draft already holds, so tabbing in lands on
+		// what the dialog is showing; with nothing drafted that is the first cell.
 		const tabbableValue =
-			shown.find(([value]) => this.chosen.has(value))?.[0] ?? shown[0]?.[0];
+			shown.find(([value]) => this.draft.has(value))?.[0] ?? shown[0]?.[0];
 
-		return html`<details
-			?open=${this.open}
-			@toggle=${(event: Event) => {
-				this.open = (event.target as HTMLDetailsElement).open;
-			}}
-		>
-			<summary>
+		return html`<button
+				type="button"
+				class="tile"
+				@click=${() => {
+					void this.#openPicker();
+				}}
+			>
 				<span class="label">${this.legend}</span>
 				<span class=${chosen.length === 0 ? "pick empty" : "pick"}>
 					${
@@ -419,106 +383,132 @@ export class EntryTiles extends LitElement {
 							? NONE
 							: chosen.map((value, index) => {
 									const name = labels.get(value) ?? value;
-									return html`${
-										index === 0 ? "" : html`<span class="or">or</span>`
-									}<span class="chip" data-kind=${ifDefined(kinds.get(value))}
-											>${this.#art(name, images.get(value) ?? null)}<span
-												class="name"
-												>${name}</span
-											><button
-												type="button"
-												class="remove"
-												aria-label=${`Remove ${name}`}
-												@click=${(event: MouseEvent) => {
-													// Inside the summary, so a click would otherwise
-													// open the list — the opposite of tidying a slot.
-													event.preventDefault();
-													event.stopPropagation();
-													void this.#drop(value);
-												}}
-												>×</button
-											></span
-										>`;
+									return html`${index === 0 ? "" : html`<span class="or">or</span>`}<span
+										class="chip"
+										data-kind=${ifDefined(kinds.get(value))}
+										>${this.#art(name, images.get(value) ?? null)}<span class="name"
+											>${name}</span
+										></span
+									>`;
 								})
 					}
 				</span>
-			</summary>
-			<div class="body">
-				${
-					offered.length === 0
-						? nothing
-						: html`<div
-								class="kinds"
-								role="group"
-								aria-label=${`Filter ${this.legend} by kind`}
-							>
-								${[ANY_KIND, ...offered].map(
-									(kind) => html`<button
-										type="button"
-										data-kind=${kind}
-										aria-pressed=${String(kind === narrowing)}
-										@click=${() => {
-											this.kind = kind;
-										}}
-									>
-										${kind === ANY_KIND ? "All" : KINDS[kind]?.name}
-									</button>`,
-								)}
-							</div>`
-				}
-				<input
-					type="search"
-					autocomplete="off"
-					placeholder="Type to filter"
-					aria-label=${`Filter ${this.legend}`}
-					.value=${this.filter}
-					@input=${(event: Event) => {
-						// Filtering is not a change of value, so it must not read as one.
-						event.stopPropagation();
-						this.filter = (event.target as HTMLInputElement).value;
-					}}
-				/>
-				<div
-					class="entries"
-					role="listbox"
-					aria-multiselectable="true"
-					aria-label=${this.legend}
-					@keydown=${(event: KeyboardEvent) => {
-						this.#walk(event);
-					}}
-				>
-					${shown.map((option) => {
-						const [value, label, image] = option;
-						const kind = kindOf(option);
-						return html`<button
+			</button>
+			<dialog
+				@close=${() => {
+					this.#tile()?.focus();
+				}}
+			>
+				<div class="sheet">
+					<header>
+						<h2>${this.legend}</h2>
+						<button
 							type="button"
-							class="entry"
-							.value=${value}
-							role="option"
-							data-kind=${ifDefined(kind)}
-							tabindex=${value === tabbableValue ? 0 : -1}
-							aria-checked=${String(this.chosen.has(value))}
-							aria-selected=${String(this.chosen.has(value))}
-							aria-label=${
-								kind === undefined ? label : `${label}, ${KINDS[kind]?.name}`
-							}
+							class="close"
 							@click=${() => {
-								void this.#toggle(value);
+								this.#dialog()?.close();
 							}}
 						>
-							${this.#art(label, image, kind)}<span class="name">${label}</span>
-						</button>`;
-					})}
+							Close
+						</button>
+					</header>
+					${
+						offered.length === 0
+							? nothing
+							: html`<div
+									class="kinds"
+									role="group"
+									aria-label=${`Filter ${this.legend} by kind`}
+								>
+									${[ANY_KIND, ...offered].map(
+										(kind) => html`<button
+											type="button"
+											data-kind=${kind}
+											aria-pressed=${String(kind === narrowing)}
+											@click=${() => {
+												this.kind = kind;
+											}}
+										>
+											${kind === ANY_KIND ? "All" : KINDS[kind]?.name}
+										</button>`,
+									)}
+								</div>`
+					}
+					<input
+						type="search"
+						autocomplete="off"
+						placeholder="Type to filter"
+						aria-label=${`Filter ${this.legend}`}
+						.value=${this.filter}
+						@input=${(event: Event) => {
+							event.stopPropagation();
+							this.filter = (event.target as HTMLInputElement).value;
+						}}
+					/>
+					<div
+						class="entries"
+						role="listbox"
+						aria-multiselectable="true"
+						aria-label=${this.legend}
+						@keydown=${(event: KeyboardEvent) => {
+							this.#walk(event);
+						}}
+					>
+						${shown.map((option) => {
+							const [value, label, image] = option;
+							const kind = kindOf(option);
+							return html`<button
+								type="button"
+								class="entry"
+								.value=${value}
+								role="option"
+								data-kind=${ifDefined(kind)}
+								tabindex=${value === tabbableValue ? 0 : -1}
+								aria-checked=${String(this.draft.has(value))}
+								aria-selected=${String(this.draft.has(value))}
+								aria-label=${kind === undefined ? label : `${label}, ${KINDS[kind]?.name}`}
+								@click=${() => {
+									void this.#toggle(value);
+								}}
+							>
+								${this.#art(label, image, kind)}<span class="name">${label}</span>
+							</button>`;
+						})}
+					</div>
+					<footer>
+						<span class="picked"
+							>${this.draft.size} picked — alternatives for one slot</span
+						>
+						<span class="buttons">
+							<button
+								type="button"
+								class="clear"
+								@click=${() => {
+									this.draft = new Set();
+								}}
+							>
+								Clear
+							</button>
+							<button
+								type="button"
+								class="done"
+								@click=${() => {
+									this.#commit();
+								}}
+							>
+								Done
+							</button>
+						</span>
+					</footer>
+					<small class="more"
+						>${
+							matching.length > LIMIT
+								? `Showing ${LIMIT} of ${matching.length}. Type to narrow the list.`
+								: ""
+						}</small
+					>
 				</div>
-				<small class="more"
-					>${
-						matching.length > LIMIT
-							? `Showing ${LIMIT} of ${matching.length}. Type to narrow the list.`
-							: ""
-					}</small
-				>
-			</div>
-		</details>`;
+			</dialog>`;
 	}
 }
 
