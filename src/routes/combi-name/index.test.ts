@@ -545,3 +545,26 @@ test("a single filled treasure slot shows Any slot even with Exact order", async
 	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
 	await reset();
 });
+
+// Copy link and Reset live in the code bar's own button row, so they share the
+// line under the code with Edit and Copy rather than taking a row of their own.
+test("the page's buttons ride in the code bar's row", () => {
+	expect(need("copy-link").closest("code-bar")?.id).toBe("code");
+	expect(need("reset").closest("code-bar")?.id).toBe("code");
+});
+
+// A code mid-edit is not the code those buttons act on: copying a link to it,
+// or resetting away from it, would act on something other than what is shown.
+// happy-dom resolves no slot assignment, so this holds the slot that renders
+// them rather than asking the buttons which slot took them.
+test("opening the editor takes the page's buttons off the panel", async () => {
+	(codeBar as HTMLElement & { editing: boolean }).editing = true;
+	await settle();
+
+	expect(inside(codeBar).querySelector("slot")).toBe(null);
+
+	(codeBar as HTMLElement & { editing: boolean }).editing = false;
+	await settle();
+
+	expect(inside(codeBar).querySelector("slot")).not.toBe(null);
+});

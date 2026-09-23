@@ -38,12 +38,15 @@ export class CodeBar extends LitElement {
 				display: block;
 			}
 
+			/* A column: the code takes a line of its own and every button sits on
+			   the next one, the page's own among them. Side by side, a full code
+			   and four buttons either wrapped at an arbitrary place or squeezed
+			   the code down to fit them. */
 			.bar {
 				display: flex;
-				flex-wrap: wrap;
-				gap: var(--cr-space-2) var(--cr-space-3);
-				align-items: center;
-				justify-content: space-between;
+				flex-direction: column;
+				gap: var(--cr-space-2);
+				align-items: stretch;
 			}
 
 			/* Wrapping, not scrolling: a hint bubble inside an \`overflow\` box is
@@ -52,7 +55,7 @@ export class CodeBar extends LitElement {
 			   a bare name — can still fit on a line or two. */
 			code {
 				display: flex;
-				flex: 1 1 18rem;
+				flex: 0 0 auto;
 				flex-wrap: wrap;
 				align-items: baseline;
 				min-width: 0;
@@ -150,7 +153,8 @@ export class CodeBar extends LitElement {
 			}
 
 			input {
-				flex: 1 1 18rem;
+				flex: 0 0 auto;
+				width: 100%;
 				background: var(--cr-bg);
 				padding: var(--cr-space-2) var(--cr-space-3);
 				color: var(--cr-accent-2);
@@ -171,10 +175,12 @@ export class CodeBar extends LitElement {
 			.buttons {
 				display: flex;
 				flex: 0 0 auto;
+				flex-wrap: wrap;
 				gap: var(--cr-space-2);
 			}
 
-			.buttons button {
+			.buttons button,
+			.buttons ::slotted(button) {
 				font-size: 0.75rem;
 			}
 
@@ -527,6 +533,11 @@ export class CodeBar extends LitElement {
 						<span class="said">Copied</span>
 					</span>
 				</button>
+				<!-- Whatever else the page does to the code it is showing. The
+					 slot sits here, and only here: the editor below renders none,
+					 so a page button vanishes while a code is being typed rather
+					 than offering to copy or reset a code that is mid-edit. -->
+					<slot></slot>
 			</span>`;
 	}
 

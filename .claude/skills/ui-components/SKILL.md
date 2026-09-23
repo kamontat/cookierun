@@ -28,7 +28,7 @@ Attributes carry markup-authored configuration; properties carry structured data
 | `<site-nav>` | `current` — tool slug, absent or empty means the home pane | — |
 | `<theme-toggle>` | — | — |
 | `<tool-index>` | — | — |
-| `<code-bar>` | `value`, `message`, `invalid`, `placeholder`, `editing` | `value`, `hints`, `message`, `invalid`, `editing` |
+| `<code-bar>` | `value`, `message`, `invalid`, `placeholder`, `editing` | `value`, `hints`, `message`, `invalid`, `editing`; a default slot in its button row |
 | `<build-summary>` | — | `verdict` |
 | `<chip-group>` | `label` | `options`, `value`, `resettable` |
 | `<card-group>` | `legend` | `options`, `selected` |
@@ -36,6 +36,8 @@ Attributes carry markup-authored configuration; properties carry structured data
 | `<entry-tiles>` | `legend` | `options`, `selected` |
 
 `<site-nav>` and `<tool-index>` read the registry themselves; no route passes them data. `<site-nav>` renders `<theme-toggle>` as one of its own children, so there is no mount order for a page to get wrong.
+
+`<code-bar>` lays the code out as a column: the code takes a line of its own and every button sits on the one below, because a full code beside four buttons either wraps at an arbitrary character or squeezes the code down to fit them. The button row carries a default slot after Copy, so a page that has its own buttons for the code it is showing — the combi page's Copy link and Reset — puts them in that row rather than in a row of its own. The editor renders no slot: a code being typed is not the code those buttons act on, so they leave the panel with the display and come back with it. A slotted button is light DOM, styled by the page, and `::slotted(button)` in the bar matches it to Edit and Copy.
 
 `<code-bar>` is both halves of the combi page: it shows the code and it is the only place a code is entered. It decodes nothing. Typing reports a `code-draft` with the text so far; the page decodes that and hands back a `value`, a `message` and whether the message is an error. Clicking a run of the code emits `slot-jump` with that run's group name, which the page turns into the control to focus. Escape closes the editor and emits `code-cancel`, which is the page's cue to put the built code back.
 

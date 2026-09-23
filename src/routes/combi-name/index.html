@@ -45,13 +45,16 @@
       <section class="codepanel" aria-labelledby="code-heading">
         <h2 id="code-heading">Your code</h2>
 
+        <!-- The two page buttons are slotted into the code bar's own button
+             row, so the code keeps a line to itself and everything that acts
+             on it shares the line below. The bar drops them while its editor
+             is open: copying or resetting a code mid-edit means acting on a
+             code that is not the one on screen. -->
         <code-bar
           id="code"
           value="1S00--000-"
           placeholder="1C00TU000.1S07--014-"
-        ></code-bar>
-
-        <div class="actions">
+        >
           <!-- Two labels in one cell: the button says the copy worked without
                changing width, so Reset does not shuffle sideways for it. -->
           <button id="copy-link" type="button">
@@ -61,7 +64,7 @@
             </span>
           </button>
           <button id="reset" type="button">Reset</button>
-        </div>
+        </code-bar>
         <p id="link-status" class="status" role="status"></p>
       </section>
 
