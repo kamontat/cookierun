@@ -76,6 +76,11 @@ What changes:
   `src/routes/combi-name/index.css` goes with it
 - the outside-`pointerdown` close handler goes: a modal dialog's backdrop and Escape
   already do that job, and two closers would fight
+- `<entry-tiles>`'s per-chip remove button goes with the closed line that carried it: a
+  tile is a `<button>`, and a button inside a button is not markup. Dropping an
+  alternative happens in the dialog now — unpick its cell, or **Clear** — which is also
+  where the rest of that slot is visible while you do it. `#drop` and its focus-recovery
+  logic are deleted; `#toggle` keeps the same job inside the dialog
 
 Dialog rules, the same for both:
 
