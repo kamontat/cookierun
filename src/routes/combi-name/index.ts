@@ -22,8 +22,13 @@ import {
 	type Episode,
 	type RandomBoost,
 } from "./codec";
-import { describeCombi } from "./describe";
-import { combiSectionOf, decodeFull, encodeFull } from "./full-code";
+import { describeBuild } from "./describe";
+import {
+	combiSectionOf,
+	decodeFull,
+	encodeFull,
+	isSemiAutoBuild,
+} from "./full-code";
 import { hintsFor } from "./hints";
 import {
 	ACTION_LABELS,
@@ -276,7 +281,12 @@ function render(warnings: readonly string[] = []): void {
 	// Read the code back so the verdict reflects the character actually written
 	// into slot 2, not the type the chips still show.
 	const { full } = decodeFull(code);
-	summaryCard.verdict = describeCombi(full.combi).auto;
+	summaryCard.verdict = describeBuild(full);
+	// The one chip that says what it is rather than what you picked: an auto run
+	// with Fast Start, a random boost, an action or a relay is a semi-auto run,
+	// and the chip reading Auto beside a code reading H is the disagreement the
+	// page exists to prevent.
+	typeChips.options = typeOptions(isSemiAutoBuild(full));
 
 	// A numbered slot claims a position, and the code only carries one when the
 	// order is exact. Read from the decoded code, not the switch: the code's truth
@@ -401,7 +411,22 @@ function pairs<K extends string>(
  */
 const PICKABLE_TYPES = ALL_TYPES.filter((type) => type !== "semiauto");
 
-typeChips.options = pairs(PICKABLE_TYPES, TYPE_LABELS);
+/**
+ * Every pickable type, with the Auto chip wearing whichever of the two names
+ * the build has earned. Semi-auto is still not a choice — picking it and
+ * picking Auto are the same click — but the chip says which one you are on.
+ */
+function typeOptions(semi: boolean): readonly (readonly [string, string])[] {
+	return PICKABLE_TYPES.map(
+		(type) =>
+			[
+				type,
+				type === "auto" && semi ? TYPE_LABELS.semiauto : TYPE_LABELS[type],
+			] as const,
+	);
+}
+
+typeChips.options = typeOptions(false);
 // The one chip row with art. `any` has no icon and is drawn as a bare chip,
 // which is what every other row here still looks like.
 episodeChips.options = ALL_EPISODES.map(

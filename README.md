@@ -91,9 +91,11 @@ An id must not repeat within one treasure slot — `TU0FZ_0FZ` is invalid, since
 
 ## Auto vs semi-auto
 
-Semi-auto is a run that needs manual work each time. A combi is semi-auto when **any** of these is true: Fast Start is on (bit `4` of slot 4), a random boost is selected (slot 7), or there is a jump action (slot 10). The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
+Semi-auto is a run that needs manual work each time. A build is semi-auto when **any** of these is true: Fast Start is on (bit `4` of slot 4), a random boost is selected (slot 7), there is a jump action (slot 10), or the loadout carries a relay cookie (the `R` group). The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
 
-Slot 2 stores `A` or `H` for readability, but those three are the authority. `encode` normalizes slot 2 so a generated code never contradicts itself. `decode` accepts a hand-typed code that does contradict, keeps `combi.type` as written, and returns a warning; `isSemiAuto` always answers from the fields above.
+The relay is the one reason that lives outside the ten characters: a relay cookie is swapped in by hand, so a run carrying one never plays itself through. Slot 2 is written from the whole build, so the ten characters you paste into the game say `H` when a relay is in front of them — while a bare combi code, having no loadout to read, answers for its own three flags alone.
+
+Slot 2 stores `A` or `H` for readability, but those four reasons are the authority. `encodeFull` normalizes slot 2 so a generated code never contradicts itself. `decodeFull` accepts a hand-typed code that does contradict, keeps `combi.type` as written, and returns a warning; `isSemiAutoBuild` always answers from the fields above.
 
 ```
 1A31--000-    full auto (HP Extension only)

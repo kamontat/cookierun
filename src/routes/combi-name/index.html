@@ -260,11 +260,13 @@ ex:    1  H  3  H - F  4  1 4  J</pre
 
         <h3>Auto vs semi-auto</h3>
         <p>
-          A combi is semi-auto when <strong>any</strong> of these is true: Fast
+          A build is semi-auto when <strong>any</strong> of these is true: Fast
           Start is on (bit <code>4</code> of slot 4), a random boost is selected
-          (slot 7), or there is a jump action (slot 10). Slot 2 stores
+          (slot 7), there is a jump action (slot 10), or the loadout carries a
+          relay cookie (the <code>R</code> group). A relay is swapped in by
+          hand, so a run carrying one never plays itself through. Slot 2 stores
           <code>A</code> or <code>H</code> so the name reads plainly, but those
-          three are the authority - building a code always rewrites slot 2 to
+          four are the authority - building a code always rewrites slot 2 to
           match them.
         </p>
       </details>

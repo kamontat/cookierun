@@ -28,10 +28,18 @@ The form end of that guarantee is `<card-group>`'s `selected` getter: it filters
 `ALL_TYPES` carries `semiauto` and `TYPE_CHARS` maps it to `H`, because a code
 carrying `H` has to decode — but the page's type chips are `ALL_TYPES` minus
 that one. Semi-auto is what `normalizeType` makes of an auto run when Fast
-Start, a random boost or a jump action is on, so a chip for it could only
-disagree with the code the flags produce. `writeForm` lands a decoded
-`semiauto` on the Auto chip, and the summary and verdict lines are where the
-page says which of the two you ended up with.
+Start, a random boost, a jump action or a relay cookie is in play, so a chip for
+it could only disagree with the code those produce. `writeForm` lands a decoded
+`semiauto` on the Auto chip, and the chip's own label follows the build: the
+route rewrites it to `Semi-auto` whenever `isSemiAutoBuild` says so, which is
+also what the board's badge and verdict sentence read.
+
+The relay is the one reason that is not in the ten characters. `isSemiAuto` in
+`codec.ts` answers for the combi's own three flags and knows nothing else;
+`isSemiAutoBuild` in `full-code.ts` adds the loadout's relay, and it is the one
+question whose answer needs both halves. `encode` and `decode` take a
+`forcedSemiAuto` flag for it — the word "relay" never reaches the codec, so the
+caller that knows the reason is also the one that names it in a warning.
 
 That is a page decision, not a format one. Do not remove `semiauto` from
 `codec.ts` to match the picker: it is slot 2's `H`, and dropping it would make

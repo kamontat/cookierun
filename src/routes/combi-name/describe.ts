@@ -1,5 +1,6 @@
 import { type CatalogSection, isRetired, labelFor } from "./catalog";
 import { type Combi, isSemiAuto } from "./codec";
+import { type FullCode, isSemiAutoBuild } from "./full-code";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
@@ -44,6 +45,27 @@ function verdict(combi: Combi): AutoVerdict | null {
 	if (combi.action !== "none") reasons.push(ACTION_LABELS[combi.action]);
 
 	return { semi: isSemiAuto(combi), reasons };
+}
+
+/** What the relay reads as in the verdict, where it is one reason among four. */
+const RELAY_REASON = "Relay cookie";
+
+/**
+ * The verdict for a whole build rather than for its ten characters: the combi's
+ * own three reasons plus the loadout's one. A relay cookie is swapped in by
+ * hand, so a run carrying one never plays itself through.
+ */
+export function describeBuild(full: FullCode): AutoVerdict | null {
+	const own = verdict(full.combi);
+	if (own === null) return null;
+
+	return {
+		semi: isSemiAutoBuild(full),
+		reasons:
+			full.loadout.relay === null
+				? own.reasons
+				: [...own.reasons, RELAY_REASON],
+	};
 }
 
 export function describeCombi(combi: Combi): DescribedCombi {

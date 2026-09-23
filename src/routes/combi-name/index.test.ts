@@ -568,3 +568,32 @@ test("opening the editor takes the page's buttons off the panel", async () => {
 
 	expect(inside(codeBar).querySelector("slot")).not.toBe(null);
 });
+
+// A relay cookie is swapped in by hand, so the run it belongs to is semi-auto
+// however the rest of the build reads — and the code says so in slot 2.
+test("a relay turns an auto build semi-auto, code and all", async () => {
+	await choose("type", "auto");
+	expect(await codeText()).toBe("1A00--000-");
+
+	await typeCode("1R0O.1A00--000-");
+
+	expect((codeBar as HTMLElement & { value: string }).value).toBe(
+		"1R0O.1H00--000-",
+	);
+	expect(shown(summary)).toContain("Semi-auto");
+	expect(shown(summary)).toContain("Relay cookie");
+	await reset();
+});
+
+// The chip says which of the two the build is, rather than which of them was
+// clicked: there is one chip, and Auto and Semi-auto are the same click.
+test("the Auto chip reads Semi-auto once something forces manual work", async () => {
+	await choose("type", "auto");
+
+	expect(control("type", "auto").textContent?.trim()).toBe("Auto");
+
+	await choose("boosts", "fastStart");
+
+	expect(control("type", "auto").textContent?.trim()).toBe("Semi-auto");
+	await reset();
+});
