@@ -35,7 +35,7 @@ async function settle(): Promise<void> {
 }
 
 const codeBar = need("code");
-const verdict = need("verdict");
+const summary = need("summary");
 const warnings = need("warnings");
 const resetButton = need<HTMLButtonElement>("reset");
 
@@ -111,8 +111,8 @@ test("a boost card writes its bit and rewrites the type slot to semi-auto", asyn
 	await choose("boosts", "fastStart");
 
 	expect(await codeText()).toBe("1H04--000-");
-	expect(shown(verdict)).toContain("Semi-auto");
-	expect(shown(verdict)).toContain("Fast Start");
+	expect(shown(summary)).toContain("Semi-auto");
+	expect(shown(summary)).toContain("Fast Start");
 	await reset();
 });
 
@@ -121,8 +121,8 @@ test("Double XP adds its bit and leaves the run on full auto", async () => {
 	await choose("boosts", "doubleXp");
 
 	expect(await codeText()).toBe("1A08--000-");
-	expect(shown(verdict)).toContain("Full auto");
-	expect(shown(need("summary"))).toContain("Double XP");
+	expect(shown(summary)).toContain("Full auto");
+	expect(shown(summary)).toContain("Double XP");
 	await reset();
 });
 
@@ -138,7 +138,7 @@ test("a semi-auto code shows Auto picked, and says semi-auto in words", async ()
 	await typeCode("1H04--000-");
 
 	expect(isOn("type", "auto")).toBe(true);
-	expect(shown(need("summary"))).toContain("Semi-auto");
+	expect(shown(summary)).toContain("Semi-auto");
 	await reset();
 });
 
@@ -182,13 +182,42 @@ test("clicking the chosen type leaves it chosen", async () => {
 	await reset();
 });
 
-// The summary rides in the sticky panel with the code it describes; the
-// verdict stays down the page with the warnings.
-test("the summary line says what the build is, beside the code", async () => {
+// The card is the build drawn out, so it takes the room the sticky panel
+// cannot give it: the panel above holds the code and its two buttons and
+// nothing else now.
+test("the build card says what the build is, below the code panel", async () => {
 	await choose("episode", "episode3");
 
-	expect(shown(need("summary"))).toContain("Episode 3");
-	expect(need("summary").closest(".codepanel")).not.toBe(null);
+	expect(shown(summary)).toContain("Episode 3");
+	expect(summary.closest(".codepanel")).toBe(null);
+	await reset();
+});
+
+// Six of the nine fields have art, and the loadout is where a face says more
+// than a name does.
+test("the build card wears the art of what is picked", async () => {
+	await typeCode("1C0O.1S00--000-");
+
+	const pictures = [
+		...inside(summary).querySelectorAll<HTMLImageElement>("img"),
+	];
+
+	expect(pictures.map((picture) => picture.getAttribute("src"))).toContain(
+		"../assets/cookies/ch26.png",
+	);
+	await reset();
+});
+
+// A treasure slot holding alternatives wears every one of their faces, and
+// each says which form of the entry it is.
+test("a treasure slot draws each alternative, kind and all", async () => {
+	await typeCode("1TU000_007.1S00--000-");
+
+	const kinds = [...inside(summary).querySelectorAll<HTMLElement>(".face")].map(
+		(face) => face.getAttribute("data-kind"),
+	);
+
+	expect(kinds).toEqual(["base", "blessed"]);
 	await reset();
 });
 

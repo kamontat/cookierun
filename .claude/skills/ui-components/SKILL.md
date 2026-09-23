@@ -29,8 +29,7 @@ Attributes carry markup-authored configuration; properties carry structured data
 | `<theme-toggle>` | — | — |
 | `<tool-index>` | — | — |
 | `<code-bar>` | `value`, `message`, `invalid`, `placeholder`, `editing` | `value`, `hints`, `message`, `invalid`, `editing` |
-| `<summary-line>` | — | `fields` |
-| `<verdict-line>` | — | `verdict` |
+| `<build-summary>` | — | `groups`, `verdict` |
 | `<chip-group>` | `label` | `options`, `value`, `resettable` |
 | `<card-group>` | `legend` | `options`, `selected` |
 | `<entry-tile>` | `label` | `options`, `value`, `open` |
@@ -50,7 +49,9 @@ All four value-holding list elements — `<card-group>`, `<entry-tile>`, `<entry
 
 `<chip-group>` is a radio group wearing the site's button look: one tab stop for the whole row, arrows moving the choice as well as the focus, Home and End at the ends, clamped rather than wrapped. It replaces a `<select>` wherever the list is short enough to show whole — seeing the twelve episodes at once is the point, and a closed select hides eleven of them.
 
-`<summary-line>` and `<verdict-line>` were one element and are two because the page pins them in different places: the summary is what the code says, so it rides in the sticky panel beside the code, while the verdict is a judgment about the build and sits down the page with the warnings. `<summary-line>` renders nothing at all — not an empty paragraph — when it has no fields, since an empty line in a sticky panel still costs its height on a phone.
+`<build-summary>` is the code drawn out: one card, under the sticky panel rather than inside it. It takes `groups` — each a label and a list of items — and each item is a label, an optional note, and a list of faces, so a treasure slot holding three alternatives and a cookie power+ belonging to four cookies are the same shape with different lengths. An item with no faces is a label and nothing else, which is what the three fields with no art at all — the run type, the random boost, the action — read as. A face's `kind` draws the same `base`/`evolved`/`blessed` ring `<entry-tiles>` draws, and a face without one takes no ring. The card carries the auto verdict too, as a badge on its header and a line under it: the verdict is a judgment about the build and the card is the picture of it, so splitting them put the answer and the reason for it a scroll apart. It renders nothing at all — not an empty card — with no groups and no verdict.
+
+It replaced `<summary-line>` and `<verdict-line>`, which were one element split in two because the page pinned them in different places. Nothing is pinned but the code now, so the page's height budget no longer decides how the build is shown.
 
 `<card-group>`'s third option field is a *list* of pictures, not one: a cookie power+ can belong to several cookies or pets at once — Serenade of Love to two, EXP Party to four — and the card lays them out from a `data-count` attribute on its own frame. An empty list is what falls back to the lettered tile, so "no art" and "one picture" are the same code path with a different length. A boost passes a list of one, which is the same path again.
 
@@ -72,7 +73,7 @@ Each component is standalone in its logic, apart from the shared style chunks: e
 
 A CSS comment inside a `css` tagged template must not contain a backtick: it closes the template literal, and the failure surfaces as a parse error in the bundler rather than from the typechecker or Biome. Name a property in prose — max-height, not the quoted form.
 
-`src/components/` imports from `src/lib/` and never from `src/routes/` — `src/components/verdict-line.ts` declares its own `Verdict` type rather than importing the structurally identical `AutoVerdict` from `src/routes/combi-name/describe.ts`, and `<code-bar>` declares its own `CharHint` rather than importing the one `hints.ts` exports. That is what keeps the arrow pointing one way.
+`src/components/` imports from `src/lib/` and never from `src/routes/` — `src/components/build-summary.ts` declares its own `Verdict` type rather than importing the structurally identical `AutoVerdict` from `src/routes/combi-name/describe.ts`, and `<code-bar>` declares its own `CharHint` rather than importing the one `hints.ts` exports. That is what keeps the arrow pointing one way.
 
 Tests reach into a component through `shadowRoot` and await `updateComplete` after any change, since Lit's render is a microtask rather than synchronous. A handler that restores focus — the pick handlers of both catalog controls, and `<chip-group>`'s arrow walk — awaits its own `updateComplete` before it does, so a test asserting where focus lands has to settle twice: once for its own await, which resumes after the handler's, and again to actually observe the result. The component test files carry a `settle()` helper (`updateComplete` plus a zero-length `Bun.sleep`) for exactly this. A value bound with `.value=${...}` is a property and not an attribute, so a test looking for one control among several finds it by reading `button.value` back, not with an attribute selector.
 

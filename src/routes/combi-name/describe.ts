@@ -1,6 +1,5 @@
 import { type CatalogSection, isRetired, labelFor } from "./catalog";
 import { type Combi, isSemiAuto } from "./codec";
-import type { FullCode } from "./full-code";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
@@ -80,8 +79,12 @@ const RETIRED_SUFFIX = " (no longer listed)";
 /**
  * A code stays readable after the site drops an entry, so the entry is still
  * named — with a note, because the reader will not find it in the game.
+ *
+ * Exported because the build card names the same entries the rows do: one
+ * place decides how an entry reads, whether it is read out as prose or drawn
+ * under its own picture.
  */
-function entryName(section: CatalogSection, id: string): string {
+export function entryName(section: CatalogSection, id: string): string {
 	const name = labelFor(section, id);
 	return isRetired(section, id) ? name + RETIRED_SUFFIX : name;
 }
@@ -125,9 +128,4 @@ export function describeLoadout(loadout: Loadout): DescribedRow[] {
 		single("Pet", "pets", loadout.pet),
 		treasureRow(loadout),
 	];
-}
-
-export function describeFull(full: FullCode): DescribedCombi {
-	const combi = describeCombi(full.combi);
-	return { ...combi, rows: [...describeLoadout(full.loadout), ...combi.rows] };
 }

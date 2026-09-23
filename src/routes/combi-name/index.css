@@ -39,13 +39,8 @@ main {
 	font-weight: 500;
 }
 
-/* What the code says in words, pinned with the code it describes. */
-#summary {
-	margin-top: var(--cr-space-2);
-}
-
-/* The summary reads as the code's own line, so the buttons stand off it by
-   more than it stands off the code. */
+/* The panel is the code and the two buttons under it, and nothing else: what
+   the code says is drawn out in the card below, where there is room for it. */
 .codepanel .actions {
 	margin: var(--cr-space-3) 0 0;
 }

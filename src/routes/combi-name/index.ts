@@ -1,5 +1,6 @@
 import { boostArt, cookiePowerArt, episodeArt } from "./art";
 import {
+	type CatalogSection,
 	type EntryKind,
 	imageFor,
 	kindFor,
@@ -22,8 +23,13 @@ import {
 	type Episode,
 	type RandomBoost,
 } from "./codec";
-import { describeCombi, describeFull } from "./describe";
-import { combiSectionOf, decodeFull, encodeFull } from "./full-code";
+import { describeCombi, entryName } from "./describe";
+import {
+	combiSectionOf,
+	decodeFull,
+	encodeFull,
+	type FullCode,
+} from "./full-code";
 import { hintsFor } from "./hints";
 import {
 	ACTION_LABELS,
@@ -36,22 +42,25 @@ import {
 import type { Loadout } from "./loadout";
 import { codeInHash, hashFor, rememberCode, startingCode } from "./state";
 
+import "#components/build-summary";
 import "#components/card-group";
 import "#components/chip-group";
 import "#components/code-bar";
 import "#components/entry-tile";
 import "#components/entry-tiles";
 import "#components/site-nav";
-import "#components/summary-line";
-import "#components/verdict-line";
 
+import type {
+	BuildSummary,
+	SummaryFace,
+	SummaryGroup,
+	SummaryItem,
+} from "#components/build-summary";
 import type { CardGroup } from "#components/card-group";
 import type { ChipGroup } from "#components/chip-group";
 import type { CodeBar } from "#components/code-bar";
 import type { EntryTile } from "#components/entry-tile";
 import type { EntryTiles } from "#components/entry-tiles";
-import type { SummaryLine } from "#components/summary-line";
-import type { VerdictLine } from "#components/verdict-line";
 
 /** Exported for this route's test, which drives the page through the same lookups. */
 export function need<T extends HTMLElement>(id: string): T {
@@ -61,8 +70,7 @@ export function need<T extends HTMLElement>(id: string): T {
 }
 
 const codeBar = need<CodeBar>("code");
-const summaryLine = need<SummaryLine>("summary");
-const verdictLine = need<VerdictLine>("verdict");
+const summaryCard = need<BuildSummary>("summary");
 const warningList = need<HTMLUListElement>("warnings");
 const copyLinkButton = need<HTMLButtonElement>("copy-link");
 const resetButton = need<HTMLButtonElement>("reset");
@@ -259,22 +267,124 @@ function showWarnings(warnings: readonly string[]): void {
 	);
 }
 
-/**
- * What a field reads as when it is switched off. Such a field is left out of
- * the summary: a line that lists what you did not choose is a longer line
- * saying less.
- */
-const UNSET = new Set(["None", ACTION_LABELS.none]);
+/** One entry's picture, and which form of it that picture is. */
+function faceFor(section: CatalogSection, id: string): SummaryFace[] {
+	const image = imageFor(section, id);
+	return image === null
+		? []
+		: [{ src: ASSET_BASE + image, kind: kindFor(section, id) }];
+}
+
+function entryItem(
+	note: string,
+	section: "cookies" | "pets",
+	id: string | null,
+): SummaryItem[] {
+	if (id === null) return [];
+	return [
+		{
+			label: entryName(section, id),
+			note,
+			shape: "tile",
+			faces: faceFor(section, id),
+		},
+	];
+}
 
 /**
- * The build as one line of prose. The loadout is left out on purpose: its
- * controls show the art of whatever is picked a screen below, so repeating the
- * names here would say twice what the page already says once.
+ * One item per treasure slot, wearing every alternative's face — the slot is
+ * the choice, and which of its treasures you bring is the one thing the code
+ * deliberately leaves open. Numbered only where the order is exact, since a
+ * number against an unordered slot would claim something the code does not say.
  */
-function summaryOf(combi: Combi): string[] {
-	return describeCombi(combi)
-		.rows.filter((row) => !UNSET.has(row.value))
-		.map((row) => row.value);
+function treasureItems(loadout: Loadout): SummaryItem[] {
+	const numbered = loadout.ordered && loadout.treasures.length > 1;
+	const slots = loadout.treasures.map((slot, index) => ({
+		label: slot.map((id) => entryName("treasures", id)).join(" or "),
+		...(numbered ? { note: String(index + 1) } : {}),
+		shape: "tile" as const,
+		faces: slot.flatMap((id) => faceFor("treasures", id)),
+	}));
+
+	return numbered
+		? [...slots, { label: "Exact order", shape: "chip" as const }]
+		: slots;
+}
+
+/**
+ * The run itself. A field switched off is left out rather than spelled out: a
+ * card listing what you did not choose is a taller card saying less. The type
+ * is left out for an auto run too — the badge above says auto or semi-auto,
+ * and it says it with the authority of the flag slots.
+ */
+function runItems(combi: Combi): SummaryItem[] {
+	const items: SummaryItem[] = [];
+
+	if (combi.type !== "auto" && combi.type !== "semiauto") {
+		items.push({ label: TYPE_LABELS[combi.type], shape: "chip" });
+	}
+	if (combi.episode !== "any") {
+		const art = episodeArt(combi.episode, ASSET_BASE);
+		items.push({
+			label: EPISODE_LABELS[combi.episode],
+			shape: "chip",
+			faces: art === null ? [] : [{ src: art }],
+		});
+	}
+	for (const boost of combi.boosts) {
+		items.push({
+			label: BOOST_LABELS[boost],
+			shape: "chip",
+			faces: boostArt(boost, ASSET_BASE).map((src) => ({ src })),
+		});
+	}
+	if (combi.randomBoost !== null) {
+		items.push({
+			label: RANDOM_BOOST_LABELS[combi.randomBoost],
+			shape: "chip",
+		});
+	}
+	if (combi.action !== "none") {
+		items.push({ label: ACTION_LABELS[combi.action], shape: "chip" });
+	}
+
+	return items;
+}
+
+/**
+ * The build drawn out, in the order the code reads: what you take with you,
+ * then the run you take it on. A group with nothing in it is left out whole,
+ * so a bare code is a small card rather than four empty headings.
+ */
+function summaryGroups(full: FullCode): SummaryGroup[] {
+	const { loadout, combi } = full;
+
+	const groups: SummaryGroup[] = [];
+	const carried = [
+		...entryItem("Cookie", "cookies", loadout.cookie),
+		...entryItem("Relay", "cookies", loadout.relay),
+		...entryItem("Pet", "pets", loadout.pet),
+	];
+	if (carried.length > 0) groups.push({ label: "Loadout", items: carried });
+
+	const treasures = treasureItems(loadout);
+	if (treasures.length > 0) {
+		groups.push({ label: "Treasures", items: treasures });
+	}
+
+	const run = runItems(combi);
+	if (run.length > 0) groups.push({ label: "Run", items: run });
+
+	const powers = combi.cookiePowers.map((power) => ({
+		label: COOKIE_POWER_LABELS[power],
+		shape: "chip" as const,
+		faces: cookiePowerArt(power, ASSET_BASE).map((src) => ({ src })),
+	}));
+	if (powers.length > 0) {
+		groups.push({ label: "Cookie power+", items: powers });
+	}
+
+	return groups;
 }
 
 /**
@@ -294,12 +404,11 @@ function render(warnings: readonly string[] = []): void {
 	// before this one.
 	codeBar.hints = hintsFor(code);
 
-	// Read the code back so the verdict reflects the character actually written
+	// Read the code back so the card reflects the character actually written
 	// into slot 2, not the type the chips still show.
 	const { full } = decodeFull(code);
-	const described = describeFull(full);
-	summaryLine.fields = summaryOf(full.combi);
-	verdictLine.verdict = described.auto;
+	summaryCard.groups = summaryGroups(full);
+	summaryCard.verdict = describeCombi(full.combi).auto;
 	showWarnings(warnings);
 	publish(code);
 }

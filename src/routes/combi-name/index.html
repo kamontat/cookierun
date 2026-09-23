@@ -50,7 +50,6 @@
           value="1S00--000-"
           placeholder="1C00TU000.1S07--014-"
         ></code-bar>
-        <summary-line id="summary"></summary-line>
 
         <div class="actions">
           <!-- Two labels in one cell: the button says the copy worked without
@@ -66,11 +65,12 @@
         <p id="link-status" class="status" role="status"></p>
       </section>
 
-      <!-- Outside the sticky panel on purpose: the verdict is a judgment to
-           read once, and pinning all of this cost half a phone screen. The
-           one line that does ride along is the summary, above. -->
+      <!-- Outside the sticky panel on purpose: the build drawn out is a thing
+           to look at rather than a line to glance at, and pinning it cost half
+           a phone screen. The panel above holds the code and its buttons. -->
+      <build-summary id="summary"></build-summary>
+
       <div class="readout">
-        <verdict-line id="verdict"></verdict-line>
         <ul id="warnings" class="warnings" aria-live="polite"></ul>
         <p class="tip">
           Click any part of the code to jump to the control that writes it, or
