@@ -112,6 +112,18 @@ test("an empty slot says None", async () => {
 	);
 });
 
+// A slot nobody has filled still has to invite a click.
+test("an empty slot draws its tile with a dashed frame", async () => {
+	const element = await mount();
+
+	expect(tile(element).classList.contains("empty")).toBe(true);
+
+	element.selected = ["001"];
+	await element.updateComplete;
+
+	expect(tile(element).classList.contains("empty")).toBe(false);
+});
+
 // The same "this or that" the code reads as, so a closed slot says exactly
 // what the summary above it would say.
 test("alternatives read as this or that on the closed line", async () => {
@@ -222,10 +234,35 @@ test("a click on the backdrop cancels the dialog", async () => {
 	await settle(element);
 	cell(element, "000").click();
 	await settle(element);
+	dialog(element).dispatchEvent(new Event("pointerdown", { bubbles: true }));
 	dialog(element).dispatchEvent(new MouseEvent("click", { bubbles: true }));
 	await settle(element);
 
 	expect([dialog(element).open, element.selected]).toEqual([false, ["000"]]);
+});
+
+// A click fires on the nearest common ancestor of the press and release
+// targets, so selecting text in the search box and releasing past the
+// sheet's edge would otherwise target the dialog too and discard the whole
+// draft with no confirmation.
+test("a press that starts inside the sheet leaves the dialog open and the draft intact even if the click lands on the backdrop", async () => {
+	const element = await mount();
+	element.options = [["000", "Always Cute Acorn", null, "base"]];
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+	cell(element, "000").click();
+	await settle(element);
+
+	const sheet = element.shadowRoot?.querySelector(".sheet");
+	if (sheet === null || sheet === undefined) throw new Error("no sheet");
+	sheet.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+	dialog(element).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+	await settle(element);
+
+	expect(dialog(element).open).toBe(true);
+	expect(cell(element, "000").getAttribute("aria-checked")).toBe("true");
 });
 
 test("Clear empties the draft without closing or committing", async () => {
@@ -518,6 +555,31 @@ test("filtering by kind does not escape the shadow root as a change", async () =
 	await settle(element);
 
 	expect(escaped).toBe(0);
+});
+
+// Reopening the dialog with the previous visit's kind filter still narrowed
+// leaves picked cells off screen with nothing on screen saying why.
+test("closing the dialog resets the kind filter for the next time it opens", async () => {
+	const element = await mountKinded();
+	tile(element).click();
+	await settle(element);
+
+	pressKind(element, "blessed");
+	await settle(element);
+	dialog(element).close();
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+
+	expect(entries(element).map((entry) => entry.value)).toEqual([
+		"001",
+		"002",
+		"003",
+	]);
+	expect(
+		kindFilters(element).map((button) => button.getAttribute("aria-pressed")),
+	).toEqual(["true", "false", "false", "false"]);
 });
 
 test("a pick the kind filter hides is still held, and still on the closed line", async () => {

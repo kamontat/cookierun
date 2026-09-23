@@ -55,6 +55,14 @@ export const tileStyles = css`
 		transform: none;
 	}
 
+	/* A slot nobody has filled still has to invite a click, not just read
+	   quieter than a filled one — the dashed frame is what says "empty" at a
+	   glance, alongside the muted "None" text. */
+	button.tile.empty {
+		border-style: dashed;
+		border-color: var(--cr-muted);
+	}
+
 	dialog {
 		width: min(52rem, 94vw);
 		max-height: 85vh;
@@ -69,11 +77,17 @@ export const tileStyles = css`
 		background: var(--cr-backdrop);
 	}
 
+	/* A flex column rather than a row template counted for four children:
+	   <entry-tile>'s sheet has four (header, input, .entries, .more) but
+	   <entry-tiles>'s has six whenever the kind row renders (header, .kinds,
+	   input, .entries, footer, .more). A template keyed to a row count breaks
+	   the moment either count changes; flex only needs .entries to claim the
+	   leftover space, whatever else is around it. The max-height lives on the
+	   dialog itself, not here — see the dialog rule above. */
 	.sheet {
-		display: grid;
-		grid-template-rows: auto auto minmax(0, 1fr) auto;
+		display: flex;
+		flex-direction: column;
 		gap: var(--cr-space-2);
-		max-height: 85vh;
 		padding: var(--cr-space-3);
 	}
 
@@ -146,22 +160,17 @@ export const tileStyles = css`
 		font-size: 0.85rem;
 	}
 
-	.body {
-		border-top: var(--cr-border) solid var(--cr-line);
-		padding: var(--cr-space-2);
-	}
-
-	input[type="search"] {
-		margin-bottom: var(--cr-space-2);
-	}
-
 	/* A grid of faces, not a list of names: the whole reason these catalogs
-	   carry pictures is that a cookie is quicker to recognise than to read. */
+	   carry pictures is that a cookie is quicker to recognise than to read.
+	   flex: 1 1 auto and min-height: 0 are what let this row claim the sheet's
+	   leftover space and scroll in it, whatever else the sheet holds. */
 	.entries {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
 		gap: var(--cr-space-1);
 		overflow-y: auto;
+		flex: 1 1 auto;
+		min-height: 0;
 	}
 
 	.entry {
@@ -236,6 +245,16 @@ export class EntryTile extends LitElement {
 
 	@state()
 	private filter = "";
+
+	/**
+	 * Whether the press that is about to produce a click began on the dialog
+	 * itself, latched on pointerdown. A click fires on the nearest common
+	 * ancestor of the mousedown and mouseup targets, so selecting text in the
+	 * search box and releasing past the sheet's edge would otherwise target
+	 * the dialog too and close it — this is what tells that drag apart from a
+	 * real press-and-release on the backdrop.
+	 */
+	#pressedBackdrop = false;
 
 	get value(): string | null {
 		return this.picked;
@@ -395,7 +414,7 @@ export class EntryTile extends LitElement {
 
 		return html`<button
 				type="button"
-				class="tile"
+				class=${picked === undefined ? "tile empty" : "tile"}
 				@click=${() => {
 					void this.#openPicker();
 				}}
@@ -410,6 +429,9 @@ export class EntryTile extends LitElement {
 				</span>
 			</button>
 			<dialog
+				@pointerdown=${(event: Event) => {
+					this.#pressedBackdrop = event.target === this.#dialog();
+				}}
 				@close=${() => {
 					this.#tile()?.focus();
 				}}
@@ -417,8 +439,14 @@ export class EntryTile extends LitElement {
 					// A native dialog does not light-dismiss: nothing closes it on a
 					// backdrop click unless this does. The target is the dialog itself
 					// only when the click lands outside .sheet, so a click inside the
-					// sheet passes through untouched.
-					if (event.target === this.#dialog()) this.#dialog()?.close();
+					// sheet passes through untouched — but a click also fires on the
+					// nearest common ancestor of the press and release targets, so a
+					// drag that starts inside .sheet and releases past its edge would
+					// target the dialog too. Requiring the press to have started there
+					// as well is what tells the two apart.
+					if (this.#pressedBackdrop && event.target === this.#dialog()) {
+						this.#dialog()?.close();
+					}
 				}}
 			>
 				<div class="sheet">

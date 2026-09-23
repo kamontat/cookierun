@@ -153,8 +153,8 @@ hides what they were reading.
   holds, so a screen reader hears "Cookie, Fairy Cookie" rather than "button"
 - the dialog is a native modal: focus is trapped by the platform, Escape closes, and
   the first control inside it is the search box
-- the order switch is two `aria-pressed` buttons in a group labelled by the Treasures
-  heading
+- the order switch is a `<chip-group>`: a radiogroup of `aria-checked` radios labelled
+  "Order"
 - the board header keeps `aria-live="polite"`, so the verdict is announced when it
   changes and nothing else on the board is
 - the run rows keep `<chip-group>`'s single tab stop with arrow keys, and

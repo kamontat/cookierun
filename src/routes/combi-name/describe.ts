@@ -79,12 +79,8 @@ const RETIRED_SUFFIX = " (no longer listed)";
 /**
  * A code stays readable after the site drops an entry, so the entry is still
  * named — with a note, because the reader will not find it in the game.
- *
- * Exported because the build card names the same entries the rows do: one
- * place decides how an entry reads, whether it is read out as prose or drawn
- * under its own picture.
  */
-export function entryName(section: CatalogSection, id: string): string {
+function entryName(section: CatalogSection, id: string): string {
 	const name = labelFor(section, id);
 	return isRetired(section, id) ? name + RETIRED_SUFFIX : name;
 }

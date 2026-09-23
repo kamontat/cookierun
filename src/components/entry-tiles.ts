@@ -226,6 +226,16 @@ export class EntryTiles extends LitElement {
 	private kind: string = ANY_KIND;
 
 	/**
+	 * Whether the press that is about to produce a click began on the dialog
+	 * itself, latched on pointerdown. A click fires on the nearest common
+	 * ancestor of the mousedown and mouseup targets, so selecting text in the
+	 * search box and releasing past the sheet's edge would otherwise target
+	 * the dialog too and discard the whole draft — this is what tells that
+	 * drag apart from a real press-and-release on the backdrop.
+	 */
+	#pressedBackdrop = false;
+
+	/**
 	 * Filters the element's own `options`, so the answer comes back in id order.
 	 * A slot's alternatives are written in that order, so click order would
 	 * produce a different code for the same slot.
@@ -276,6 +286,11 @@ export class EntryTiles extends LitElement {
 	async #openPicker(): Promise<void> {
 		this.draft = new Set(this.chosen);
 		this.filter = "";
+		// Forces every pick back into view of the grid, the same reason
+		// <entry-tile> inserts a filter-excluded pick rather than losing it: a
+		// dialog that reopens still narrowed to last visit's kind leaves the
+		// footer's count with no picked cell on screen to match it.
+		this.kind = ANY_KIND;
 		await this.updateComplete;
 		this.#dialog()?.showModal();
 		this.#search()?.focus();
@@ -372,7 +387,7 @@ export class EntryTiles extends LitElement {
 
 		return html`<button
 				type="button"
-				class="tile"
+				class=${chosen.length === 0 ? "tile empty" : "tile"}
 				@click=${() => {
 					void this.#openPicker();
 				}}
@@ -396,6 +411,9 @@ export class EntryTiles extends LitElement {
 				</span>
 			</button>
 			<dialog
+				@pointerdown=${(event: Event) => {
+					this.#pressedBackdrop = event.target === this.#dialog();
+				}}
 				@close=${() => {
 					this.#tile()?.focus();
 				}}
@@ -403,8 +421,14 @@ export class EntryTiles extends LitElement {
 					// A native dialog does not light-dismiss: nothing closes it on a
 					// backdrop click unless this does. The target is the dialog itself
 					// only when the click lands outside .sheet, so a click inside the
-					// sheet passes through untouched.
-					if (event.target === this.#dialog()) this.#dialog()?.close();
+					// sheet passes through untouched — but a click also fires on the
+					// nearest common ancestor of the press and release targets, so a
+					// drag that starts inside .sheet and releases past its edge would
+					// target the dialog too and discard the whole draft. Requiring the
+					// press to have started there as well is what tells the two apart.
+					if (this.#pressedBackdrop && event.target === this.#dialog()) {
+						this.#dialog()?.close();
+					}
 				}}
 			>
 				<div class="sheet">

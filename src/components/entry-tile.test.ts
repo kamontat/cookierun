@@ -93,6 +93,18 @@ test("the picked entry shows its name and its portrait on the tile", async () =>
 	).toBe("../assets/cookies/ch38.png");
 });
 
+// A slot nobody has filled still has to invite a click.
+test("with nothing picked the tile draws a dashed frame", async () => {
+	const element = await mount();
+
+	expect(tile(element).classList.contains("empty")).toBe(true);
+
+	element.value = "0A";
+	await element.updateComplete;
+
+	expect(tile(element).classList.contains("empty")).toBe(false);
+});
+
 test("a picked entry with no art falls back to a lettered tile", async () => {
 	const element = await mount();
 
@@ -319,10 +331,32 @@ test("a click on the backdrop cancels the dialog", async () => {
 
 	tile(element).click();
 	await settle(element);
+	dialog(element).dispatchEvent(new Event("pointerdown", { bubbles: true }));
 	dialog(element).dispatchEvent(new MouseEvent("click", { bubbles: true }));
 	await settle(element);
 
 	expect([dialog(element).open, element.value]).toEqual([false, "0O"]);
+});
+
+// A click fires on the nearest common ancestor of the press and release
+// targets, so selecting text in the search box and releasing past the
+// sheet's edge would otherwise target the dialog too and close it.
+test("a press that starts inside the sheet leaves the dialog open even if the click lands on the backdrop", async () => {
+	const element = await mount();
+	element.options = [["0O", "Fairy Cookie", null]];
+	element.value = "0O";
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+
+	const sheet = element.shadowRoot?.querySelector(".sheet");
+	if (sheet === null || sheet === undefined) throw new Error("no sheet");
+	sheet.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+	dialog(element).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+	await settle(element);
+
+	expect(dialog(element).open).toBe(true);
 });
 
 test("closing the dialog puts focus back on the tile", async () => {
