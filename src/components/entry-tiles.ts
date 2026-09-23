@@ -62,16 +62,47 @@ export class EntryTiles extends LitElement {
 
 			/* One pick, small enough that four of them wrap across a line rather
 			   than stacking into a column of portraits. */
+			/* The slot is its name and its list, not one button holding both: a
+			   remove button inside the button that opens the picker is not
+			   markup, and dropping one alternative is the thing this list is
+			   read for. */
+			.slot {
+				display: flex;
+				flex-direction: column;
+				gap: var(--cr-space-2);
+			}
+
+			.picks {
+				display: flex;
+				flex-direction: column;
+				gap: var(--cr-space-1);
+				margin: 0;
+				padding: 0;
+				list-style: none;
+			}
+
+			/* One per line: two treasures side by side were two half-names, and a
+			   slot holds alternatives worth reading in full. */
 			.chip {
-				display: inline-flex;
-				flex: 0 1 auto;
+				display: flex;
 				gap: var(--cr-space-1);
 				align-items: center;
-				max-width: 100%;
+				width: 100%;
 				border: var(--cr-border) solid var(--cr-line);
 				border-radius: var(--cr-radius);
 				background: var(--cr-surface-2);
 				padding: 0 var(--cr-space-1);
+			}
+
+			.chip .name {
+				flex: 1 1 auto;
+			}
+
+			/* What the tile says when it is closed: how much the slot holds, since
+			   the names are right underneath it. */
+			.hint {
+				color: var(--cr-muted);
+				font-size: 0.8rem;
 			}
 
 			.chip .art,
@@ -135,6 +166,40 @@ export class EntryTiles extends LitElement {
 
 			/* The closed line has no room for a frame, so the chip's own edge
 			   answers the question - border and a thicker bar down its start. */
+			.remove {
+				flex: 0 0 auto;
+				border: none;
+				border-radius: var(--cr-radius);
+				background: none;
+				box-shadow: none;
+				padding: 0 var(--cr-space-1);
+				color: var(--cr-muted);
+				font-family: var(--cr-mono);
+				font-size: 0.95rem;
+				line-height: 1;
+				letter-spacing: normal;
+			}
+
+			.remove:hover,
+			.remove:focus-visible {
+				color: var(--cr-danger);
+			}
+
+			.remove:active {
+				transform: none;
+			}
+
+			/* Smaller than the hit area the shared chunk gives every other button:
+			   at the full 44px four alternatives stack into a column taller than
+			   the group beside them. Square, so it is as easy to hit across as
+			   down. */
+			@media (pointer: coarse) {
+				.remove {
+					min-width: 2.25rem;
+					min-height: 2.25rem;
+				}
+			}
+
 			.chip[data-kind] {
 				border-color: var(--kind);
 				box-shadow: inset 0.25rem 0 0 var(--kind);
@@ -337,6 +402,33 @@ export class EntryTiles extends LitElement {
 		)?.focus();
 	}
 
+	/**
+	 * Drops one alternative from the slot's own list, where you can see what you
+	 * are removing — the dialog's grid answers "which treasures exist", and this
+	 * answers "which of them is this slot holding". It commits straight away
+	 * rather than through a draft: there is nothing here to cancel, and a list
+	 * you have to confirm a deletion in is a list you cannot tidy at a glance.
+	 *
+	 * Focus lands on whichever remove button takes the gone one's place, or on
+	 * the slot's own button once the list has emptied — the row focus was on has
+	 * stopped existing either way.
+	 */
+	async #drop(value: string): Promise<void> {
+		const at = this.selected.indexOf(value);
+		const next = new Set(this.chosen);
+		next.delete(value);
+		this.chosen = next;
+		this.dispatchEvent(new Event("input", { bubbles: true }));
+		await this.updateComplete;
+
+		const buttons = [
+			...(this.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+				".picks button.remove",
+			) ?? []),
+		];
+		(buttons[Math.min(at, buttons.length - 1)] ?? this.#tile())?.focus();
+	}
+
 	#art(label: string, image: string | null, kind?: string) {
 		return html`<span class="art"
 			>${
@@ -385,31 +477,48 @@ export class EntryTiles extends LitElement {
 		const tabbableValue =
 			shown.find(([value]) => this.draft.has(value))?.[0] ?? shown[0]?.[0];
 
-		return html`<button
-				type="button"
-				class=${chosen.length === 0 ? "tile empty" : "tile"}
-				@click=${() => {
-					void this.#openPicker();
-				}}
-			>
-				<span class="label">${this.legend}</span>
-				<span class=${chosen.length === 0 ? "pick empty" : "pick"}>
-					${
-						chosen.length === 0
-							? NONE
-							: chosen.map((value, index) => {
-									const name = labels.get(value) ?? value;
-									return html`${index === 0 ? "" : html`<span class="or">or</span>`}<span
-										class="chip"
-										data-kind=${ifDefined(kinds.get(value))}
-										>${this.#art(name, images.get(value) ?? null)}<span class="name"
-											>${name}</span
-										></span
-									>`;
-								})
-					}
-				</span>
-			</button>
+		return html`<div class=${chosen.length === 0 ? "slot empty" : "slot"}>
+				<button
+					type="button"
+					class=${chosen.length === 0 ? "tile empty" : "tile"}
+					@click=${() => {
+						void this.#openPicker();
+					}}
+				>
+					<span class="label">${this.legend}</span>
+					<span class="hint"
+						>${
+							chosen.length === 0
+								? NONE
+								: `${chosen.length} ${chosen.length === 1 ? "treasure" : "alternatives"}`
+						}</span
+					>
+				</button>
+				${
+					chosen.length === 0
+						? nothing
+						: html`<ul class="picks">
+							${chosen.map((value) => {
+								const name = labels.get(value) ?? value;
+								return html`<li
+									class="chip"
+									data-kind=${ifDefined(kinds.get(value))}
+									>${this.#art(name, images.get(value) ?? null)}<span class="name"
+										>${name}</span
+									><button
+										type="button"
+										class="remove"
+										aria-label=${`Remove ${name}`}
+										@click=${() => {
+											void this.#drop(value);
+										}}
+										>×</button
+									></li
+								>`;
+							})}
+						</ul>`
+				}
+			</div>
 			<dialog
 				@pointerdown=${(event: Event) => {
 					this.#pressedBackdrop = event.target === this.#dialog();

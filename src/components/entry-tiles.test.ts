@@ -107,9 +107,10 @@ test("the legend names the slot", async () => {
 test("an empty slot says None", async () => {
 	const element = await mount();
 
-	expect(element.shadowRoot?.querySelector(".pick")?.textContent?.trim()).toBe(
+	expect(element.shadowRoot?.querySelector(".hint")?.textContent?.trim()).toBe(
 		"None",
 	);
+	expect(element.shadowRoot?.querySelector(".picks")).toBe(null);
 });
 
 // A slot nobody has filled still has to invite a click.
@@ -126,33 +127,32 @@ test("an empty slot draws its tile with a dashed frame", async () => {
 
 // The same "this or that" the code reads as, so a closed slot says exactly
 // what the summary above it would say.
-test("alternatives read as this or that on the closed line", async () => {
+// One alternative per line: side by side they were two half-names, and a slot
+// holds alternatives worth reading in full.
+test("each alternative is its own row under the slot's name", async () => {
 	const element = await mount();
 
 	element.selected = ["001", "003"];
 	await element.updateComplete;
 
-	const pick = element.shadowRoot?.querySelector(".pick");
+	const rows = [...(element.shadowRoot?.querySelectorAll(".picks > li") ?? [])];
+
 	expect(
-		[...(pick?.querySelectorAll(".name") ?? [])].map((name) =>
-			name.textContent?.trim(),
-		),
+		rows.map((row) => row.querySelector(".name")?.textContent?.trim()),
 	).toEqual(["Always Cute Acorn", "Cheesecake Slice"]);
-	expect(
-		[...(pick?.querySelectorAll(".or") ?? [])].map((word) =>
-			word.textContent?.trim(),
-		),
-	).toEqual(["or"]);
+	expect(element.shadowRoot?.querySelector(".hint")?.textContent?.trim()).toBe(
+		"2 alternatives",
+	);
 });
 
-test("the picked entries show their thumbnails on the closed line", async () => {
+test("the picked entries show their thumbnails in the list", async () => {
 	const element = await mount();
 
 	element.selected = ["001"];
 	await element.updateComplete;
 
 	expect(
-		element.shadowRoot?.querySelector(".pick img")?.getAttribute("src"),
+		element.shadowRoot?.querySelector(".picks img")?.getAttribute("src"),
 	).toBe("../assets/treasures/tr_ga034.png");
 });
 
@@ -292,8 +292,10 @@ test("the tile wears every alternative the slot holds", async () => {
 	element.selected = ["000", "007"];
 	await settle(element);
 
-	expect(tile(element).textContent).toContain("Always Cute Acorn");
-	expect(tile(element).textContent).toContain("Blessed Stretched Acorn");
+	const list = element.shadowRoot?.querySelector(".picks");
+
+	expect(list?.textContent).toContain("Always Cute Acorn");
+	expect(list?.textContent).toContain("Blessed Stretched Acorn");
 });
 
 // A slot's alternatives are written in id order, so click order would produce
@@ -610,4 +612,52 @@ test("an arrow walks to the next entry", async () => {
 	await settle(element);
 
 	expect(element.shadowRoot?.activeElement).toBe(entries(element)[1] ?? null);
+});
+
+// Dropping one alternative is what the list is read for, so it happens on the
+// list rather than inside the dialog, and it commits straight away: there is
+// nothing to cancel, and a list you must confirm a deletion in is a list you
+// cannot tidy at a glance.
+test("a pick's own button drops it from the slot", async () => {
+	const element = await mount();
+	element.selected = ["001", "003"];
+	await settle(element);
+	let heard = 0;
+	element.addEventListener("input", () => {
+		heard += 1;
+	});
+
+	const remove = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+		".picks button.remove",
+	);
+	remove?.[0]?.click();
+	await settle(element);
+
+	expect([element.selected, heard]).toEqual([["003"], 1]);
+});
+
+// The row focus was on has stopped existing, so focus goes to whichever button
+// took its place — and to the slot's own button once the list has emptied.
+test("focus survives a drop", async () => {
+	const element = await mount();
+	element.selected = ["001", "003"];
+	await settle(element);
+
+	element.shadowRoot
+		?.querySelectorAll<HTMLButtonElement>(".picks button.remove")[0]
+		?.click();
+	await settle(element);
+	await settle(element);
+
+	expect(element.shadowRoot?.activeElement).toBe(
+		element.shadowRoot?.querySelector(".picks button.remove"),
+	);
+
+	element.shadowRoot
+		?.querySelectorAll<HTMLButtonElement>(".picks button.remove")[0]
+		?.click();
+	await settle(element);
+	await settle(element);
+
+	expect(element.shadowRoot?.activeElement).toBe(tile(element));
 });

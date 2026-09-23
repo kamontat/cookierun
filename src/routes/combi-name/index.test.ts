@@ -476,7 +476,7 @@ test("every character of the code carries a hint", async () => {
 // second copy of the build to keep in step.
 test("the build panels are gone, replaced by the board's own groups", () => {
 	expect(need("build").querySelectorAll("details.panel").length).toBe(0);
-	expect(need("build").querySelectorAll(".group").length).toBe(4);
+	expect(need("build").querySelectorAll(".group").length).toBe(5);
 });
 
 test("picking a cookie in its dialog writes the loadout section", async () => {

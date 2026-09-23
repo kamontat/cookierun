@@ -33,20 +33,25 @@ export const tileStyles = css`
 		display: block;
 	}
 
+	/* A column, because the face is the thing being recognised: the role names
+	   what the slot is for, the art answers it, and the name confirms what the
+	   art already said. Side by side the art was a thumbnail beside a label;
+	   stacked it is the tile. */
 	button.tile {
 		display: flex;
-		gap: var(--cr-space-3);
+		flex-direction: column;
+		gap: var(--cr-space-2);
 		align-items: center;
 		width: 100%;
 		border: var(--cr-border) solid var(--cr-line);
 		border-radius: var(--cr-radius);
 		background: var(--cr-surface);
 		box-shadow: none;
-		padding: var(--cr-space-2);
+		padding: var(--cr-space-3) var(--cr-space-2);
 		color: inherit;
 		font-family: var(--cr-font);
 		font-size: 0.9rem;
-		text-align: left;
+		text-align: center;
 		text-transform: none;
 		letter-spacing: normal;
 	}
@@ -137,12 +142,13 @@ export const tileStyles = css`
 	   control has to answer without being opened. */
 	.pick {
 		display: flex;
-		flex: 1 1 auto;
-		flex-wrap: wrap;
-		gap: var(--cr-space-1) var(--cr-space-2);
+		flex-direction: column;
+		flex: 0 1 auto;
+		gap: var(--cr-space-2);
 		align-items: center;
 		min-width: 0;
 		font-size: 0.9rem;
+		line-height: 1.25;
 	}
 
 	.pick.empty {
