@@ -7,7 +7,7 @@
  * game, and what keeps every code written before the loadout existed valid.
  */
 
-import { type Combi, decode, encode } from "./codec";
+import { type Combi, decode, encode, isSemiAuto } from "./codec";
 import {
 	decodeLoadout,
 	emptyLoadout,
@@ -23,8 +23,23 @@ export type FullCode = {
 
 export const SECTION_SEPARATOR = ".";
 
+/**
+ * Whether the whole build plays itself. The combi half answers for its own
+ * flags; the loadout adds one reason of its own — a relay cookie has to be
+ * swapped in by hand, so a run carrying one is never full auto no matter what
+ * the ten characters say.
+ *
+ * This lives here rather than in `codec.ts` because it is the one question
+ * whose answer needs both halves, and the codec does not model a loadout.
+ */
+export function isSemiAutoBuild(full: FullCode): boolean {
+	return isSemiAuto(full.combi) || full.loadout.relay !== null;
+}
+
 export function encodeFull(full: FullCode): string {
-	const combi = encode(full.combi);
+	// Slot 2 is written from the whole build, so a code carrying a relay says
+	// Semi-auto in the ten characters someone pastes into the game.
+	const combi = encode(full.combi, full.loadout.relay !== null);
 	if (isEmptyLoadout(full.loadout)) return combi;
 	return `${encodeLoadout(full.loadout)}${SECTION_SEPARATOR}${combi}`;
 }
@@ -56,6 +71,23 @@ export function decodeFull(code: string): {
 	}
 
 	const loadout = decodeLoadout(first);
-	const { combi, warnings } = decode(second);
-	return { full: { loadout, combi }, warnings };
+	const relayed = loadout.relay !== null;
+	const { combi, warnings } = decode(second, relayed);
+	return {
+		full: { loadout, combi },
+		warnings: relayed ? [...warnings, ...relayWarnings(combi)] : warnings,
+	};
+}
+
+/**
+ * What the codec cannot say, because it does not know the word: a code whose
+ * type slot reads Auto while the loadout carries a relay contradicts itself,
+ * and the relay wins. Hand-typed codes are allowed to say it — decoding keeps
+ * what the code says, and re-encoding is what snaps the slot back.
+ */
+function relayWarnings(combi: Combi): string[] {
+	if (combi.type !== "auto") return [];
+	return [
+		"slot 2 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
+	];
 }

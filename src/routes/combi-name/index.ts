@@ -22,8 +22,13 @@ import {
 	type Episode,
 	type RandomBoost,
 } from "./codec";
-import { describeCombi, describeFull } from "./describe";
-import { combiSectionOf, decodeFull, encodeFull } from "./full-code";
+import { describeBuild } from "./describe";
+import {
+	combiSectionOf,
+	decodeFull,
+	encodeFull,
+	isSemiAutoBuild,
+} from "./full-code";
 import { hintsFor } from "./hints";
 import {
 	ACTION_LABELS,
@@ -36,22 +41,20 @@ import {
 import type { Loadout } from "./loadout";
 import { codeInHash, hashFor, rememberCode, startingCode } from "./state";
 
+import "#components/build-summary";
 import "#components/card-group";
 import "#components/chip-group";
 import "#components/code-bar";
 import "#components/entry-tile";
 import "#components/entry-tiles";
 import "#components/site-nav";
-import "#components/summary-line";
-import "#components/verdict-line";
 
+import type { BuildSummary } from "#components/build-summary";
 import type { CardGroup } from "#components/card-group";
 import type { ChipGroup } from "#components/chip-group";
 import type { CodeBar } from "#components/code-bar";
 import type { EntryTile } from "#components/entry-tile";
 import type { EntryTiles } from "#components/entry-tiles";
-import type { SummaryLine } from "#components/summary-line";
-import type { VerdictLine } from "#components/verdict-line";
 
 /** Exported for this route's test, which drives the page through the same lookups. */
 export function need<T extends HTMLElement>(id: string): T {
@@ -61,8 +64,7 @@ export function need<T extends HTMLElement>(id: string): T {
 }
 
 const codeBar = need<CodeBar>("code");
-const summaryLine = need<SummaryLine>("summary");
-const verdictLine = need<VerdictLine>("verdict");
+const summaryCard = need<BuildSummary>("summary");
 const warningList = need<HTMLUListElement>("warnings");
 const copyLinkButton = need<HTMLButtonElement>("copy-link");
 const resetButton = need<HTMLButtonElement>("reset");
@@ -260,24 +262,6 @@ function showWarnings(warnings: readonly string[]): void {
 }
 
 /**
- * What a field reads as when it is switched off. Such a field is left out of
- * the summary: a line that lists what you did not choose is a longer line
- * saying less.
- */
-const UNSET = new Set(["None", ACTION_LABELS.none]);
-
-/**
- * The build as one line of prose. The loadout is left out on purpose: its
- * controls show the art of whatever is picked a screen below, so repeating the
- * names here would say twice what the page already says once.
- */
-function summaryOf(combi: Combi): string[] {
-	return describeCombi(combi)
-		.rows.filter((row) => !UNSET.has(row.value))
-		.map((row) => row.value);
-}
-
-/**
  * The one render. Everything the page shows is derived from the controls, so
  * every change — a chip, a card, a typed code already applied — comes back
  * through here.
@@ -297,9 +281,24 @@ function render(warnings: readonly string[] = []): void {
 	// Read the code back so the verdict reflects the character actually written
 	// into slot 2, not the type the chips still show.
 	const { full } = decodeFull(code);
-	const described = describeFull(full);
-	summaryLine.fields = summaryOf(full.combi);
-	verdictLine.verdict = described.auto;
+	summaryCard.verdict = describeBuild(full);
+	// The one chip that says what it is rather than what you picked: an auto run
+	// with Fast Start, a random boost, an action or a relay is a semi-auto run,
+	// and the chip reading Auto beside a code reading H is the disagreement the
+	// page exists to prevent.
+	typeChips.options = typeOptions(isSemiAutoBuild(full));
+
+	// A numbered slot claims a position, and the code only carries one when the
+	// order is exact. Read from the decoded code, not the switch: the code's truth
+	// is what matters. With fewer than two slots filled, the code carries no order,
+	// so the labels read "Any slot" even when the switch says "Exact order".
+	treasureSlots.forEach((slot, index) => {
+		slot.setAttribute(
+			"legend",
+			full.loadout.ordered ? `Slot ${index + 1}` : "Any slot",
+		);
+	});
+
 	showWarnings(warnings);
 	publish(code);
 }
@@ -412,7 +411,22 @@ function pairs<K extends string>(
  */
 const PICKABLE_TYPES = ALL_TYPES.filter((type) => type !== "semiauto");
 
-typeChips.options = pairs(PICKABLE_TYPES, TYPE_LABELS);
+/**
+ * Every pickable type, with the Auto chip wearing whichever of the two names
+ * the build has earned. Semi-auto is still not a choice — picking it and
+ * picking Auto are the same click — but the chip says which one you are on.
+ */
+function typeOptions(semi: boolean): readonly (readonly [string, string])[] {
+	return PICKABLE_TYPES.map(
+		(type) =>
+			[
+				type,
+				type === "auto" && semi ? TYPE_LABELS.semiauto : TYPE_LABELS[type],
+			] as const,
+	);
+}
+
+typeChips.options = typeOptions(false);
 // The one chip row with art. `any` has no icon and is drawn as a bare chip,
 // which is what every other row here still looks like.
 episodeChips.options = ALL_EPISODES.map(
@@ -441,6 +455,11 @@ orderChips.options = ORDER_OPTIONS;
 boostCards.options = ALL_BOOSTS.map(
 	(boost) => [boost, BOOST_LABELS[boost], boostArt(boost, ASSET_BASE)] as const,
 );
+// The board's own heading already says "Cookie power+", so the fieldset keeps
+// the name for a screen reader and hands the screen back to the heading. Set
+// here rather than in the markup for the reason `resettable` is: an attribute
+// the markup ships is invisible to the property in the route's test harness.
+cookiePowerCards.legendHidden = true;
 cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 	(power) =>
 		[

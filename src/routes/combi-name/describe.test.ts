@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 
 import type { Combi } from "./codec";
-import { describeCombi, describeFull, describeLoadout } from "./describe";
+import { describeBuild, describeCombi, describeLoadout } from "./describe";
 import { emptyLoadout } from "./loadout";
 
 const base: Combi = {
@@ -130,29 +130,40 @@ test("a single treasure slot never reads as exact order", () => {
 	expect(rows[3]?.field).toBe("Treasures");
 });
 
-test("the loadout rows come before the combi rows", () => {
-	const { rows } = describeFull({
-		loadout: { ...emptyLoadout(), cookie: "00" },
-		combi: {
-			type: "score",
-			episode: "any",
-			boosts: [],
-			randomBoost: null,
-			cookiePowers: [],
-			action: "none",
-		},
-	});
+// The relay is the loadout's own reason for manual work, listed beside the
+// three the combi carries.
+test("the build verdict names the relay as what forces the work", () => {
+	const auto: Combi = {
+		type: "auto",
+		episode: "any",
+		boosts: [],
+		randomBoost: null,
+		cookiePowers: [],
+		action: "none",
+	};
 
-	expect(rows.map(({ field }) => field)).toEqual([
-		"Cookie",
-		"Relay",
-		"Pet",
-		"Treasures",
-		"Type",
-		"Episode",
-		"Boosts",
-		"Random boost",
-		"Cookie power+",
-		"Action",
-	]);
+	expect(
+		describeBuild({ loadout: { ...emptyLoadout(), relay: "0O" }, combi: auto }),
+	).toEqual({ semi: true, reasons: ["Relay cookie"] });
+	expect(describeBuild({ loadout: emptyLoadout(), combi: auto })).toEqual({
+		semi: false,
+		reasons: [],
+	});
+});
+
+// Auto versus semi-auto means nothing for the hand-played types, relay or not.
+test("a hand-played type has no verdict even with a relay", () => {
+	expect(
+		describeBuild({
+			loadout: { ...emptyLoadout(), relay: "0O" },
+			combi: {
+				type: "score",
+				episode: "any",
+				boosts: [],
+				randomBoost: null,
+				cookiePowers: [],
+				action: "none",
+			},
+		}),
+	).toBe(null);
 });

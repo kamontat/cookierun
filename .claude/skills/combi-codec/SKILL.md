@@ -10,7 +10,7 @@ The character tables at the top of `src/routes/combi-name/codec.ts` are the sing
 - `TYPE_CHARS`, `EPISODE_CHARS`, `BOOST_BITS`, `RANDOM_BOOST_CHARS`, `COOKIE_POWER_BITS`, `ACTION_CHARS` define both the encoding and the set of valid values.
 - `ALL_TYPES`, `ALL_EPISODES`, `ALL_BOOSTS`, `ALL_RANDOM_BOOSTS`, `ALL_COOKIE_POWERS`, `ALL_ACTIONS`, and `BOOST_LABELS` are computed from those tables — never hand-maintain a parallel list.
 - `src/routes/combi-name/labels.ts` maps every value to a display name. A test asserts key-for-key parity with the `ALL_*` arrays, so a new value cannot ship unlabeled. Boost names live in `codec.ts` instead, because `decode`'s error messages quote them.
-- `src/routes/combi-name/describe.ts` turns a `Combi` into display rows plus an auto/semi-auto verdict. It is the only place that decides how a combi reads in prose.
+- `src/routes/combi-name/describe.ts` turns a `Combi` into display rows plus an auto/semi-auto verdict, and a `Loadout` into its own rows. It is the only place that decides how a combi or a loadout reads in prose. `hints.ts` reads `describeLoadout`'s rows, `index.ts` reads `describeCombi`'s verdict for the board header, and `entryName` — which appends a note to an entry the site has since dropped — stays private to the file: both `describeLoadout` and its own `treasureRow` helper call it, so that note reads the same wherever a loadout entry is named.
 - `src/routes/combi-name/hints.ts` says what each character of a code means, one entry per character, for the tooltips on the built code. Slot numbers come from the codec's own tables and the values from `describe.ts`, so a table that grows cannot leave a stale hint behind. A code it cannot decode gets no hints at all rather than half a labelling, which would point at the wrong characters. Its `group` field carries a second job now: `<code-bar>` draws each run of one group as a single button and emits that group name when the run is clicked, and `index.ts`'s `OWNER` map turns the name into the control to focus. A group added here without an `OWNER` entry simply does not jump — it does not break.
 - `src/routes/combi-name/art.ts` says which cookies or pets each cookie power+ belongs to, so the cards can wear their faces. Each entry is a list of `{ section, key }` against the catalog's own keys rather than wire ids — five powers name one cookie, Serenade of Love the two pets that sing it, EXP Party the four cookies that throw it. A test asserts key-for-key parity with `ALL_COOKIE_POWERS`, the same guard `labels.ts` has, so a new power cannot ship without the page deciding what face it wears. The codec still does not model a cookie — this mapping is the page's, not the format's. `BOOST_ART` and `EPISODE_ART` beside it do the same job for the boost cards and the episode chips, naming the authored key each one's icon is filed under in `assets/index.json` and resolving it through `catalog.ts`'s `staticImage`. Both carry the same parity test, and both have entries the other end lacks in one direction or the other: `any` is the episode with no icon, while the index holds one boost and two episodes the codec has no character for. To add a boost or episode, that is the third table to fill in after the character table and the label table — and the test fails until you do.
 - `src/routes/combi-name/index.ts` pairs each `ALL_*` array with its label table and hands the result to the form components as their `options` property. `src/routes/combi-name/index.html` declares those elements empty on purpose — do not hardcode options into the markup.
@@ -28,10 +28,18 @@ The form end of that guarantee is `<card-group>`'s `selected` getter: it filters
 `ALL_TYPES` carries `semiauto` and `TYPE_CHARS` maps it to `H`, because a code
 carrying `H` has to decode — but the page's type chips are `ALL_TYPES` minus
 that one. Semi-auto is what `normalizeType` makes of an auto run when Fast
-Start, a random boost or a jump action is on, so a chip for it could only
-disagree with the code the flags produce. `writeForm` lands a decoded
-`semiauto` on the Auto chip, and the summary and verdict lines are where the
-page says which of the two you ended up with.
+Start, a random boost, a jump action or a relay cookie is in play, so a chip for
+it could only disagree with the code those produce. `writeForm` lands a decoded
+`semiauto` on the Auto chip, and the chip's own label follows the build: the
+route rewrites it to `Semi-auto` whenever `isSemiAutoBuild` says so, which is
+also what the board's badge and verdict sentence read.
+
+The relay is the one reason that is not in the ten characters. `isSemiAuto` in
+`codec.ts` answers for the combi's own three flags and knows nothing else;
+`isSemiAutoBuild` in `full-code.ts` adds the loadout's relay, and it is the one
+question whose answer needs both halves. `encode` and `decode` take a
+`forcedSemiAuto` flag for it — the word "relay" never reaches the codec, so the
+caller that knows the reason is also the one that names it in a warning.
 
 That is a page decision, not a format one. Do not remove `semiauto` from
 `codec.ts` to match the picker: it is slot 2's `H`, and dropping it would make
@@ -61,7 +69,9 @@ Route-only logic stays in the route. The codec is imported by exactly one page, 
 
 ## One code, one state
 
-The page holds exactly one thing: a `FullCode`. Every control writes it and the code bar writes it, and everything on screen is rendered from it by the route's single `render`. There is no second copy of the code and no separate reader — building a code and reading one are the same screen, which is why `<code-bar>` is both the output and the input.
+The page holds exactly one thing: a `FullCode`. Every control writes it and the code bar writes it, and everything on screen is rendered from it by the route's single `render`. There is no second copy of the code and no separate reader — building a code and reading one are the same screen, which is why `<code-bar>` is both the output and the input. The page is one board, not a summary beside a set of controls: every value it shows is the control that writes it, so there is no second rendering of the build for `render` to keep in step with the first.
+
+A treasure slot's `legend` is one of those values: `render` writes it from `full.loadout.ordered`, the order flag the decoded code actually carries, not from the `treasureOrder` chip group beside the heading. The two can disagree — with fewer than two slots filled there is nothing to order, so canonical encoding always writes a single slot `U` regardless of what the switch asked for (see "The loadout section" below) — so the labels read `Slot 1` / `Slot 2` / `Slot 3` only once the code itself carries an order, and `Any slot` otherwise, even while the switch still reads "Exact order". The labels follow the code on purpose: the switch says what was asked for, the code says what got written, and a label is a claim about the code.
 
 The treasure slots are the one place where what the page offers and what the format allows come apart. `optionsFor("treasures")` leaves out the consumable and special families — see the `assets` skill — but a code can still carry one, so `writeLoadout` appends any carried id the offered list lacks to that slot's own `options`, and writes the options before the picks. Both halves matter: a slot prunes a pick its options do not hold, and the two are separate writes. Without it, opening a saved link would quietly drop a treasure and rewrite the code in the address bar.
 

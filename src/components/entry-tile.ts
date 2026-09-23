@@ -33,18 +33,101 @@ export const tileStyles = css`
 		display: block;
 	}
 
-	details {
+	/* A column, because the face is the thing being recognised: the role names
+	   what the slot is for, the art answers it, and the name confirms what the
+	   art already said. Side by side the art was a thumbnail beside a label;
+	   stacked it is the tile. */
+	button.tile {
+		display: flex;
+		flex-direction: column;
+		gap: var(--cr-space-2);
+		align-items: center;
+		width: 100%;
 		border: var(--cr-border) solid var(--cr-line);
 		border-radius: var(--cr-radius);
 		background: var(--cr-surface);
+		box-shadow: none;
+		padding: var(--cr-space-3) var(--cr-space-2);
+		color: inherit;
+		font-family: var(--cr-font);
+		font-size: 0.9rem;
+		text-align: center;
+		text-transform: none;
+		letter-spacing: normal;
 	}
 
-	summary {
+	button.tile:active {
+		transform: none;
+	}
+
+	/* A slot nobody has filled still has to invite a click, not just read
+	   quieter than a filled one — the dashed frame is what says "empty" at a
+	   glance, alongside the muted "None" text. */
+	button.tile.empty {
+		border-style: dashed;
+		border-color: var(--cr-muted);
+	}
+
+	/* Keyed to [open], because the browser hides a closed dialog with its own
+	   display: none and an author display wins over that whatever its
+	   specificity — an unkeyed rule here draws every dialog on the page
+	   inline, all the time.
+
+	   The flex column is what lets max-height below actually bound .sheet: a
+	   native <dialog> defaults to overflow-y: auto, so an unbounded child
+	   simply grows the dialog past its cap and the whole dialog scrolls —
+	   header, search box and all — instead of just .entries. Making the
+	   dialog the flex container and .sheet a shrinkable flex item (below)
+	   is what forces .sheet's height to actually stop at this box, border
+	   included, rather than merely at some other rule's copy of the same
+	   number: box-sizing: border-box already prices the border into this
+	   max-height, and the flex algorithm carries that resolved size down
+	   without a second calculation to keep in sync. */
+	dialog[open] {
 		display: flex;
-		gap: var(--cr-space-3);
+		flex-direction: column;
+		width: min(52rem, 94vw);
+		max-height: 85vh;
+		border: var(--cr-border) solid var(--cr-line);
+		border-radius: var(--cr-radius);
+		background: var(--cr-surface);
+		padding: 0;
+		color: var(--cr-text);
+	}
+
+	dialog::backdrop {
+		background: var(--cr-backdrop);
+	}
+
+	/* A flex column rather than a row template counted for four children:
+	   <entry-tile>'s sheet has four (header, input, .entries, .more) but
+	   <entry-tiles>'s has six whenever the kind row renders (header, .kinds,
+	   input, .entries, footer, .more). A template keyed to a row count breaks
+	   the moment either count changes; flex only needs .entries to claim the
+	   leftover space, whatever else is around it. flex: 1 1 auto and
+	   min-height: 0 are what let the dialog's own max-height (see above)
+	   shrink this to fit, rather than .sheet growing past it and dragging
+	   the dialog's own scrollbar along for the ride. */
+	.sheet {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-height: 0;
+		gap: var(--cr-space-2);
+		padding: var(--cr-space-3);
+	}
+
+	.sheet header {
+		display: flex;
 		align-items: center;
-		padding: var(--cr-space-2);
-		cursor: pointer;
+		justify-content: space-between;
+		gap: var(--cr-space-2);
+	}
+
+	.sheet h2 {
+		margin: 0;
+		font-family: var(--cr-mono);
+		font-size: 1rem;
 	}
 
 	.label {
@@ -59,12 +142,13 @@ export const tileStyles = css`
 	   control has to answer without being opened. */
 	.pick {
 		display: flex;
-		flex: 1 1 auto;
-		flex-wrap: wrap;
-		gap: var(--cr-space-1) var(--cr-space-2);
+		flex-direction: column;
+		flex: 0 1 auto;
+		gap: var(--cr-space-2);
 		align-items: center;
 		min-width: 0;
 		font-size: 0.9rem;
+		line-height: 1.25;
 	}
 
 	.pick.empty {
@@ -103,23 +187,17 @@ export const tileStyles = css`
 		font-size: 0.85rem;
 	}
 
-	.body {
-		border-top: var(--cr-border) solid var(--cr-line);
-		padding: var(--cr-space-2);
-	}
-
-	input[type="search"] {
-		margin-bottom: var(--cr-space-2);
-	}
-
 	/* A grid of faces, not a list of names: the whole reason these catalogs
-	   carry pictures is that a cookie is quicker to recognise than to read. */
+	   carry pictures is that a cookie is quicker to recognise than to read.
+	   flex: 1 1 auto and min-height: 0 are what let this row claim the sheet's
+	   leftover space and scroll in it, whatever else the sheet holds. */
 	.entries {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
 		gap: var(--cr-space-1);
-		max-height: 18rem;
 		overflow-y: auto;
+		flex: 1 1 auto;
+		min-height: 0;
 	}
 
 	.entry {
@@ -165,24 +243,15 @@ export const tileStyles = css`
 		color: var(--cr-muted);
 		font-size: 0.75rem;
 	}
-
-	/* The summary is what opens the control, and it is not a button, so the
-	   shared chunk's hit area never reaches it. Its own contents come to 41px
-	   unaided - close enough to read as deliberate, far enough to miss. */
-	@media (pointer: coarse) {
-		summary {
-			min-height: var(--cr-tap);
-		}
-	}
 `;
 
 /**
  * A type-to-filter grid that resolves to one pick, for catalogs too long for a
  * `<select>` — the treasure list alone is over a thousand entries.
  *
- * It lives inside a closed `<details>`: six open grids at once is a wall of
- * scrolling, and the summary already shows what is picked, which is what a
- * closed control has to answer.
+ * The grid opens in a modal dialog rather than inline: six open grids at once
+ * is a wall of scrolling, and the tile already shows what is picked, which is
+ * what a closed control has to answer.
  *
  * Only the first `LIMIT` matches are rendered, because three of these plus
  * three treasure slots over the same catalog would otherwise put tens of
@@ -198,19 +267,21 @@ export class EntryTile extends LitElement {
 	@property({ attribute: false })
 	options: readonly Option[] = [];
 
-	/**
-	 * Reflected so the page can widen an open control: the grid inside wants
-	 * more room than the closed line needs, and `details[open]` is behind a
-	 * shadow boundary no page selector can reach across.
-	 */
-	@property({ type: Boolean, reflect: true })
-	open = false;
-
 	@state()
 	private picked: string | null = null;
 
 	@state()
 	private filter = "";
+
+	/**
+	 * Whether the press that is about to produce a click began on the dialog
+	 * itself, latched on pointerdown. A click fires on the nearest common
+	 * ancestor of the mousedown and mouseup targets, so selecting text in the
+	 * search box and releasing past the sheet's edge would otherwise target
+	 * the dialog too and close it — this is what tells that drag apart from a
+	 * real press-and-release on the backdrop.
+	 */
+	#pressedBackdrop = false;
 
 	get value(): string | null {
 		return this.picked;
@@ -218,28 +289,6 @@ export class EntryTile extends LitElement {
 
 	set value(value: string | null) {
 		this.picked = value !== null && this.#has(value) ? value : null;
-	}
-
-	/**
-	 * A list left open once you have gone elsewhere is a list you have to come
-	 * back and close, and the page holds six of them. `pointerdown` rather than
-	 * `click`: it fires before focus moves, so the list is already gone by the
-	 * time whatever was clicked takes over.
-	 */
-	#closeOnOutside = (event: Event): void => {
-		if (!this.open) return;
-		if (event.composedPath().includes(this)) return;
-		this.open = false;
-	};
-
-	override connectedCallback(): void {
-		super.connectedCallback();
-		document.addEventListener("pointerdown", this.#closeOnOutside);
-	}
-
-	override disconnectedCallback(): void {
-		super.disconnectedCallback();
-		document.removeEventListener("pointerdown", this.#closeOnOutside);
 	}
 
 	override willUpdate(): void {
@@ -291,6 +340,31 @@ export class EntryTile extends LitElement {
 		return this.shadowRoot?.querySelector("input") ?? null;
 	}
 
+	#dialog(): HTMLDialogElement | null {
+		return this.shadowRoot?.querySelector("dialog") ?? null;
+	}
+
+	#tile(): HTMLButtonElement | null {
+		return this.shadowRoot?.querySelector("button.tile") ?? null;
+	}
+
+	/**
+	 * A modal rather than an inline list: the grid wants the width of the page,
+	 * and six inline grids was a page you had to tidy up after. The platform
+	 * takes care of the backdrop, the focus trap and Escape.
+	 */
+	async #openPicker(): Promise<void> {
+		this.filter = "";
+		await this.updateComplete;
+		this.#dialog()?.showModal();
+		this.#search()?.focus();
+	}
+
+	#closePicker(): void {
+		this.#dialog()?.close();
+		this.#tile()?.focus();
+	}
+
 	/**
 	 * One tab stop for the whole grid, arrows inside it: 50 cells in each of six
 	 * controls would otherwise be 300 stops between the loadout and the rest of
@@ -324,19 +398,13 @@ export class EntryTile extends LitElement {
 	}
 
 	/**
-	 * Lit reuses the cells it can, so a pick usually leaves focus where it was.
-	 * The one case with nothing to return to: `options` is reassigned — by a
-	 * listener reacting to the `input` dispatched below — dropping the value
-	 * just picked. The search box, the one element that survives every render,
-	 * takes focus instead.
+	 * A click is the commit: one pick, one value, and the dialog has nothing
+	 * left to ask. Focus goes back to the tile, which is where it came from.
 	 */
-	async #pick(value: string): Promise<void> {
+	#pick(value: string): void {
 		this.picked = value === "" ? null : value;
 		this.dispatchEvent(new Event("input", { bubbles: true }));
-		await this.updateComplete;
-		(
-			this.#cells().find((cell) => cell.value === value) ?? this.#search()
-		)?.focus();
+		this.#closePicker();
 	}
 
 	#art(label: string, image: string | null) {
@@ -359,7 +427,7 @@ export class EntryTile extends LitElement {
 			tabindex=${tabbable ? 0 : -1}
 			aria-selected=${String((this.picked ?? "") === value)}
 			@click=${() => {
-				void this.#pick(value);
+				this.#pick(value);
 			}}
 		>
 			${this.#art(label, image)}<span class="name">${label}</span>
@@ -368,18 +436,16 @@ export class EntryTile extends LitElement {
 
 	override render() {
 		const { shown, total } = this.#matches();
-		// The tab stop is the pick, so tabbing in lands on what the control
-		// currently says; with nothing picked that is the None cell.
 		const tabbableValue = this.picked ?? "";
 		const picked = this.#pickedOption();
 
-		return html`<details
-			?open=${this.open}
-			@toggle=${(event: Event) => {
-				this.open = (event.target as HTMLDetailsElement).open;
-			}}
-		>
-			<summary>
+		return html`<button
+				type="button"
+				class=${picked === undefined ? "tile empty" : "tile"}
+				@click=${() => {
+					void this.#openPicker();
+				}}
+			>
 				<span class="label">${this.label}</span>
 				<span class=${picked === undefined ? "pick empty" : "pick"}>
 					${
@@ -388,40 +454,72 @@ export class EntryTile extends LitElement {
 							: html`${this.#art(picked[1], picked[2])}${picked[1]}`
 					}
 				</span>
-			</summary>
-			<div class="body">
-				<input
-					type="search"
-					autocomplete="off"
-					placeholder="Type to filter"
-					aria-label=${`Filter ${this.label}`}
-					.value=${this.filter}
-					@input=${(event: Event) => {
-						// Filtering is not a change of value, so it must not read as one.
-						event.stopPropagation();
-						this.filter = (event.target as HTMLInputElement).value;
-					}}
-				/>
-				<div
-					class="entries"
-					role="listbox"
-					aria-label=${this.label}
-					@keydown=${(event: KeyboardEvent) => {
-						this.#walk(event);
-					}}
-				>
-					${this.#cell(["", NONE, null], tabbableValue === "")}
-					${shown.map((option) => this.#cell(option, option[0] === tabbableValue))}
+			</button>
+			<dialog
+				@pointerdown=${(event: Event) => {
+					this.#pressedBackdrop = event.target === this.#dialog();
+				}}
+				@close=${() => {
+					this.#tile()?.focus();
+				}}
+				@click=${(event: Event) => {
+					// A native dialog does not light-dismiss: nothing closes it on a
+					// backdrop click unless this does. The target is the dialog itself
+					// only when the click lands outside .sheet, so a click inside the
+					// sheet passes through untouched — but a click also fires on the
+					// nearest common ancestor of the press and release targets, so a
+					// drag that starts inside .sheet and releases past its edge would
+					// target the dialog too. Requiring the press to have started there
+					// as well is what tells the two apart.
+					if (this.#pressedBackdrop && event.target === this.#dialog()) {
+						this.#dialog()?.close();
+					}
+				}}
+			>
+				<div class="sheet">
+					<header>
+						<h2>${this.label}</h2>
+						<button
+							type="button"
+							class="close"
+							@click=${() => {
+								this.#closePicker();
+							}}
+						>
+							Close
+						</button>
+					</header>
+					<input
+						type="search"
+						autocomplete="off"
+						placeholder="Type to filter"
+						aria-label=${`Filter ${this.label}`}
+						.value=${this.filter}
+						@input=${(event: Event) => {
+							event.stopPropagation();
+							this.filter = (event.target as HTMLInputElement).value;
+						}}
+					/>
+					<div
+						class="entries"
+						role="listbox"
+						aria-label=${this.label}
+						@keydown=${(event: KeyboardEvent) => {
+							this.#walk(event);
+						}}
+					>
+						${this.#cell(["", NONE, null], tabbableValue === "")}
+						${shown.map((option) => this.#cell(option, option[0] === tabbableValue))}
+					</div>
+					<small class="more"
+						>${
+							total > LIMIT
+								? `Showing ${LIMIT} of ${total}. Type to narrow the list.`
+								: ""
+						}</small
+					>
 				</div>
-				<small class="more"
-					>${
-						total > LIMIT
-							? `Showing ${LIMIT} of ${total}. Type to narrow the list.`
-							: ""
-					}</small
-				>
-			</div>
-		</details>`;
+			</dialog>`;
 	}
 }
 

@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 
 import type { Combi } from "./codec";
-import { combiSectionOf, decodeFull, encodeFull } from "./full-code";
+import {
+	combiSectionOf,
+	decodeFull,
+	encodeFull,
+	isSemiAutoBuild,
+} from "./full-code";
 import { emptyLoadout, type Loadout } from "./loadout";
 
 const combi: Combi = {
@@ -134,4 +139,64 @@ test("a seeded sample of loadouts round-trips to its canonical form", () => {
 	// Without this, a generator that stops producing multi-slot loadouts would
 	// empty the shuffle check and the suite would still report green.
 	expect(shuffles).toBeGreaterThan(100);
+});
+
+// A relay cookie is swapped in by hand, so a run carrying one never plays
+// itself through — and the ten characters someone pastes into the game say so.
+test("a relay writes Semi-auto into slot 2", () => {
+	const auto: Combi = {
+		type: "auto",
+		episode: "any",
+		boosts: [],
+		randomBoost: null,
+		cookiePowers: [],
+		action: "none",
+	};
+
+	expect(
+		encodeFull({ loadout: { ...emptyLoadout(), relay: "0O" }, combi: auto }),
+	).toBe("1R0O.1H00--000-");
+	// The combi half on its own knows nothing about a relay and never did.
+	expect(encodeFull({ loadout: emptyLoadout(), combi: auto })).toBe(
+		"1A00--000-",
+	);
+});
+
+test("a build is semi-auto when the loadout carries a relay", () => {
+	const auto: Combi = {
+		type: "auto",
+		episode: "any",
+		boosts: [],
+		randomBoost: null,
+		cookiePowers: [],
+		action: "none",
+	};
+
+	expect(
+		isSemiAutoBuild({
+			loadout: { ...emptyLoadout(), relay: "0O" },
+			combi: auto,
+		}),
+	).toBe(true);
+	expect(isSemiAutoBuild({ loadout: emptyLoadout(), combi: auto })).toBe(false);
+});
+
+// Hand-typed codes are allowed to contradict themselves; the relay wins, and
+// re-encoding snaps the slot back.
+test("a code saying Auto beside a relay warns rather than refusing", () => {
+	const { full, warnings } = decodeFull("1R0O.1A00--000-");
+
+	expect(full.combi.type).toBe("auto");
+	expect(warnings).toEqual([
+		"slot 2 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
+	]);
+	expect(encodeFull(full)).toBe("1R0O.1H00--000-");
+});
+
+// The codec's own contradiction warning does not fire for an H the loadout
+// explains: nothing is wrong with that code.
+test("a relayed code saying Semi-auto draws no warning", () => {
+	const { warnings } = decodeFull("1R0O.1H00--000-");
+
+	expect(warnings).toEqual([]);
 });

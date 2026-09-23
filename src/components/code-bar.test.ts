@@ -380,3 +380,22 @@ test("a blocked clipboard leaves the button alone and speaks in the line", async
 		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
 	).toContain("blocked the clipboard");
 });
+
+// The page puts its own buttons in the bar's row, so the code keeps a line to
+// itself and everything acting on it shares the line below.
+test("the button row takes whatever the page slots into it", async () => {
+	const element = await mount();
+
+	expect(element.shadowRoot?.querySelector(".buttons slot")).not.toBe(null);
+});
+
+// A code being typed is not the code those buttons act on, so they go away
+// with the display rather than offering to copy or reset something else.
+test("the editor renders no slot, so the page's buttons go with it", async () => {
+	const element = await mount();
+
+	element.editing = true;
+	await element.updateComplete;
+
+	expect(element.shadowRoot?.querySelector("slot")).toBe(null);
+});

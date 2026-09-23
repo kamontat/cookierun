@@ -178,12 +178,18 @@ function lookup<V>(table: Map<string, V>, char: string, slot: string): V {
  * are the truth. Encoding rewrites the slot so a generated code never
  * contradicts itself. Non-auto types are untouched — the rule does not apply.
  */
-function normalizeType(combi: Combi): CombiType {
+function normalizeType(combi: Combi, forced: boolean): CombiType {
 	if (combi.type !== "auto" && combi.type !== "semiauto") return combi.type;
-	return isSemiAuto(combi) ? "semiauto" : "auto";
+	return forced || isSemiAuto(combi) ? "semiauto" : "auto";
 }
 
-export function encode(combi: Combi): string {
+/**
+ * `forcedSemiAuto` is how a caller says that something outside these ten
+ * characters makes the run semi-auto — the loadout's relay cookie does, and the
+ * codec does not model a loadout and must not start to. It only ever adds: a
+ * combi whose own flags already force manual work is semi-auto either way.
+ */
+export function encode(combi: Combi, forcedSemiAuto = false): string {
 	const boostMask = BOOST_BITS.reduce(
 		(mask, { boost, bit }) =>
 			combi.boosts.includes(boost) ? mask | bit : mask,
@@ -197,7 +203,7 @@ export function encode(combi: Combi): string {
 
 	return [
 		VERSION,
-		TYPE_CHARS[normalizeType(combi)],
+		TYPE_CHARS[normalizeType(combi, forcedSemiAuto)],
 		EPISODE_CHARS[combi.episode],
 		boostMask.toString(16).toUpperCase(),
 		RESERVED,
@@ -262,7 +268,13 @@ function decodeCookiePowers(code: string): CookiePower[] {
 		.map(([power]) => power);
 }
 
-export function decode(code: string): DecodeResult {
+/**
+ * `forcedSemiAuto` says the same thing it says to `encode`: something outside
+ * these ten characters already forces manual work. It only silences the
+ * contradiction warnings, since a stored `H` that the loadout explains is not a
+ * contradiction — and the caller that knows about the loadout says so itself.
+ */
+export function decode(code: string, forcedSemiAuto = false): DecodeResult {
 	if (code.length !== CODE_LENGTH) {
 		throw new Error(
 			`code must be exactly ${CODE_LENGTH} characters, got ${code.length}: "${code}"`,
@@ -288,7 +300,7 @@ export function decode(code: string): DecodeResult {
 		action: lookup(ACTION_BY_CHAR, code[9] as string, "10 (action)"),
 	};
 
-	return { combi, warnings: typeWarnings(combi) };
+	return { combi, warnings: typeWarnings(combi, forcedSemiAuto) };
 }
 
 /**
@@ -296,8 +308,13 @@ export function decode(code: string): DecodeResult {
  * hand. That is a soft problem: decoding still succeeds, `combi.type` keeps
  * what the code actually says, and `isSemiAuto` remains the authority.
  */
-function typeWarnings(combi: Combi): string[] {
+function typeWarnings(combi: Combi, forced: boolean): string[] {
 	const semi = isSemiAuto(combi);
+
+	// Whatever forces manual work from outside these ten characters is the
+	// caller's to explain: it knows what the reason is called, and this file
+	// deliberately does not.
+	if (forced) return [];
 
 	if (combi.type === "auto" && semi) {
 		return [

@@ -45,14 +45,16 @@
       <section class="codepanel" aria-labelledby="code-heading">
         <h2 id="code-heading">Your code</h2>
 
+        <!-- The two page buttons are slotted into the code bar's own button
+             row, so the code keeps a line to itself and everything that acts
+             on it shares the line below. The bar drops them while its editor
+             is open: copying or resetting a code mid-edit means acting on a
+             code that is not the one on screen. -->
         <code-bar
           id="code"
           value="1S00--000-"
           placeholder="1C00TU000.1S07--014-"
-        ></code-bar>
-        <summary-line id="summary"></summary-line>
-
-        <div class="actions">
+        >
           <!-- Two labels in one cell: the button says the copy worked without
                changing width, so Reset does not shuffle sideways for it. -->
           <button id="copy-link" type="button">
@@ -62,15 +64,11 @@
             </span>
           </button>
           <button id="reset" type="button">Reset</button>
-        </div>
+        </code-bar>
         <p id="link-status" class="status" role="status"></p>
       </section>
 
-      <!-- Outside the sticky panel on purpose: the verdict is a judgment to
-           read once, and pinning all of this cost half a phone screen. The
-           one line that does ride along is the summary, above. -->
       <div class="readout">
-        <verdict-line id="verdict"></verdict-line>
         <ul id="warnings" class="warnings" aria-live="polite"></ul>
         <p class="tip">
           Click any part of the code to jump to the control that writes it, or
@@ -79,56 +77,52 @@
         </p>
       </div>
 
+      <!-- One board: every value it shows is the control that writes it, so
+           reading a code and building one are the same surface. -->
       <form id="build" novalidate>
-        <section class="panel" aria-labelledby="run-heading">
-          <h2 id="run-heading">Run</h2>
+        <build-summary id="summary"></build-summary>
 
+        <div class="group">
+          <h3>Run</h3>
           <chip-group id="type" label="Type"></chip-group>
           <chip-group id="episode" label="Episode"></chip-group>
-        </section>
+        </div>
 
-        <section class="panel" aria-labelledby="boosts-heading">
-          <h2 id="boosts-heading">Boosts and start</h2>
-
-          <card-group id="boosts" legend="Boosts"></card-group>
-          <chip-group id="randomBoost" label="Random boost"></chip-group>
-          <chip-group id="action" label="Action"></chip-group>
-        </section>
-
-        <section class="panel" aria-labelledby="powers-heading">
-          <h2 id="powers-heading">Cookie power+</h2>
-
-          <card-group
-            id="cookiePowers"
-            legend="Cookies whose power+ is on"
-          ></card-group>
-        </section>
-
-        <section class="panel" aria-labelledby="loadout-heading">
-          <h2 id="loadout-heading">Loadout</h2>
-          <p>
-            The game stores these four in the combi itself, so they ride in the
-            section before the dot rather than in the 10-character name. Leave
-            them alone and the code stays exactly 10 characters.
-          </p>
-
+        <div class="group">
+          <h3>Loadout</h3>
           <div class="tiles">
             <entry-tile id="cookie" label="Cookie"></entry-tile>
             <entry-tile id="relay" label="Relay"></entry-tile>
             <entry-tile id="pet" label="Pet"></entry-tile>
           </div>
+        </div>
 
-          <div class="tiles">
-            <entry-tiles id="treasure1" legend="Treasure 1"></entry-tiles>
-            <entry-tiles id="treasure2" legend="Treasure 2"></entry-tiles>
-            <entry-tiles id="treasure3" legend="Treasure 3"></entry-tiles>
+        <div class="group">
+          <div class="grouphead">
+            <h3>Treasures</h3>
+            <chip-group
+              id="treasureOrder"
+              label="Order"
+            ></chip-group>
           </div>
+          <div class="tiles">
+            <entry-tiles id="treasure1"></entry-tiles>
+            <entry-tiles id="treasure2"></entry-tiles>
+            <entry-tiles id="treasure3"></entry-tiles>
+          </div>
+        </div>
 
-          <chip-group
-            id="treasureOrder"
-            label="Treasure order"
-          ></chip-group>
-        </section>
+        <div class="group">
+          <h3>Boosts and start</h3>
+          <card-group id="boosts" legend="Boosts"></card-group>
+          <chip-group id="randomBoost" label="Random boost"></chip-group>
+          <chip-group id="action" label="Action"></chip-group>
+        </div>
+
+        <div class="group">
+          <h3>Cookie power+</h3>
+          <card-group id="cookiePowers" legend="Cookie power+"></card-group>
+        </div>
       </form>
 
       <!-- Folded away: the tooltips on the code above answer "which one is the
@@ -270,11 +264,13 @@ ex:    1  H  3  H - F  4  1 4  J</pre
 
         <h3>Auto vs semi-auto</h3>
         <p>
-          A combi is semi-auto when <strong>any</strong> of these is true: Fast
+          A build is semi-auto when <strong>any</strong> of these is true: Fast
           Start is on (bit <code>4</code> of slot 4), a random boost is selected
-          (slot 7), or there is a jump action (slot 10). Slot 2 stores
+          (slot 7), there is a jump action (slot 10), or the loadout carries a
+          relay cookie (the <code>R</code> group). A relay is swapped in by
+          hand, so a run carrying one never plays itself through. Slot 2 stores
           <code>A</code> or <code>H</code> so the name reads plainly, but those
-          three are the authority - building a code always rewrites slot 2 to
+          four are the authority - building a code always rewrites slot 2 to
           match them.
         </p>
       </details>

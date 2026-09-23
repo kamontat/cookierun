@@ -35,7 +35,7 @@ async function settle(): Promise<void> {
 }
 
 const codeBar = need("code");
-const verdict = need("verdict");
+const summary = need("summary");
 const warnings = need("warnings");
 const resetButton = need<HTMLButtonElement>("reset");
 
@@ -111,8 +111,8 @@ test("a boost card writes its bit and rewrites the type slot to semi-auto", asyn
 	await choose("boosts", "fastStart");
 
 	expect(await codeText()).toBe("1H04--000-");
-	expect(shown(verdict)).toContain("Semi-auto");
-	expect(shown(verdict)).toContain("Fast Start");
+	expect(shown(summary)).toContain("Semi-auto");
+	expect(shown(summary)).toContain("Fast Start");
 	await reset();
 });
 
@@ -121,8 +121,8 @@ test("Double XP adds its bit and leaves the run on full auto", async () => {
 	await choose("boosts", "doubleXp");
 
 	expect(await codeText()).toBe("1A08--000-");
-	expect(shown(verdict)).toContain("Full auto");
-	expect(shown(need("summary"))).toContain("Double XP");
+	expect(shown(summary)).toContain("Full auto");
+	expect(isOn("boosts", "doubleXp")).toBe(true);
 	await reset();
 });
 
@@ -138,7 +138,7 @@ test("a semi-auto code shows Auto picked, and says semi-auto in words", async ()
 	await typeCode("1H04--000-");
 
 	expect(isOn("type", "auto")).toBe(true);
-	expect(shown(need("summary"))).toContain("Semi-auto");
+	expect(shown(summary)).toContain("Semi-auto");
 	await reset();
 });
 
@@ -182,14 +182,12 @@ test("clicking the chosen type leaves it chosen", async () => {
 	await reset();
 });
 
-// The summary rides in the sticky panel with the code it describes; the
-// verdict stays down the page with the warnings.
-test("the summary line says what the build is, beside the code", async () => {
-	await choose("episode", "episode3");
-
-	expect(shown(need("summary"))).toContain("Episode 3");
-	expect(need("summary").closest(".codepanel")).not.toBe(null);
-	await reset();
+// The build summary is the board's header now: it is not a card off on its
+// own above the sticky code panel, and it is not part of the sticky panel
+// either.
+test("the build summary sits inside the board, as its header", () => {
+	expect(need("build").firstElementChild).toBe(summary);
+	expect(summary.closest(".codepanel")).toBe(null);
 });
 
 test("a cookie power card writes its bit into the code", async () => {
@@ -472,4 +470,130 @@ test("every character of the code carries a hint", async () => {
 	for (const run of runs) {
 		expect(run.getAttribute("data-tooltip")).not.toBe("");
 	}
+});
+
+// One board: what the code says is the control that writes it, so there is no
+// second copy of the build to keep in step.
+test("the build panels are gone, replaced by the board's own groups", () => {
+	expect(need("build").querySelectorAll("details.panel").length).toBe(0);
+	expect(need("build").querySelectorAll(".group").length).toBe(5);
+});
+
+test("picking a cookie in its dialog writes the loadout section", async () => {
+	const tile = need("cookie");
+	const button = inside(tile).querySelector<HTMLButtonElement>("button.tile");
+	button?.click();
+	await settle();
+
+	// The grid caps at 50 of the 94 cookies, so the pick is narrowed into view
+	// by name rather than assumed to be among the first page of cells.
+	const search = inside(tile).querySelector<HTMLInputElement>("input");
+	if (search === null) throw new Error("the cookie tile has no search box");
+	search.value = "Fairy";
+	search.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+	await settle();
+
+	const cell = [
+		...inside(tile).querySelectorAll<HTMLButtonElement>("button.entry"),
+	].find((entry) => entry.value === "0O");
+	cell?.click();
+	await settle();
+
+	expect(await codeText()).toBe("1C0O.1S00--000-");
+	await reset();
+});
+
+test("the verdict still follows the flag slots", async () => {
+	await choose("type", "auto");
+	await choose("boosts", "fastStart");
+
+	expect(shown(summary)).toContain("Semi-auto");
+	expect(shown(summary)).toContain("Fast Start");
+	await reset();
+});
+
+// The switch says what the slots mean, so the slots say it too: a numbered
+// slot claims a position the code only carries when the order is exact.
+// With two or more slots filled, the code carries the order; with fewer, it does not.
+test("the order switch relabels the treasure slots when two are filled", async () => {
+	await typeCode("1TU0FZ-00Z.1S00--000-");
+
+	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
+	expect(need("treasure2").getAttribute("legend")).toBe("Any slot");
+
+	await choose("treasureOrder", "ordered");
+
+	expect(need("treasure1").getAttribute("legend")).toBe("Slot 1");
+	expect(need("treasure2").getAttribute("legend")).toBe("Slot 2");
+
+	await choose("treasureOrder", "any");
+
+	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
+	expect(need("treasure2").getAttribute("legend")).toBe("Any slot");
+	await reset();
+});
+
+// With only one slot filled, the code cannot carry an order, even when the
+// switch says "Exact order", because order requires at least two treasures to matter.
+test("a single filled treasure slot shows Any slot even with Exact order", async () => {
+	await typeCode("1TU0FZ.1S00--000-");
+
+	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
+
+	await choose("treasureOrder", "ordered");
+
+	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
+	await reset();
+});
+
+// Copy link and Reset live in the code bar's own button row, so they share the
+// line under the code with Edit and Copy rather than taking a row of their own.
+test("the page's buttons ride in the code bar's row", () => {
+	expect(need("copy-link").closest("code-bar")?.id).toBe("code");
+	expect(need("reset").closest("code-bar")?.id).toBe("code");
+});
+
+// A code mid-edit is not the code those buttons act on: copying a link to it,
+// or resetting away from it, would act on something other than what is shown.
+// happy-dom resolves no slot assignment, so this holds the slot that renders
+// them rather than asking the buttons which slot took them.
+test("opening the editor takes the page's buttons off the panel", async () => {
+	(codeBar as HTMLElement & { editing: boolean }).editing = true;
+	await settle();
+
+	expect(inside(codeBar).querySelector("slot")).toBe(null);
+
+	(codeBar as HTMLElement & { editing: boolean }).editing = false;
+	await settle();
+
+	expect(inside(codeBar).querySelector("slot")).not.toBe(null);
+});
+
+// A relay cookie is swapped in by hand, so the run it belongs to is semi-auto
+// however the rest of the build reads — and the code says so in slot 2.
+test("a relay turns an auto build semi-auto, code and all", async () => {
+	await choose("type", "auto");
+	expect(await codeText()).toBe("1A00--000-");
+
+	await typeCode("1R0O.1A00--000-");
+
+	expect((codeBar as HTMLElement & { value: string }).value).toBe(
+		"1R0O.1H00--000-",
+	);
+	expect(shown(summary)).toContain("Semi-auto");
+	expect(shown(summary)).toContain("Relay cookie");
+	await reset();
+});
+
+// The chip says which of the two the build is, rather than which of them was
+// clicked: there is one chip, and Auto and Semi-auto are the same click.
+test("the Auto chip reads Semi-auto once something forces manual work", async () => {
+	await choose("type", "auto");
+
+	expect(control("type", "auto").textContent?.trim()).toBe("Auto");
+
+	await choose("boosts", "fastStart");
+
+	expect(control("type", "auto").textContent?.trim()).toBe("Semi-auto");
+	await reset();
 });

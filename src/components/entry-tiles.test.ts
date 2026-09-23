@@ -50,19 +50,45 @@ function entries(element: EntryTiles): HTMLButtonElement[] {
 	];
 }
 
-function remove(
-	element: EntryTiles,
-	index: number,
-): HTMLButtonElement | undefined {
-	return [
-		...(element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
-			"summary button.remove",
-		) ?? []),
-	][index];
-}
-
 function search(element: EntryTiles): HTMLInputElement | null {
 	return element.shadowRoot?.querySelector("input") ?? null;
+}
+
+function tile(element: EntryTiles): HTMLButtonElement {
+	const node =
+		element.shadowRoot?.querySelector<HTMLButtonElement>("button.tile");
+	if (node === null || node === undefined) throw new Error("no tile button");
+	return node;
+}
+
+function dialog(element: EntryTiles): HTMLDialogElement {
+	const node = element.shadowRoot?.querySelector("dialog");
+	if (node === null || node === undefined) throw new Error("no dialog");
+	return node;
+}
+
+function done(element: EntryTiles): HTMLButtonElement {
+	const node =
+		element.shadowRoot?.querySelector<HTMLButtonElement>("button.done");
+	if (node === null || node === undefined) throw new Error("no Done button");
+	return node;
+}
+
+function clear(element: EntryTiles): HTMLButtonElement {
+	const node =
+		element.shadowRoot?.querySelector<HTMLButtonElement>("button.clear");
+	if (node === null || node === undefined) throw new Error("no Clear button");
+	return node;
+}
+
+function cell(element: EntryTiles, value: string): HTMLButtonElement {
+	const found = [
+		...(element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+			"button.entry",
+		) ?? []),
+	].find((button) => button.value === value);
+	if (found === undefined) throw new Error(`no cell for ${value}`);
+	return found;
 }
 
 async function settle(element: EntryTiles): Promise<void> {
@@ -81,148 +107,195 @@ test("the legend names the slot", async () => {
 test("an empty slot says None", async () => {
 	const element = await mount();
 
-	expect(element.shadowRoot?.querySelector(".pick")?.textContent?.trim()).toBe(
+	expect(element.shadowRoot?.querySelector(".hint")?.textContent?.trim()).toBe(
 		"None",
 	);
+	expect(element.shadowRoot?.querySelector(".picks")).toBe(null);
+});
+
+// A slot nobody has filled still has to invite a click.
+test("an empty slot draws its tile with a dashed frame", async () => {
+	const element = await mount();
+
+	expect(tile(element).classList.contains("empty")).toBe(true);
+
+	element.selected = ["001"];
+	await element.updateComplete;
+
+	expect(tile(element).classList.contains("empty")).toBe(false);
 });
 
 // The same "this or that" the code reads as, so a closed slot says exactly
 // what the summary above it would say.
-test("alternatives read as this or that on the closed line", async () => {
+// One alternative per line: side by side they were two half-names, and a slot
+// holds alternatives worth reading in full.
+test("each alternative is its own row under the slot's name", async () => {
 	const element = await mount();
 
 	element.selected = ["001", "003"];
 	await element.updateComplete;
 
-	const pick = element.shadowRoot?.querySelector(".pick");
+	const rows = [...(element.shadowRoot?.querySelectorAll(".picks > li") ?? [])];
+
 	expect(
-		[...(pick?.querySelectorAll(".name") ?? [])].map((name) =>
-			name.textContent?.trim(),
-		),
+		rows.map((row) => row.querySelector(".name")?.textContent?.trim()),
 	).toEqual(["Always Cute Acorn", "Cheesecake Slice"]);
-	expect(
-		[...(pick?.querySelectorAll(".or") ?? [])].map((word) =>
-			word.textContent?.trim(),
-		),
-	).toEqual(["or"]);
-});
-
-// Four alternatives in one slot used to stack into a tall column of full-size
-// portraits. They are chips now: thumbnail, name, and a way out.
-test("each pick is a chip carrying its own remove button", async () => {
-	const element = await mount();
-
-	element.selected = ["001", "003"];
-	await element.updateComplete;
-
-	const removes = [
-		...(element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
-			"summary button.remove",
-		) ?? []),
-	];
-	expect(removes.map((button) => button.getAttribute("aria-label"))).toEqual([
-		"Remove Always Cute Acorn",
-		"Remove Cheesecake Slice",
-	]);
-});
-
-test("the remove button drops that pick and leaves the others", async () => {
-	const element = await mount();
-
-	element.selected = ["001", "003"];
-	await element.updateComplete;
-	remove(element, 0)?.click();
-	await settle(element);
-
-	expect(element.selected).toEqual(["003"]);
-});
-
-test("removing a pick dispatches exactly one input event from the host", async () => {
-	const element = await mount();
-	element.selected = ["001", "003"];
-	await element.updateComplete;
-	let seen = 0;
-	element.addEventListener("input", () => {
-		seen += 1;
-	});
-
-	remove(element, 0)?.click();
-	await settle(element);
-
-	expect(seen).toBe(1);
-});
-
-// The button sits inside the summary, where any click would otherwise open the
-// list — which is the opposite of what someone tidying a slot is asking for.
-test("removing a pick does not open the list", async () => {
-	const element = await mount();
-
-	element.selected = ["001"];
-	await element.updateComplete;
-	const click = new MouseEvent("click", { bubbles: true, cancelable: true });
-	remove(element, 0)?.dispatchEvent(click);
-	await settle(element);
-
-	expect(click.defaultPrevented).toBe(true);
-	expect(element.open).toBe(false);
-});
-
-test("removing the last pick leaves the slot saying None", async () => {
-	const element = await mount();
-
-	element.selected = ["001"];
-	await element.updateComplete;
-	remove(element, 0)?.click();
-	await settle(element);
-
-	expect(element.selected).toEqual([]);
-	expect(element.shadowRoot?.querySelector(".pick")?.textContent?.trim()).toBe(
-		"None",
+	expect(element.shadowRoot?.querySelector(".hint")?.textContent?.trim()).toBe(
+		"2 alternatives",
 	);
 });
 
-// Focus has to land somewhere after the chip it was on stops existing.
-test("focus moves to the next remove button when one is taken away", async () => {
-	const element = await mount();
-
-	element.selected = ["001", "003"];
-	await element.updateComplete;
-	remove(element, 0)?.focus();
-	remove(element, 0)?.click();
-	await settle(element);
-
-	expect(element.shadowRoot?.activeElement).toBe(remove(element, 0) ?? null);
-});
-
-test("the picked entries show their thumbnails on the closed line", async () => {
+test("the picked entries show their thumbnails in the list", async () => {
 	const element = await mount();
 
 	element.selected = ["001"];
 	await element.updateComplete;
 
 	expect(
-		element.shadowRoot?.querySelector(".pick img")?.getAttribute("src"),
+		element.shadowRoot?.querySelector(".picks img")?.getAttribute("src"),
 	).toBe("../assets/treasures/tr_ga034.png");
 });
 
-test("clicking an entry adds it to the slot", async () => {
+test("picks inside the dialog do not change the slot until Done", async () => {
 	const element = await mount();
+	element.options = [
+		["000", "Always Cute Acorn", null, "base"],
+		["007", "Blessed Stretched Acorn", null, "blessed"],
+	];
+	await settle(element);
+	let heard = 0;
+	element.addEventListener("input", () => {
+		heard += 1;
+	});
 
-	entries(element)[1]?.click();
+	tile(element).click();
+	await settle(element);
+	cell(element, "000").click();
 	await settle(element);
 
-	expect(element.selected).toEqual(["002"]);
+	expect([element.selected, heard]).toEqual([[], 0]);
 });
 
-test("clicking a picked entry removes it", async () => {
+test("Done writes every pick and dispatches one input", async () => {
 	const element = await mount();
+	element.options = [
+		["000", "Always Cute Acorn", null, "base"],
+		["007", "Blessed Stretched Acorn", null, "blessed"],
+	];
+	await settle(element);
+	let heard = 0;
+	element.addEventListener("input", () => {
+		heard += 1;
+	});
 
-	element.selected = ["002"];
-	await element.updateComplete;
-	entries(element)[1]?.click();
+	tile(element).click();
+	await settle(element);
+	cell(element, "007").click();
+	await settle(element);
+	cell(element, "000").click();
+	await settle(element);
+	done(element).click();
 	await settle(element);
 
-	expect(element.selected).toEqual([]);
+	// Id order, not click order: a slot's alternatives are written in id order.
+	expect([element.selected, heard, dialog(element).open]).toEqual([
+		["000", "007"],
+		1,
+		false,
+	]);
+});
+
+// A slot is a set. Half a set applied on the way out is worse than none.
+test("closing without Done leaves the slot as it was", async () => {
+	const element = await mount();
+	element.options = [["000", "Always Cute Acorn", null, "base"]];
+	element.selected = ["000"];
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+	cell(element, "000").click();
+	await settle(element);
+	dialog(element).close();
+	await settle(element);
+
+	expect(element.selected).toEqual(["000"]);
+});
+
+// Native <dialog> does not light-dismiss on its own; a click on the backdrop
+// has to be wired up by hand, and it has to cancel rather than commit.
+test("a click on the backdrop cancels the dialog", async () => {
+	const element = await mount();
+	element.options = [["000", "Always Cute Acorn", null, "base"]];
+	element.selected = ["000"];
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+	cell(element, "000").click();
+	await settle(element);
+	dialog(element).dispatchEvent(new Event("pointerdown", { bubbles: true }));
+	dialog(element).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+	await settle(element);
+
+	expect([dialog(element).open, element.selected]).toEqual([false, ["000"]]);
+});
+
+// A click fires on the nearest common ancestor of the press and release
+// targets, so selecting text in the search box and releasing past the
+// sheet's edge would otherwise target the dialog too and discard the whole
+// draft with no confirmation.
+test("a press that starts inside the sheet leaves the dialog open and the draft intact even if the click lands on the backdrop", async () => {
+	const element = await mount();
+	element.options = [["000", "Always Cute Acorn", null, "base"]];
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+	cell(element, "000").click();
+	await settle(element);
+
+	const sheet = element.shadowRoot?.querySelector(".sheet");
+	if (sheet === null || sheet === undefined) throw new Error("no sheet");
+	sheet.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+	dialog(element).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+	await settle(element);
+
+	expect(dialog(element).open).toBe(true);
+	expect(cell(element, "000").getAttribute("aria-checked")).toBe("true");
+});
+
+test("Clear empties the draft without closing or committing", async () => {
+	const element = await mount();
+	element.options = [["000", "Always Cute Acorn", null, "base"]];
+	element.selected = ["000"];
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+	clear(element).click();
+	await settle(element);
+
+	expect([
+		cell(element, "000").getAttribute("aria-checked"),
+		element.selected,
+		dialog(element).open,
+	]).toEqual(["false", ["000"], true]);
+});
+
+test("the tile wears every alternative the slot holds", async () => {
+	const element = await mount();
+	element.options = [
+		["000", "Always Cute Acorn", null, "base"],
+		["007", "Blessed Stretched Acorn", null, "blessed"],
+	];
+	element.selected = ["000", "007"];
+	await settle(element);
+
+	const list = element.shadowRoot?.querySelector(".picks");
+
+	expect(list?.textContent).toContain("Always Cute Acorn");
+	expect(list?.textContent).toContain("Blessed Stretched Acorn");
 });
 
 // A slot's alternatives are written in id order, so click order would produce
@@ -230,26 +303,16 @@ test("clicking a picked entry removes it", async () => {
 test("selected reads back in the option order, not the order clicked", async () => {
 	const element = await mount();
 
-	entries(element)[2]?.click();
+	tile(element).click();
 	await settle(element);
-	entries(element)[0]?.click();
+	cell(element, "003").click();
+	await settle(element);
+	cell(element, "001").click();
+	await settle(element);
+	done(element).click();
 	await settle(element);
 
 	expect(element.selected).toEqual(["001", "003"]);
-});
-
-test("clicking an entry dispatches exactly one input event from the host", async () => {
-	const element = await mount();
-	let seen = 0;
-	element.addEventListener("input", (event) => {
-		seen += 1;
-		expect(event.target).toBe(element);
-	});
-
-	entries(element)[0]?.click();
-	await settle(element);
-
-	expect(seen).toBe(1);
 });
 
 test("a value the options do not contain is dropped by the setter", async () => {
@@ -273,6 +336,8 @@ test("a value the replaced options no longer contain is dropped", async () => {
 
 test("typing in the search box narrows the list", async () => {
 	const element = await mount();
+	tile(element).click();
+	await settle(element);
 	const box = search(element);
 	if (box === null) throw new Error("no search box");
 
@@ -290,6 +355,8 @@ test("the search box's own event does not escape the shadow root", async () => {
 		escaped += 1;
 	});
 
+	tile(element).click();
+	await settle(element);
 	search(element)?.dispatchEvent(
 		new Event("input", { bubbles: true, composed: true }),
 	);
@@ -303,6 +370,8 @@ test("a picked entry is marked as checked", async () => {
 
 	element.selected = ["003"];
 	await element.updateComplete;
+	tile(element).click();
+	await settle(element);
 
 	expect(
 		entries(element).map((entry) => entry.getAttribute("aria-checked")),
@@ -314,53 +383,10 @@ test("the first pick is the slot's single tab stop", async () => {
 
 	element.selected = ["002"];
 	await element.updateComplete;
+	tile(element).click();
+	await settle(element);
 
 	expect(entries(element).map((entry) => entry.tabIndex)).toEqual([-1, 0, -1]);
-});
-
-test("the host says whether its list is open", async () => {
-	const element = await mount();
-	const details = element.shadowRoot?.querySelector("details");
-	if (details == null) throw new Error("the slot has no details");
-
-	details.open = true;
-	details.dispatchEvent(new Event("toggle"));
-	await element.updateComplete;
-
-	expect(element.hasAttribute("open")).toBe(true);
-});
-
-test("a click outside the slot closes it", async () => {
-	const element = await mount();
-	const details = element.shadowRoot?.querySelector("details");
-	if (details == null) throw new Error("the slot has no details");
-
-	details.open = true;
-	details.dispatchEvent(new Event("toggle"));
-	await element.updateComplete;
-
-	document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
-	await element.updateComplete;
-
-	expect(element.open).toBe(false);
-	expect(details.open).toBe(false);
-});
-
-test("a click inside the slot leaves it open", async () => {
-	const element = await mount();
-	const details = element.shadowRoot?.querySelector("details");
-	if (details == null) throw new Error("the slot has no details");
-
-	details.open = true;
-	details.dispatchEvent(new Event("toggle"));
-	await element.updateComplete;
-
-	entries(element)[0]?.dispatchEvent(
-		new MouseEvent("pointerdown", { bubbles: true, composed: true }),
-	);
-	await element.updateComplete;
-
-	expect(element.open).toBe(true);
 });
 
 // Two cells can carry the same picture and nearly the same name, so the kind
@@ -460,6 +486,8 @@ test("a list carrying no kinds has no filter row to offer", async () => {
 
 test("picking a kind narrows the grid to it", async () => {
 	const element = await mountKinded();
+	tile(element).click();
+	await settle(element);
 
 	pressKind(element, "blessed");
 	await settle(element);
@@ -469,6 +497,8 @@ test("picking a kind narrows the grid to it", async () => {
 
 test("All brings the rest of the list back", async () => {
 	const element = await mountKinded();
+	tile(element).click();
+	await settle(element);
 
 	pressKind(element, "evolved");
 	await settle(element);
@@ -484,6 +514,8 @@ test("All brings the rest of the list back", async () => {
 
 test("the row says which kind it is filtering by", async () => {
 	const element = await mountKinded();
+	tile(element).click();
+	await settle(element);
 
 	pressKind(element, "evolved");
 	await settle(element);
@@ -496,6 +528,8 @@ test("the row says which kind it is filtering by", async () => {
 // Two narrowings of one list, not two lists.
 test("the kind filter and the search box narrow together", async () => {
 	const element = await mountKinded();
+	tile(element).click();
+	await settle(element);
 	const box = search(element);
 	if (box === null) throw new Error("no search box");
 
@@ -517,10 +551,37 @@ test("filtering by kind does not escape the shadow root as a change", async () =
 		escaped += 1;
 	});
 
+	tile(element).click();
+	await settle(element);
 	pressKind(element, "base");
 	await settle(element);
 
 	expect(escaped).toBe(0);
+});
+
+// Reopening the dialog with the previous visit's kind filter still narrowed
+// leaves picked cells off screen with nothing on screen saying why.
+test("closing the dialog resets the kind filter for the next time it opens", async () => {
+	const element = await mountKinded();
+	tile(element).click();
+	await settle(element);
+
+	pressKind(element, "blessed");
+	await settle(element);
+	dialog(element).close();
+	await settle(element);
+
+	tile(element).click();
+	await settle(element);
+
+	expect(entries(element).map((entry) => entry.value)).toEqual([
+		"001",
+		"002",
+		"003",
+	]);
+	expect(
+		kindFilters(element).map((button) => button.getAttribute("aria-pressed")),
+	).toEqual(["true", "false", "false", "false"]);
 });
 
 test("a pick the kind filter hides is still held, and still on the closed line", async () => {
@@ -528,6 +589,8 @@ test("a pick the kind filter hides is still held, and still on the closed line",
 
 	element.selected = ["002"];
 	await element.updateComplete;
+	tile(element).click();
+	await settle(element);
 	pressKind(element, "blessed");
 	await settle(element);
 
@@ -539,6 +602,8 @@ test("a pick the kind filter hides is still held, and still on the closed line",
 
 test("an arrow walks to the next entry", async () => {
 	const element = await mount();
+	tile(element).click();
+	await settle(element);
 
 	entries(element)[0]?.focus();
 	entries(element)[0]?.dispatchEvent(
@@ -547,4 +612,52 @@ test("an arrow walks to the next entry", async () => {
 	await settle(element);
 
 	expect(element.shadowRoot?.activeElement).toBe(entries(element)[1] ?? null);
+});
+
+// Dropping one alternative is what the list is read for, so it happens on the
+// list rather than inside the dialog, and it commits straight away: there is
+// nothing to cancel, and a list you must confirm a deletion in is a list you
+// cannot tidy at a glance.
+test("a pick's own button drops it from the slot", async () => {
+	const element = await mount();
+	element.selected = ["001", "003"];
+	await settle(element);
+	let heard = 0;
+	element.addEventListener("input", () => {
+		heard += 1;
+	});
+
+	const remove = element.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+		".picks button.remove",
+	);
+	remove?.[0]?.click();
+	await settle(element);
+
+	expect([element.selected, heard]).toEqual([["003"], 1]);
+});
+
+// The row focus was on has stopped existing, so focus goes to whichever button
+// took its place — and to the slot's own button once the list has emptied.
+test("focus survives a drop", async () => {
+	const element = await mount();
+	element.selected = ["001", "003"];
+	await settle(element);
+
+	element.shadowRoot
+		?.querySelectorAll<HTMLButtonElement>(".picks button.remove")[0]
+		?.click();
+	await settle(element);
+	await settle(element);
+
+	expect(element.shadowRoot?.activeElement).toBe(
+		element.shadowRoot?.querySelector(".picks button.remove"),
+	);
+
+	element.shadowRoot
+		?.querySelectorAll<HTMLButtonElement>(".picks button.remove")[0]
+		?.click();
+	await settle(element);
+	await settle(element);
+
+	expect(element.shadowRoot?.activeElement).toBe(tile(element));
 });

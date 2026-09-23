@@ -1,4 +1,4 @@
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 
 import { base, controls } from "./theme";
@@ -55,6 +55,19 @@ export class CardGroup extends LitElement {
 				font-size: 0.8rem;
 				text-transform: uppercase;
 				letter-spacing: var(--cr-tracking);
+			}
+
+			/* Off the screen, still in the tree: the same trick theme-toggle
+			   uses on its own label. display: none would take the fieldset's
+			   name away with the text. */
+			legend.offscreen {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				margin: -1px;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
 			}
 
 			.cards {
@@ -169,6 +182,15 @@ export class CardGroup extends LitElement {
 	@property({ type: String })
 	legend = "";
 
+	/**
+	 * Takes the legend off the screen without taking it out of the tree, for a
+	 * group the page has already given a heading of its own. The fieldset keeps
+	 * its name — an unnamed group of seven checkboxes is a worse answer than a
+	 * name said twice — while the page shows that name once.
+	 */
+	@property({ type: Boolean })
+	legendHidden = false;
+
 	@property({ attribute: false })
 	options: readonly Option[] = [];
 
@@ -214,7 +236,9 @@ export class CardGroup extends LitElement {
 	override render() {
 		return html`
 			<fieldset>
-				<legend>${this.legend}</legend>
+				<legend class=${this.legendHidden ? "offscreen" : nothing}
+						>${this.legend}</legend
+					>
 				<div class="cards">
 					${this.options.map(([value, label, images]) => {
 						const on = this.ticked.has(value);

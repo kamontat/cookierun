@@ -62,16 +62,47 @@ export class EntryTiles extends LitElement {
 
 			/* One pick, small enough that four of them wrap across a line rather
 			   than stacking into a column of portraits. */
+			/* The slot is its name and its list, not one button holding both: a
+			   remove button inside the button that opens the picker is not
+			   markup, and dropping one alternative is the thing this list is
+			   read for. */
+			.slot {
+				display: flex;
+				flex-direction: column;
+				gap: var(--cr-space-2);
+			}
+
+			.picks {
+				display: flex;
+				flex-direction: column;
+				gap: var(--cr-space-1);
+				margin: 0;
+				padding: 0;
+				list-style: none;
+			}
+
+			/* One per line: two treasures side by side were two half-names, and a
+			   slot holds alternatives worth reading in full. */
 			.chip {
-				display: inline-flex;
-				flex: 0 1 auto;
+				display: flex;
 				gap: var(--cr-space-1);
 				align-items: center;
-				max-width: 100%;
+				width: 100%;
 				border: var(--cr-border) solid var(--cr-line);
 				border-radius: var(--cr-radius);
 				background: var(--cr-surface-2);
 				padding: 0 var(--cr-space-1);
+			}
+
+			.chip .name {
+				flex: 1 1 auto;
+			}
+
+			/* What the tile says when it is closed: how much the slot holds, since
+			   the names are right underneath it. */
+			.hint {
+				color: var(--cr-muted);
+				font-size: 0.8rem;
 			}
 
 			.chip .art,
@@ -135,6 +166,40 @@ export class EntryTiles extends LitElement {
 
 			/* The closed line has no room for a frame, so the chip's own edge
 			   answers the question - border and a thicker bar down its start. */
+			.remove {
+				flex: 0 0 auto;
+				border: none;
+				border-radius: var(--cr-radius);
+				background: none;
+				box-shadow: none;
+				padding: 0 var(--cr-space-1);
+				color: var(--cr-muted);
+				font-family: var(--cr-mono);
+				font-size: 0.95rem;
+				line-height: 1;
+				letter-spacing: normal;
+			}
+
+			.remove:hover,
+			.remove:focus-visible {
+				color: var(--cr-danger);
+			}
+
+			.remove:active {
+				transform: none;
+			}
+
+			/* Smaller than the hit area the shared chunk gives every other button:
+			   at the full 44px four alternatives stack into a column taller than
+			   the group beside them. Square, so it is as easy to hit across as
+			   down. */
+			@media (pointer: coarse) {
+				.remove {
+					min-width: 2.25rem;
+					min-height: 2.25rem;
+				}
+			}
+
 			.chip[data-kind] {
 				border-color: var(--kind);
 				box-shadow: inset 0.25rem 0 0 var(--kind);
@@ -172,40 +237,27 @@ export class EntryTiles extends LitElement {
 				font-weight: 600;
 			}
 
-			/* A hit area that still reads as a quiet × until you go for it. */
-			.remove {
-				flex: 0 0 auto;
-				border: none;
-				border-radius: var(--cr-radius);
-				background: none;
-				box-shadow: none;
-				padding: 0 var(--cr-space-1);
+			footer {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: var(--cr-space-2);
+			}
+
+			footer .picked {
 				color: var(--cr-muted);
-				font-family: var(--cr-mono);
-				font-size: 0.95rem;
-				line-height: 1;
-				letter-spacing: normal;
+				font-size: 0.78rem;
 			}
 
-			.remove:hover,
-			.remove:focus-visible {
-				color: var(--cr-danger);
+			footer .buttons {
+				display: flex;
+				gap: var(--cr-space-2);
 			}
 
-			.remove:active {
-				transform: none;
-			}
-
-			/* Smaller than the hit area the shared chunk gives every other
-			   button: this one sits inside a chip, and at the full 44px four
-			   alternatives in a slot would stack into a column as tall as the
-			   panel beside them - which is the thing the chip layout exists to
-			   avoid. Square, so it is as easy to hit across as down. */
-			@media (pointer: coarse) {
-				.remove {
-					min-width: 2.25rem;
-					min-height: 2.25rem;
-				}
+			footer button.done {
+				border-color: var(--cr-accent);
+				background: var(--cr-accent);
+				color: var(--cr-bg);
 			}
 		`,
 	];
@@ -216,13 +268,16 @@ export class EntryTiles extends LitElement {
 	@property({ attribute: false })
 	options: readonly Option[] = [];
 
-	/** Reflected for the same reason `<entry-tile>`'s is: so the page can widen
-	 * an open control whose `details[open]` it cannot see across the boundary. */
-	@property({ type: Boolean, reflect: true })
-	open = false;
-
 	@state()
 	private chosen: ReadonlySet<string> = new Set();
+
+	/**
+	 * What the dialog is showing, which is not yet what the slot holds. A slot is
+	 * a set: applying half of one on the way out would leave a code nobody built,
+	 * so the draft is committed by Done and thrown away by everything else.
+	 */
+	@state()
+	private draft: ReadonlySet<string> = new Set();
 
 	@state()
 	private filter = "";
@@ -234,6 +289,16 @@ export class EntryTiles extends LitElement {
 	 */
 	@state()
 	private kind: string = ANY_KIND;
+
+	/**
+	 * Whether the press that is about to produce a click began on the dialog
+	 * itself, latched on pointerdown. A click fires on the nearest common
+	 * ancestor of the mousedown and mouseup targets, so selecting text in the
+	 * search box and releasing past the sheet's edge would otherwise target
+	 * the dialog too and discard the whole draft — this is what tells that
+	 * drag apart from a real press-and-release on the backdrop.
+	 */
+	#pressedBackdrop = false;
 
 	/**
 	 * Filters the element's own `options`, so the answer comes back in id order.
@@ -248,28 +313,6 @@ export class EntryTiles extends LitElement {
 
 	set selected(values: readonly string[]) {
 		this.chosen = new Set(values.filter((value) => this.#has(value)));
-	}
-
-	/**
-	 * Closes on a click that lands outside, the same rule `<entry-tile>` follows
-	 * and for the same reason: six open grids is a page you have to tidy up
-	 * after. `pointerdown` fires before focus moves, so the grid is gone by the
-	 * time whatever was clicked takes over.
-	 */
-	#closeOnOutside = (event: Event): void => {
-		if (!this.open) return;
-		if (event.composedPath().includes(this)) return;
-		this.open = false;
-	};
-
-	override connectedCallback(): void {
-		super.connectedCallback();
-		document.addEventListener("pointerdown", this.#closeOnOutside);
-	}
-
-	override disconnectedCallback(): void {
-		super.disconnectedCallback();
-		document.removeEventListener("pointerdown", this.#closeOnOutside);
 	}
 
 	override willUpdate(): void {
@@ -297,6 +340,33 @@ export class EntryTiles extends LitElement {
 		return this.shadowRoot?.querySelector("input") ?? null;
 	}
 
+	#dialog(): HTMLDialogElement | null {
+		return this.shadowRoot?.querySelector("dialog") ?? null;
+	}
+
+	#tile(): HTMLButtonElement | null {
+		return this.shadowRoot?.querySelector("button.tile") ?? null;
+	}
+
+	async #openPicker(): Promise<void> {
+		this.draft = new Set(this.chosen);
+		this.filter = "";
+		// Forces every pick back into view of the grid, the same reason
+		// <entry-tile> inserts a filter-excluded pick rather than losing it: a
+		// dialog that reopens still narrowed to last visit's kind leaves the
+		// footer's count with no picked cell on screen to match it.
+		this.kind = ANY_KIND;
+		await this.updateComplete;
+		this.#dialog()?.showModal();
+		this.#search()?.focus();
+	}
+
+	#commit(): void {
+		this.chosen = new Set(this.draft);
+		this.dispatchEvent(new Event("input", { bubbles: true }));
+		this.#dialog()?.close();
+	}
+
 	/** One tab stop for the grid, arrows inside it, clamped at both ends. */
 	#walk(event: KeyboardEvent): void {
 		const cells = this.#cells();
@@ -319,11 +389,29 @@ export class EntryTiles extends LitElement {
 		cells[Math.min(Math.max(to, 0), cells.length - 1)]?.focus();
 	}
 
+	/** Focus follows the toggled cell into its replacement; once a filter has
+	 * hidden it, the search box takes focus instead. */
+	async #toggle(value: string): Promise<void> {
+		const next = new Set(this.draft);
+		if (next.has(value)) next.delete(value);
+		else next.add(value);
+		this.draft = next;
+		await this.updateComplete;
+		(
+			this.#cells().find((cell) => cell.value === value) ?? this.#search()
+		)?.focus();
+	}
+
 	/**
-	 * Drops one pick from the closed line, where someone can see what they are
-	 * removing. Focus lands on whichever remove button takes the gone one's
-	 * place, or on the summary when the slot has emptied — the chip it was on
-	 * has stopped existing either way.
+	 * Drops one alternative from the slot's own list, where you can see what you
+	 * are removing — the dialog's grid answers "which treasures exist", and this
+	 * answers "which of them is this slot holding". It commits straight away
+	 * rather than through a draft: there is nothing here to cancel, and a list
+	 * you have to confirm a deletion in is a list you cannot tidy at a glance.
+	 *
+	 * Focus lands on whichever remove button takes the gone one's place, or on
+	 * the slot's own button once the list has emptied — the row focus was on has
+	 * stopped existing either way.
 	 */
 	async #drop(value: string): Promise<void> {
 		const at = this.selected.indexOf(value);
@@ -335,26 +423,10 @@ export class EntryTiles extends LitElement {
 
 		const buttons = [
 			...(this.shadowRoot?.querySelectorAll<HTMLButtonElement>(
-				"summary button.remove",
+				".picks button.remove",
 			) ?? []),
 		];
-		(
-			buttons[Math.min(at, buttons.length - 1)] ??
-			this.shadowRoot?.querySelector("summary")
-		)?.focus();
-	}
-
-	/** Focus follows the toggled cell into its replacement, as in `<entry-tile>`. */
-	async #toggle(value: string): Promise<void> {
-		const next = new Set(this.chosen);
-		if (next.has(value)) next.delete(value);
-		else next.add(value);
-		this.chosen = next;
-		this.dispatchEvent(new Event("input", { bubbles: true }));
-		await this.updateComplete;
-		(
-			this.#cells().find((cell) => cell.value === value) ?? this.#search()
-		)?.focus();
+		(buttons[Math.min(at, buttons.length - 1)] ?? this.#tile())?.focus();
 	}
 
 	#art(label: string, image: string | null, kind?: string) {
@@ -400,125 +472,184 @@ export class EntryTiles extends LitElement {
 		);
 
 		const shown = matching.slice(0, LIMIT);
-		// The tab stop is the first pick, so tabbing in lands on what the slot
-		// already holds; with nothing picked that is the first cell.
+		// The tab stop is whatever the draft already holds, so tabbing in lands on
+		// what the dialog is showing; with nothing drafted that is the first cell.
 		const tabbableValue =
-			shown.find(([value]) => this.chosen.has(value))?.[0] ?? shown[0]?.[0];
+			shown.find(([value]) => this.draft.has(value))?.[0] ?? shown[0]?.[0];
 
-		return html`<details
-			?open=${this.open}
-			@toggle=${(event: Event) => {
-				this.open = (event.target as HTMLDetailsElement).open;
-			}}
-		>
-			<summary>
-				<span class="label">${this.legend}</span>
-				<span class=${chosen.length === 0 ? "pick empty" : "pick"}>
-					${
-						chosen.length === 0
-							? NONE
-							: chosen.map((value, index) => {
-									const name = labels.get(value) ?? value;
-									return html`${
-										index === 0 ? "" : html`<span class="or">or</span>`
-									}<span class="chip" data-kind=${ifDefined(kinds.get(value))}
-											>${this.#art(name, images.get(value) ?? null)}<span
-												class="name"
-												>${name}</span
-											><button
-												type="button"
-												class="remove"
-												aria-label=${`Remove ${name}`}
-												@click=${(event: MouseEvent) => {
-													// Inside the summary, so a click would otherwise
-													// open the list — the opposite of tidying a slot.
-													event.preventDefault();
-													event.stopPropagation();
-													void this.#drop(value);
-												}}
-												>×</button
-											></span
-										>`;
-								})
-					}
-				</span>
-			</summary>
-			<div class="body">
-				${
-					offered.length === 0
-						? nothing
-						: html`<div
-								class="kinds"
-								role="group"
-								aria-label=${`Filter ${this.legend} by kind`}
-							>
-								${[ANY_KIND, ...offered].map(
-									(kind) => html`<button
-										type="button"
-										data-kind=${kind}
-										aria-pressed=${String(kind === narrowing)}
-										@click=${() => {
-											this.kind = kind;
-										}}
-									>
-										${kind === ANY_KIND ? "All" : KINDS[kind]?.name}
-									</button>`,
-								)}
-							</div>`
-				}
-				<input
-					type="search"
-					autocomplete="off"
-					placeholder="Type to filter"
-					aria-label=${`Filter ${this.legend}`}
-					.value=${this.filter}
-					@input=${(event: Event) => {
-						// Filtering is not a change of value, so it must not read as one.
-						event.stopPropagation();
-						this.filter = (event.target as HTMLInputElement).value;
-					}}
-				/>
-				<div
-					class="entries"
-					role="listbox"
-					aria-multiselectable="true"
-					aria-label=${this.legend}
-					@keydown=${(event: KeyboardEvent) => {
-						this.#walk(event);
+		return html`<div class=${chosen.length === 0 ? "slot empty" : "slot"}>
+				<button
+					type="button"
+					class=${chosen.length === 0 ? "tile empty" : "tile"}
+					@click=${() => {
+						void this.#openPicker();
 					}}
 				>
-					${shown.map((option) => {
-						const [value, label, image] = option;
-						const kind = kindOf(option);
-						return html`<button
+					<span class="label">${this.legend}</span>
+					<span class="hint"
+						>${
+							chosen.length === 0
+								? NONE
+								: `${chosen.length} ${chosen.length === 1 ? "treasure" : "alternatives"}`
+						}</span
+					>
+				</button>
+				${
+					chosen.length === 0
+						? nothing
+						: html`<ul class="picks">
+							${chosen.map((value) => {
+								const name = labels.get(value) ?? value;
+								return html`<li
+									class="chip"
+									data-kind=${ifDefined(kinds.get(value))}
+									>${this.#art(name, images.get(value) ?? null)}<span class="name"
+										>${name}</span
+									><button
+										type="button"
+										class="remove"
+										aria-label=${`Remove ${name}`}
+										@click=${() => {
+											void this.#drop(value);
+										}}
+										>×</button
+									></li
+								>`;
+							})}
+						</ul>`
+				}
+			</div>
+			<dialog
+				@pointerdown=${(event: Event) => {
+					this.#pressedBackdrop = event.target === this.#dialog();
+				}}
+				@close=${() => {
+					this.#tile()?.focus();
+				}}
+				@click=${(event: Event) => {
+					// A native dialog does not light-dismiss: nothing closes it on a
+					// backdrop click unless this does. The target is the dialog itself
+					// only when the click lands outside .sheet, so a click inside the
+					// sheet passes through untouched — but a click also fires on the
+					// nearest common ancestor of the press and release targets, so a
+					// drag that starts inside .sheet and releases past its edge would
+					// target the dialog too and discard the whole draft. Requiring the
+					// press to have started there as well is what tells the two apart.
+					if (this.#pressedBackdrop && event.target === this.#dialog()) {
+						this.#dialog()?.close();
+					}
+				}}
+			>
+				<div class="sheet">
+					<header>
+						<h2>${this.legend}</h2>
+						<button
 							type="button"
-							class="entry"
-							.value=${value}
-							role="option"
-							data-kind=${ifDefined(kind)}
-							tabindex=${value === tabbableValue ? 0 : -1}
-							aria-checked=${String(this.chosen.has(value))}
-							aria-selected=${String(this.chosen.has(value))}
-							aria-label=${
-								kind === undefined ? label : `${label}, ${KINDS[kind]?.name}`
-							}
+							class="close"
 							@click=${() => {
-								void this.#toggle(value);
+								this.#dialog()?.close();
 							}}
 						>
-							${this.#art(label, image, kind)}<span class="name">${label}</span>
-						</button>`;
-					})}
+							Close
+						</button>
+					</header>
+					${
+						offered.length === 0
+							? nothing
+							: html`<div
+									class="kinds"
+									role="group"
+									aria-label=${`Filter ${this.legend} by kind`}
+								>
+									${[ANY_KIND, ...offered].map(
+										(kind) => html`<button
+											type="button"
+											data-kind=${kind}
+											aria-pressed=${String(kind === narrowing)}
+											@click=${() => {
+												this.kind = kind;
+											}}
+										>
+											${kind === ANY_KIND ? "All" : KINDS[kind]?.name}
+										</button>`,
+									)}
+								</div>`
+					}
+					<input
+						type="search"
+						autocomplete="off"
+						placeholder="Type to filter"
+						aria-label=${`Filter ${this.legend}`}
+						.value=${this.filter}
+						@input=${(event: Event) => {
+							event.stopPropagation();
+							this.filter = (event.target as HTMLInputElement).value;
+						}}
+					/>
+					<div
+						class="entries"
+						role="listbox"
+						aria-multiselectable="true"
+						aria-label=${this.legend}
+						@keydown=${(event: KeyboardEvent) => {
+							this.#walk(event);
+						}}
+					>
+						${shown.map((option) => {
+							const [value, label, image] = option;
+							const kind = kindOf(option);
+							return html`<button
+								type="button"
+								class="entry"
+								.value=${value}
+								role="option"
+								data-kind=${ifDefined(kind)}
+								tabindex=${value === tabbableValue ? 0 : -1}
+								aria-checked=${String(this.draft.has(value))}
+								aria-selected=${String(this.draft.has(value))}
+								aria-label=${kind === undefined ? label : `${label}, ${KINDS[kind]?.name}`}
+								@click=${() => {
+									void this.#toggle(value);
+								}}
+							>
+								${this.#art(label, image, kind)}<span class="name">${label}</span>
+							</button>`;
+						})}
+					</div>
+					<footer>
+						<span class="picked"
+							>${this.draft.size} picked — alternatives for one slot</span
+						>
+						<span class="buttons">
+							<button
+								type="button"
+								class="clear"
+								@click=${() => {
+									this.draft = new Set();
+								}}
+							>
+								Clear
+							</button>
+							<button
+								type="button"
+								class="done"
+								@click=${() => {
+									this.#commit();
+								}}
+							>
+								Done
+							</button>
+						</span>
+					</footer>
+					<small class="more"
+						>${
+							matching.length > LIMIT
+								? `Showing ${LIMIT} of ${matching.length}. Type to narrow the list.`
+								: ""
+						}</small
+					>
 				</div>
-				<small class="more"
-					>${
-						matching.length > LIMIT
-							? `Showing ${LIMIT} of ${matching.length}. Type to narrow the list.`
-							: ""
-					}</small
-				>
-			</div>
-		</details>`;
+			</dialog>`;
 	}
 }
 

@@ -39,16 +39,10 @@ main {
 	font-weight: 500;
 }
 
-/* What the code says in words, pinned with the code it describes. */
-#summary {
-	margin-top: var(--cr-space-2);
-}
-
-/* The summary reads as the code's own line, so the buttons stand off it by
-   more than it stands off the code. */
-.codepanel .actions {
-	margin: var(--cr-space-3) 0 0;
-}
+/* The panel is the code and its buttons, and nothing else: what the code says
+   is drawn out in the board below, where there is room for it. The two buttons
+   here are slotted into the code bar's own row, so they are sized by it and
+   need no placement of their own. */
 
 /* Both labels share one grid cell, so a button saying its work is done is the
    width of the wider label either way and nothing beside it moves. Hidden by
@@ -120,45 +114,63 @@ main {
 	font-size: 0.85em;
 }
 
-/* The form is not a box of its own — its sections are the boxes. */
+/* The board is one box holding five groups, in the order the code reads. */
 #build {
-	display: grid;
-	gap: var(--cr-space-3);
+	display: block;
+	min-width: 0;
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: var(--cr-radius);
+	background: var(--cr-surface);
+	box-shadow: var(--cr-block);
+	padding: var(--cr-space-3) var(--cr-space-4) var(--cr-space-4);
 }
 
-/* Cookie, relay and pet across the top; the three treasure slots across the
-   next row. Both collapse to one column where there is no room.
+.group {
+	margin-top: var(--cr-space-4);
+	border-top: 1px solid var(--cr-line);
+	padding-top: var(--cr-space-3);
+}
 
-   Ahead of the `.panel >` rules below, which are more specific: a lower
-   specificity selector written afterwards never applies, and Biome says so. */
+.group h3 {
+	margin: 0 0 var(--cr-space-2);
+	color: var(--cr-muted);
+	font-family: var(--cr-mono);
+	font-size: 0.7rem;
+	font-weight: 500;
+	letter-spacing: var(--cr-tracking);
+	text-transform: uppercase;
+}
+
+/* The order switch rides on the Treasures heading, because it is what the slot
+   labels under it are saying. */
+.grouphead {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cr-space-2);
+	margin-bottom: var(--cr-space-2);
+}
+
+.grouphead h3 {
+	margin: 0;
+}
+
+.group > chip-group,
+.group > card-group {
+	display: block;
+	margin-bottom: var(--cr-space-3);
+}
+
+.group > :last-child {
+	margin-bottom: 0;
+}
+
 .tiles {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 	gap: var(--cr-space-2);
 	align-items: start;
-}
-
-/* An open control takes the whole row: its grid of faces is the reason to open
-   it, and a third of a row shows three columns of them. Both catalog controls
-   reflect `open` onto their host for exactly this. */
-.tiles > [open] {
-	grid-column: 1 / -1;
-}
-
-/* A section's controls breathe: each chip row and card grid is its own block,
-   and the last one does not leave a gap above the panel edge. */
-.panel > chip-group,
-.panel > card-group {
-	display: block;
-	margin-bottom: var(--cr-space-4);
-}
-
-.panel > .tiles {
-	margin-bottom: var(--cr-space-4);
-}
-
-.panel > :last-child {
-	margin-bottom: 0;
 }
 
 .warnings {
@@ -181,19 +193,24 @@ main {
 	font-size: 0.9rem;
 }
 
-/* The reference is a `<details>`, so its heading sits on the summary line and
-   has to stop being a block to get there. */
+/* The reference is the one `<details>` left on the page, so it keeps the
+   summary styling every panel used to share: the heading sits on the summary
+   line, and the gap its own margin used to hold belongs to the summary
+   instead, only while it is open. */
 .reference summary {
 	cursor: pointer;
 }
 
-.reference summary h2 {
-	display: inline;
-	font-size: 1rem;
-}
-
 .reference[open] summary {
 	margin-bottom: var(--cr-space-3);
+}
+
+/* A footnote to the page rather than one of its controls, so its heading is
+   the size of the prose inside it. */
+.reference > summary h2 {
+	display: inline;
+	margin: 0;
+	font-size: 1rem;
 }
 
 .diagram {
