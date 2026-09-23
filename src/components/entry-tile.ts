@@ -63,7 +63,19 @@ export const tileStyles = css`
 		border-color: var(--cr-muted);
 	}
 
+	/* The flex column is what lets max-height below actually bound .sheet: a
+	   native <dialog> defaults to overflow-y: auto, so an unbounded child
+	   simply grows the dialog past its cap and the whole dialog scrolls —
+	   header, search box and all — instead of just .entries. Making the
+	   dialog the flex container and .sheet a shrinkable flex item (below)
+	   is what forces .sheet's height to actually stop at this box, border
+	   included, rather than merely at some other rule's copy of the same
+	   number: box-sizing: border-box already prices the border into this
+	   max-height, and the flex algorithm carries that resolved size down
+	   without a second calculation to keep in sync. */
 	dialog {
+		display: flex;
+		flex-direction: column;
 		width: min(52rem, 94vw);
 		max-height: 85vh;
 		border: var(--cr-border) solid var(--cr-line);
@@ -82,11 +94,15 @@ export const tileStyles = css`
 	   <entry-tiles>'s has six whenever the kind row renders (header, .kinds,
 	   input, .entries, footer, .more). A template keyed to a row count breaks
 	   the moment either count changes; flex only needs .entries to claim the
-	   leftover space, whatever else is around it. The max-height lives on the
-	   dialog itself, not here — see the dialog rule above. */
+	   leftover space, whatever else is around it. flex: 1 1 auto and
+	   min-height: 0 are what let the dialog's own max-height (see above)
+	   shrink this to fit, rather than .sheet growing past it and dragging
+	   the dialog's own scrollbar along for the ride. */
 	.sheet {
 		display: flex;
 		flex-direction: column;
+		flex: 1 1 auto;
+		min-height: 0;
 		gap: var(--cr-space-2);
 		padding: var(--cr-space-3);
 	}
