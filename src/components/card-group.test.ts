@@ -177,3 +177,28 @@ test("the cards carry checkbox semantics", async () => {
 
 	expect(cards(element)[0]?.getAttribute("role")).toBe("checkbox");
 });
+
+// A group the page has already given a heading keeps the name for a screen
+// reader and hands the screen back to the heading: an unnamed fieldset of
+// seven checkboxes is a worse answer than a name said twice.
+test("a hidden legend leaves the fieldset named", async () => {
+	const element = await mount();
+
+	element.legend = "Cookie power+";
+	element.legendHidden = true;
+	await element.updateComplete;
+
+	const legend = element.shadowRoot?.querySelector("legend");
+
+	expect(legend?.textContent).toBe("Cookie power+");
+	expect(legend?.className).toBe("offscreen");
+});
+
+test("a legend is on the screen unless the page says otherwise", async () => {
+	const element = await mount();
+
+	element.legend = "Boosts";
+	await element.updateComplete;
+
+	expect(element.shadowRoot?.querySelector("legend")?.className).toBe("");
+});

@@ -31,7 +31,7 @@ Attributes carry markup-authored configuration; properties carry structured data
 | `<code-bar>` | `value`, `message`, `invalid`, `placeholder`, `editing` | `value`, `hints`, `message`, `invalid`, `editing`; a default slot in its button row |
 | `<build-summary>` | — | `verdict` |
 | `<chip-group>` | `label` | `options`, `value`, `resettable` |
-| `<card-group>` | `legend` | `options`, `selected` |
+| `<card-group>` | `legend` | `options`, `selected`, `legendHidden` |
 | `<entry-tile>` | `label` | `options`, `value` |
 | `<entry-tiles>` | `legend` | `options`, `selected` |
 
@@ -52,6 +52,8 @@ All four value-holding list elements — `<card-group>`, `<entry-tile>`, `<entry
 `<chip-group>` is a radio group wearing the site's button look: one tab stop for the whole row, arrows moving the choice as well as the focus, Home and End at the ends, clamped rather than wrapped. It replaces a `<select>` wherever the list is short enough to show whole — seeing the twelve episodes at once is the point, and a closed select hides eleven of them.
 
 `<build-summary>` is the board's header: the title, an auto/semi-auto badge, and beneath them the sentence naming what forces manual work each run. The build's picture is the board's own live controls, each already showing what it holds; `<build-summary>` draws none of it a second time, since a second drawing would only be a second thing to keep in step with the first. `verdict` is `{ semi, reasons }` or `null` for the hand-played types, where auto vs semi-auto means nothing; the header itself always renders, but the badge appears only once there is a verdict to show, and the sentence beneath it stays empty until there is one to say. The host sets `aria-live="polite"` on itself in `connectedCallback`, since a verdict that flips on a chip click is exactly the kind of change a screen reader should hear without being told to go looking for it.
+
+`<card-group>`'s `legendHidden` takes the legend off the screen without taking it out of the tree — `position: absolute` and `clip-path: inset(50%)`, the same trick `<theme-toggle>` uses on its own label — for a group the board has already given a heading of its own. The fieldset keeps its name, because an unnamed group of seven checkboxes is a worse answer than a name said twice, and `display: none` would take the name away with the text. It is a property the route sets rather than an attribute the markup ships, for the same reason `resettable` is.
 
 `<card-group>`'s third option field is a *list* of pictures, not one: a cookie power+ can belong to several cookies or pets at once — Serenade of Love to two, EXP Party to four — and the card lays them out from a `data-count` attribute on its own frame. An empty list is what falls back to the lettered tile, so "no art" and "one picture" are the same code path with a different length. A boost passes a list of one, which is the same path again.
 

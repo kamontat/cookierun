@@ -430,6 +430,11 @@ orderChips.options = ORDER_OPTIONS;
 boostCards.options = ALL_BOOSTS.map(
 	(boost) => [boost, BOOST_LABELS[boost], boostArt(boost, ASSET_BASE)] as const,
 );
+// The board's own heading already says "Cookie power+", so the fieldset keeps
+// the name for a screen reader and hands the screen back to the heading. Set
+// here rather than in the markup for the reason `resettable` is: an attribute
+// the markup ships is invisible to the property in the route's test harness.
+cookiePowerCards.legendHidden = true;
 cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 	(power) =>
 		[
