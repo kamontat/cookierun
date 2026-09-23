@@ -1,6 +1,5 @@
 import { boostArt, cookiePowerArt, episodeArt } from "./art";
 import {
-	type CatalogSection,
 	type EntryKind,
 	imageFor,
 	kindFor,
@@ -23,13 +22,8 @@ import {
 	type Episode,
 	type RandomBoost,
 } from "./codec";
-import { describeCombi, entryName } from "./describe";
-import {
-	combiSectionOf,
-	decodeFull,
-	encodeFull,
-	type FullCode,
-} from "./full-code";
+import { describeCombi } from "./describe";
+import { combiSectionOf, decodeFull, encodeFull } from "./full-code";
 import { hintsFor } from "./hints";
 import {
 	ACTION_LABELS,
@@ -50,12 +44,7 @@ import "#components/entry-tile";
 import "#components/entry-tiles";
 import "#components/site-nav";
 
-import type {
-	BuildSummary,
-	SummaryFace,
-	SummaryGroup,
-	SummaryItem,
-} from "#components/build-summary";
+import type { BuildSummary } from "#components/build-summary";
 import type { CardGroup } from "#components/card-group";
 import type { ChipGroup } from "#components/chip-group";
 import type { CodeBar } from "#components/code-bar";
@@ -267,126 +256,6 @@ function showWarnings(warnings: readonly string[]): void {
 	);
 }
 
-/** One entry's picture, and which form of it that picture is. */
-function faceFor(section: CatalogSection, id: string): SummaryFace[] {
-	const image = imageFor(section, id);
-	return image === null
-		? []
-		: [{ src: ASSET_BASE + image, kind: kindFor(section, id) }];
-}
-
-function entryItem(
-	note: string,
-	section: "cookies" | "pets",
-	id: string | null,
-): SummaryItem[] {
-	if (id === null) return [];
-	return [
-		{
-			label: entryName(section, id),
-			note,
-			shape: "tile",
-			faces: faceFor(section, id),
-		},
-	];
-}
-
-/**
- * One item per treasure slot, wearing every alternative's face — the slot is
- * the choice, and which of its treasures you bring is the one thing the code
- * deliberately leaves open. Numbered only where the order is exact, since a
- * number against an unordered slot would claim something the code does not say.
- */
-function treasureItems(loadout: Loadout): SummaryItem[] {
-	const numbered = loadout.ordered && loadout.treasures.length > 1;
-	const slots = loadout.treasures.map((slot, index) => ({
-		label: slot.map((id) => entryName("treasures", id)).join(" or "),
-		...(numbered ? { note: String(index + 1) } : {}),
-		shape: "tile" as const,
-		faces: slot.flatMap((id) => faceFor("treasures", id)),
-	}));
-
-	return numbered
-		? [...slots, { label: "Exact order", shape: "chip" as const }]
-		: slots;
-}
-
-/**
- * The run itself. A field switched off is left out rather than spelled out: a
- * card listing what you did not choose is a taller card saying less. The type
- * is left out for an auto run too — the badge above says auto or semi-auto,
- * and it says it with the authority of the flag slots.
- */
-function runItems(combi: Combi): SummaryItem[] {
-	const items: SummaryItem[] = [];
-
-	if (combi.type !== "auto" && combi.type !== "semiauto") {
-		items.push({ label: TYPE_LABELS[combi.type], shape: "chip" });
-	}
-	if (combi.episode !== "any") {
-		const art = episodeArt(combi.episode, ASSET_BASE);
-		items.push({
-			label: EPISODE_LABELS[combi.episode],
-			shape: "chip",
-			faces: art === null ? [] : [{ src: art }],
-		});
-	}
-	for (const boost of combi.boosts) {
-		items.push({
-			label: BOOST_LABELS[boost],
-			shape: "chip",
-			faces: boostArt(boost, ASSET_BASE).map((src) => ({ src })),
-		});
-	}
-	if (combi.randomBoost !== null) {
-		items.push({
-			label: RANDOM_BOOST_LABELS[combi.randomBoost],
-			shape: "chip",
-		});
-	}
-	if (combi.action !== "none") {
-		items.push({ label: ACTION_LABELS[combi.action], shape: "chip" });
-	}
-
-	return items;
-}
-
-/**
- * The build drawn out, in the order the code reads: what you take with you,
- * then the run you take it on. A group with nothing in it is left out whole,
- * so a bare code is a small card rather than four empty headings.
- */
-function summaryGroups(full: FullCode): SummaryGroup[] {
-	const { loadout, combi } = full;
-
-	const groups: SummaryGroup[] = [];
-	const carried = [
-		...entryItem("Cookie", "cookies", loadout.cookie),
-		...entryItem("Relay", "cookies", loadout.relay),
-		...entryItem("Pet", "pets", loadout.pet),
-	];
-	if (carried.length > 0) groups.push({ label: "Loadout", items: carried });
-
-	const treasures = treasureItems(loadout);
-	if (treasures.length > 0) {
-		groups.push({ label: "Treasures", items: treasures });
-	}
-
-	const run = runItems(combi);
-	if (run.length > 0) groups.push({ label: "Run", items: run });
-
-	const powers = combi.cookiePowers.map((power) => ({
-		label: COOKIE_POWER_LABELS[power],
-		shape: "chip" as const,
-		faces: cookiePowerArt(power, ASSET_BASE).map((src) => ({ src })),
-	}));
-	if (powers.length > 0) {
-		groups.push({ label: "Cookie power+", items: powers });
-	}
-
-	return groups;
-}
-
 /**
  * The one render. Everything the page shows is derived from the controls, so
  * every change — a chip, a card, a typed code already applied — comes back
@@ -404,10 +273,9 @@ function render(warnings: readonly string[] = []): void {
 	// before this one.
 	codeBar.hints = hintsFor(code);
 
-	// Read the code back so the card reflects the character actually written
+	// Read the code back so the verdict reflects the character actually written
 	// into slot 2, not the type the chips still show.
 	const { full } = decodeFull(code);
-	summaryCard.groups = summaryGroups(full);
 	summaryCard.verdict = describeCombi(full.combi).auto;
 	showWarnings(warnings);
 	publish(code);
@@ -480,11 +348,6 @@ for (const element of new Set(Object.values(OWNER))) element.tabIndex = -1;
 function jumpTo(group: string): void {
 	const owner = OWNER[group];
 	if (owner === undefined) return;
-	// A folded panel is jumped into, not skipped: the control is still the one
-	// that writes those characters, it is just out of sight. Unfolding before
-	// scrolling also means the scroll measures the panel at its open height.
-	const panel = owner.closest("details");
-	if (panel !== null) panel.open = true;
 	owner.scrollIntoView({ block: "center", behavior: "smooth" });
 	owner.focus();
 }

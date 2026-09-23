@@ -122,7 +122,7 @@ test("Double XP adds its bit and leaves the run on full auto", async () => {
 
 	expect(await codeText()).toBe("1A08--000-");
 	expect(shown(summary)).toContain("Full auto");
-	expect(shown(summary)).toContain("Double XP");
+	expect(isOn("boosts", "doubleXp")).toBe(true);
 	await reset();
 });
 
@@ -182,43 +182,12 @@ test("clicking the chosen type leaves it chosen", async () => {
 	await reset();
 });
 
-// The card is the build drawn out, so it takes the room the sticky panel
-// cannot give it: the panel above holds the code and its two buttons and
-// nothing else now.
-test("the build card says what the build is, below the code panel", async () => {
-	await choose("episode", "episode3");
-
-	expect(shown(summary)).toContain("Episode 3");
+// The build summary is the board's header now: it is not a card off on its
+// own above the sticky code panel, and it is not part of the sticky panel
+// either.
+test("the build summary sits inside the board, as its header", () => {
+	expect(need("build").firstElementChild).toBe(summary);
 	expect(summary.closest(".codepanel")).toBe(null);
-	await reset();
-});
-
-// Six of the nine fields have art, and the loadout is where a face says more
-// than a name does.
-test("the build card wears the art of what is picked", async () => {
-	await typeCode("1C0O.1S00--000-");
-
-	const pictures = [
-		...inside(summary).querySelectorAll<HTMLImageElement>("img"),
-	];
-
-	expect(pictures.map((picture) => picture.getAttribute("src"))).toContain(
-		"../assets/cookies/ch26.png",
-	);
-	await reset();
-});
-
-// A treasure slot holding alternatives wears every one of their faces, and
-// each says which form of the entry it is.
-test("a treasure slot draws each alternative, kind and all", async () => {
-	await typeCode("1TU000_007.1S00--000-");
-
-	const kinds = [...inside(summary).querySelectorAll<HTMLElement>(".face")].map(
-		(face) => face.getAttribute("data-kind"),
-	);
-
-	expect(kinds).toEqual(["base", "blessed"]);
-	await reset();
 });
 
 test("a cookie power card writes its bit into the code", async () => {
@@ -503,39 +472,41 @@ test("every character of the code carries a hint", async () => {
 	}
 });
 
-// The loadout is what the game itself stores, so it is the first thing to
-// pick, and the panels below it write the name around that choice.
-test("the loadout panel is the first of the build panels", () => {
-	const first = need("build").firstElementChild as HTMLElement;
-
-	expect(first.querySelector("h2")?.textContent?.trim()).toBe("Loadout");
+// One board: what the code says is the control that writes it, so there is no
+// second copy of the build to keep in step.
+test("the page has no build panels left", () => {
+	expect(need("build").querySelectorAll("details.panel").length).toBe(0);
 });
 
-// Four panels of controls are a long page to scroll past the one you want, so
-// each folds away. They open on arrival: a page of headings hides the controls
-// the page is for.
-test("every build panel folds, and starts open", () => {
-	const panels = [...need("build").children];
-
-	expect(panels.length).toBeGreaterThan(0);
-	for (const panel of panels) {
-		expect([panel.tagName, (panel as HTMLDetailsElement).open]).toEqual([
-			"DETAILS",
-			true,
-		]);
-	}
-});
-
-// Clicking a run of the code jumps to the control that writes it, and a
-// control inside a folded panel cannot be jumped to while it is folded.
-test("jumping to a control unfolds the panel holding it", async () => {
-	const panel = need("episode").closest("details") as HTMLDetailsElement;
-	panel.open = false;
-
-	codeBar.dispatchEvent(
-		new CustomEvent("slot-jump", { detail: "episode", bubbles: true }),
-	);
+test("picking a cookie in its dialog writes the loadout section", async () => {
+	const tile = need("cookie");
+	const button = inside(tile).querySelector<HTMLButtonElement>("button.tile");
+	button?.click();
 	await settle();
 
-	expect(panel.open).toBe(true);
+	// The grid caps at 50 of the 94 cookies, so the pick is narrowed into view
+	// by name rather than assumed to be among the first page of cells.
+	const search = inside(tile).querySelector<HTMLInputElement>("input");
+	if (search === null) throw new Error("the cookie tile has no search box");
+	search.value = "Fairy";
+	search.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+	await settle();
+
+	const cell = [
+		...inside(tile).querySelectorAll<HTMLButtonElement>("button.entry"),
+	].find((entry) => entry.value === "0O");
+	cell?.click();
+	await settle();
+
+	expect(await codeText()).toBe("1C0O.1S00--000-");
+	await reset();
+});
+
+test("the verdict still follows the flag slots", async () => {
+	await choose("type", "auto");
+	await choose("boosts", "fastStart");
+
+	expect(shown(summary)).toContain("Semi-auto");
+	expect(shown(summary)).toContain("Fast Start");
+	await reset();
 });

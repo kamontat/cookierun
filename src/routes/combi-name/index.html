@@ -65,11 +65,6 @@
         <p id="link-status" class="status" role="status"></p>
       </section>
 
-      <!-- Outside the sticky panel on purpose: the build drawn out is a thing
-           to look at rather than a line to glance at, and pinning it cost half
-           a phone screen. The panel above holds the code and its buttons. -->
-      <build-summary id="summary"></build-summary>
-
       <div class="readout">
         <ul id="warnings" class="warnings" aria-live="polite"></ul>
         <p class="tip">
@@ -79,61 +74,52 @@
         </p>
       </div>
 
-      <!-- Every panel folds, and every one opens on arrival: four panels of
-           controls are a long scroll past the one you want, but a page of
-           headings hides the controls the page is for. The loadout leads
-           because it is what the game itself stores - the panels below it
-           write the name around that choice. -->
-      <form id="build" novalidate>
-        <details class="panel" open>
-          <summary><h2>Loadout</h2></summary>
-          <p>
-            The game stores these four in the combi itself, so they ride in the
-            section before the dot rather than in the 10-character name. Leave
-            them alone and the code stays exactly 10 characters.
-          </p>
+      <!-- One board: every value it shows is the control that writes it, so
+           reading a code and building one are the same surface. -->
+      <form id="build" class="board" novalidate>
+        <build-summary id="summary"></build-summary>
 
+        <div class="group">
+          <h3>Loadout</h3>
           <div class="tiles">
             <entry-tile id="cookie" label="Cookie"></entry-tile>
             <entry-tile id="relay" label="Relay"></entry-tile>
             <entry-tile id="pet" label="Pet"></entry-tile>
           </div>
+        </div>
 
-          <div class="tiles">
-            <entry-tiles id="treasure1" legend="Treasure 1"></entry-tiles>
-            <entry-tiles id="treasure2" legend="Treasure 2"></entry-tiles>
-            <entry-tiles id="treasure3" legend="Treasure 3"></entry-tiles>
+        <div class="group">
+          <div class="grouphead">
+            <h3 id="treasures-heading">Treasures</h3>
+            <chip-group
+              id="treasureOrder"
+              label="Order"
+              class="switch"
+            ></chip-group>
           </div>
+          <div class="tiles">
+            <entry-tiles id="treasure1"></entry-tiles>
+            <entry-tiles id="treasure2"></entry-tiles>
+            <entry-tiles id="treasure3"></entry-tiles>
+          </div>
+        </div>
 
-          <chip-group
-            id="treasureOrder"
-            label="Treasure order"
-          ></chip-group>
-        </details>
-
-        <details class="panel" open>
-          <summary><h2>Run</h2></summary>
-
+        <div class="group">
+          <h3>Run</h3>
           <chip-group id="type" label="Type"></chip-group>
           <chip-group id="episode" label="Episode"></chip-group>
-        </details>
-
-        <details class="panel" open>
-          <summary><h2>Boosts and start</h2></summary>
-
           <card-group id="boosts" legend="Boosts"></card-group>
           <chip-group id="randomBoost" label="Random boost"></chip-group>
           <chip-group id="action" label="Action"></chip-group>
-        </details>
+        </div>
 
-        <details class="panel" open>
-          <summary><h2>Cookie power+</h2></summary>
-
+        <div class="group">
+          <h3>Cookie power+</h3>
           <card-group
             id="cookiePowers"
             legend="Cookies whose power+ is on"
           ></card-group>
-        </details>
+        </div>
       </form>
 
       <!-- Folded away: the tooltips on the code above answer "which one is the
