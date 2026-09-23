@@ -18,6 +18,13 @@
 	--cr-accent-2: #ffd23f;
 	--cr-danger: #ff6b5e;
 
+	/* The scrim behind an open dialog — a token of its own rather than
+	   `--cr-line` or `--cr-surface`, since neither is a translucent black and
+	   the page behind the dialog is what this dims, not the dialog itself.
+	   Heavier than the light theme's: a scrim this size barely reads as dimmed
+	   over a page that is already near-black. */
+	--cr-backdrop: rgb(0 0 0 / 70%);
+
 	/* An evolved treasure and the blessed form beside it share one picture and
 	   all but a prefix of one name, so colour is what the picker has left to
 	   tell them apart with. A base form wears --cr-muted rather than a third
@@ -69,6 +76,7 @@
 		--cr-accent: #d81b60;
 		--cr-accent-2: #a86800;
 		--cr-danger: #c62828;
+		--cr-backdrop: rgb(0 0 0 / 45%);
 		--cr-evolved: #1b7a43;
 		--cr-blessed: #a86800;
 	}
@@ -86,6 +94,7 @@
 	--cr-accent: #d81b60;
 	--cr-accent-2: #a86800;
 	--cr-danger: #c62828;
+	--cr-backdrop: rgb(0 0 0 / 45%);
 	--cr-evolved: #1b7a43;
 	--cr-blessed: #a86800;
 }
