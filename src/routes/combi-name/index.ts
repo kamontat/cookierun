@@ -371,6 +371,11 @@ for (const element of new Set(Object.values(OWNER))) element.tabIndex = -1;
 function jumpTo(group: string): void {
 	const owner = OWNER[group];
 	if (owner === undefined) return;
+	// A folded panel is jumped into, not skipped: the control is still the one
+	// that writes those characters, it is just out of sight. Unfolding before
+	// scrolling also means the scroll measures the panel at its open height.
+	const panel = owner.closest("details");
+	if (panel !== null) panel.open = true;
 	owner.scrollIntoView({ block: "center", behavior: "smooth" });
 	owner.focus();
 }

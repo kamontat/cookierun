@@ -473,3 +473,40 @@ test("every character of the code carries a hint", async () => {
 		expect(run.getAttribute("data-tooltip")).not.toBe("");
 	}
 });
+
+// The loadout is what the game itself stores, so it is the first thing to
+// pick, and the panels below it write the name around that choice.
+test("the loadout panel is the first of the build panels", () => {
+	const first = need("build").firstElementChild as HTMLElement;
+
+	expect(first.querySelector("h2")?.textContent?.trim()).toBe("Loadout");
+});
+
+// Four panels of controls are a long page to scroll past the one you want, so
+// each folds away. They open on arrival: a page of headings hides the controls
+// the page is for.
+test("every build panel folds, and starts open", () => {
+	const panels = [...need("build").children];
+
+	expect(panels.length).toBeGreaterThan(0);
+	for (const panel of panels) {
+		expect([panel.tagName, (panel as HTMLDetailsElement).open]).toEqual([
+			"DETAILS",
+			true,
+		]);
+	}
+});
+
+// Clicking a run of the code jumps to the control that writes it, and a
+// control inside a folded panel cannot be jumped to while it is folded.
+test("jumping to a control unfolds the panel holding it", async () => {
+	const panel = need("episode").closest("details") as HTMLDetailsElement;
+	panel.open = false;
+
+	codeBar.dispatchEvent(
+		new CustomEvent("slot-jump", { detail: "episode", bubbles: true }),
+	);
+	await settle();
+
+	expect(panel.open).toBe(true);
+});

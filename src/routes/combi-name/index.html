@@ -79,33 +79,14 @@
         </p>
       </div>
 
+      <!-- Every panel folds, and every one opens on arrival: four panels of
+           controls are a long scroll past the one you want, but a page of
+           headings hides the controls the page is for. The loadout leads
+           because it is what the game itself stores - the panels below it
+           write the name around that choice. -->
       <form id="build" novalidate>
-        <section class="panel" aria-labelledby="run-heading">
-          <h2 id="run-heading">Run</h2>
-
-          <chip-group id="type" label="Type"></chip-group>
-          <chip-group id="episode" label="Episode"></chip-group>
-        </section>
-
-        <section class="panel" aria-labelledby="boosts-heading">
-          <h2 id="boosts-heading">Boosts and start</h2>
-
-          <card-group id="boosts" legend="Boosts"></card-group>
-          <chip-group id="randomBoost" label="Random boost"></chip-group>
-          <chip-group id="action" label="Action"></chip-group>
-        </section>
-
-        <section class="panel" aria-labelledby="powers-heading">
-          <h2 id="powers-heading">Cookie power+</h2>
-
-          <card-group
-            id="cookiePowers"
-            legend="Cookies whose power+ is on"
-          ></card-group>
-        </section>
-
-        <section class="panel" aria-labelledby="loadout-heading">
-          <h2 id="loadout-heading">Loadout</h2>
+        <details class="panel" open>
+          <summary><h2>Loadout</h2></summary>
           <p>
             The game stores these four in the combi itself, so they ride in the
             section before the dot rather than in the 10-character name. Leave
@@ -128,7 +109,31 @@
             id="treasureOrder"
             label="Treasure order"
           ></chip-group>
-        </section>
+        </details>
+
+        <details class="panel" open>
+          <summary><h2>Run</h2></summary>
+
+          <chip-group id="type" label="Type"></chip-group>
+          <chip-group id="episode" label="Episode"></chip-group>
+        </details>
+
+        <details class="panel" open>
+          <summary><h2>Boosts and start</h2></summary>
+
+          <card-group id="boosts" legend="Boosts"></card-group>
+          <chip-group id="randomBoost" label="Random boost"></chip-group>
+          <chip-group id="action" label="Action"></chip-group>
+        </details>
+
+        <details class="panel" open>
+          <summary><h2>Cookie power+</h2></summary>
+
+          <card-group
+            id="cookiePowers"
+            legend="Cookies whose power+ is on"
+          ></card-group>
+        </details>
       </form>
 
       <!-- Folded away: the tooltips on the code above answer "which one is the

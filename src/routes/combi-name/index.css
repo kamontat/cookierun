@@ -181,19 +181,27 @@ main {
 	font-size: 0.9rem;
 }
 
-/* The reference is a `<details>`, so its heading sits on the summary line and
-   has to stop being a block to get there. */
-.reference summary {
+/* Every panel is a `<details>`, so its heading sits on the summary line and has
+   to stop being a block to get there. The gap the heading's own margin used to
+   hold belongs to the summary instead, and only while the panel is open — a
+   folded panel is its heading and nothing else. */
+.panel > summary {
 	cursor: pointer;
 }
 
-.reference summary h2 {
+.panel > summary h2 {
 	display: inline;
-	font-size: 1rem;
+	margin: 0;
 }
 
-.reference[open] summary {
+.panel[open] > summary {
 	margin-bottom: var(--cr-space-3);
+}
+
+/* The reference is a footnote to the page rather than one of its controls, so
+   its heading is the size of the prose inside it. */
+.reference > summary h2 {
+	font-size: 1rem;
 }
 
 .diagram {
