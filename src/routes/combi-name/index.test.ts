@@ -510,3 +510,50 @@ test("the verdict still follows the flag slots", async () => {
 	expect(shown(summary)).toContain("Fast Start");
 	await reset();
 });
+
+// The switch says what the slots mean, so the slots say it too: a numbered
+// slot claims a position the code only carries when the order is exact.
+// With two or more slots filled, the code carries the order; with fewer, it does not.
+test("the order switch relabels the treasure slots when two are filled", async () => {
+	// Type a code with two treasures in "any" order (U) to fill the slots
+	await typeCode("1TU0FZ-00Z.1S00--000-");
+
+	// With two treasures in the code, order matters. Check initial state.
+	// The code has "U" (any order), so legends should say "Any slot"
+	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
+	expect(need("treasure2").getAttribute("legend")).toBe("Any slot");
+
+	// Toggle to exact order — the code updates and is re-encoded
+	await choose("treasureOrder", "ordered");
+
+	// Now the code carries "O" (exact order), so legends show "Slot 1", "Slot 2"
+	expect(need("treasure1").getAttribute("legend")).toBe("Slot 1");
+	expect(need("treasure2").getAttribute("legend")).toBe("Slot 2");
+
+	// Toggle back to any order
+	await choose("treasureOrder", "any");
+
+	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
+	expect(need("treasure2").getAttribute("legend")).toBe("Any slot");
+	await reset();
+});
+
+// With only one slot filled, the code cannot carry an order, even when the
+// switch says "Exact order", because order requires at least two treasures to matter.
+test("a single filled treasure slot shows Any slot even with Exact order", async () => {
+	// Type a code with only one treasure. Internally the codec will use "U" (any)
+	// even if we try to set order to exact, because order requires 2+ slots.
+	await typeCode("1TU0FZ.1S00--000-");
+
+	// With only one treasure, the code cannot carry an order. The legend reflects
+	// this truth even if the switch says "ordered".
+	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
+
+	// Try to change to exact order via the switch
+	await choose("treasureOrder", "ordered");
+
+	// The legend must still say "Any slot" because the code cannot encode an order
+	// for a single slot — the codec drops it back to "U" internally
+	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
+	await reset();
+});

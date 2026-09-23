@@ -277,6 +277,18 @@ function render(warnings: readonly string[] = []): void {
 	// into slot 2, not the type the chips still show.
 	const { full } = decodeFull(code);
 	summaryCard.verdict = describeCombi(full.combi).auto;
+
+	// A numbered slot claims a position, and the code only carries one when the
+	// order is exact. Read from the decoded code, not the switch: the code's truth
+	// is what matters. With fewer than two slots filled, the code carries no order,
+	// so the labels read "Any slot" even when the switch says "Exact order".
+	treasureSlots.forEach((slot, index) => {
+		slot.setAttribute(
+			"legend",
+			full.loadout.ordered ? `Slot ${index + 1}` : "Any slot",
+		);
+	});
+
 	showWarnings(warnings);
 	publish(code);
 }
