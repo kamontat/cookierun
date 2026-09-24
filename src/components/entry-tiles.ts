@@ -12,6 +12,13 @@ export type Option = readonly [
 	kind?: string | null,
 ];
 
+/** An upgrade level, or a range of them: +0 to +9, `min` never above `max`. */
+export type Level = readonly [min: number, max: number];
+
+const LEVELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+
+const UNUPGRADED: Level = [0, 0];
+
 const LIMIT = 50;
 
 const NONE = "None";
@@ -96,6 +103,26 @@ export class EntryTiles extends LitElement {
 
 			.chip .name {
 				flex: 1 1 auto;
+			}
+
+			/* Two narrow selects: a level is one character, and the name beside
+			   them is what the row is read for. */
+			.levels {
+				display: inline-flex;
+				flex: 0 0 auto;
+				gap: 0.15rem;
+				align-items: center;
+			}
+
+			.levels select {
+				padding: 0 var(--cr-space-1);
+				font-family: var(--cr-mono);
+				font-size: 0.75rem;
+			}
+
+			.levels .to {
+				color: var(--cr-muted);
+				font-size: 0.75rem;
 			}
 
 			/* What the tile says when it is closed: how much the slot holds, since
@@ -279,6 +306,14 @@ export class EntryTiles extends LitElement {
 	@state()
 	private draft: ReadonlySet<string> = new Set();
 
+	/**
+	 * Each pick's level. Only picks that have left +0 have an entry, and an
+	 * entry leaves with its pick: a treasure dropped and picked again starts
+	 * over rather than coming back at a level nobody set this time.
+	 */
+	@state()
+	private leveled: ReadonlyMap<string, Level> = new Map();
+
 	@state()
 	private filter = "";
 
@@ -315,6 +350,22 @@ export class EntryTiles extends LitElement {
 		this.chosen = new Set(values.filter((value) => this.#has(value)));
 	}
 
+	/** One entry per pick, in pick order; a pick never levelled reads +0. */
+	get levels(): Readonly<Record<string, Level>> {
+		return Object.fromEntries(
+			this.selected.map((value) => [
+				value,
+				this.leveled.get(value) ?? UNUPGRADED,
+			]),
+		);
+	}
+
+	set levels(levels: Readonly<Record<string, Level>>) {
+		this.leveled = new Map(
+			Object.entries(levels).filter(([value]) => this.chosen.has(value)),
+		);
+	}
+
 	override willUpdate(): void {
 		// `options` and the picks are two separate writes, so a list replaced
 		// under a slot would otherwise keep a dropped value in the set —
@@ -322,6 +373,51 @@ export class EntryTiles extends LitElement {
 		// contains it again.
 		const kept = [...this.chosen].filter((value) => this.#has(value));
 		if (kept.length !== this.chosen.size) this.chosen = new Set(kept);
+		this.#prune();
+	}
+
+	/**
+	 * A real browser already reads the right level off the `?selected` option
+	 * once the render above has run; this re-asserts it as a belt-and-braces
+	 * step, because a `<select>` built one `<option>` at a time can pass
+	 * through a moment where two options are briefly selected at once (the
+	 * newly-inserted one and whichever one a spec-following engine defaults to
+	 * before it arrives), and at least one DOM implementation resolves that
+	 * moment to the wrong option rather than the later one that was actually
+	 * asked for.
+	 */
+	override updated(): void {
+		for (const select of this.shadowRoot?.querySelectorAll<HTMLSelectElement>(
+			"select.level-min, select.level-max",
+		) ?? []) {
+			const value = select
+				.closest<HTMLElement>(".chip")
+				?.getAttribute("data-value");
+			if (value === undefined || value === null) continue;
+			const [min, max] = this.leveled.get(value) ?? UNUPGRADED;
+			const expected = String(
+				select.classList.contains("level-min") ? min : max,
+			);
+			if (select.value !== expected) select.value = expected;
+		}
+	}
+
+	/** Levels travel with their picks, so a pick that leaves takes its level. */
+	#prune(): void {
+		const kept = [...this.leveled].filter(([value]) => this.chosen.has(value));
+		if (kept.length !== this.leveled.size) this.leveled = new Map(kept);
+	}
+
+	/**
+	 * The two selects cannot disagree: moving one past the other drags the other
+	 * along, so the slot never holds a range the code would refuse to read.
+	 */
+	#setLevel(value: string, end: "min" | "max", to: number): void {
+		const [min, max] = this.leveled.get(value) ?? UNUPGRADED;
+		const next: Level =
+			end === "min" ? [to, Math.max(max, to)] : [Math.min(min, to), to];
+		this.leveled = new Map(this.leveled).set(value, next);
+		this.dispatchEvent(new Event("input", { bubbles: true }));
 	}
 
 	#has(value: string): boolean {
@@ -363,6 +459,7 @@ export class EntryTiles extends LitElement {
 
 	#commit(): void {
 		this.chosen = new Set(this.draft);
+		this.#prune();
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 		this.#dialog()?.close();
 	}
@@ -418,6 +515,7 @@ export class EntryTiles extends LitElement {
 		const next = new Set(this.chosen);
 		next.delete(value);
 		this.chosen = next;
+		this.#prune();
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 		await this.updateComplete;
 
@@ -443,6 +541,33 @@ export class EntryTiles extends LitElement {
 						>`
 			}</span
 		>`;
+	}
+
+	#levelSelect(value: string, name: string, end: "min" | "max", at: number) {
+		// The select's own input and change are composed: left alone they would
+		// leave the shadow root as a second, unexplained change. The host's input
+		// is the one that says the slot moved.
+		const stop = (event: Event): void => {
+			event.stopPropagation();
+		};
+		return html`<select
+			class=${`level level-${end}`}
+			aria-label=${`${name} ${end === "min" ? "lowest" : "highest"} level`}
+			@input=${stop}
+			@change=${(event: Event) => {
+				stop(event);
+				this.#setLevel(
+					value,
+					end,
+					Number((event.target as HTMLSelectElement).value),
+				);
+			}}
+		>
+			${LEVELS.map(
+				(level) =>
+					html`<option value=${level} ?selected=${level === at}>+${level}</option>`,
+			)}
+		</select>`;
 	}
 
 	override render() {
@@ -500,11 +625,19 @@ export class EntryTiles extends LitElement {
 						: html`<ul class="picks">
 							${chosen.map((value) => {
 								const name = labels.get(value) ?? value;
+								const [min, max] = this.leveled.get(value) ?? UNUPGRADED;
 								return html`<li
 									class="chip"
+									data-value=${value}
 									data-kind=${ifDefined(kinds.get(value))}
 									>${this.#art(name, images.get(value) ?? null)}<span class="name"
 										>${name}</span
+									><span class="levels"
+										>${this.#levelSelect(value, name, "min", min)}<span
+											class="to"
+											aria-hidden="true"
+											>–</span
+										>${this.#levelSelect(value, name, "max", max)}</span
 									><button
 										type="button"
 										class="remove"

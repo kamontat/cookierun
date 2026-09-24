@@ -661,3 +661,149 @@ test("focus survives a drop", async () => {
 
 	expect(element.shadowRoot?.activeElement).toBe(tile(element));
 });
+
+function levelSelects(
+	element: EntryTiles,
+	value: string,
+): [HTMLSelectElement, HTMLSelectElement] {
+	const row = [
+		...(element.shadowRoot?.querySelectorAll<HTMLElement>(".chip") ?? []),
+	].find((chip) => chip.dataset["value"] === value);
+	const min = row?.querySelector<HTMLSelectElement>("select.level-min");
+	const max = row?.querySelector<HTMLSelectElement>("select.level-max");
+	if (!min || !max) throw new Error(`no level selects for ${value}`);
+	return [min, max];
+}
+
+async function setLevel(
+	element: EntryTiles,
+	select: HTMLSelectElement,
+	to: number,
+): Promise<void> {
+	select.value = String(to);
+	select.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+	await element.updateComplete;
+}
+
+test("each pick has a from and a to select, +0 through +9, starting at +0", async () => {
+	const element = await mount();
+	element.selected = ["001", "002"];
+	await element.updateComplete;
+
+	const [min, max] = levelSelects(element, "001");
+	expect([...min.options].map((o) => o.textContent?.trim())).toEqual([
+		"+0",
+		"+1",
+		"+2",
+		"+3",
+		"+4",
+		"+5",
+		"+6",
+		"+7",
+		"+8",
+		"+9",
+	]);
+	expect(min.value).toBe("0");
+	expect(max.value).toBe("0");
+	expect(min.getAttribute("aria-label")).toBe("Always Cute Acorn lowest level");
+	expect(max.getAttribute("aria-label")).toBe(
+		"Always Cute Acorn highest level",
+	);
+	expect(element.levels).toEqual({ "001": [0, 0], "002": [0, 0] });
+});
+
+test("the levels setter shows on the selects and keeps only selected values", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	element.levels = { "001": [5, 8], "003": [9, 9] };
+	await element.updateComplete;
+
+	const [min, max] = levelSelects(element, "001");
+	expect(min.value).toBe("5");
+	expect(max.value).toBe("8");
+	expect(element.levels).toEqual({ "001": [5, 8] });
+});
+
+test("changing a level dispatches one input and nothing escapes from the select", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	await element.updateComplete;
+
+	let inputs = 0;
+	let changes = 0;
+	const onInput = () => inputs++;
+	const onChange = () => changes++;
+	document.body.addEventListener("input", onInput);
+	document.body.addEventListener("change", onChange);
+
+	const [, max] = levelSelects(element, "001");
+	await setLevel(element, max, 9);
+
+	expect(element.levels).toEqual({ "001": [0, 9] });
+	expect(inputs).toBe(1);
+	expect(changes).toBe(0);
+
+	document.body.removeEventListener("input", onInput);
+	document.body.removeEventListener("change", onChange);
+});
+
+test("the two selects cannot build a range that runs backwards", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	element.levels = { "001": [3, 5] };
+	await element.updateComplete;
+
+	await setLevel(element, levelSelects(element, "001")[0], 7);
+	expect(element.levels).toEqual({ "001": [7, 7] });
+
+	await setLevel(element, levelSelects(element, "001")[1], 2);
+	expect(element.levels).toEqual({ "001": [2, 2] });
+});
+
+test("dropping one pick keeps the other's level", async () => {
+	const element = await mount();
+	element.selected = ["001", "002"];
+	element.levels = { "001": [1, 1], "002": [4, 9] };
+	await element.updateComplete;
+
+	const remove = element.shadowRoot?.querySelector<HTMLButtonElement>(
+		'.chip[data-value="001"] button.remove',
+	);
+	remove?.click();
+	await element.updateComplete;
+
+	expect(element.selected).toEqual(["002"]);
+	expect(element.levels).toEqual({ "002": [4, 9] });
+});
+
+test("Done keeps the levels of picks that stay, and a re-added pick starts at +0", async () => {
+	const element = await mount();
+	element.selected = ["001", "002"];
+	element.levels = { "001": [6, 6], "002": [9, 9] };
+	await element.updateComplete;
+
+	// Drop 002 and add 003 in one visit to the dialog.
+	tile(element).click();
+	await element.updateComplete;
+	entries(element)
+		.find((cell) => cell.value === "002")
+		?.click();
+	entries(element)
+		.find((cell) => cell.value === "003")
+		?.click();
+	await element.updateComplete;
+	done(element).click();
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [6, 6], "003": [0, 0] });
+
+	// And 002 comes back at +0, not at the +9 it left with.
+	tile(element).click();
+	await element.updateComplete;
+	entries(element)
+		.find((cell) => cell.value === "002")
+		?.click();
+	await element.updateComplete;
+	done(element).click();
+	await element.updateComplete;
+	expect(element.levels["002"]).toEqual([0, 0]);
+});
