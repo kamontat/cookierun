@@ -493,9 +493,32 @@ test("every character of the code carries a hint", async () => {
 
 // One board: what the code says is the control that writes it, so there is no
 // second copy of the build to keep in step.
-test("the build panels are gone, replaced by the board's own groups", () => {
+test("the build panels are gone, replaced by the board's own bands", () => {
 	expect(need("build").querySelectorAll("details.panel").length).toBe(0);
-	expect(need("build").querySelectorAll(".group").length).toBe(5);
+	expect(need("build").querySelectorAll(".band").length).toBe(3);
+});
+
+// The board runs in the order a run is set up — what run, who runs it, what it
+// carries — which is not the order the code reads, since the loadout is
+// written first. The slot markers are what carry that, so every field has one.
+test("every field states the slot or group it writes", () => {
+	const fields = [...need("build").querySelectorAll(".field")];
+
+	expect(fields.length).toBe(8);
+	for (const field of fields) {
+		expect(field.querySelector(".fieldhead h4")?.textContent?.trim()).not.toBe(
+			"",
+		);
+		expect(field.querySelector(".slot")?.textContent?.trim()).not.toBe("");
+	}
+});
+
+test("the loadout sits between the run and the boosts", () => {
+	const bands = [...need("build").querySelectorAll(".band h3")].map((head) =>
+		head.textContent?.trim(),
+	);
+
+	expect(bands).toEqual(["The run", "Your loadout", "Boosts and start"]);
 });
 
 test("picking a cookie in its dialog writes the loadout section", async () => {

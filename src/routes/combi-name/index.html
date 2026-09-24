@@ -107,51 +107,106 @@
       <form id="build" novalidate>
         <build-summary id="summary"></build-summary>
 
-        <div class="group">
-          <h3>Run</h3>
-          <chip-group id="type" label="Type"></chip-group>
-          <div class="tiles one">
+        <!-- Three bands, in the order a run is set up: what run, who runs it,
+             what it carries. That is not the order the code reads — the
+             loadout is written first, before the dot — so every field states
+             the slot or group it writes, and those markers are what tie the
+             board back to the code above it. -->
+        <section class="band">
+          <header class="bandhead">
+            <h3>The run</h3>
+            <span class="note">slots 2-3</span>
+          </header>
+
+          <div class="field">
+            <div class="fieldhead">
+              <h4>Type</h4>
+              <span class="slot">slot 2</span>
+            </div>
+            <chip-group id="type" label="Type"></chip-group>
+          </div>
+
+          <div class="field">
+            <div class="fieldhead">
+              <h4>Episode</h4>
+              <span class="slot">slot 3</span>
+            </div>
             <entry-tile id="episode" label="Episode"></entry-tile>
           </div>
-        </div>
+        </section>
 
-        <div class="group">
-          <h3>Loadout</h3>
-          <div class="tiles">
-            <entry-tile id="cookie" label="Cookie"></entry-tile>
-            <entry-tile id="relay" label="Relay"></entry-tile>
-            <entry-tile id="pet" label="Pet"></entry-tile>
-          </div>
-        </div>
+        <section class="band">
+          <header class="bandhead">
+            <h3>Your loadout</h3>
+            <span class="note">optional, before the dot</span>
+          </header>
 
-        <div class="group">
-          <div class="grouphead">
-            <h3>Treasures</h3>
-            <chip-group
-              id="treasureOrder"
-              label="Order"
-            ></chip-group>
+          <div class="field">
+            <div class="fieldhead">
+              <h4>Cookie, relay and pet</h4>
+              <span class="slot">groups C R P</span>
+            </div>
+            <div class="tiles">
+              <entry-tile id="cookie" label="Cookie"></entry-tile>
+              <entry-tile id="relay" label="Relay"></entry-tile>
+              <entry-tile id="pet" label="Pet"></entry-tile>
+            </div>
           </div>
-          <div class="tiles">
-            <entry-tiles id="treasure1"></entry-tiles>
-            <entry-tiles id="treasure2"></entry-tiles>
-            <entry-tiles id="treasure3"></entry-tiles>
-          </div>
-        </div>
 
-        <div class="group">
-          <h3>Boosts and start</h3>
-          <card-group id="boosts" legend="Boosts"></card-group>
-          <div class="tiles one">
+          <div class="field">
+            <!-- The order switch rides on the heading, because it is what the
+                 slot labels under it are saying. -->
+            <div class="fieldhead">
+              <h4>Treasures</h4>
+              <span class="slot">group T</span>
+              <chip-group id="treasureOrder" label="Order"></chip-group>
+            </div>
+            <div class="tiles">
+              <entry-tiles id="treasure1"></entry-tiles>
+              <entry-tiles id="treasure2"></entry-tiles>
+              <entry-tiles id="treasure3"></entry-tiles>
+            </div>
+          </div>
+        </section>
+
+        <section class="band">
+          <header class="bandhead">
+            <h3>Boosts and start</h3>
+            <span class="note">slots 4-10</span>
+          </header>
+
+          <div class="field">
+            <div class="fieldhead">
+              <h4>Boosts</h4>
+              <span class="slot">slots 4-6</span>
+            </div>
+            <card-group id="boosts" legend="Boosts"></card-group>
+          </div>
+
+          <div class="field">
+            <div class="fieldhead">
+              <h4>Random boost</h4>
+              <span class="slot">slot 7</span>
+            </div>
             <entry-tile id="randomBoost" label="Random boost"></entry-tile>
           </div>
-          <chip-group id="action" label="Action"></chip-group>
-        </div>
 
-        <div class="group">
-          <h3>Cookie power+</h3>
-          <card-group id="cookiePowers" legend="Cookie power+"></card-group>
-        </div>
+          <div class="field">
+            <div class="fieldhead">
+              <h4>Cookie power+</h4>
+              <span class="slot">slots 8-9</span>
+            </div>
+            <card-group id="cookiePowers" legend="Cookie power+"></card-group>
+          </div>
+
+          <div class="field">
+            <div class="fieldhead">
+              <h4>Action</h4>
+              <span class="slot">slot 10</span>
+            </div>
+            <chip-group id="action" label="Action"></chip-group>
+          </div>
+        </section>
       </form>
 
       <!-- Folded away: the tooltips on the code above answer "which one is the

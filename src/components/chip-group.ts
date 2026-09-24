@@ -44,6 +44,18 @@ export class ChipGroup extends LitElement {
 				letter-spacing: var(--cr-tracking);
 			}
 
+			/* The same trick card-group's hidden legend uses, and for the same
+			   reason: off the screen, still in the tree. */
+			.label.offscreen {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				margin: -1px;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
+			}
+
 			.chips {
 				display: flex;
 				flex-wrap: wrap;
@@ -103,6 +115,15 @@ export class ChipGroup extends LitElement {
 
 	@property({ type: String })
 	label = "";
+
+	/**
+	 * Takes the label off the screen without taking it out of the tree, for a
+	 * row the page has already given a heading of its own. The radiogroup keeps
+	 * its name — it reads that name from `aria-label` rather than from the span,
+	 * so hiding the span costs nothing — while the page shows it once.
+	 */
+	@property({ type: Boolean })
+	labelHidden = false;
 
 	@property({ attribute: false })
 	options: readonly Option[] = [];
@@ -213,7 +234,9 @@ export class ChipGroup extends LitElement {
 		const chosen = this.value;
 
 		return html`
-			<span class="label">${this.label}</span>
+			<span class=${this.labelHidden ? "label offscreen" : "label"}
+				>${this.label}</span
+			>
 			<div
 				class="chips"
 				role="radiogroup"

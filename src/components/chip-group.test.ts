@@ -44,6 +44,26 @@ test("the label names the group", async () => {
 	expect(element.shadowRoot?.querySelector(".label")?.textContent).toBe("Type");
 });
 
+// The board gives every field a heading of its own now, so the row's own copy
+// of that name comes off the screen — but not out of the tree, where the
+// radiogroup still needs a name.
+test("a hidden label leaves the screen but not the accessible name", async () => {
+	const element = await mount("Type");
+	element.labelHidden = true;
+	await element.updateComplete;
+
+	expect(
+		element.shadowRoot
+			?.querySelector(".label")
+			?.classList.contains("offscreen"),
+	).toBe(true);
+	expect(
+		element.shadowRoot
+			?.querySelector("[role='radiogroup']")
+			?.getAttribute("aria-label"),
+	).toBe("Type");
+});
+
 test("a chip is rendered per option, in the order given", async () => {
 	const element = await mount();
 

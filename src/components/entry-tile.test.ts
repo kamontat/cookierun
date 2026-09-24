@@ -214,6 +214,49 @@ test("a required control with nothing picked makes the first cell tabbable", asy
 	expect(entries(element).map((entry) => entry.tabIndex)).toEqual([0, -1, -1]);
 });
 
+// A lone catalog pick sits under a heading that already names it, in a section
+// with nothing beside it. Stacked, it read as a card missing its siblings.
+test("an inline control lays the tile on its side", async () => {
+	const element = await mount();
+	element.inline = true;
+	element.value = "0A";
+	await element.updateComplete;
+
+	expect(tile(element).classList.contains("inline")).toBe(true);
+	expect(tile(element).textContent).toContain("Adventurer Cookie");
+});
+
+// A stacked tile is obviously a thing to click — a card with a face on it. A
+// row the width of the section had to say so, and the size of the list behind
+// it is the honest way to say it.
+test("an inline control says how many options are behind it", async () => {
+	const element = await mount();
+	element.inline = true;
+	await element.updateComplete;
+
+	expect(element.shadowRoot?.querySelector(".count")?.textContent?.trim()).toBe(
+		"3 options",
+	);
+});
+
+// The count is a hint about the list, not part of what the control holds, and
+// the heading above the row already names the field.
+test("the count is hidden from the accessible name", async () => {
+	const element = await mount();
+	element.inline = true;
+	await element.updateComplete;
+
+	expect(
+		element.shadowRoot?.querySelector(".count")?.getAttribute("aria-hidden"),
+	).toBe("true");
+});
+
+test("a stacked control has no count", async () => {
+	const element = await mount();
+
+	expect(element.shadowRoot?.querySelector(".count")).toBe(null);
+});
+
 // Twelve episodes and six random boosts fit on the screen whole; a filter over
 // a list you can already see is a box to tab past.
 test("an unsearchable control renders no search box", async () => {

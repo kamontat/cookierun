@@ -452,12 +452,17 @@ episodeTile.required = true;
 randomBoostTile.options = ALL_RANDOM_BOOSTS.map(
 	(boost) => [boost, RANDOM_BOOST_LABELS[boost], null] as const,
 );
-// Twelve and six both fit on the screen whole; a filter over a list you can
+// Twelve and eleven both fit on the screen whole; a filter over a list you can
 // already see is a box to tab past. Set here rather than in the markup for the
 // reason `resettable` is: an attribute the markup ships is invisible to the
 // property in the route's test harness.
 episodeTile.searchable = false;
 randomBoostTile.searchable = false;
+
+// The only pick in its band, under a heading that already names it. Stacked,
+// each was a card with nothing beside it.
+episodeTile.inline = true;
+randomBoostTile.inline = true;
 actionChips.options = pairs(ALL_ACTIONS, ACTION_LABELS);
 
 // The one row left whose first option is a none of its own: clicking the chip
@@ -469,11 +474,23 @@ orderChips.options = ORDER_OPTIONS;
 boostCards.options = ALL_BOOSTS.map(
 	(boost) => [boost, BOOST_LABELS[boost], boostArt(boost, ASSET_BASE)] as const,
 );
-// The board's own heading already says "Cookie power+", so the fieldset keeps
-// the name for a screen reader and hands the screen back to the heading. Set
-// here rather than in the markup for the reason `resettable` is: an attribute
-// the markup ships is invisible to the property in the route's test harness.
+// Every field on the board carries a heading of its own now, so each control
+// keeps its name for a screen reader and hands the screen back to that
+// heading. Set here rather than in the markup for the reason `resettable` is:
+// an attribute the markup ships is invisible to the property in the route's
+// test harness. The treasure order switch is the exception — its "Order" is
+// not the field's name but a second question asked beside it.
+boostCards.legendHidden = true;
 cookiePowerCards.legendHidden = true;
+typeChips.labelHidden = true;
+actionChips.labelHidden = true;
+// The order switch keeps its name for a screen reader and hands the screen
+// back to its own two chips, which say "Any order" and "Exact order" and so
+// need no word above them.
+orderChips.labelHidden = true;
+// The two inline tiles need no flag of their own: laying a tile on its side is
+// what takes its role label off the screen, since the heading beside it is the
+// same word.
 cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 	(power) =>
 		[

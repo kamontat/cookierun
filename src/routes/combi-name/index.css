@@ -114,7 +114,7 @@ main {
 	font-size: 0.85em;
 }
 
-/* The board is one box holding five groups, in the order the code reads. */
+/* The board is one box holding three bands. */
 #build {
 	display: block;
 	min-width: 0;
@@ -125,66 +125,90 @@ main {
 	padding: var(--cr-space-3) var(--cr-space-4) var(--cr-space-4);
 }
 
-.group {
-	margin-top: var(--cr-space-4);
-	border-top: 1px solid var(--cr-line);
-	padding-top: var(--cr-space-3);
+/* A band is one question the board asks: what run, who runs it, what it
+   carries. Six sections under six identical hairlines gave the board no rank
+   at all; three bands under one accent bar give it the only rank it needs. */
+.band {
+	margin-top: var(--cr-space-5);
 }
 
-.group h3 {
-	margin: 0 0 var(--cr-space-2);
-	color: var(--cr-muted);
+.bandhead {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--cr-space-2);
+	border-left: var(--cr-border) solid var(--cr-accent);
+	padding-left: var(--cr-space-2);
+}
+
+.bandhead h3 {
+	margin: 0;
 	font-family: var(--cr-mono);
-	font-size: 0.7rem;
-	font-weight: 500;
+	font-size: 0.8rem;
+	font-weight: 600;
 	letter-spacing: var(--cr-tracking);
 	text-transform: uppercase;
 }
 
-/* The order switch rides on the Treasures heading, because it is what the slot
-   labels under it are saying. */
-.grouphead {
+.bandhead .note {
+	color: var(--cr-muted);
+	font-family: var(--cr-mono);
+	font-size: 0.7rem;
+	letter-spacing: var(--cr-tracking);
+}
+
+.field {
+	margin-top: var(--cr-space-4);
+}
+
+/* Three levels, drawn as three: the band in tracked mono, the field's name in
+   sentence case at full contrast, and the slot it writes in muted mono at the
+   far end. Every heading used to be the same muted uppercase, which is why the
+   board had no shape to read. */
+/* `flex-direction: row` is not the redundancy it looks like: the reset makes
+   every bare `div` a flex column, so a div that wants a row has to say so even
+   after declaring `display: flex`. Left off, the name, its slot marker and the
+   order switch stack into three lines. */
+.fieldhead {
 	display: flex;
+	flex-direction: row;
 	flex-wrap: wrap;
-	align-items: center;
-	justify-content: space-between;
+	align-items: baseline;
 	gap: var(--cr-space-2);
 	margin-bottom: var(--cr-space-2);
 }
 
-.grouphead h3 {
+.fieldhead h4 {
 	margin: 0;
+	font-size: 0.95rem;
+	font-weight: 600;
 }
 
-.group > chip-group,
-.group > card-group {
+/* Which characters of the code this field writes. The board runs in the order
+   a run is set up rather than the order the code reads, so this is what says
+   where each field actually lands — and it is the same language the tooltips
+   on the code itself speak. */
+.slot {
+	margin-right: auto;
+	color: var(--cr-muted);
+	font-family: var(--cr-mono);
+	font-size: 0.7rem;
+	letter-spacing: var(--cr-tracking);
+}
+
+/* The order switch is the one control that rides on a heading. `margin-right:
+   auto` on the slot marker above is what pushes it to the far end without a
+   `justify-content` that would also spread the name and its marker apart. */
+.fieldhead chip-group {
 	display: block;
-	margin-bottom: var(--cr-space-3);
-}
-
-.group > :last-child {
-	margin-bottom: 0;
 }
 
 .tiles {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
 	gap: var(--cr-space-2);
 	align-items: start;
-}
-
-/* One tile is not a row. Left in the grid above it would stretch to the whole
-   board, which makes the episode read louder than the loadout under it; this
-   caps it at the column width the loadout's own tiles take. */
-.tiles.one {
-	grid-template-columns: minmax(0, 14rem);
-}
-
-/* A tile row is spaced like the controls above it, but takes the margin on its
-   own rather than joining the rule that gives chip and card groups theirs:
-   that one sets display: block, which would undo the grid. */
-.group > .tiles {
-	margin-bottom: var(--cr-space-3);
 }
 
 .warnings {

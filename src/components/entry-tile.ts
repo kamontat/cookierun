@@ -60,6 +60,44 @@ export const tileStyles = css`
 		transform: none;
 	}
 
+	/* The only pick in its section. Stacked, it was a card with nothing beside
+	   it; stretched across the board it was a banner. Laid on its side it is a
+	   row of the sheet — the face leads, the name follows, and the count sits
+	   at the far end saying what opens. The heading above it already names the
+	   field, so the role label comes off the screen rather than out of the
+	   tree: an unnamed button is a worse answer than a name said twice. */
+	button.tile.inline {
+		flex-direction: row;
+		gap: var(--cr-space-3);
+		align-items: center;
+		text-align: left;
+	}
+
+	button.tile.inline .label {
+		position: absolute;
+		clip-path: inset(50%);
+	}
+
+	button.tile.inline .pick {
+		flex: 1 1 auto;
+		flex-direction: row;
+		align-items: center;
+	}
+
+	button.tile.inline .art,
+	button.tile.inline .art img {
+		width: 2.5rem;
+		height: 2.5rem;
+	}
+
+	button.tile.inline .count {
+		flex: 0 0 auto;
+		color: var(--cr-muted);
+		font-family: var(--cr-mono);
+		font-size: 0.7rem;
+		letter-spacing: var(--cr-tracking);
+	}
+
 	/* A slot nobody has filled still has to invite a click, not just read
 	   quieter than a filled one — the dashed frame is what says "empty" at a
 	   glance, alongside the muted "None" text. */
@@ -284,6 +322,15 @@ export class EntryTile extends LitElement {
 	@property({ type: Boolean })
 	searchable = true;
 
+	/**
+	 * Whether the tile lies on its side. The stacked form is for a row of two
+	 * or more, where the face is what the eye scans across; the inline form is
+	 * for the only pick in its section, where a card on its own read as one
+	 * missing its siblings and a full-width card read as a banner.
+	 */
+	@property({ type: Boolean })
+	inline = false;
+
 	@state()
 	private picked: string | null = null;
 
@@ -470,9 +517,11 @@ export class EntryTile extends LitElement {
 		// its first entry.
 		const firstTabbable = this.required && this.picked === null;
 
+		const shape = this.inline ? "tile inline" : "tile";
+
 		return html`<button
 				type="button"
-				class=${picked === undefined ? "tile empty" : "tile"}
+				class=${picked === undefined ? `${shape} empty` : shape}
 				@click=${() => {
 					void this.#openPicker();
 				}}
@@ -485,6 +534,16 @@ export class EntryTile extends LitElement {
 							: html`${this.#art(picked[1], picked[2])}${picked[1]}`
 					}
 				</span>
+				${
+					// A hint about the list, not part of what the control holds, so it
+					// stays out of the accessible name — the heading above an inline
+					// tile has already named the field this answers.
+					this.inline
+						? html`<span class="count" aria-hidden="true"
+								>${this.options.length} options</span
+							>`
+						: nothing
+				}
 			</button>
 			<dialog
 				@pointerdown=${(event: Event) => {
