@@ -27,7 +27,7 @@ export const ID_WIDTH: Record<CatalogSection, number> = {
  * The id that means "anything fits here" — a slot the build leaves open rather
  * than leaves out, which is not the same as one it never mentions.
  *
- * `*` is outside the `[0-9A-Z]` alphabet `scripts/utils/asset-ids.ts` hands ids
+ * `_` is outside the `[0-9A-Z]` alphabet `scripts/utils/asset-ids.ts` hands ids
  * out from, so this can never collide with an entry however far the catalog
  * grows. A reserved real id would have had to be defended in the allocator
  * forever; this one is disjoint by construction.
@@ -36,7 +36,7 @@ export const ID_WIDTH: Record<CatalogSection, number> = {
  * already holds a list of acceptable alternatives, which is a different idea.
  */
 export function anyIdFor(section: CatalogSection): string {
-	return "*".repeat(ID_WIDTH[section]);
+	return "_".repeat(ID_WIDTH[section]);
 }
 
 export function isAnyId(section: CatalogSection, id: string): boolean {

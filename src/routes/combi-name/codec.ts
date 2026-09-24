@@ -117,18 +117,23 @@ const COOKIE_POWER_BITS: Record<CookiePower, number> = {
 };
 
 const ACTION_CHARS: Record<Action, string> = {
-	none: "-",
+	none: "0",
 	jumpAtStart: "J",
 };
 
-const OFF = "-";
+/**
+ * `0` is "off" or "none" in every slot. A code is letters and digits only, so
+ * a double-click or a word-wise selection takes the whole of it, and a code
+ * read aloud or pasted into a chat has no punctuation to lose.
+ */
+const OFF = "0";
 
 /**
  * Slots 5 and 6, left over when the boosts moved into one slot. They are held
  * open rather than dropped so the ten characters keep their fixed positions —
  * and so the next field to arrive has somewhere to go.
  */
-const RESERVED = "--";
+const RESERVED = OFF.repeat(2);
 
 // Derived from the tables above so the lists can never drift from the codes.
 export const ALL_TYPES = Object.keys(TYPE_CHARS) as CombiType[];
@@ -162,7 +167,7 @@ const TYPE_BY_CHAR = invert(TYPE_CHARS);
 const EPISODE_BY_CHAR = invert(EPISODE_CHARS);
 const ACTION_BY_CHAR = invert(ACTION_CHARS);
 const RANDOM_BOOST_BY_CHAR = new Map<string, RandomBoost | null>([
-	["0", null],
+	[OFF, null],
 	...invert(RANDOM_BOOST_CHARS),
 ]);
 
@@ -207,7 +212,7 @@ export function encode(combi: Combi, forcedSemiAuto = false): string {
 		EPISODE_CHARS[combi.episode],
 		boostMask.toString(16).toUpperCase(),
 		RESERVED,
-		combi.randomBoost === null ? "0" : RANDOM_BOOST_CHARS[combi.randomBoost],
+		combi.randomBoost === null ? OFF : RANDOM_BOOST_CHARS[combi.randomBoost],
 		cookieMask.toString(16).toUpperCase().padStart(2, "0"),
 		ACTION_CHARS[combi.action],
 	].join("");

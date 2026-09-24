@@ -2,11 +2,13 @@
  * The loadout section: the cookie, relay, pet and treasure slots the game
  * already stores in a combi, carried so a whole build fits in one code.
  *
- * It is the left half of `loadout.combi`, variable length, and lives outside
+ * It is the left half of `loadout-combi`, variable length, and lives outside
  * the game's ten-character combi name — which is why it can afford tags and
- * separators the combi section cannot.
+ * separators the combi section cannot. Its separators are `_` and `.`, which a
+ * word-wise selection reads as part of the word, so the whole loadout selects
+ * as one; only the `-` before the combi breaks it.
  *
- *     1C2LR0BP1ZTU0FZ_0RB-0QQ
+ *     1C2LR0BP1ZTU0FZ_0RB.0QQ
  *     │└cookie      │ └ treasures: slot 1 accepts 0FZ or 0RB, slot 2 wants 0QQ
  *     │  └relay     └pet
  *     └ this section's own version, independent of the combi section's
@@ -87,6 +89,10 @@ const SINGLE_GROUPS: SingleGroup[] = [
 
 const TREASURE_WIDTH = ID_WIDTH.treasures;
 const TAG_ORDER = ["C", "R", "P", "T"];
+/** Between two treasure slots. */
+const SLOT_SEPARATOR = ".";
+/** Between two acceptable treasures within one slot. */
+const ALTERNATIVE_SEPARATOR = "_";
 
 function fail(tag: string, detail: string): never {
 	throw new Error(`loadout group "${tag}": ${detail}`);
@@ -145,7 +151,7 @@ export function encodeLoadout(loadout: Loadout): string {
 	// comparing slots as strings is comparing their ids. It has to be the whole
 	// slot: two slots sharing their smallest id would otherwise tie, and a tie
 	// leaves the caller's order in place — one build with two codes.
-	const key = (slot: string[]): string => slot.join("_");
+	const key = (slot: string[]): string => slot.join(ALTERNATIVE_SEPARATOR);
 	const arranged = ordered
 		? slots
 		: [...slots].sort((a, b) => {
@@ -153,7 +159,7 @@ export function encodeLoadout(loadout: Loadout): string {
 				return key(a) < key(b) ? -1 : 1;
 			});
 
-	return `${out}T${ordered ? "O" : "U"}${arranged.map((slot) => slot.join("_")).join("-")}`;
+	return `${out}T${ordered ? "O" : "U"}${arranged.map((slot) => slot.join(ALTERNATIVE_SEPARATOR)).join(SLOT_SEPARATOR)}`;
 }
 
 export function decodeLoadout(section: string): Loadout {
@@ -203,8 +209,8 @@ export function decodeLoadout(section: string): Loadout {
 		loadout.ordered = flag === "O";
 		loadout.treasures = rest
 			.slice(1)
-			.split("-")
-			.map((slot) => (slot === "" ? [] : slot.split("_")));
+			.split(SLOT_SEPARATOR)
+			.map((slot) => (slot === "" ? [] : slot.split(ALTERNATIVE_SEPARATOR)));
 		checkTreasures(loadout.treasures);
 		rest = "";
 	}

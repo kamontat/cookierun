@@ -77,8 +77,8 @@
              code that is not the one on screen. -->
         <code-bar
           id="code"
-          value="1S00--000-"
-          placeholder="1C00TU000.1S07--014-"
+          value="1S00000000"
+          placeholder="1C00TU000-1S07000140"
         >
           <!-- Two labels in one cell: the button says the copy worked without
                changing width, so Reset does not shuffle sideways for it. -->
@@ -109,7 +109,7 @@
 
         <!-- Three bands, in the order a run is set up: what run, who runs it,
              what it carries. That is not the order the code reads — the
-             loadout is written first, before the dot — so every field states
+             loadout is written first, before the dash — so every field states
              the slot or group it writes, and those markers are what tie the
              board back to the code above it. -->
         <section class="band">
@@ -138,7 +138,7 @@
         <section class="band">
           <header class="bandhead">
             <h3>Your loadout</h3>
-            <span class="note">optional, before the dot</span>
+            <span class="note">optional, before the dash</span>
           </header>
 
           <div class="field">
@@ -267,7 +267,7 @@ ex:    1  H  3  H - F  4  1 4  J</pre
               <tr>
                 <td>5-6</td>
                 <td>Reserved</td>
-                <td>Always <code>-</code>, both</td>
+                <td>Always <code>0</code>, both</td>
               </tr>
               <tr>
                 <td>7</td>
@@ -287,7 +287,7 @@ ex:    1  H  3  H - F  4  1 4  J</pre
               <tr>
                 <td>10</td>
                 <td>Action</td>
-                <td><code>-</code> none, <code>J</code> jump at start</td>
+                <td><code>0</code> none, <code>J</code> jump at start</td>
               </tr>
             </tbody>
           </table>
@@ -295,7 +295,7 @@ ex:    1  H  3  H - F  4  1 4  J</pre
 
         <h3>The loadout section</h3>
         <p>
-          Everything left of the dot. Groups always read in the order
+          Everything left of the dash. Groups always read in the order
           <code>C</code> <code>R</code> <code>P</code> <code>T</code>, and a
           group you did not pick is simply absent.
         </p>
@@ -338,7 +338,7 @@ ex:    1  H  3  H - F  4  1 4  J</pre
                 <td>
                   <code>U</code> any order or <code>O</code> exact order, then
                   up to 3 slots of 3 characters each, separated by
-                  <code>-</code>. Alternatives within a slot are joined by
+                  <code>.</code>. Alternatives within a slot are joined by
                   <code>_</code>
                 </td>
               </tr>

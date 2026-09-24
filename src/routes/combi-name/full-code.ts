@@ -1,5 +1,7 @@
 /**
- * A full code is `loadout.combi`, or just `combi` when there is no loadout.
+ * A full code is `loadout-combi`, or just `combi` when there is no loadout.
+ * The `-` is the one character a word-wise selection stops at, so the combi
+ * half — the part the game takes — selects on its own.
  *
  * The right half is the ten characters the game's combi name field holds,
  * unchanged; the left half is everything the game already stores in the combi
@@ -21,7 +23,7 @@ export type FullCode = {
 	combi: Combi;
 };
 
-export const SECTION_SEPARATOR = ".";
+export const SECTION_SEPARATOR = "-";
 
 /**
  * Whether the whole build plays itself. The combi half answers for its own

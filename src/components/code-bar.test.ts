@@ -6,7 +6,7 @@ import "./code-bar";
 
 import type { CharHint, CodeBar } from "./code-bar";
 
-const CODE = "1S00--000-";
+const CODE = "1S00000000";
 
 const HINTS: CharHint[] = [
 	{ char: "1", hint: "Slot 1 · Format version", group: "version" },
@@ -119,7 +119,7 @@ test("a new value drops hints that described the old one", async () => {
 
 	element.hints = HINTS;
 	await element.updateComplete;
-	element.value = "1H04--000-";
+	element.value = "1H04000000";
 	await element.updateComplete;
 
 	expect(runs(element)).toHaveLength(0);
@@ -194,10 +194,10 @@ test("typing a code reports the draft to the page", async () => {
 	await settle(element);
 	const input = field(element);
 	if (input === null) throw new Error("no input");
-	input.value = "1M35--214J";
+	input.value = "1M3500214J";
 	input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
 
-	expect(drafts).toEqual(["1M35--214J"]);
+	expect(drafts).toEqual(["1M3500214J"]);
 });
 
 // Filtering-style noise must not reach the page's form listener as a change of
@@ -264,7 +264,7 @@ test("a value set while editing leaves the typed text alone", async () => {
 	const input = field(element);
 	if (input === null) throw new Error("no input");
 	input.value = "1M3";
-	element.value = "1M00--000-";
+	element.value = "1M00000000";
 	await settle(element);
 
 	expect(field(element)?.value).toBe("1M3");
@@ -275,12 +275,12 @@ test("leaving the editor shows the current value again", async () => {
 
 	element.editing = true;
 	await settle(element);
-	element.value = "1M00--000-";
+	element.value = "1M00000000";
 	element.editing = false;
 	await settle(element);
 
 	expect(element.shadowRoot?.querySelector("code")?.textContent?.trim()).toBe(
-		"1M00--000-",
+		"1M00000000",
 	);
 });
 
@@ -349,7 +349,7 @@ test("a new value puts the copy button back", async () => {
 
 	element.shadowRoot?.querySelector<HTMLButtonElement>(".copy")?.click();
 	await settle(element);
-	element.value = "1M00--000-";
+	element.value = "1M00000000";
 	await settle(element);
 
 	expect(

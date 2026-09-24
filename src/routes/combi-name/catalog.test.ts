@@ -24,7 +24,7 @@ import {
 const SECTIONS: CatalogSection[] = ["cookies", "pets", "treasures"];
 
 // "Any cookie" has to be a value a code can carry, and the scraper hands out
-// every id in `[0-9A-Z]`. `*` is outside that alphabet, so the two can never
+// every id in `[0-9A-Z]`. `_` is outside that alphabet, so the two can never
 // meet — no id the catalog grows into can collide with this one.
 test("the Any id is the section's width and no entry can ever hold it", () => {
 	for (const section of SECTIONS) {

@@ -32,8 +32,8 @@ const REFUSING = {
 } as unknown as Storage;
 
 test("a hash carries the code without its leading marker", () => {
-	expect(codeInHash("#1S00--000-")).toBe("1S00--000-");
-	expect(hashFor("1S00--000-")).toBe("#1S00--000-");
+	expect(codeInHash("#1S00000000")).toBe("1S00000000");
+	expect(hashFor("1S00000000")).toBe("#1S00000000");
 });
 
 test("an empty or bare hash is no code at all", () => {
@@ -43,30 +43,30 @@ test("an empty or bare hash is no code at all", () => {
 });
 
 test("a lowercase code in the hash reads as the canonical uppercase one", () => {
-	expect(codeInHash("#1c00.1s00--000-")).toBe("1C00.1S00--000-");
+	expect(codeInHash("#1c00-1s00000000")).toBe("1C00-1S00000000");
 });
 
 test("the remembered code survives a round trip through storage", () => {
 	const held = storage(null);
 
-	rememberCode(held, "1S00--000-");
+	rememberCode(held, "1S00000000");
 
-	expect(storedCode(held)).toBe("1S00--000-");
-	expect(held.written).toEqual(["1S00--000-"]);
+	expect(storedCode(held)).toBe("1S00000000");
+	expect(held.written).toEqual(["1S00000000"]);
 });
 
 test("a browser that refuses storage still yields a code, and swallows the write", () => {
 	expect(storedCode(REFUSING)).toBeNull();
 	expect(() => {
-		rememberCode(REFUSING, "1S00--000-");
+		rememberCode(REFUSING, "1S00000000");
 	}).not.toThrow();
 });
 
 test("a link beats the last visit, which beats nothing at all", () => {
-	const held = storage("1M00--000-");
+	const held = storage("1M00000000");
 
-	expect(startingCode("#1E36--400J", held)).toBe("1E36--400J");
-	expect(startingCode("", held)).toBe("1M00--000-");
+	expect(startingCode("#1E3600400J", held)).toBe("1E3600400J");
+	expect(startingCode("", held)).toBe("1M00000000");
 	expect(startingCode("", storage(null))).toBeNull();
 });
 
