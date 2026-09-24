@@ -39,7 +39,7 @@ import {
 	RANDOM_BOOST_LABELS,
 	TYPE_LABELS,
 } from "./labels";
-import type { Loadout } from "./loadout";
+import { type Loadout, treasurePick } from "./loadout";
 import { codeInHash, hashFor, rememberCode, startingCode } from "./state";
 
 import "#components/build-summary";
@@ -139,7 +139,7 @@ function readLoadout(): Loadout {
 		pet: petTile.value,
 		// Empty slots are not gaps in the wire format, so they drop out.
 		treasures: treasureSlots
-			.map((slot) => slot.selected)
+			.map((slot) => slot.selected.map((id) => treasurePick(id)))
 			.filter((slot) => slot.length > 0),
 		ordered: orderChips.value === "ordered",
 	};
@@ -184,7 +184,7 @@ function writeLoadout(loadout: Loadout): void {
 	petTile.value = loadout.pet;
 	orderChips.value = loadout.ordered ? "ordered" : "any";
 	treasureSlots.forEach((slot, index) => {
-		const carried = loadout.treasures[index] ?? [];
+		const carried = (loadout.treasures[index] ?? []).map((pick) => pick.id);
 		// Options before the picks: the two are separate writes, and a slot
 		// prunes a pick its current options do not hold.
 		slot.options = treasureOptions(carried);

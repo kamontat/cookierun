@@ -8,9 +8,9 @@
  * word-wise selection reads as part of the word, so the whole loadout selects
  * as one; only the `-` before the combi breaks it.
  *
- *     1C2LR0BP1ZTU0FZ_0RB.0QQ
- *     │└cookie      │ └ treasures: slot 1 accepts 0FZ or 0RB, slot 2 wants 0QQ
- *     │  └relay     └pet
+ *     1C2LR0BP1ZTU0FZ_0RB59.0QQ9
+ *     │└cookie      │ └ treasures: slot 1 accepts 0FZ at +0 or 0RB at +5-9,
+ *     │  └relay     └pet            slot 2 wants 0QQ at +9
  *     └ this section's own version, independent of the combi section's
  *
  * Encoding canonicalizes — ids sorted within a slot, slots sorted when order
@@ -20,19 +20,36 @@
 
 import { type CatalogSection, hasId, ID_WIDTH, isAnyId } from "./catalog";
 
+/** One acceptable treasure, and the upgrade levels it is accepted at. */
+export type TreasurePick = {
+	id: string;
+	/** 0 to `MAX_LEVEL`, inclusive. */
+	min: number;
+	/** 0 to `MAX_LEVEL`, inclusive, never below `min`. */
+	max: number;
+};
+
 export type Loadout = {
 	/** Catalog id, or null when unset. */
 	cookie: string | null;
 	relay: string | null;
 	pet: string | null;
-	/** 0-3 slots, each holding one or more acceptable treasure ids. */
-	treasures: string[][];
+	/** 0-3 slots, each holding one or more acceptable treasures. */
+	treasures: TreasurePick[][];
 	/** Whether slot position matters. Meaningless with fewer than two slots. */
 	ordered: boolean;
 };
 
 export const LOADOUT_VERSION = "1";
 export const MAX_TREASURE_SLOTS = 3;
+
+/** A treasure runs from +0, not upgraded, to +9. */
+export const MAX_LEVEL = 9;
+
+/** A pick at one level, or a range when `max` is given. +0 by default. */
+export function treasurePick(id: string, min = 0, max = min): TreasurePick {
+	return { id, min, max };
+}
 
 /** A factory rather than a shared constant: the default must not be mutable. */
 export function emptyLoadout(): Loadout {
@@ -98,6 +115,33 @@ function fail(tag: string, detail: string): never {
 	throw new Error(`loadout group "${tag}": ${detail}`);
 }
 
+/** The level suffix: nothing for +0, one digit for one level, two for a range. */
+function writePick({ id, min, max }: TreasurePick): string {
+	if (min !== max) return `${id}${min}${max}`;
+	return min === 0 ? id : `${id}${min}`;
+}
+
+/** Shape only; the range itself is checked with the rest of the slot. */
+function readPick(text: string): TreasurePick {
+	const id = text.slice(0, TREASURE_WIDTH);
+	const level = text.slice(TREASURE_WIDTH);
+	if (!/^[0-9]{0,2}$/.test(level)) {
+		fail("T", `"${text}" has level "${level}", expected at most two digits`);
+	}
+	const min = level.length === 0 ? 0 : Number(level[0]);
+	const max = level.length === 2 ? Number(level[1]) : min;
+	return { id, min, max };
+}
+
+function checkLevel({ id, min, max }: TreasurePick): void {
+	const inRange = (n: number): boolean =>
+		Number.isInteger(n) && n >= 0 && n <= MAX_LEVEL;
+	if (!inRange(min) || !inRange(max)) {
+		fail("T", `"${id}" level ${min}-${max} is outside 0-${MAX_LEVEL}`);
+	}
+	if (min > max) fail("T", `"${id}" level runs backwards, ${min}-${max}`);
+}
+
 function checkId(
 	tag: string,
 	section: CatalogSection,
@@ -111,7 +155,7 @@ function checkId(
 	if (!hasId(section, id)) fail(tag, `no ${noun} has id "${id}"`);
 }
 
-function checkTreasures(slots: string[][]): void {
+function checkTreasures(slots: TreasurePick[][]): void {
 	if (slots.length > MAX_TREASURE_SLOTS) {
 		fail(
 			"T",
@@ -121,10 +165,13 @@ function checkTreasures(slots: string[][]): void {
 	slots.forEach((slot, position) => {
 		if (slot.length === 0) fail("T", `slot ${position + 1} is empty`);
 		const seen = new Set<string>();
-		for (const id of slot) {
-			checkId("T", "treasures", "treasure", TREASURE_WIDTH, id);
-			if (seen.has(id)) fail("T", `slot ${position + 1} lists "${id}" twice`);
-			seen.add(id);
+		for (const pick of slot) {
+			checkId("T", "treasures", "treasure", TREASURE_WIDTH, pick.id);
+			checkLevel(pick);
+			if (seen.has(pick.id)) {
+				fail("T", `slot ${position + 1} lists "${pick.id}" twice`);
+			}
+			seen.add(pick.id);
 		}
 	});
 }
@@ -145,13 +192,17 @@ export function encodeLoadout(loadout: Loadout): string {
 	checkTreasures(loadout.treasures);
 	if (loadout.treasures.length === 0) return out;
 
-	const slots = loadout.treasures.map((slot) => [...slot].sort());
+	const byId = (a: TreasurePick, b: TreasurePick): number =>
+		a.id === b.id ? 0 : a.id < b.id ? -1 : 1;
+	const slots = loadout.treasures.map((slot) => [...slot].sort(byId));
 	const ordered = slots.length > 1 && loadout.ordered;
 	// Fixed-width uppercase base-36 sorts lexicographically in numeric order, so
 	// comparing slots as strings is comparing their ids. It has to be the whole
-	// slot: two slots sharing their smallest id would otherwise tie, and a tie
-	// leaves the caller's order in place — one build with two codes.
-	const key = (slot: string[]): string => slot.join(ALTERNATIVE_SEPARATOR);
+	// slot, levels and all: two slots sharing their smallest id — or holding the
+	// same ids at different levels — would otherwise tie, and a tie leaves the
+	// caller's order in place — one build with two codes.
+	const key = (slot: TreasurePick[]): string =>
+		slot.map(writePick).join(ALTERNATIVE_SEPARATOR);
 	const arranged = ordered
 		? slots
 		: [...slots].sort((a, b) => {
@@ -159,7 +210,7 @@ export function encodeLoadout(loadout: Loadout): string {
 				return key(a) < key(b) ? -1 : 1;
 			});
 
-	return `${out}T${ordered ? "O" : "U"}${arranged.map((slot) => slot.join(ALTERNATIVE_SEPARATOR)).join(SLOT_SEPARATOR)}`;
+	return `${out}T${ordered ? "O" : "U"}${arranged.map(key).join(SLOT_SEPARATOR)}`;
 }
 
 export function decodeLoadout(section: string): Loadout {
@@ -210,7 +261,9 @@ export function decodeLoadout(section: string): Loadout {
 		loadout.treasures = rest
 			.slice(1)
 			.split(SLOT_SEPARATOR)
-			.map((slot) => (slot === "" ? [] : slot.split(ALTERNATIVE_SEPARATOR)));
+			.map((slot) =>
+				slot === "" ? [] : slot.split(ALTERNATIVE_SEPARATOR).map(readPick),
+			);
 		checkTreasures(loadout.treasures);
 		rest = "";
 	}

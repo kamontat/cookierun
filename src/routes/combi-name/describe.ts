@@ -9,7 +9,7 @@ import {
 	RANDOM_BOOST_LABELS,
 	TYPE_LABELS,
 } from "./labels";
-import type { Loadout } from "./loadout";
+import type { Loadout, TreasurePick } from "./loadout";
 
 export type DescribedRow = {
 	field: string;
@@ -107,8 +107,14 @@ function entryName(section: CatalogSection, id: string): string {
 	return isRetired(section, id) ? name + RETIRED_SUFFIX : name;
 }
 
-function slotName(slot: string[]): string {
-	return slot.map((id) => entryName("treasures", id)).join(" or ");
+function levelText({ min, max }: TreasurePick): string {
+	return min === max ? `+${min}` : `+${min}-${max}`;
+}
+
+function slotName(slot: TreasurePick[]): string {
+	return slot
+		.map((pick) => `${entryName("treasures", pick.id)} ${levelText(pick)}`)
+		.join(" or ");
 }
 
 function treasureRow(loadout: Loadout): DescribedRow {
