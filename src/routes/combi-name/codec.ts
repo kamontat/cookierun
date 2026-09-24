@@ -129,11 +129,14 @@ const ACTION_CHARS: Record<Action, string> = {
 const OFF = "0";
 
 /**
- * Slots 5 and 6, left over when the boosts moved into one slot. They are held
- * open rather than dropped so the ten characters keep their fixed positions —
- * and so the next field to arrive has somewhere to go.
+ * Slots 9 and 10, left over when the boosts moved into one slot. They sit at
+ * the end so every field in use reads from the front without a gap, and they
+ * are held open rather than dropped so the code stays ten characters — and so
+ * the next field to arrive has somewhere to go.
  */
 const RESERVED = OFF.repeat(2);
+/** Zero-based index of the first reserved character. */
+const RESERVED_AT = 8;
 
 // Derived from the tables above so the lists can never drift from the codes.
 export const ALL_TYPES = Object.keys(TYPE_CHARS) as CombiType[];
@@ -211,10 +214,10 @@ export function encode(combi: Combi, forcedSemiAuto = false): string {
 		TYPE_CHARS[normalizeType(combi, forcedSemiAuto)],
 		EPISODE_CHARS[combi.episode],
 		boostMask.toString(16).toUpperCase(),
-		RESERVED,
 		combi.randomBoost === null ? OFF : RANDOM_BOOST_CHARS[combi.randomBoost],
 		cookieMask.toString(16).toUpperCase().padStart(2, "0"),
 		ACTION_CHARS[combi.action],
+		RESERVED,
 	].join("");
 }
 
@@ -245,27 +248,27 @@ function decodeBoosts(code: string): Boost[] {
  */
 function checkReserved(code: string): void {
 	RESERVED.split("").forEach((char, index) => {
-		const slotChar = code[4 + index];
+		const slotChar = code[RESERVED_AT + index];
 		if (slotChar !== char) {
 			throw new Error(
-				`slot ${5 + index} (reserved): unknown char "${slotChar}", expected "${OFF}"`,
+				`slot ${RESERVED_AT + 1 + index} (reserved): unknown char "${slotChar}", expected "${OFF}"`,
 			);
 		}
 	});
 }
 
 function decodeCookiePowers(code: string): CookiePower[] {
-	const maskText = code.slice(7, 9);
+	const maskText = code.slice(5, 7);
 
 	if (!/^[0-9A-F]{2}$/.test(maskText)) {
 		throw new Error(
-			`slots 8-9 (cookie power+): "${maskText}" is not 2 uppercase hex digits`,
+			`slots 6-7 (cookie power+): "${maskText}" is not 2 uppercase hex digits`,
 		);
 	}
 
 	const mask = Number.parseInt(maskText, 16);
 	if (mask > COOKIE_MASK_MAX) {
-		throw new Error(`slots 8-9 (cookie power+): mask ${maskText} exceeds 7F`);
+		throw new Error(`slots 6-7 (cookie power+): mask ${maskText} exceeds 7F`);
 	}
 
 	return (Object.entries(COOKIE_POWER_BITS) as [CookiePower, number][])
@@ -298,11 +301,11 @@ export function decode(code: string, forcedSemiAuto = false): DecodeResult {
 		boosts: decodeBoosts(code),
 		randomBoost: lookup(
 			RANDOM_BOOST_BY_CHAR,
-			code[6] as string,
-			"7 (random boost)",
+			code[4] as string,
+			"5 (random boost)",
 		),
 		cookiePowers: decodeCookiePowers(code),
-		action: lookup(ACTION_BY_CHAR, code[9] as string, "10 (action)"),
+		action: lookup(ACTION_BY_CHAR, code[7] as string, "8 (action)"),
 	};
 
 	return { combi, warnings: typeWarnings(combi, forcedSemiAuto) };

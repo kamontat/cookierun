@@ -78,7 +78,7 @@
         <code-bar
           id="code"
           value="1S00000000"
-          placeholder="1C00TU000-1S07000140"
+          placeholder="1C00TU000-1S07014000"
         >
           <!-- Two labels in one cell: the button says the copy worked without
                changing width, so Reset does not shuffle sideways for it. -->
@@ -172,13 +172,13 @@
         <section class="band">
           <header class="bandhead">
             <h3>Boosts and start</h3>
-            <span class="note">slots 4-10</span>
+            <span class="note">slots 4-8</span>
           </header>
 
           <div class="field">
             <div class="fieldhead">
               <h4>Boosts</h4>
-              <span class="slot">slots 4-6</span>
+              <span class="slot">slot 4</span>
             </div>
             <card-group id="boosts" legend="Boosts"></card-group>
           </div>
@@ -186,7 +186,7 @@
           <div class="field">
             <div class="fieldhead">
               <h4>Random boost</h4>
-              <span class="slot">slot 7</span>
+              <span class="slot">slot 5</span>
             </div>
             <entry-tile id="randomBoost" label="Random boost"></entry-tile>
           </div>
@@ -194,7 +194,7 @@
           <div class="field">
             <div class="fieldhead">
               <h4>Cookie power+</h4>
-              <span class="slot">slots 8-9</span>
+              <span class="slot">slots 6-7</span>
             </div>
             <card-group id="cookiePowers" legend="Cookie power+"></card-group>
           </div>
@@ -202,7 +202,7 @@
           <div class="field">
             <div class="fieldhead">
               <h4>Action</h4>
-              <span class="slot">slot 10</span>
+              <span class="slot">slot 8</span>
             </div>
             <chip-group id="action" label="Action"></chip-group>
           </div>
@@ -265,12 +265,7 @@ ex:    1  H  3  H - F  4  1 4  J</pre
                 </td>
               </tr>
               <tr>
-                <td>5-6</td>
-                <td>Reserved</td>
-                <td>Always <code>0</code>, both</td>
-              </tr>
-              <tr>
-                <td>7</td>
+                <td>5</td>
                 <td>Random boost</td>
                 <td>
                   <code>0</code> none, otherwise <code>1</code>-<code>9</code>,
@@ -278,16 +273,21 @@ ex:    1  H  3  H - F  4  1 4  J</pre
                 </td>
               </tr>
               <tr>
-                <td>8-9</td>
+                <td>6-7</td>
                 <td>Cookie power+</td>
                 <td>
                   Bitmask as two hex digits, <code>00</code>-<code>7F</code>
                 </td>
               </tr>
               <tr>
-                <td>10</td>
+                <td>8</td>
                 <td>Action</td>
                 <td><code>0</code> none, <code>J</code> jump at start</td>
+              </tr>
+              <tr>
+                <td>9-10</td>
+                <td>Reserved</td>
+                <td>Always <code>0</code>, both</td>
               </tr>
             </tbody>
           </table>
@@ -350,7 +350,7 @@ ex:    1  H  3  H - F  4  1 4  J</pre
         <p>
           A build is semi-auto when <strong>any</strong> of these is true: Fast
           Start is on (bit <code>4</code> of slot 4), a random boost is selected
-          (slot 7), there is a jump action (slot 10), or the loadout carries a
+          (slot 5), there is a jump action (slot 8), or the loadout carries a
           relay cookie (the <code>R</code> group). A relay is swapped in by
           hand, so a run carrying one never plays itself through. Slot 2 stores
           <code>A</code> or <code>H</code> so the name reads plainly, but those

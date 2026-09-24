@@ -13,20 +13,20 @@ const HINTS: CharHint[] = [
 	{ char: "S", hint: "Slot 2 · Type · Score", group: "type" },
 	{ char: "0", hint: "Slot 3 · Episode · Any", group: "episode" },
 	{ char: "0", hint: "Slot 4 · Boosts · None", group: "boosts" },
-	{ char: "-", hint: "Slots 5-6 · Reserved", group: "reserved" },
-	{ char: "-", hint: "Slots 5-6 · Reserved", group: "reserved" },
-	{ char: "0", hint: "Slot 7 · Random boost · None", group: "randomBoost" },
+	{ char: "0", hint: "Slot 5 · Random boost · None", group: "randomBoost" },
 	{
 		char: "0",
-		hint: "Slots 8-9 · Cookie power+ · None",
+		hint: "Slots 6-7 · Cookie power+ · None",
 		group: "cookiePowers",
 	},
 	{
 		char: "0",
-		hint: "Slots 8-9 · Cookie power+ · None",
+		hint: "Slots 6-7 · Cookie power+ · None",
 		group: "cookiePowers",
 	},
-	{ char: "-", hint: "Slot 10 · Action · No action", group: "action" },
+	{ char: "0", hint: "Slot 8 · Action · No action", group: "action" },
+	{ char: "0", hint: "Slots 9-10 · Reserved", group: "reserved" },
+	{ char: "0", hint: "Slots 9-10 · Reserved", group: "reserved" },
 ];
 
 async function mount(value = CODE): Promise<CodeBar> {
@@ -85,10 +85,10 @@ test("characters sharing a group are drawn as one run", async () => {
 		"S",
 		"0",
 		"0",
-		"--",
 		"0",
 		"00",
-		"-",
+		"0",
+		"00",
 	]);
 });
 
@@ -194,10 +194,10 @@ test("typing a code reports the draft to the page", async () => {
 	await settle(element);
 	const input = field(element);
 	if (input === null) throw new Error("no input");
-	input.value = "1M3500214J";
+	input.value = "1M35214J00";
 	input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
 
-	expect(drafts).toEqual(["1M3500214J"]);
+	expect(drafts).toEqual(["1M35214J00"]);
 });
 
 // Filtering-style noise must not reach the page's form listener as a change of

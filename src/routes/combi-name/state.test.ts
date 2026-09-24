@@ -65,7 +65,7 @@ test("a browser that refuses storage still yields a code, and swallows the write
 test("a link beats the last visit, which beats nothing at all", () => {
 	const held = storage("1M00000000");
 
-	expect(startingCode("#1E3600400J", held)).toBe("1E3600400J");
+	expect(startingCode("#1E36400J00", held)).toBe("1E36400J00");
 	expect(startingCode("", held)).toBe("1M00000000");
 	expect(startingCode("", storage(null))).toBeNull();
 });

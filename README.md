@@ -7,9 +7,9 @@ The full configuration space is 6 types x 12 episodes x 16 boost subsets x 12 ra
 ## Format
 
 ```
-slot:  1  2  3  4  5 6  7  8 9  10
-       V  T  E  B  . .  R  C C  A
-ex:    1  H  3  5  0 0  4  1 4  J
+slot:  1  2  3  4  5  6 7  8  9 10
+       V  T  E  B  R  C C  A  . .
+ex:    1  H  3  5  4  1 4  J  0 0
 ```
 
 | Slot | Field | Encoding |
@@ -18,14 +18,14 @@ ex:    1  H  3  5  0 0  4  1 4  J
 | 2 | Type | `S` Score, `M` Money, `E` Exp, `B` Box, `A` Auto, `H` Semi-auto |
 | 3 | Episode | `0` Any, `1`-`7` Episode 1-7, `A`/`B`/`C` Special Episode 1-3, `X` Special Exp Episode |
 | 4 | Boosts | Bitmask as one uppercase hex digit, `0`-`F` |
-| 5-6 | Reserved | Always `0`, both |
-| 7 | Random boost | `0` none, otherwise one of the eleven below |
-| 8-9 | Cookie power+ | Bitmask as two uppercase hex digits, `00`-`7F` |
-| 10 | Action | `0` none, `J` jump at start |
+| 5 | Random boost | `0` none, otherwise one of the eleven below |
+| 6-7 | Cookie power+ | Bitmask as two uppercase hex digits, `00`-`7F` |
+| 8 | Action | `0` none, `J` jump at start |
+| 9-10 | Reserved | Always `0`, both |
 
 `0` means off or none in every slot. The combi name is letters and digits only: the game field takes it as is, and a `-` inside it would read as the section separator below.
 
-Slots 5 and 6 are held open, not used. The boosts had a flag slot each until a fourth boost arrived and there were only ten characters to have; they moved into one slot, and the two that came free stay where they are so every field after them keeps its position — and so the next field to arrive has somewhere to go. A code that writes anything but `0` in either one is rejected outright.
+Slots 9 and 10 are held open, not used. The boosts had a flag slot each until a fourth boost arrived and there were only ten characters to have; they moved into one slot, and the two that came free sit at the end, so every field in use reads from the front with no gap — and so the next field to arrive has somewhere to go. A code that writes anything but `0` in either one is rejected outright.
 
 ### Boost bitmask (slot 4)
 
@@ -38,7 +38,7 @@ Add the values of every boost you turned on and write the sum in hex, the same w
 
 Cookie Relay is not here: a run that uses one says so by naming a relay cookie in the loadout section.
 
-### Random boost (slot 7)
+### Random boost (slot 5)
 
 | Char | Boost | Char | Boost |
 | --- | --- | --- | --- |
@@ -49,7 +49,7 @@ Cookie Relay is not here: a run that uses one says so by naming a relay cookie i
 | `5` | 70% Crush Chance | `B` | 2 Pit Lifts |
 | `6` | +17% Base Speed | | |
 
-### Cookie power+ bitmask (slots 8-9)
+### Cookie power+ bitmask (slots 6-7)
 
 | Value | Cookie | Value | Cookie |
 | --- | --- | --- | --- |
@@ -83,10 +83,10 @@ The loadout writes down the cookie, relay, pet, and treasure a build uses. The g
 An `R__` counts as a relay for everything a named relay counts for: the build is semi-auto, and slot 2 is written `H`. Which cookie relays in is not what makes the run need a hand.
 
 ```
-1S07000140                          no loadout
-1C2L-1S07000140                     a cookie only
+1S07014000                          no loadout
+1C2L-1S07014000                     a cookie only
 1C__R__P__-1H00000000               any cookie, any relay, any pet
-1C2LR0BP1ZTU0FZ_0RB.0QQ-1H3500400J  cookie, relay, pet, two treasure slots, any order
+1C2LR0BP1ZTU0FZ_0RB.0QQ-1H35400J00  cookie, relay, pet, two treasure slots, any order
 ```
 
 Encoding always writes the canonical form: ids are sorted within a slot, and whole slots are sorted against each other whenever the order flag is `U` — a single slot is always written `U`, since there is nothing to order with only one slot. That is what keeps one build to exactly one code. Reading a code is more forgiving: a hand-written or otherwise non-canonical loadout still decodes correctly, it just re-encodes into the canonical form rather than back into what you typed.
@@ -97,7 +97,7 @@ An id must not repeat within one treasure slot — `TU0FZ_0FZ` is invalid, since
 
 ## Auto vs semi-auto
 
-Semi-auto is a run that needs manual work each time. A build is semi-auto when **any** of these is true: Fast Start is on (bit `4` of slot 4), a random boost is selected (slot 7), there is a jump action (slot 10), or the loadout carries a relay cookie (the `R` group, `R__` included). The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
+Semi-auto is a run that needs manual work each time. A build is semi-auto when **any** of these is true: Fast Start is on (bit `4` of slot 4), a random boost is selected (slot 5), there is a jump action (slot 8), or the loadout carries a relay cookie (the `R` group, `R__` included). The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
 
 The relay is the one reason that lives outside the ten characters: a relay cookie is swapped in by hand, so a run carrying one never plays itself through. Slot 2 is written from the whole build, so the ten characters you paste into the game say `H` when a relay is in front of them — while a bare combi code, having no loadout to read, answers for its own three flags alone.
 
@@ -105,8 +105,8 @@ Slot 2 stores `A` or `H` for readability, but those four reasons are the authori
 
 ```
 1A31000000    full auto (HP Extension only)
-1H35004000    semi-auto (Fast Start + Revive)
-1H3100000J    semi-auto (jump only)
+1H35400000    semi-auto (Fast Start + Revive)
+1H31000J00    semi-auto (jump only)
 1A39000000    full auto (HP Extension + Double XP)
 ```
 
@@ -123,9 +123,9 @@ encode({
   cookiePowers: ["fairy", "seaFairy"],
   action: "none",
 });
-// "1S07000140"
+// "1S07014000"
 
-const { combi, warnings } = decode("1E3600400J");
+const { combi, warnings } = decode("1E36400J00");
 isSemiAuto(combi); // true
 ```
 

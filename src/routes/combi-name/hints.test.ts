@@ -19,7 +19,7 @@ test("one hint per character of the code", () => {
 });
 
 test("each slot names its number, its field and what it currently says", () => {
-	const [version, type, episode] = hints("1E3600400J");
+	const [version, type, episode] = hints("1E36400J00");
 
 	expect(version).toBe("Slot 1 · Format version");
 	expect(type).toBe("Slot 2 · Type · Exp");
@@ -27,41 +27,41 @@ test("each slot names its number, its field and what it currently says", () => {
 });
 
 test("the boost slot names every boost that is on", () => {
-	const [, , , boosts] = hints("1E3600400J");
+	const [, , , boosts] = hints("1E36400J00");
 
 	expect(boosts).toBe("Slot 4 · Boosts · Power Jelly Boost, Fast Start");
 });
 
 test("a boost slot with nothing on reads as None", () => {
-	const [, , , boosts] = hints("1E3000400J");
+	const [, , , boosts] = hints("1E30400J00");
 
 	expect(boosts).toBe("Slot 4 · Boosts · None");
 });
 
 test("the reserved slots say so, and say it together", () => {
-	const described = hintsFor("1E3F00400J");
+	const described = hintsFor("1E3F400J00");
 
-	expect(described[4]?.hint).toBe("Slots 5-6 · Reserved");
-	expect(described[5]?.hint).toBe(described[4]?.hint);
+	expect(described[8]?.hint).toBe("Slots 9-10 · Reserved");
+	expect(described[9]?.hint).toBe(described[8]?.hint);
 	expect(described[3]?.hint).toBe(
 		"Slot 4 · Boosts · HP Extension, Power Jelly Boost, Fast Start, Double XP",
 	);
 });
 
 test("the two cookie power+ characters share one hint over the whole mask", () => {
-	const described = hints("1S00000140");
+	const described = hints("1S00014000");
 
-	expect(described[7]).toBe(
-		"Slots 8-9 · Cookie power+ · Fairy Cookie, Sea Fairy Cookie",
+	expect(described[5]).toBe(
+		"Slots 6-7 · Cookie power+ · Fairy Cookie, Sea Fairy Cookie",
 	);
-	expect(described[8]).toBe(described[7]);
+	expect(described[6]).toBe(described[5]);
 });
 
 test("an empty field reads as None rather than as a blank", () => {
 	const described = hints("1S00000000");
 
-	expect(described[6]).toBe("Slot 7 · Random boost · None");
-	expect(described[9]).toBe("Slot 10 · Action · No action");
+	expect(described[4]).toBe("Slot 5 · Random boost · None");
+	expect(described[7]).toBe("Slot 8 · Action · No action");
 });
 
 // The two reserved characters share a group of their own: they say the same
@@ -72,12 +72,12 @@ test("characters of one field share a group, and neighbouring fields do not", ()
 		"type",
 		"episode",
 		"boosts",
-		"reserved",
-		"reserved",
 		"randomBoost",
 		"cookiePowers",
 		"cookiePowers",
 		"action",
+		"reserved",
+		"reserved",
 	]);
 });
 

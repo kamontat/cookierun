@@ -159,7 +159,7 @@ test("a semi-auto code re-encodes as itself", async () => {
 // none is a pick like any other rather than a second click on what is chosen.
 test("picking None puts the random boost back to none", async () => {
 	await choose("randomBoost", "revive");
-	expect(await codeText()).toBe("1S00004000");
+	expect(await codeText()).toBe("1S00400000");
 
 	await choose("randomBoost", "");
 
@@ -169,7 +169,7 @@ test("picking None puts the random boost back to none", async () => {
 
 test("clicking the chosen action puts it back to no action", async () => {
 	await choose("action", "jumpAtStart");
-	expect(await codeText()).toBe("1S0000000J");
+	expect(await codeText()).toBe("1S00000J00");
 
 	await choose("action", "jumpAtStart");
 
@@ -197,12 +197,12 @@ test("the build summary sits inside the board, as its header", () => {
 test("a cookie power card writes its bit into the code", async () => {
 	await choose("cookiePowers", "cheerleader");
 
-	expect(await codeText()).toBe("1S00000010");
+	expect(await codeText()).toBe("1S00001000");
 	await reset();
 });
 
 test("typing a code moves every control to match it", async () => {
-	await typeCode("1M3700214J");
+	await typeCode("1M37214J00");
 
 	expect(isOn("type", "money")).toBe(true);
 	expect(isOn("episode", "episode3")).toBe(true);
