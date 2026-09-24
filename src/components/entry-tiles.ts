@@ -107,8 +107,8 @@ export class EntryTiles extends LitElement {
 
 			.chip .art,
 			.chip .art img {
-				width: 1.4rem;
-				height: 1.4rem;
+				width: 2rem;
+				height: 2rem;
 			}
 
 			.chip .name {
