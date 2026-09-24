@@ -25,7 +25,7 @@ test("encodes a score combi with all boosts and two cookie powers", () => {
 });
 
 test("decodes every slot back into a combi", () => {
-	const { combi } = decode("1E36400J00");
+	const { combi } = decode("1E36R00J00");
 
 	expect(combi).toEqual({
 		type: "exp",
@@ -139,7 +139,7 @@ test("encode leaves non-auto types alone", () => {
 });
 
 test("decode warns when the type slot says Auto but manual work is present", () => {
-	const { combi, warnings } = decode("1A35400000");
+	const { combi, warnings } = decode("1A35R00000");
 
 	expect(combi.type).toBe("auto");
 	expect(warnings).toEqual([
@@ -157,7 +157,7 @@ test("decode warns when the type slot says Semi-auto but nothing is manual", () 
 });
 
 test("decode stays quiet when the type slot agrees with the flag slots", () => {
-	expect(decode("1H35400000").warnings).toEqual([]);
+	expect(decode("1H35R00000").warnings).toEqual([]);
 });
 
 test("decode stays quiet for non-auto types regardless of the flag slots", () => {

@@ -19,7 +19,7 @@ test("one hint per character of the code", () => {
 });
 
 test("each slot names its number, its field and what it currently says", () => {
-	const [version, type, episode] = hints("1E36400J00");
+	const [version, type, episode] = hints("1E36R00J00");
 
 	expect(version).toBe("Slot 1 · Format version");
 	expect(type).toBe("Slot 2 · Type · Exp");
@@ -27,19 +27,19 @@ test("each slot names its number, its field and what it currently says", () => {
 });
 
 test("the boost slot names every boost that is on", () => {
-	const [, , , boosts] = hints("1E36400J00");
+	const [, , , boosts] = hints("1E36R00J00");
 
 	expect(boosts).toBe("Slot 4 · Boosts · Power Jelly Boost, Fast Start");
 });
 
 test("a boost slot with nothing on reads as None", () => {
-	const [, , , boosts] = hints("1E30400J00");
+	const [, , , boosts] = hints("1E30R00J00");
 
 	expect(boosts).toBe("Slot 4 · Boosts · None");
 });
 
 test("the reserved slots say so, and say it together", () => {
-	const described = hintsFor("1E3F400J00");
+	const described = hintsFor("1E3FR00J00");
 
 	expect(described[8]?.hint).toBe("Slots 9-10 · Reserved");
 	expect(described[9]?.hint).toBe(described[8]?.hint);

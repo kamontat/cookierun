@@ -194,10 +194,10 @@ test("typing a code reports the draft to the page", async () => {
 	await settle(element);
 	const input = field(element);
 	if (input === null) throw new Error("no input");
-	input.value = "1M35214J00";
+	input.value = "1M35S14J00";
 	input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
 
-	expect(drafts).toEqual(["1M35214J00"]);
+	expect(drafts).toEqual(["1M35S14J00"]);
 });
 
 // Filtering-style noise must not reach the page's form listener as a change of

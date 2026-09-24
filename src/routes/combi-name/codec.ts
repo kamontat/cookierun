@@ -92,18 +92,23 @@ const BOOST_BITS: { boost: Boost; bit: number; label: string }[] = [
 	{ boost: "doubleXp", bit: 0x8, label: "Double XP" },
 ];
 
+/**
+ * A letter from each boost's own name rather than a running count, so a code
+ * says which boost it carries to anyone who has read this table once.
+ * Collision Damage is `X` for crash: `C` and `D` were already taken.
+ */
 const RANDOM_BOOST_CHARS: Record<RandomBoost, string> = {
-	doubleCoins: "1",
-	scoreBonus: "2",
-	hpDrain: "3",
-	revive: "4",
-	crushChance: "5",
-	baseSpeed: "6",
-	goldCoinMagic: "7",
-	collisionDamage: "8",
-	potionHp: "9",
-	magneticAura: "A",
-	pitLifts: "B",
+	doubleCoins: "D",
+	scoreBonus: "S",
+	hpDrain: "H",
+	revive: "R",
+	crushChance: "C",
+	baseSpeed: "B",
+	goldCoinMagic: "G",
+	collisionDamage: "X",
+	potionHp: "P",
+	magneticAura: "M",
+	pitLifts: "L",
 };
 
 const COOKIE_POWER_BITS: Record<CookiePower, number> = {

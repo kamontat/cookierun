@@ -159,7 +159,7 @@ test("a semi-auto code re-encodes as itself", async () => {
 // none is a pick like any other rather than a second click on what is chosen.
 test("picking None puts the random boost back to none", async () => {
 	await choose("randomBoost", "revive");
-	expect(await codeText()).toBe("1S00400000");
+	expect(await codeText()).toBe("1S00R00000");
 
 	await choose("randomBoost", "");
 
@@ -202,7 +202,7 @@ test("a cookie power card writes its bit into the code", async () => {
 });
 
 test("typing a code moves every control to match it", async () => {
-	await typeCode("1M37214J00");
+	await typeCode("1M37S14J00");
 
 	expect(isOn("type", "money")).toBe(true);
 	expect(isOn("episode", "episode3")).toBe(true);

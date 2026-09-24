@@ -37,7 +37,7 @@ test("a loadout is written before the combi, separated by a dot", () => {
 
 // Every code that worked before this feature has to keep working.
 test("a bare code decodes with an empty loadout and the same combi", () => {
-	const { full, warnings } = decodeFull("1E36400J00");
+	const { full, warnings } = decodeFull("1E36R00J00");
 
 	expect(full.loadout).toEqual(emptyLoadout());
 	expect(full.combi.type).toBe("exp");
@@ -57,7 +57,7 @@ test("both sections decode together", () => {
 });
 
 test("the combi section's soft warning survives the join", () => {
-	const { warnings } = decodeFull("1C00-1A35400000");
+	const { warnings } = decodeFull("1C00-1A35R00000");
 
 	expect(warnings).toHaveLength(1);
 	expect(warnings[0]).toContain("slot 2 says Auto");

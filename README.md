@@ -9,7 +9,7 @@ The full configuration space is 6 types x 12 episodes x 16 boost subsets x 12 ra
 ```
 slot:  1  2  3  4  5  6 7  8  9 10
        V  T  E  B  R  C C  A  . .
-ex:    1  H  3  5  4  1 4  J  0 0
+ex:    1  H  3  5  R  1 4  J  0 0
 ```
 
 | Slot | Field | Encoding |
@@ -40,14 +40,16 @@ Cookie Relay is not here: a run that uses one says so by naming a relay cookie i
 
 ### Random boost (slot 5)
 
+Each boost is a letter from its own name.
+
 | Char | Boost | Char | Boost |
 | --- | --- | --- | --- |
-| `1` | Double Coins | `7` | Gold Coin Magic |
-| `2` | +15% Score | `8` | -30% Collision Damage |
-| `3` | 15% HP Drain | `9` | +20% HP from Potions |
-| `4` | Revive once with 80 HP | `A` | Magnetic Aura |
-| `5` | 70% Crush Chance | `B` | 2 Pit Lifts |
-| `6` | +17% Base Speed | | |
+| `D` | Double Coins | `G` | Gold Coin Magic |
+| `S` | +15% Score | `X` | -30% Collision Damage (X for crash) |
+| `H` | 15% HP Drain | `P` | +20% HP from Potions |
+| `R` | Revive once with 80 HP | `M` | Magnetic Aura |
+| `C` | 70% Crush Chance | `L` | 2 Pit Lifts |
+| `B` | +17% Base Speed | | |
 
 ### Cookie power+ bitmask (slots 6-7)
 
@@ -86,7 +88,7 @@ An `R__` counts as a relay for everything a named relay counts for: the build is
 1S07014000                          no loadout
 1C2L-1S07014000                     a cookie only
 1C__R__P__-1H00000000               any cookie, any relay, any pet
-1C2LR0BP1ZTU0FZ_0RB.0QQ-1H35400J00  cookie, relay, pet, two treasure slots, any order
+1C2LR0BP1ZTU0FZ_0RB.0QQ-1H35R00J00  cookie, relay, pet, two treasure slots, any order
 ```
 
 Encoding always writes the canonical form: ids are sorted within a slot, and whole slots are sorted against each other whenever the order flag is `U` — a single slot is always written `U`, since there is nothing to order with only one slot. That is what keeps one build to exactly one code. Reading a code is more forgiving: a hand-written or otherwise non-canonical loadout still decodes correctly, it just re-encodes into the canonical form rather than back into what you typed.
@@ -105,7 +107,7 @@ Slot 2 stores `A` or `H` for readability, but those four reasons are the authori
 
 ```
 1A31000000    full auto (HP Extension only)
-1H35400000    semi-auto (Fast Start + Revive)
+1H35R00000    semi-auto (Fast Start + Revive)
 1H31000J00    semi-auto (jump only)
 1A39000000    full auto (HP Extension + Double XP)
 ```
@@ -125,7 +127,7 @@ encode({
 });
 // "1S07014000"
 
-const { combi, warnings } = decode("1E36400J00");
+const { combi, warnings } = decode("1E36R00J00");
 isSemiAuto(combi); // true
 ```
 
