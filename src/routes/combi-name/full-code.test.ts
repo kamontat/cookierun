@@ -181,6 +181,29 @@ test("a build is semi-auto when the loadout carries a relay", () => {
 	expect(isSemiAutoBuild({ loadout: emptyLoadout(), combi: auto })).toBe(false);
 });
 
+// Which relay it is changes nothing: a build that says any relay will do still
+// says a relay gets swapped in by hand. Only no relay at all leaves it auto.
+test("an Any relay is a relay, for slot 2 and for the verdict", () => {
+	const auto: Combi = {
+		type: "auto",
+		episode: "any",
+		boosts: [],
+		randomBoost: null,
+		cookiePowers: [],
+		action: "none",
+	};
+
+	expect(
+		encodeFull({ loadout: { ...emptyLoadout(), relay: "**" }, combi: auto }),
+	).toBe("1R**.1H00--000-");
+	expect(
+		isSemiAutoBuild({
+			loadout: { ...emptyLoadout(), relay: "**" },
+			combi: auto,
+		}),
+	).toBe(true);
+});
+
 // Hand-typed codes are allowed to contradict themselves; the relay wins, and
 // re-encoding snaps the slot back.
 test("a code saying Auto beside a relay warns rather than refusing", () => {

@@ -219,6 +219,21 @@ test("typing a code with a loadout fills the loadout controls too", async () => 
 	await reset();
 });
 
+// Any sits beside None in all three pickers: a build that works with whatever
+// cookie is to hand says so, and that is not the same as saying nothing.
+test("picking Any on the cookie, relay and pet writes it into the code", async () => {
+	await choose("type", "auto");
+	await choose("cookie", "**");
+	await choose("relay", "**");
+	await choose("pet", "**");
+
+	// The relay writes Semi-auto into slot 2 whichever cookie fills it.
+	expect(await codeText()).toBe("1C**R**P**.1H00--000-");
+	expect(shown(need("cookie"))).toContain("Any cookie");
+	expect(shown(need("pet"))).toContain("Any pet");
+	await reset();
+});
+
 // The picker does not offer the consumable family, but a code written before
 // that — or by hand — can still carry one, and dropping it would rewrite
 // someone's saved build behind their back.

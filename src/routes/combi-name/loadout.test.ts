@@ -26,6 +26,30 @@ test("each group carries its tag, and an unset field is left out", () => {
 	);
 });
 
+// "Any cookie" is a thing a build says, and the only way to say it is to carry
+// it: a slot left unset means the build did not mention it at all.
+test("a cookie, relay or pet slot carries the Any id like any other", () => {
+	const code = encodeLoadout(loadout({ cookie: "**", relay: "**", pet: "**" }));
+
+	expect(code).toBe("1C**R**P**");
+	expect(decodeLoadout(code)).toEqual(
+		loadout({ cookie: "**", relay: "**", pet: "**" }),
+	);
+	expect(isEmptyLoadout(loadout({ cookie: "**" }))).toBe(false);
+});
+
+// The sentinel belongs to the three single slots. A treasure slot already
+// holds a list of alternatives, which is a different idea and a different
+// design; nothing should be able to smuggle one in through T.
+test("a treasure slot refuses the Any id", () => {
+	expect(() => encodeLoadout(loadout({ treasures: [["***"]] }))).toThrow(
+		'"***" is not 3 characters of [0-9A-Z]',
+	);
+	expect(() => decodeLoadout("1TU***")).toThrow(
+		'"***" is not 3 characters of [0-9A-Z]',
+	);
+});
+
 test("groups are written in C R P T order", () => {
 	const code = encodeLoadout(
 		loadout({ cookie: "00", relay: "01", pet: "02", treasures: [["000"]] }),

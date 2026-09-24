@@ -16,7 +16,7 @@
  * non-canonical code as written.
  */
 
-import { type CatalogSection, hasId, ID_WIDTH } from "./catalog";
+import { type CatalogSection, hasId, ID_WIDTH, isAnyId } from "./catalog";
 
 export type Loadout = {
 	/** Catalog id, or null when unset. */
@@ -129,7 +129,10 @@ export function encodeLoadout(loadout: Loadout): string {
 	for (const { tag, section, noun, field, width } of SINGLE_GROUPS) {
 		const id = loadout[field];
 		if (id === null) continue;
-		checkId(tag, section, noun, width, id);
+		// The Any id names no entry, which is the whole of what it says. The
+		// exception lives at the two call sites rather than inside `checkId`, so
+		// a treasure slot — which shares that check — cannot inherit it.
+		if (!isAnyId(section, id)) checkId(tag, section, noun, width, id);
 		out += tag + id;
 	}
 
@@ -183,7 +186,9 @@ export function decodeLoadout(section: string): Loadout {
 		const single = SINGLE_GROUPS.find((group) => group.tag === tag);
 		if (single !== undefined) {
 			const id = rest.slice(0, single.width);
-			checkId(single.tag, single.section, single.noun, single.width, id);
+			if (!isAnyId(single.section, id)) {
+				checkId(single.tag, single.section, single.noun, single.width, id);
+			}
 			loadout[single.field] = id;
 			rest = rest.slice(single.width);
 			continue;

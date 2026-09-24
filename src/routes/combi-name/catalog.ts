@@ -23,6 +23,34 @@ export const ID_WIDTH: Record<CatalogSection, number> = {
 	treasures: 3,
 };
 
+/**
+ * The id that means "anything fits here" — a slot the build leaves open rather
+ * than leaves out, which is not the same as one it never mentions.
+ *
+ * `*` is outside the `[0-9A-Z]` alphabet `scripts/utils/asset-ids.ts` hands ids
+ * out from, so this can never collide with an entry however far the catalog
+ * grows. A reserved real id would have had to be defended in the allocator
+ * forever; this one is disjoint by construction.
+ *
+ * The loadout's three single slots carry it. A treasure slot does not: it
+ * already holds a list of acceptable alternatives, which is a different idea.
+ */
+export function anyIdFor(section: CatalogSection): string {
+	return "*".repeat(ID_WIDTH[section]);
+}
+
+export function isAnyId(section: CatalogSection, id: string): boolean {
+	return id === anyIdFor(section);
+}
+
+const ANY_LABEL: Record<CatalogSection, string> = {
+	cookies: "Any cookie",
+	pets: "Any pet",
+	// Unreachable — a treasure slot refuses the sentinel. Named anyway so the
+	// table is total: a partial one only moves the question to the lookup.
+	treasures: "Any treasure",
+};
+
 export const CAPACITY: Record<CatalogSection, number> = {
 	cookies: 36 ** ID_WIDTH.cookies,
 	pets: 36 ** ID_WIDTH.pets,
@@ -248,5 +276,6 @@ const LABELS: Record<CatalogSection, ReadonlyMap<string, string>> = {
  * to the bare name for a retired entry, which no picker offers.
  */
 export function labelFor(section: CatalogSection, id: string): string {
+	if (isAnyId(section, id)) return ANY_LABEL[section];
 	return LABELS[section].get(id) ?? nameFor(section, id);
 }

@@ -69,29 +69,34 @@ The loadout writes down the cookie, relay, pet, and treasure a build uses. The g
 | Tag | Group | Encoding |
 | --- | --- | --- |
 | `1` | Version | This section's own format version, tracked separately from the combi section's (slot 1 of the table above) |
-| `C` | Cookie | 2-character catalog id |
-| `R` | Relay | 2-character catalog id, the same catalog as cookie |
-| `P` | Pet | 2-character catalog id |
+| `C` | Cookie | 2-character catalog id, or `**` for any cookie |
+| `R` | Relay | 2-character catalog id, the same catalog as cookie, or `**` for any relay |
+| `P` | Pet | 2-character catalog id, or `**` for any pet |
 | `T` | Treasures | An order flag (`U` any order, `O` exact order), then up to three slots of 3-character ids joined by `-`; alternatives within a slot are joined by `_` |
 
 `C`, `R`, `P`, and `T` are each written at most once and, when present, always in that order. A group that has nothing to say is simply missing — there is no placeholder character for "unset."
 
+"Any" is not that placeholder, and the difference is the point: a missing group is a build that never mentions the slot, while `**` is one that says anything fits there. `*` is outside the `[0-9A-Z]` alphabet ids are drawn from, so it can never collide with a catalog id however far the catalog grows. Only `C`, `R`, and `P` accept it — a treasure slot already holds a list of acceptable alternatives, which is a different idea, and `TU***` is rejected like any other malformed id.
+
+An `R**` counts as a relay for everything a named relay counts for: the build is semi-auto, and slot 2 is written `H`. Which cookie relays in is not what makes the run need a hand.
+
 ```
 1S07--014-                   no loadout, exactly as before
 1C2L.1S07--014-              a cookie only
+1C**R**P**.1H00--000-        any cookie, any relay, any pet
 1C2LR0BP1ZTU0FZ_0RB-0QQ.1H35--400J
                              cookie, relay, pet, two treasure slots, any order
 ```
 
 Encoding always writes the canonical form: ids are sorted within a slot, and whole slots are sorted against each other whenever the order flag is `U` — a single slot is always written `U`, since there is nothing to order with only one slot. That is what keeps one build to exactly one code. Reading a code is more forgiving: a hand-written or otherwise non-canonical loadout still decodes correctly, it just re-encodes into the canonical form rather than back into what you typed.
 
-Every id — cookie, relay, pet, or treasure — is a catalog id from `assets/index.json`. Ids are handed out once, append-only, and never reassigned or reused, so a code you write today still names the same cookie, pet, or treasure years from now, even if that entry is later pulled from the game.
+Every id — cookie, relay, pet, or treasure — is a catalog id from `assets/index.json`, `**` aside. Ids are handed out once, append-only, and never reassigned or reused, so a code you write today still names the same cookie, pet, or treasure years from now, even if that entry is later pulled from the game.
 
 An id must not repeat within one treasure slot — `TU0FZ_0FZ` is invalid, since listing the same treasure as its own alternative says nothing. The same id may repeat across two different slots, though: that is how overlapping alternatives are written, and `loadout.ts` enforces the no-repeat rule per slot, not across the whole group.
 
 ## Auto vs semi-auto
 
-Semi-auto is a run that needs manual work each time. A build is semi-auto when **any** of these is true: Fast Start is on (bit `4` of slot 4), a random boost is selected (slot 7), there is a jump action (slot 10), or the loadout carries a relay cookie (the `R` group). The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
+Semi-auto is a run that needs manual work each time. A build is semi-auto when **any** of these is true: Fast Start is on (bit `4` of slot 4), a random boost is selected (slot 7), there is a jump action (slot 10), or the loadout carries a relay cookie (the `R` group, `R**` included). The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
 
 The relay is the one reason that lives outside the ten characters: a relay cookie is swapped in by hand, so a run carrying one never plays itself through. Slot 2 is written from the whole build, so the ten characters you paste into the game say `H` when a relay is in front of them — while a bare combi code, having no loadout to read, answers for its own three flags alone.
 
@@ -135,7 +140,7 @@ The code and what it says in words stay pinned at the top of the page as you wor
 
 Each field of the code is drawn as its own run. Hover one and it names its slot and what it currently says; click it and the page jumps to the control that writes it. That is why the slot tables sit folded away at the bottom — they confirm the format rather than being where you look things up.
 
-Below the code, one board: the run type and episode, then the loadout and its treasures, then boosts, random boost and action, then cookie power+. Every value it shows is the control that writes it. There is no Semi-auto chip — pick **Auto**, and the build turns semi-auto by itself the moment Fast Start, a random boost, a jump action or a relay cookie is in play, which is what the format says anyway. The chip itself then reads Semi-auto, and the badge on the board says so too. Episode and Random boost are tiles rather than chip rows: each stands what it holds under the role it fills, and clicking one opens its grid in a dialog over the page. Twelve episode cards and eleven random boosts are grids, not rows, and both lists are short enough that neither picker carries a filter box. The episode's own none is **Any**; the random boost's is a **None** cell in its grid. Action opens with a none of its own, and clicking the chip you already picked goes back to it. Cookie power+ wears the portrait of the cookie it belongs to. The cookie, relay and pet controls stand the face of what they hold under the role they fill; clicking one opens a filterable grid of faces in a dialog over the page, which Escape or a click on its backdrop closes again. A treasure slot is its name over its alternatives, one to a line, each with a button that drops just that one; the name opens the same grid, where picks are a draft until **Done** and Escape throws the draft away whole. The treasure grid offers only what a run can equip — the consumable family, 13 of the 1,144 entries, is left out of the picker, though a code that already carries one still reads and still keeps it.
+Below the code, one board: the run type and episode, then the loadout and its treasures, then boosts, random boost and action, then cookie power+. Every value it shows is the control that writes it. There is no Semi-auto chip — pick **Auto**, and the build turns semi-auto by itself the moment Fast Start, a random boost, a jump action or a relay cookie is in play, which is what the format says anyway. The chip itself then reads Semi-auto, and the badge on the board says so too. Episode and Random boost are tiles rather than chip rows: each stands what it holds under the role it fills, and clicking one opens its grid in a dialog over the page. Twelve episode cards and eleven random boosts are grids, not rows, and both lists are short enough that neither picker carries a filter box. The episode's own none is **Any**; the random boost's is a **None** cell in its grid. Action opens with a none of its own, and clicking the chip you already picked goes back to it. Cookie power+ wears the portrait of the cookie it belongs to. The cookie, relay and pet controls stand the face of what they hold under the role they fill; clicking one opens a filterable grid of faces in a dialog over the page, which Escape or a click on its backdrop closes again. Each of those three grids opens with two answers before the catalog: **None**, the slot the build never mentions, and **Any**, the slot it says anything fits. A treasure slot is its name over its alternatives, one to a line, each with a button that drops just that one; the name opens the same grid, where picks are a draft until **Done** and Escape throws the draft away whole. The treasure grid offers only what a run can equip — the consumable family, 13 of the 1,144 entries, is left out of the picker, though a code that already carries one still reads and still keeps it.
 
 Your code lives in the address bar, so a build is a link you can send, and it is remembered between visits — a link wins over the remembered one, and **Reset** goes back to an empty code. Pasting a link into the address bar of a tab that is already open works too: the page notices the new code rather than overwriting it. **Copy** takes the code, **Copy link** takes the whole address. The sidebar carries a light/dark control that defaults to following your system. Everything runs in the browser — no network calls, no analytics.
 

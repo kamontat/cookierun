@@ -76,6 +76,21 @@ test("an empty loadout reads as four None rows", () => {
 	]);
 });
 
+// None and Any are two different things to say: one is a slot the build never
+// mentions, the other a slot it says anything fits.
+test("an Any cookie, relay and pet read as Any, not as None", () => {
+	const rows = describeLoadout({
+		...emptyLoadout(),
+		cookie: "**",
+		relay: "**",
+		pet: "**",
+	});
+
+	expect(rows[0]).toEqual({ field: "Cookie", value: "Any cookie" });
+	expect(rows[1]).toEqual({ field: "Relay", value: "Any cookie" });
+	expect(rows[2]).toEqual({ field: "Pet", value: "Any pet" });
+});
+
 test("a picked cookie, relay and pet read as their names", () => {
 	const rows = describeLoadout({
 		...emptyLoadout(),

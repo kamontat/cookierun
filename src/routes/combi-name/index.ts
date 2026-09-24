@@ -1,5 +1,6 @@
 import { boostArt, cookiePowerArt, episodeArt } from "./art";
 import {
+	anyIdFor,
 	type EntryKind,
 	imageFor,
 	kindFor,
@@ -104,13 +105,22 @@ function pickerOptions(
  * The same list without the kind, for the three `<entry-tile>` pickers. Nothing
  * a cookie or a pet picker holds evolves, so the kind is always null there and
  * the element has no field for one.
+ *
+ * Any leads the list, under the tile's own None. The two are different answers
+ * — a slot the build says anything fits, against one it never mentions — and
+ * the order puts them together at the top rather than burying Any in the
+ * catalog it is not part of.
  */
 function tileOptions(
 	section: "cookies" | "pets",
 ): readonly (readonly [string, string, string | null])[] {
-	return pickerOptions(section).map(
-		([id, label, image]) => [id, label, image] as const,
-	);
+	const any = anyIdFor(section);
+	return [
+		[any, labelFor(section, any), null] as const,
+		...pickerOptions(section).map(
+			([id, label, image]) => [id, label, image] as const,
+		),
+	];
 }
 
 /** What the treasure slots offer: the families a run can equip. */

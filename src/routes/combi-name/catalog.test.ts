@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import index from "#assets/index.json";
 
 import {
+	anyIdFor,
 	CAPACITY,
 	type CatalogSection,
 	HIDDEN_TREASURE_FAMILIES,
@@ -10,6 +11,7 @@ import {
 	ID_WIDTH,
 	imageFor,
 	imageForKey,
+	isAnyId,
 	isRetired,
 	kindFor,
 	labelFor,
@@ -20,6 +22,38 @@ import {
 } from "./catalog";
 
 const SECTIONS: CatalogSection[] = ["cookies", "pets", "treasures"];
+
+// "Any cookie" has to be a value a code can carry, and the scraper hands out
+// every id in `[0-9A-Z]`. `*` is outside that alphabet, so the two can never
+// meet — no id the catalog grows into can collide with this one.
+test("the Any id is the section's width and no entry can ever hold it", () => {
+	for (const section of SECTIONS) {
+		const id = anyIdFor(section);
+
+		expect(id.length).toBe(ID_WIDTH[section]);
+		expect(id).not.toMatch(/[0-9A-Z]/);
+		expect(hasId(section, id)).toBe(false);
+		expect(isAnyId(section, id)).toBe(true);
+		expect(isAnyId(section, "00")).toBe(false);
+	}
+});
+
+// It reads as a name wherever an entry's does, so nothing downstream — the
+// prose rows, the tooltips — has to learn the sentinel to name it.
+test("the Any id names itself", () => {
+	expect(labelFor("cookies", anyIdFor("cookies"))).toBe("Any cookie");
+	expect(labelFor("pets", anyIdFor("pets"))).toBe("Any pet");
+});
+
+// The picker's own list is the catalog: Any is an option the route adds, not
+// an entry the catalog holds.
+test("the Any id is not offered as a catalog option", () => {
+	for (const section of SECTIONS) {
+		const ids = optionsFor(section).map(([id]) => id);
+
+		expect(ids).not.toContain(anyIdFor(section));
+	}
+});
 
 test("every id is the right width for its section and within capacity", () => {
 	for (const section of SECTIONS) {
