@@ -542,6 +542,12 @@ export class EntryTiles extends LitElement {
 				Number((event.target as HTMLSelectElement).value),
 			);
 		};
+		// `.value` is bound with live(), not left as a bare attribute: in a real
+		// browser, once a person has picked an option, a later render that only
+		// changes which option carries `selected` no longer moves the
+		// selection on its own — live() is what re-applies `.value` on every
+		// render regardless. happy-dom does not reproduce that failure mode, so
+		// the tests/happydom.ts shim would not catch this binding's removal.
 		return html`<select
 			class=${`level level-${end}`}
 			aria-label=${`${name} ${end === "min" ? "lowest" : "highest"} level`}

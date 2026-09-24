@@ -108,6 +108,7 @@ A treasure is upgraded from +0 to +9, and each treasure in a slot says which lev
 | `0FZ5` | +5 |
 | `0FZ58` | +5 to +8 |
 | `0FZ09` | +0 to +9, any level |
+| `0FZ9` | +9 |
 
 No digits means +0, which is also how every code written before levels existed reads. Encoding writes the shortest form: a range whose two ends match is one digit, and +0 is nothing. A range that runs backwards, like `95`, is rejected.
 
