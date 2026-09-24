@@ -215,7 +215,7 @@ test("typing a code with a loadout fills the loadout controls too", async () => 
 	await reset();
 });
 
-// The picker does not offer the consumable and special families, but a code
+// The picker does not offer the consumable family, but a code
 // written before that — or by hand — can still carry one, and dropping it
 // would rewrite someone's saved build behind their back.
 test("a code carrying a treasure the picker hides keeps it", async () => {

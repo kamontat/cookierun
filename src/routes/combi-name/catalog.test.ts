@@ -170,9 +170,8 @@ test("every cookie key resolves to the same entry its id does", () => {
 	}
 });
 
-// The picker offers what a run can equip. Consumables and the commemorative
-// "special" family are neither, and between them they are 208 of the 1,144
-// entries someone would otherwise scroll past.
+// The picker offers what a run can equip. Consumables are not, and they are 13
+// of the 1,144 entries someone would otherwise scroll past.
 test("the treasure picker leaves out the families a run cannot equip", () => {
 	const offered = new Set(optionsFor("treasures").map(([id]) => id));
 

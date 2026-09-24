@@ -61,17 +61,18 @@ export type CatalogEntry = {
 };
 
 /**
- * The treasure families the picker does not offer. A run equips treasures from
- * the draw, pet and cookie families; `consumable` is the XP-Elixirs and their
- * like, and `special` is trophies, certificates and commemorative frames —
- * between them 208 of the 1,144 entries, none of which can go in a slot.
+ * The treasure families the picker does not offer. `consumable` is the
+ * XP-Elixirs and their like, 13 of the 1,144 entries, and none of them can go
+ * in a slot. The `special` family — trophies, certificates and commemorative
+ * frames — was hidden alongside them and is offered again: a run can equip
+ * one, and 195 entries is too many to leave out of the picker on a guess.
  *
  * This hides them from the picker and from nowhere else. A code that already
  * carries one still decodes and still names it, the same promise a retired
  * entry gets: what can be chosen is a question about the page, what can be
  * named is a question about the wire format.
  */
-export const HIDDEN_TREASURE_FAMILIES = ["consumable", "special"] as const;
+export const HIDDEN_TREASURE_FAMILIES = ["consumable"] as const;
 
 // One cast at the boundary. A JSON import's inferred type has no index
 // signature, and propagating 1,300 literal property types through every lookup
