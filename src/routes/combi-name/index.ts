@@ -139,7 +139,13 @@ function readLoadout(): Loadout {
 		pet: petTile.value,
 		// Empty slots are not gaps in the wire format, so they drop out.
 		treasures: treasureSlots
-			.map((slot) => slot.selected.map((id) => treasurePick(id)))
+			.map((slot) => {
+				const { levels } = slot;
+				return slot.selected.map((id) => {
+					const [min, max] = levels[id] ?? [0, 0];
+					return treasurePick(id, min, max);
+				});
+			})
 			.filter((slot) => slot.length > 0),
 		ordered: orderChips.value === "ordered",
 	};
@@ -184,11 +190,15 @@ function writeLoadout(loadout: Loadout): void {
 	petTile.value = loadout.pet;
 	orderChips.value = loadout.ordered ? "ordered" : "any";
 	treasureSlots.forEach((slot, index) => {
-		const carried = (loadout.treasures[index] ?? []).map((pick) => pick.id);
-		// Options before the picks: the two are separate writes, and a slot
-		// prunes a pick its current options do not hold.
-		slot.options = treasureOptions(carried);
-		slot.selected = carried;
+		const carried = loadout.treasures[index] ?? [];
+		const ids = carried.map((pick) => pick.id);
+		// Options, then picks, then levels: each is a separate write, a slot
+		// prunes a pick its options do not hold, and a level its picks do not.
+		slot.options = treasureOptions(ids);
+		slot.selected = ids;
+		slot.levels = Object.fromEntries(
+			carried.map((pick) => [pick.id, [pick.min, pick.max] as const]),
+		);
 	});
 }
 

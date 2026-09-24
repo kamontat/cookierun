@@ -639,3 +639,51 @@ test("the Auto chip reads Semi-auto once something forces manual work", async ()
 	expect(control("type", "auto").textContent?.trim()).toBe("Semi-auto");
 	await reset();
 });
+
+function levelOf(slotId: string, treasure: string): [string, string] {
+	const row = inside(need(slotId)).querySelector<HTMLElement>(
+		`.chip[data-value="${treasure}"]`,
+	);
+	const min = row?.querySelector<HTMLSelectElement>("select.level-min");
+	const max = row?.querySelector<HTMLSelectElement>("select.level-max");
+	if (!min || !max) throw new Error(`no level selects for ${treasure}`);
+	return [min.value, max.value];
+}
+
+test("a code's treasure levels land on the selects", async () => {
+	await typeCode("1TU0FZ_0RB58.0QQ9-1S00000000");
+
+	expect(levelOf("treasure1", "0FZ")).toEqual(["0", "0"]);
+	expect(levelOf("treasure1", "0RB")).toEqual(["5", "8"]);
+	expect(levelOf("treasure2", "0QQ")).toEqual(["9", "9"]);
+	await reset();
+});
+
+test("changing a level rewrites the code", async () => {
+	await typeCode("1TU0FZ-1S00000000");
+	(codeBar as HTMLElement & { editing: boolean }).editing = false;
+	await settle();
+
+	const max = inside(need("treasure1")).querySelector<HTMLSelectElement>(
+		'.chip[data-value="0FZ"] select.level-max',
+	);
+	if (!max) throw new Error("no highest-level select");
+	max.value = "9";
+	max.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+	await settle();
+
+	expect((codeBar as HTMLElement & { value: string }).value).toBe(
+		"1TU0FZ09-1S00000000",
+	);
+	await reset();
+});
+
+// A reversed range does not decode, and a code that does not decode leaves the
+// controls exactly where they were.
+test("a code with a backwards level range changes nothing", async () => {
+	await typeCode("1TU0FZ9-1S00000000");
+	await typeCode("1TU0FZ95-1S00000000");
+
+	expect(levelOf("treasure1", "0FZ")).toEqual(["9", "9"]);
+	await reset();
+});
