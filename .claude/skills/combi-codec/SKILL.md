@@ -65,6 +65,8 @@ It covers the combi section only. A loadout's alternative treasure slots make it
 
 Encoding a loadout always writes its canonical form: ids sorted within a slot, whole slots sorted against each other whenever the order flag is `U` (order doesn't matter), and a single slot always written `U` since there is nothing to order. `decodeLoadout` does not have the codec's hard/soft split above — there is no warning path — but it is just as forgiving of a non-canonical code in its own way: it decodes one exactly as written rather than rejecting it, and only re-encoding snaps it back to canonical form.
 
+Each treasure id may be followed by a level: nothing for +0, one digit for one level, two for a range `min` then `max`. `Loadout.treasures` holds `TreasurePick { id, min, max }` for it, built with `treasurePick`. Canonical form writes +0 as nothing and a matching range as one digit; within a slot ids still sort by id alone (an id cannot repeat there), while unordered slots sort by their whole written string, levels included. No digits reading as +0 is what keeps every earlier code meaning what it did, which is why `LOADOUT_VERSION` stayed `1`. On the page, `<entry-tiles>`'s `levels` property carries the levels beside `selected`, and `writeLoadout` writes options, then picks, then levels, since each write prunes against the one before.
+
 ## Scope
 
 The combi section still does not model the cookie, relay, pet, or treasure: the game already stores those four in the combi, which is precisely why the 10 characters are spent on everything else. Don't add them to `codec.ts`. The loadout section is the exception — it exists to model exactly those four, for a code that needs to carry them anyway.
