@@ -190,6 +190,54 @@ test("a pick the replaced options no longer contain is dropped", async () => {
 	expect(element.value).toBeNull();
 });
 
+// A row whose own list already carries its "none" — the episode's `any`, the
+// random boost's None — does not want a second one above it.
+test("a required control renders no None row", async () => {
+	const element = await mount();
+	element.required = true;
+	await element.updateComplete;
+
+	expect(entries(element).map((entry) => entry.value)).toEqual([
+		"0A",
+		"0B",
+		"0C",
+	]);
+});
+
+// Nothing picked yet still has to leave the grid one tab stop, and with the
+// None row gone there is no cell matching the empty value to carry it.
+test("a required control with nothing picked makes the first cell tabbable", async () => {
+	const element = await mount();
+	element.required = true;
+	await element.updateComplete;
+
+	expect(entries(element).map((entry) => entry.tabIndex)).toEqual([0, -1, -1]);
+});
+
+// Twelve episodes and six random boosts fit on the screen whole; a filter over
+// a list you can already see is a box to tab past.
+test("an unsearchable control renders no search box", async () => {
+	const element = await mount();
+	element.searchable = false;
+	await element.updateComplete;
+
+	expect(search(element)).toBe(null);
+});
+
+// The search box is what focus lands on when there is one. Without it the
+// dialog would otherwise open on its Close button.
+test("with no search box the picked cell takes focus", async () => {
+	const element = await mount();
+	element.searchable = false;
+	element.value = "0B";
+	await element.updateComplete;
+
+	tile(element).click();
+	await settle(element);
+
+	expect(element.shadowRoot?.activeElement).toBe(cell(element, "0B"));
+});
+
 test("typing in the search box narrows the list", async () => {
 	const element = await mount();
 	tile(element).click();

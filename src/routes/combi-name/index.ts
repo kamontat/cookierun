@@ -72,9 +72,9 @@ const linkStatus = need("link-status");
 
 const buildForm = need<HTMLFormElement>("build");
 const typeChips = need<ChipGroup>("type");
-const episodeChips = need<ChipGroup>("episode");
+const episodeTile = need<EntryTile>("episode");
 const boostCards = need<CardGroup>("boosts");
-const randomBoostChips = need<ChipGroup>("randomBoost");
+const randomBoostTile = need<EntryTile>("randomBoost");
 const cookiePowerCards = need<CardGroup>("cookiePowers");
 const actionChips = need<ChipGroup>("action");
 
@@ -120,8 +120,6 @@ const ORDER_OPTIONS = [
 	["any", "Any order"],
 	["ordered", "Exact order"],
 ] as const;
-
-const NO_RANDOM_BOOST = "";
 
 function readLoadout(): Loadout {
 	return {
@@ -184,14 +182,13 @@ function writeLoadout(loadout: Loadout): void {
 }
 
 function readForm(): Combi {
-	const randomBoost = randomBoostChips.value;
-
 	return {
 		type: typeChips.value as CombiType,
-		episode: episodeChips.value as Episode,
+		// The tile offers no None of its own — `any` is the episode's — so the
+		// fallback is a type-level one and never a value the page can produce.
+		episode: (episodeTile.value ?? "any") as Episode,
 		boosts: boostCards.selected as Boost[],
-		randomBoost:
-			randomBoost === NO_RANDOM_BOOST ? null : (randomBoost as RandomBoost),
+		randomBoost: randomBoostTile.value as RandomBoost | null,
 		cookiePowers: cookiePowerCards.selected as CookiePower[],
 		action: actionChips.value as Action,
 	};
@@ -201,8 +198,10 @@ function writeForm(combi: Combi): void {
 	// A semi-auto code lands on the Auto chip: semi-auto is what the flag slots
 	// make of an auto run, not a type anyone picks, so there is no chip for it.
 	typeChips.value = combi.type === "semiauto" ? "auto" : combi.type;
-	episodeChips.value = combi.episode;
-	randomBoostChips.value = combi.randomBoost ?? NO_RANDOM_BOOST;
+	episodeTile.value = combi.episode;
+	// No sentinel in either direction: the tile's own empty pick is null, which
+	// is exactly what a combi carrying no random boost holds.
+	randomBoostTile.value = combi.randomBoost;
 	actionChips.value = combi.action;
 	boostCards.selected = combi.boosts;
 	cookiePowerCards.selected = combi.cookiePowers;
@@ -348,9 +347,9 @@ function readDraft(text: string): void {
 /** Which control writes each group of characters the hints mark out. */
 const OWNER: Record<string, HTMLElement> = {
 	type: typeChips,
-	episode: episodeChips,
+	episode: episodeTile,
 	boosts: boostCards,
-	randomBoost: randomBoostChips,
+	randomBoost: randomBoostTile,
 	cookiePowers: cookiePowerCards,
 	action: actionChips,
 	cookie: cookieTile,
@@ -427,9 +426,10 @@ function typeOptions(semi: boolean): readonly (readonly [string, string])[] {
 }
 
 typeChips.options = typeOptions(false);
-// The one chip row with art. `any` has no icon and is drawn as a bare chip,
-// which is what every other row here still looks like.
-episodeChips.options = ALL_EPISODES.map(
+// Twelve landscape cards is a grid, not a row: an episode is a place, and the
+// picture is what anyone recognises it by. `any` has no icon and falls back to
+// the lettered cell the catalog pickers already use.
+episodeTile.options = ALL_EPISODES.map(
 	(episode) =>
 		[
 			episode,
@@ -437,18 +437,22 @@ episodeChips.options = ALL_EPISODES.map(
 			episodeArt(episode, ASSET_BASE),
 		] as const,
 );
-randomBoostChips.options = [
-	// `as const` or this literal infers as string[] and will not assign to a
-	// [value, label] tuple.
-	[NO_RANDOM_BOOST, "None"] as const,
-	...pairs(ALL_RANDOM_BOOSTS, RANDOM_BOOST_LABELS),
-];
+// `any` is the episode's own none, so the tile must not offer a second one.
+episodeTile.required = true;
+randomBoostTile.options = ALL_RANDOM_BOOSTS.map(
+	(boost) => [boost, RANDOM_BOOST_LABELS[boost], null] as const,
+);
+// Twelve and six both fit on the screen whole; a filter over a list you can
+// already see is a box to tab past. Set here rather than in the markup for the
+// reason `resettable` is: an attribute the markup ships is invisible to the
+// property in the route's test harness.
+episodeTile.searchable = false;
+randomBoostTile.searchable = false;
 actionChips.options = pairs(ALL_ACTIONS, ACTION_LABELS);
 
-// The two rows whose first option is a "none" of their own: clicking the chip
+// The one row left whose first option is a none of its own: clicking the chip
 // already picked goes back to it. Set here rather than in the markup because
 // it is the same decision as putting that option first, which happens here.
-randomBoostChips.resettable = true;
 actionChips.resettable = true;
 orderChips.options = ORDER_OPTIONS;
 

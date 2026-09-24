@@ -52,7 +52,11 @@ async function codeText(): Promise<string> {
 function control(hostId: string, value: string): HTMLButtonElement {
 	const buttons = [
 		...inside(need(hostId)).querySelectorAll<HTMLButtonElement>("button"),
-	];
+		// A button that holds a value says so with a role — option, radio,
+		// checkbox. The ones without are the furniture a picker needs to open and
+		// close, and a bare <button> reads its value back as "", which is exactly
+		// the value a "none" cell carries.
+	].filter((button) => button.hasAttribute("role"));
 	const found = buttons.find((button) => button.value === value);
 	if (found === undefined) {
 		throw new Error(`#${hostId} has no control for ${value}`);
@@ -151,13 +155,13 @@ test("a semi-auto code re-encodes as itself", async () => {
 	await reset();
 });
 
-// Clicking the random boost you already picked is how you go back to none —
-// the two rows that have a "none" of their own say so.
-test("clicking the chosen random boost puts it back to none", async () => {
+// The random boost's picker carries a None cell of its own, so going back to
+// none is a pick like any other rather than a second click on what is chosen.
+test("picking None puts the random boost back to none", async () => {
 	await choose("randomBoost", "revive");
 	expect(await codeText()).toBe("1S00--400-");
 
-	await choose("randomBoost", "revive");
+	await choose("randomBoost", "");
 
 	expect(await codeText()).toBe("1S00--000-");
 	await reset();
@@ -215,9 +219,9 @@ test("typing a code with a loadout fills the loadout controls too", async () => 
 	await reset();
 });
 
-// The picker does not offer the consumable family, but a code
-// written before that — or by hand — can still carry one, and dropping it
-// would rewrite someone's saved build behind their back.
+// The picker does not offer the consumable family, but a code written before
+// that — or by hand — can still carry one, and dropping it would rewrite
+// someone's saved build behind their back.
 test("a code carrying a treasure the picker hides keeps it", async () => {
 	await typeCode("1TU00Z.1S00--000-");
 

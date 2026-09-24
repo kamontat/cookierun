@@ -1,4 +1,4 @@
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 
 import { base, controls } from "./theme";
@@ -267,6 +267,23 @@ export class EntryTile extends LitElement {
 	@property({ attribute: false })
 	options: readonly Option[] = [];
 
+	/**
+	 * Whether the list already carries its own "none". The episode's is `any`
+	 * and the random boost's is None; a second one above them would be a second
+	 * answer to the same question, and neither row has a value the format lets
+	 * it be without.
+	 */
+	@property({ type: Boolean })
+	required = false;
+
+	/**
+	 * Whether to draw the filter box. A catalog of a thousand needs one; twelve
+	 * episodes are already on the screen, and a box over them is one more thing
+	 * to tab past on the way to the grid.
+	 */
+	@property({ type: Boolean })
+	searchable = true;
+
 	@state()
 	private picked: string | null = null;
 
@@ -357,7 +374,16 @@ export class EntryTile extends LitElement {
 		this.filter = "";
 		await this.updateComplete;
 		this.#dialog()?.showModal();
-		this.#search()?.focus();
+		// The search box is the way in where there is one. Without it, focus goes
+		// to the grid's own tab stop — the picked cell — rather than to Close,
+		// which is what a dialog opens on when nothing asks for focus.
+		const entry =
+			this.#search() ?? this.#cells().find((cell) => cell.tabIndex === 0);
+		(entry ?? this.#closeButton())?.focus();
+	}
+
+	#closeButton(): HTMLButtonElement | null {
+		return this.shadowRoot?.querySelector("button.close") ?? null;
 	}
 
 	#closePicker(): void {
@@ -438,6 +464,11 @@ export class EntryTile extends LitElement {
 		const { shown, total } = this.#matches();
 		const tabbableValue = this.picked ?? "";
 		const picked = this.#pickedOption();
+		// With no None row there is no cell holding the empty value, so nothing
+		// carries the grid's tab stop until something is picked. The first cell
+		// takes it — a grid of 12 with no way in is worse than one that opens on
+		// its first entry.
+		const firstTabbable = this.required && this.picked === null;
 
 		return html`<button
 				type="button"
@@ -489,17 +520,21 @@ export class EntryTile extends LitElement {
 							Close
 						</button>
 					</header>
-					<input
-						type="search"
-						autocomplete="off"
-						placeholder="Type to filter"
-						aria-label=${`Filter ${this.label}`}
-						.value=${this.filter}
-						@input=${(event: Event) => {
-							event.stopPropagation();
-							this.filter = (event.target as HTMLInputElement).value;
-						}}
-					/>
+					${
+						this.searchable
+							? html`<input
+									type="search"
+									autocomplete="off"
+									placeholder="Type to filter"
+									aria-label=${`Filter ${this.label}`}
+									.value=${this.filter}
+									@input=${(event: Event) => {
+										event.stopPropagation();
+										this.filter = (event.target as HTMLInputElement).value;
+									}}
+								/>`
+							: nothing
+					}
 					<div
 						class="entries"
 						role="listbox"
@@ -508,8 +543,13 @@ export class EntryTile extends LitElement {
 							this.#walk(event);
 						}}
 					>
-						${this.#cell(["", NONE, null], tabbableValue === "")}
-						${shown.map((option) => this.#cell(option, option[0] === tabbableValue))}
+						${this.required ? nothing : this.#cell(["", NONE, null], tabbableValue === "")}
+						${shown.map((option, at) =>
+							this.#cell(
+								option,
+								firstTabbable ? at === 0 : option[0] === tabbableValue,
+							),
+						)}
 					</div>
 					<small class="more"
 						>${

@@ -173,6 +173,20 @@ main {
 	align-items: start;
 }
 
+/* One tile is not a row. Left in the grid above it would stretch to the whole
+   board, which makes the episode read louder than the loadout under it; this
+   caps it at the column width the loadout's own tiles take. */
+.tiles.one {
+	grid-template-columns: minmax(0, 14rem);
+}
+
+/* A tile row is spaced like the controls above it, but takes the margin on its
+   own rather than joining the rule that gives chip and card groups theirs:
+   that one sets display: block, which would undo the grid. */
+.group > .tiles {
+	margin-bottom: var(--cr-space-3);
+}
+
 .warnings {
 	display: grid;
 	gap: var(--cr-space-2);
