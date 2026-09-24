@@ -50,6 +50,15 @@ test("every page hosts the sidebar", async () => {
 	}
 });
 
+// Which commit the page was built from, when, and where the source is. Every
+// page says it, so a page missing the element is a page whose version nobody
+// can report back.
+test("every page hosts the footer", async () => {
+	for (const page of await pages()) {
+		expect(page).toContain("<site-footer");
+	}
+});
+
 // A tool page built by copying src/routes/index.html - which is what the
 // add-a-tool checklist tells you to do - carries a bare
 // <site-nav></site-nav> unless this is checked. Without `current`, hrefFor

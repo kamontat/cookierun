@@ -48,6 +48,7 @@ import "#components/chip-group";
 import "#components/code-bar";
 import "#components/entry-tile";
 import "#components/entry-tiles";
+import "#components/site-footer";
 import "#components/site-nav";
 
 import type { BuildSummary } from "#components/build-summary";
