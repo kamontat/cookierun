@@ -11,7 +11,7 @@ function groups(code: string): string[] {
 }
 
 test("one hint per character of the code", () => {
-	const code = "1S00--000-";
+	const code = "1S00000000";
 	const described = hintsFor(code);
 
 	expect(described).toHaveLength(code.length);
@@ -19,7 +19,7 @@ test("one hint per character of the code", () => {
 });
 
 test("each slot names its number, its field and what it currently says", () => {
-	const [version, type, episode] = hints("1E36--400J");
+	const [version, type, episode] = hints("1E36R00J00");
 
 	expect(version).toBe("Slot 1 · Format version");
 	expect(type).toBe("Slot 2 · Type · Exp");
@@ -27,62 +27,62 @@ test("each slot names its number, its field and what it currently says", () => {
 });
 
 test("the boost slot names every boost that is on", () => {
-	const [, , , boosts] = hints("1E36--400J");
+	const [, , , boosts] = hints("1E36R00J00");
 
 	expect(boosts).toBe("Slot 4 · Boosts · Power Jelly Boost, Fast Start");
 });
 
 test("a boost slot with nothing on reads as None", () => {
-	const [, , , boosts] = hints("1E30--400J");
+	const [, , , boosts] = hints("1E30R00J00");
 
 	expect(boosts).toBe("Slot 4 · Boosts · None");
 });
 
 test("the reserved slots say so, and say it together", () => {
-	const described = hintsFor("1E3F--400J");
+	const described = hintsFor("1E3FR00J00");
 
-	expect(described[4]?.hint).toBe("Slots 5-6 · Reserved");
-	expect(described[5]?.hint).toBe(described[4]?.hint);
+	expect(described[8]?.hint).toBe("Slots 9-10 · Reserved");
+	expect(described[9]?.hint).toBe(described[8]?.hint);
 	expect(described[3]?.hint).toBe(
 		"Slot 4 · Boosts · HP Extension, Power Jelly Boost, Fast Start, Double XP",
 	);
 });
 
 test("the two cookie power+ characters share one hint over the whole mask", () => {
-	const described = hints("1S00--014-");
+	const described = hints("1S00014000");
 
-	expect(described[7]).toBe(
-		"Slots 8-9 · Cookie power+ · Fairy Cookie, Sea Fairy Cookie",
+	expect(described[5]).toBe(
+		"Slots 6-7 · Cookie power+ · Fairy Cookie, Sea Fairy Cookie",
 	);
-	expect(described[8]).toBe(described[7]);
+	expect(described[6]).toBe(described[5]);
 });
 
 test("an empty field reads as None rather than as a blank", () => {
-	const described = hints("1S00--000-");
+	const described = hints("1S00000000");
 
-	expect(described[6]).toBe("Slot 7 · Random boost · None");
-	expect(described[9]).toBe("Slot 10 · Action · No action");
+	expect(described[4]).toBe("Slot 5 · Random boost · None");
+	expect(described[7]).toBe("Slot 8 · Action · No action");
 });
 
 // The two reserved characters share a group of their own: they say the same
 // nothing, and no control owns them.
 test("characters of one field share a group, and neighbouring fields do not", () => {
-	expect(groups("1S00--000-")).toEqual([
+	expect(groups("1S00000000")).toEqual([
 		"version",
 		"type",
 		"episode",
 		"boosts",
-		"reserved",
-		"reserved",
 		"randomBoost",
 		"cookiePowers",
 		"cookiePowers",
 		"action",
+		"reserved",
+		"reserved",
 	]);
 });
 
 test("a loadout section is hinted group by group, separator included", () => {
-	const code = "1C00P02.1S00--000-";
+	const code = "1C00P02-1S00000000";
 	const described = hintsFor(code);
 
 	expect(described).toHaveLength(code.length);
@@ -95,7 +95,7 @@ test("a loadout section is hinted group by group, separator included", () => {
 });
 
 test("every character of a treasure group shares the treasure hint", () => {
-	const described = hintsFor("1TU000-001.1S00--000-");
+	const described = hintsFor("1TU000.001-1S00000000");
 	const treasure = described.slice(1, 10);
 
 	expect(new Set(treasure.map(({ group }) => group))).toEqual(
@@ -105,6 +105,6 @@ test("every character of a treasure group shares the treasure hint", () => {
 });
 
 test("a code that cannot be decoded gets no hints at all", () => {
-	expect(hintsFor("1Z00--000-")).toEqual([]);
+	expect(hintsFor("1Z00000000")).toEqual([]);
 	expect(hintsFor("1S0")).toEqual([]);
 });

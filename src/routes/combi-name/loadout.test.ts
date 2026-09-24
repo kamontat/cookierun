@@ -29,24 +29,26 @@ test("each group carries its tag, and an unset field is left out", () => {
 // "Any cookie" is a thing a build says, and the only way to say it is to carry
 // it: a slot left unset means the build did not mention it at all.
 test("a cookie, relay or pet slot carries the Any id like any other", () => {
-	const code = encodeLoadout(loadout({ cookie: "**", relay: "**", pet: "**" }));
+	const code = encodeLoadout(loadout({ cookie: "__", relay: "__", pet: "__" }));
 
-	expect(code).toBe("1C**R**P**");
+	expect(code).toBe("1C__R__P__");
 	expect(decodeLoadout(code)).toEqual(
-		loadout({ cookie: "**", relay: "**", pet: "**" }),
+		loadout({ cookie: "__", relay: "__", pet: "__" }),
 	);
-	expect(isEmptyLoadout(loadout({ cookie: "**" }))).toBe(false);
+	expect(isEmptyLoadout(loadout({ cookie: "__" }))).toBe(false);
 });
 
 // The sentinel belongs to the three single slots. A treasure slot already
 // holds a list of alternatives, which is a different idea and a different
 // design; nothing should be able to smuggle one in through T.
 test("a treasure slot refuses the Any id", () => {
-	expect(() => encodeLoadout(loadout({ treasures: [["***"]] }))).toThrow(
-		'"***" is not 3 characters of [0-9A-Z]',
+	expect(() => encodeLoadout(loadout({ treasures: [["___"]] }))).toThrow(
+		'"___" is not 3 characters of [0-9A-Z]',
 	);
-	expect(() => decodeLoadout("1TU***")).toThrow(
-		'"***" is not 3 characters of [0-9A-Z]',
+	// On the wire `_` is also the alternative separator, so the would-be
+	// sentinel falls apart into empty ids before it could be read as one.
+	expect(() => decodeLoadout("1TU___")).toThrow(
+		'"" is not 3 characters of [0-9A-Z]',
 	);
 });
 
@@ -66,7 +68,7 @@ test("alternatives within a slot are joined by _ and sorted", () => {
 test("slots are joined by - and sorted when order does not matter", () => {
 	expect(
 		encodeLoadout(loadout({ treasures: [["0QQ"], ["000"]], ordered: false })),
-	).toBe("1TU000-0QQ");
+	).toBe("1TU000.0QQ");
 });
 
 test("slots sharing their smallest id sort the same way whichever order they arrive in", () => {
@@ -88,13 +90,13 @@ test("slots sharing their smallest id sort the same way whichever order they arr
 	);
 
 	expect(one).toBe(other);
-	expect(one).toBe("1TU000_001-000_002");
+	expect(one).toBe("1TU000_001.000_002");
 });
 
 test("slot order is preserved when order matters", () => {
 	expect(
 		encodeLoadout(loadout({ treasures: [["0QQ"], ["000"]], ordered: true })),
-	).toBe("1TO0QQ-000");
+	).toBe("1TO0QQ.000");
 });
 
 // With one slot there is nothing to order, so O would be a second code for the
@@ -106,7 +108,7 @@ test("a single slot is always written U", () => {
 });
 
 test("decoding reads every group back", () => {
-	expect(decodeLoadout("1C00R01P02TO0QQ-000_0RB")).toEqual({
+	expect(decodeLoadout("1C00R01P02TO0QQ.000_0RB")).toEqual({
 		cookie: "00",
 		relay: "01",
 		pet: "02",
@@ -116,9 +118,9 @@ test("decoding reads every group back", () => {
 });
 
 test("a non-canonical code decodes as written and re-encodes canonically", () => {
-	const decoded = decodeLoadout("1TU0QQ-000");
+	const decoded = decodeLoadout("1TU0QQ.000");
 	expect(decoded.treasures).toEqual([["0QQ"], ["000"]]);
-	expect(encodeLoadout(decoded)).toBe("1TU000-0QQ");
+	expect(encodeLoadout(decoded)).toBe("1TU000.0QQ");
 });
 
 test("the version character is checked", () => {
@@ -172,13 +174,13 @@ test("the order flag has to be U or O", () => {
 });
 
 test("more than three slots is rejected", () => {
-	expect(() => decodeLoadout("1TU000-001-002-003")).toThrow(
+	expect(() => decodeLoadout("1TU000.001.002.003")).toThrow(
 		'loadout group "T": 4 treasure slots, at most 3 fit',
 	);
 });
 
 test("an empty slot is rejected", () => {
-	expect(() => decodeLoadout("1TU000--001")).toThrow(
+	expect(() => decodeLoadout("1TU000..001")).toThrow(
 		'loadout group "T": slot 2 is empty',
 	);
 });
@@ -189,7 +191,7 @@ test("a repeated id within one slot is rejected, across slots is allowed", () =>
 	expect(() => decodeLoadout("1TU000_000")).toThrow(
 		'loadout group "T": slot 1 lists "000" twice',
 	);
-	expect(decodeLoadout("1TU000-000").treasures).toEqual([["000"], ["000"]]);
+	expect(decodeLoadout("1TU000.000").treasures).toEqual([["000"], ["000"]]);
 });
 
 test("encoding validates the same rules as decoding", () => {

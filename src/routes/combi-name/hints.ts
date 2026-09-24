@@ -58,14 +58,10 @@ function spansOfCombi(combi: Combi): Span[] {
 				boosts.length === 0 ? NONE : boosts.join(", ")
 			}`,
 		},
-		// Reserved characters own a group of their own so the code bar draws them
-		// as one run, and no control claims them: `index.ts`'s OWNER map has no
-		// entry for this group, which is what keeps a click on them from jumping.
-		{ length: 2, group: "reserved", hint: "Slots 5-6 · Reserved" },
 		{
 			length: 1,
 			group: "randomBoost",
-			hint: `Slot 7 · Random boost${SEPARATOR}${
+			hint: `Slot 5 · Random boost${SEPARATOR}${
 				combi.randomBoost === null
 					? NONE
 					: RANDOM_BOOST_LABELS[combi.randomBoost]
@@ -74,15 +70,19 @@ function spansOfCombi(combi: Combi): Span[] {
 		{
 			length: 2,
 			group: "cookiePowers",
-			hint: `Slots 8-9 · Cookie power+${SEPARATOR}${
+			hint: `Slots 6-7 · Cookie power+${SEPARATOR}${
 				powers.length === 0 ? NONE : powers.join(", ")
 			}`,
 		},
 		{
 			length: 1,
 			group: "action",
-			hint: `Slot 10 · Action${SEPARATOR}${ACTION_LABELS[combi.action]}`,
+			hint: `Slot 8 · Action${SEPARATOR}${ACTION_LABELS[combi.action]}`,
 		},
+		// Reserved characters own a group of their own so the code bar draws them
+		// as one run, and no control claims them: `index.ts`'s OWNER map has no
+		// entry for this group, which is what keeps a click on them from jumping.
+		{ length: 2, group: "reserved", hint: "Slots 9-10 · Reserved" },
 	];
 }
 

@@ -21,11 +21,11 @@ test("encodes a score combi with all boosts and two cookie powers", () => {
 		action: "none",
 	});
 
-	expect(code).toBe("1S07--014-");
+	expect(code).toBe("1S07014000");
 });
 
 test("decodes every slot back into a combi", () => {
-	const { combi } = decode("1E36--400J");
+	const { combi } = decode("1E36R00J00");
 
 	expect(combi).toEqual({
 		type: "exp",
@@ -43,13 +43,13 @@ test("every boost at once fills the mask", () => {
 		boosts: ["hpExtension", "powerJellyBoost", "fastStart", "doubleXp"],
 	});
 
-	expect(code).toBe("1H0F--000-");
+	expect(code).toBe("1H0F000000");
 });
 
 test("Double XP rides in the mask beside the others", () => {
 	const code = encode({ ...fullAuto, boosts: ["hpExtension", "doubleXp"] });
 
-	expect(code).toBe("1A09--000-");
+	expect(code).toBe("1A09000000");
 	expect(decode(code).combi.boosts).toEqual(["hpExtension", "doubleXp"]);
 });
 
@@ -58,37 +58,37 @@ test("Double XP alone leaves a run on full auto", () => {
 });
 
 test("rejects a boost mask that is not an uppercase hex digit", () => {
-	expect(() => decode("1S0G--014-")).toThrow(
+	expect(() => decode("1S0G014000")).toThrow(
 		'slot 4 (boosts): "G" is not an uppercase hex digit',
 	);
 });
 
 test("rejects anything written into the reserved slots", () => {
-	expect(() => decode("1S07X-014-")).toThrow(
-		'slot 5 (reserved): unknown char "X", expected "-"',
+	expect(() => decode("1S070140X0")).toThrow(
+		'slot 9 (reserved): unknown char "X", expected "0"',
 	);
-	expect(() => decode("1S07-X014-")).toThrow(
-		'slot 6 (reserved): unknown char "X", expected "-"',
+	expect(() => decode("1S0701400X")).toThrow(
+		'slot 10 (reserved): unknown char "X", expected "0"',
 	);
 });
 
 test("rejects a code that is not exactly 10 characters", () => {
-	expect(() => decode("1S07--014")).toThrow(
-		'code must be exactly 10 characters, got 9: "1S07--014"',
+	expect(() => decode("1S0700014")).toThrow(
+		'code must be exactly 10 characters, got 9: "1S0700014"',
 	);
 });
 
 test("rejects an unsupported version", () => {
-	expect(() => decode("2S0HPF014-")).toThrow('unsupported version "2"');
+	expect(() => decode("2S0H0140PF")).toThrow('unsupported version "2"');
 });
 
 test("rejects an unknown char in a slot", () => {
-	expect(() => decode("1Z07--014-")).toThrow('slot 2 (type): unknown char "Z"');
+	expect(() => decode("1Z07014000")).toThrow('slot 2 (type): unknown char "Z"');
 });
 
 test("rejects a cookie power mask above 7F", () => {
-	expect(() => decode("1S07--0FF-")).toThrow(
-		"slots 8-9 (cookie power+): mask FF exceeds 7F",
+	expect(() => decode("1S070FF000")).toThrow(
+		"slots 6-7 (cookie power+): mask FF exceeds 7F",
 	);
 });
 
@@ -118,13 +118,13 @@ test("encode writes H when an auto combi needs manual work", () => {
 		boosts: ["hpExtension", "fastStart"],
 	});
 
-	expect(code).toBe("1H35--000-");
+	expect(code).toBe("1H35000000");
 });
 
 test("encode writes A when a semiauto combi needs no manual work", () => {
 	const code = encode({ ...fullAuto, type: "semiauto", episode: "episode3" });
 
-	expect(code).toBe("1A31--000-");
+	expect(code).toBe("1A31000000");
 });
 
 test("encode leaves non-auto types alone", () => {
@@ -135,11 +135,11 @@ test("encode leaves non-auto types alone", () => {
 		boosts: ["fastStart"],
 	});
 
-	expect(code).toBe("1S34--000-");
+	expect(code).toBe("1S34000000");
 });
 
 test("decode warns when the type slot says Auto but manual work is present", () => {
-	const { combi, warnings } = decode("1A35--400-");
+	const { combi, warnings } = decode("1A35R00000");
 
 	expect(combi.type).toBe("auto");
 	expect(warnings).toEqual([
@@ -148,7 +148,7 @@ test("decode warns when the type slot says Auto but manual work is present", () 
 });
 
 test("decode warns when the type slot says Semi-auto but nothing is manual", () => {
-	const { combi, warnings } = decode("1H31--000-");
+	const { combi, warnings } = decode("1H31000000");
 
 	expect(combi.type).toBe("semiauto");
 	expect(warnings).toEqual([
@@ -157,9 +157,9 @@ test("decode warns when the type slot says Semi-auto but nothing is manual", () 
 });
 
 test("decode stays quiet when the type slot agrees with the flag slots", () => {
-	expect(decode("1H35--400-").warnings).toEqual([]);
+	expect(decode("1H35R00000").warnings).toEqual([]);
 });
 
 test("decode stays quiet for non-auto types regardless of the flag slots", () => {
-	expect(decode("1S34--000-").warnings).toEqual([]);
+	expect(decode("1S34000000").warnings).toEqual([]);
 });

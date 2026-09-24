@@ -81,9 +81,9 @@ test("an empty loadout reads as four None rows", () => {
 test("an Any cookie, relay and pet read as Any, not as None", () => {
 	const rows = describeLoadout({
 		...emptyLoadout(),
-		cookie: "**",
-		relay: "**",
-		pet: "**",
+		cookie: "__",
+		relay: "__",
+		pet: "__",
 	});
 
 	expect(rows[0]).toEqual({ field: "Cookie", value: "Any cookie" });

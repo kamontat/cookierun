@@ -92,18 +92,23 @@ const BOOST_BITS: { boost: Boost; bit: number; label: string }[] = [
 	{ boost: "doubleXp", bit: 0x8, label: "Double XP" },
 ];
 
+/**
+ * A letter from each boost's own name rather than a running count, so a code
+ * says which boost it carries to anyone who has read this table once.
+ * Collision Damage is `X` for crash: `C` and `D` were already taken.
+ */
 const RANDOM_BOOST_CHARS: Record<RandomBoost, string> = {
-	doubleCoins: "1",
-	scoreBonus: "2",
-	hpDrain: "3",
-	revive: "4",
-	crushChance: "5",
-	baseSpeed: "6",
-	goldCoinMagic: "7",
-	collisionDamage: "8",
-	potionHp: "9",
-	magneticAura: "A",
-	pitLifts: "B",
+	doubleCoins: "D",
+	scoreBonus: "S",
+	hpDrain: "H",
+	revive: "R",
+	crushChance: "C",
+	baseSpeed: "B",
+	goldCoinMagic: "G",
+	collisionDamage: "X",
+	potionHp: "P",
+	magneticAura: "M",
+	pitLifts: "L",
 };
 
 const COOKIE_POWER_BITS: Record<CookiePower, number> = {
@@ -117,18 +122,26 @@ const COOKIE_POWER_BITS: Record<CookiePower, number> = {
 };
 
 const ACTION_CHARS: Record<Action, string> = {
-	none: "-",
+	none: "0",
 	jumpAtStart: "J",
 };
 
-const OFF = "-";
+/**
+ * `0` is "off" or "none" in every slot. A code is letters and digits only, so
+ * a double-click or a word-wise selection takes the whole of it, and a code
+ * read aloud or pasted into a chat has no punctuation to lose.
+ */
+const OFF = "0";
 
 /**
- * Slots 5 and 6, left over when the boosts moved into one slot. They are held
- * open rather than dropped so the ten characters keep their fixed positions —
- * and so the next field to arrive has somewhere to go.
+ * Slots 9 and 10, left over when the boosts moved into one slot. They sit at
+ * the end so every field in use reads from the front without a gap, and they
+ * are held open rather than dropped so the code stays ten characters — and so
+ * the next field to arrive has somewhere to go.
  */
-const RESERVED = "--";
+const RESERVED = OFF.repeat(2);
+/** Zero-based index of the first reserved character. */
+const RESERVED_AT = 8;
 
 // Derived from the tables above so the lists can never drift from the codes.
 export const ALL_TYPES = Object.keys(TYPE_CHARS) as CombiType[];
@@ -162,7 +175,7 @@ const TYPE_BY_CHAR = invert(TYPE_CHARS);
 const EPISODE_BY_CHAR = invert(EPISODE_CHARS);
 const ACTION_BY_CHAR = invert(ACTION_CHARS);
 const RANDOM_BOOST_BY_CHAR = new Map<string, RandomBoost | null>([
-	["0", null],
+	[OFF, null],
 	...invert(RANDOM_BOOST_CHARS),
 ]);
 
@@ -206,10 +219,10 @@ export function encode(combi: Combi, forcedSemiAuto = false): string {
 		TYPE_CHARS[normalizeType(combi, forcedSemiAuto)],
 		EPISODE_CHARS[combi.episode],
 		boostMask.toString(16).toUpperCase(),
-		RESERVED,
-		combi.randomBoost === null ? "0" : RANDOM_BOOST_CHARS[combi.randomBoost],
+		combi.randomBoost === null ? OFF : RANDOM_BOOST_CHARS[combi.randomBoost],
 		cookieMask.toString(16).toUpperCase().padStart(2, "0"),
 		ACTION_CHARS[combi.action],
+		RESERVED,
 	].join("");
 }
 
@@ -240,27 +253,27 @@ function decodeBoosts(code: string): Boost[] {
  */
 function checkReserved(code: string): void {
 	RESERVED.split("").forEach((char, index) => {
-		const slotChar = code[4 + index];
+		const slotChar = code[RESERVED_AT + index];
 		if (slotChar !== char) {
 			throw new Error(
-				`slot ${5 + index} (reserved): unknown char "${slotChar}", expected "${OFF}"`,
+				`slot ${RESERVED_AT + 1 + index} (reserved): unknown char "${slotChar}", expected "${OFF}"`,
 			);
 		}
 	});
 }
 
 function decodeCookiePowers(code: string): CookiePower[] {
-	const maskText = code.slice(7, 9);
+	const maskText = code.slice(5, 7);
 
 	if (!/^[0-9A-F]{2}$/.test(maskText)) {
 		throw new Error(
-			`slots 8-9 (cookie power+): "${maskText}" is not 2 uppercase hex digits`,
+			`slots 6-7 (cookie power+): "${maskText}" is not 2 uppercase hex digits`,
 		);
 	}
 
 	const mask = Number.parseInt(maskText, 16);
 	if (mask > COOKIE_MASK_MAX) {
-		throw new Error(`slots 8-9 (cookie power+): mask ${maskText} exceeds 7F`);
+		throw new Error(`slots 6-7 (cookie power+): mask ${maskText} exceeds 7F`);
 	}
 
 	return (Object.entries(COOKIE_POWER_BITS) as [CookiePower, number][])
@@ -293,11 +306,11 @@ export function decode(code: string, forcedSemiAuto = false): DecodeResult {
 		boosts: decodeBoosts(code),
 		randomBoost: lookup(
 			RANDOM_BOOST_BY_CHAR,
-			code[6] as string,
-			"7 (random boost)",
+			code[4] as string,
+			"5 (random boost)",
 		),
 		cookiePowers: decodeCookiePowers(code),
-		action: lookup(ACTION_BY_CHAR, code[9] as string, "10 (action)"),
+		action: lookup(ACTION_BY_CHAR, code[7] as string, "8 (action)"),
 	};
 
 	return { combi, warnings: typeWarnings(combi, forcedSemiAuto) };
