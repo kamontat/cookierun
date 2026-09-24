@@ -1,6 +1,7 @@
 import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
+import { live } from "lit/directives/live.js";
 
 import { glyphFor, tileStyles } from "./entry-tile";
 import { base, controls } from "./theme";
@@ -376,32 +377,6 @@ export class EntryTiles extends LitElement {
 		this.#prune();
 	}
 
-	/**
-	 * A real browser already reads the right level off the `?selected` option
-	 * once the render above has run; this re-asserts it as a belt-and-braces
-	 * step, because a `<select>` built one `<option>` at a time can pass
-	 * through a moment where two options are briefly selected at once (the
-	 * newly-inserted one and whichever one a spec-following engine defaults to
-	 * before it arrives), and at least one DOM implementation resolves that
-	 * moment to the wrong option rather than the later one that was actually
-	 * asked for.
-	 */
-	override updated(): void {
-		for (const select of this.shadowRoot?.querySelectorAll<HTMLSelectElement>(
-			"select.level-min, select.level-max",
-		) ?? []) {
-			const value = select
-				.closest<HTMLElement>(".chip")
-				?.getAttribute("data-value");
-			if (value === undefined || value === null) continue;
-			const [min, max] = this.leveled.get(value) ?? UNUPGRADED;
-			const expected = String(
-				select.classList.contains("level-min") ? min : max,
-			);
-			if (select.value !== expected) select.value = expected;
-		}
-	}
-
 	/** Levels travel with their picks, so a pick that leaves takes its level. */
 	#prune(): void {
 		const kept = [...this.leveled].filter(([value]) => this.chosen.has(value));
@@ -411,11 +386,20 @@ export class EntryTiles extends LitElement {
 	/**
 	 * The two selects cannot disagree: moving one past the other drags the other
 	 * along, so the slot never holds a range the code would refuse to read.
+	 *
+	 * Both the select's native `input` and its `change` run through here, since
+	 * a select's `input` can arrive ahead of `change` (an arrow-key move fires
+	 * `input` in some browsers before the `change` that follows it) and the
+	 * component's own state has to track the control rather than lag a step
+	 * behind it. The no-op guard is what keeps that pair — or a `change` that
+	 * confirms what `input` already applied — from producing a second host
+	 * event for the one change a person made.
 	 */
 	#setLevel(value: string, end: "min" | "max", to: number): void {
 		const [min, max] = this.leveled.get(value) ?? UNUPGRADED;
 		const next: Level =
 			end === "min" ? [to, Math.max(max, to)] : [Math.min(min, to), to];
+		if (next[0] === min && next[1] === max) return;
 		this.leveled = new Map(this.leveled).set(value, next);
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 	}
@@ -546,22 +530,24 @@ export class EntryTiles extends LitElement {
 	#levelSelect(value: string, name: string, end: "min" | "max", at: number) {
 		// The select's own input and change are composed: left alone they would
 		// leave the shadow root as a second, unexplained change. The host's input
-		// is the one that says the slot moved.
-		const stop = (event: Event): void => {
+		// is the one that says the slot moved. Both native events are routed
+		// through the same handler — #setLevel's own no-op guard, not a listener
+		// choice here, is what keeps a browser that fires both for one change
+		// from producing two host events.
+		const choose = (event: Event): void => {
 			event.stopPropagation();
+			this.#setLevel(
+				value,
+				end,
+				Number((event.target as HTMLSelectElement).value),
+			);
 		};
 		return html`<select
 			class=${`level level-${end}`}
 			aria-label=${`${name} ${end === "min" ? "lowest" : "highest"} level`}
-			@input=${stop}
-			@change=${(event: Event) => {
-				stop(event);
-				this.#setLevel(
-					value,
-					end,
-					Number((event.target as HTMLSelectElement).value),
-				);
-			}}
+			.value=${live(String(at))}
+			@input=${choose}
+			@change=${choose}
 		>
 			${LEVELS.map(
 				(level) =>

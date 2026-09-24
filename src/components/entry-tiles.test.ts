@@ -807,3 +807,20 @@ test("Done keeps the levels of picks that stay, and a re-added pick starts at +0
 	await element.updateComplete;
 	expect(element.levels["002"]).toEqual([0, 0]);
 });
+
+// The re-render this triggers has to leave a sibling select alone: nothing
+// here forces any select's DOM value from state after the fact, so a pick
+// nobody touched has to survive the render undisturbed on its own.
+test("changing one pick's level does not touch another pick's select", async () => {
+	const element = await mount();
+	element.selected = ["001", "002"];
+	element.levels = { "001": [4, 4] };
+	await element.updateComplete;
+
+	const [firstMin, firstMax] = levelSelects(element, "001");
+
+	await setLevel(element, levelSelects(element, "002")[0], 7);
+
+	expect([firstMin.value, firstMax.value]).toEqual(["4", "4"]);
+	expect(element.levels).toEqual({ "001": [4, 4], "002": [7, 7] });
+});
