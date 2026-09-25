@@ -1,7 +1,6 @@
 import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
-import { live } from "lit/directives/live.js";
 
 import { glyphFor, tileStyles } from "./entry-tile";
 import { base, controls } from "./theme";
@@ -13,12 +12,12 @@ export type Option = readonly [
 	kind?: string | null,
 ];
 
-/** An upgrade level, or a range of them: +0 to +9, `min` never above `max`. */
-export type Level = readonly [min: number, max: number];
+/** The levels a pick accepts, ascending: each +0 to +9, never none. */
+export type Levels = readonly number[];
 
 const LEVELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
-const UNUPGRADED: Level = [0, 0];
+const UNUPGRADED: Levels = [0];
 
 const LIMIT = 50;
 
@@ -90,9 +89,13 @@ export class EntryTiles extends LitElement {
 			}
 
 			/* One per line: two treasures side by side were two half-names, and a
-			   slot holds alternatives worth reading in full. */
+			   slot holds alternatives worth reading in full. The row wraps so
+			   the level buttons take a line of their own under the name and ✕.
+			   At 400px ten buttons at the coarse-pointer tap size do not fit on
+			   one line, and a wrap beats shrinking the target. */
 			.chip {
 				display: flex;
+				flex-wrap: wrap;
 				gap: var(--cr-space-1);
 				align-items: center;
 				width: 100%;
@@ -106,24 +109,25 @@ export class EntryTiles extends LitElement {
 				flex: 1 1 auto;
 			}
 
-			/* Two narrow selects: a level is one character, and the name beside
-			   them is what the row is read for. */
 			.levels {
-				display: inline-flex;
-				flex: 0 0 auto;
+				display: flex;
+				flex: 1 0 100%;
+				flex-wrap: wrap;
 				gap: 0.15rem;
-				align-items: center;
+				padding-bottom: var(--cr-space-1);
 			}
 
-			.levels select {
+			.levels button {
+				min-width: 2rem;
 				padding: 0 var(--cr-space-1);
 				font-family: var(--cr-mono);
-				font-size: 0.75rem;
+				font-size: 0.7rem;
 			}
 
-			.levels .to {
-				color: var(--cr-muted);
-				font-size: 0.75rem;
+			.levels button[aria-pressed="true"] {
+				border-color: var(--cr-accent);
+				background: color-mix(in srgb, var(--cr-accent) 14%, transparent);
+				font-weight: 600;
 			}
 
 			/* What the tile says when it is closed: how much the slot holds, since
@@ -308,12 +312,12 @@ export class EntryTiles extends LitElement {
 	private draft: ReadonlySet<string> = new Set();
 
 	/**
-	 * Each pick's level. Only picks that have left +0 have an entry, and an
+	 * Each pick's levels. Only picks that have left +0 have an entry, and an
 	 * entry leaves with its pick: a treasure dropped and picked again starts
 	 * over rather than coming back at a level nobody set this time.
 	 */
 	@state()
-	private leveled: ReadonlyMap<string, Level> = new Map();
+	private leveled: ReadonlyMap<string, Levels> = new Map();
 
 	@state()
 	private filter = "";
@@ -352,7 +356,7 @@ export class EntryTiles extends LitElement {
 	}
 
 	/** One entry per pick, in pick order; a pick never levelled reads +0. */
-	get levels(): Readonly<Record<string, Level>> {
+	get levels(): Readonly<Record<string, Levels>> {
 		return Object.fromEntries(
 			this.selected.map((value) => [
 				value,
@@ -361,9 +365,14 @@ export class EntryTiles extends LitElement {
 		);
 	}
 
-	set levels(levels: Readonly<Record<string, Level>>) {
+	set levels(levels: Readonly<Record<string, Levels>>) {
 		this.leveled = new Map(
-			Object.entries(levels).filter(([value]) => this.chosen.has(value)),
+			Object.entries(levels)
+				.filter(([value, set]) => this.chosen.has(value) && set.length > 0)
+				.map(([value, set]) => [
+					value,
+					[...new Set(set)].sort((a, b) => a - b),
+				]),
 		);
 	}
 
@@ -384,22 +393,16 @@ export class EntryTiles extends LitElement {
 	}
 
 	/**
-	 * The two selects cannot disagree: moving one past the other drags the other
-	 * along, so the slot never holds a range the code would refuse to read.
-	 *
-	 * Both the select's native `input` and its `change` run through here, since
-	 * a select's `input` can arrive ahead of `change` (an arrow-key move fires
-	 * `input` in some browsers before the `change` that follows it) and the
-	 * component's own state has to track the control rather than lag a step
-	 * behind it. The no-op guard is what keeps that pair — or a `change` that
-	 * confirms what `input` already applied — from producing a second host
-	 * event for the one change a person made.
+	 * A treasure accepts at least one level, so the last one pressed stays
+	 * pressed: releasing it would leave a pick that fits no run at all.
 	 */
-	#setLevel(value: string, end: "min" | "max", to: number): void {
-		const [min, max] = this.leveled.get(value) ?? UNUPGRADED;
-		const next: Level =
-			end === "min" ? [to, Math.max(max, to)] : [Math.min(min, to), to];
-		if (next[0] === min && next[1] === max) return;
+	#toggleLevel(value: string, level: number): void {
+		const current = this.leveled.get(value) ?? UNUPGRADED;
+		const on = current.includes(level);
+		if (on && current.length === 1) return;
+		const next = on
+			? current.filter((held) => held !== level)
+			: [...current, level].sort((a, b) => a - b);
 		this.leveled = new Map(this.leveled).set(value, next);
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 	}
@@ -527,39 +530,24 @@ export class EntryTiles extends LitElement {
 		>`;
 	}
 
-	#levelSelect(value: string, name: string, end: "min" | "max", at: number) {
-		// The select's own input and change are composed: left alone they would
-		// leave the shadow root as a second, unexplained change. The host's input
-		// is the one that says the slot moved. Both native events are routed
-		// through the same handler — #setLevel's own no-op guard, not a listener
-		// choice here, is what keeps a browser that fires both for one change
-		// from producing two host events.
-		const choose = (event: Event): void => {
-			event.stopPropagation();
-			this.#setLevel(
-				value,
-				end,
-				Number((event.target as HTMLSelectElement).value),
-			);
-		};
-		// `.value` is bound with live(), not left as a bare attribute: in a real
-		// browser, once a person has picked an option, a later render that only
-		// changes which option carries `selected` no longer moves the
-		// selection on its own — live() is what re-applies `.value` on every
-		// render regardless. happy-dom does not reproduce that failure mode, so
-		// the tests/happydom.ts shim would not catch this binding's removal.
-		return html`<select
-			class=${`level level-${end}`}
-			aria-label=${`${name} ${end === "min" ? "lowest" : "highest"} level`}
-			.value=${live(String(at))}
-			@input=${choose}
-			@change=${choose}
-		>
-			${LEVELS.map(
-				(level) =>
-					html`<option value=${level} ?selected=${level === at}>+${level}</option>`,
-			)}
-		</select>`;
+	#levelButtons(value: string, name: string, levels: Levels) {
+		return html`<div class="levels" role="group" aria-label=${`${name} levels`}>
+			${LEVELS.map((level) => {
+				const on = levels.includes(level);
+				return html`<button
+					type="button"
+					class="level"
+					data-level=${level}
+					aria-pressed=${String(on)}
+					aria-disabled=${ifDefined(on && levels.length === 1 ? "true" : undefined)}
+					@click=${() => {
+						this.#toggleLevel(value, level);
+					}}
+				>
+					+${level}
+				</button>`;
+			})}
+		</div>`;
 	}
 
 	override render() {
@@ -617,19 +605,13 @@ export class EntryTiles extends LitElement {
 						: html`<ul class="picks">
 							${chosen.map((value) => {
 								const name = labels.get(value) ?? value;
-								const [min, max] = this.leveled.get(value) ?? UNUPGRADED;
+								const levels = this.leveled.get(value) ?? UNUPGRADED;
 								return html`<li
 									class="chip"
 									data-value=${value}
 									data-kind=${ifDefined(kinds.get(value))}
 									>${this.#art(name, images.get(value) ?? null)}<span class="name"
 										>${name}</span
-									><span class="levels"
-										>${this.#levelSelect(value, name, "min", min)}<span
-											class="to"
-											aria-hidden="true"
-											>–</span
-										>${this.#levelSelect(value, name, "max", max)}</span
 									><button
 										type="button"
 										class="remove"
@@ -638,7 +620,7 @@ export class EntryTiles extends LitElement {
 											void this.#drop(value);
 										}}
 										>×</button
-									></li
+									>${this.#levelButtons(value, name, levels)}</li
 								>`;
 							})}
 						</ul>`

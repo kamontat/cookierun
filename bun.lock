@@ -15,7 +15,6 @@
         "@kcconfigs/biome": "2.0.4",
         "@kcconfigs/tsconfig": "1.1.5",
         "@types/bun": "1.4.2",
-        "happy-dom": "20.14.3",
         "typescript-language-server": "6.0.0",
         "wrangler": "4.131.0",
       },
