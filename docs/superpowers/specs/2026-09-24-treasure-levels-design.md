@@ -126,8 +126,12 @@ already sorts ids.
 - Pressing a button toggles that level. The last pressed button in a row cannot
   be released: it carries `aria-disabled="true"` and a press on it does nothing,
   since a treasure has to accept at least one level.
-- The button row wraps. At 400px, ten buttons at the 44px coarse-pointer tap
-  size do not fit on one line, and a wrap is better than shrinking the target.
+- The buttons sit in a 5×2 grid. At 400px, ten buttons at the 44px
+  coarse-pointer tap size do not fit on one line, and two even rows beat
+  shrinking the target.
+- A long loadout in `<code-bar>` may break after any `_` or `.` (a `<wbr>`,
+  which adds no character), so level copies cannot push the page wider than a
+  400px screen.
 - `selected` stays `string[]`, in option order, unchanged.
 - A `levels` property, `Record<string, readonly number[]>`, holds the levels of
   each selected value, ascending. Reading it returns an entry for every selected
