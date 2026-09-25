@@ -39,7 +39,7 @@ import {
 	RANDOM_BOOST_LABELS,
 	TYPE_LABELS,
 } from "./labels";
-import { type Loadout, levelRange, treasurePick } from "./loadout";
+import { type Loadout, treasurePick } from "./loadout";
 import { codeInHash, hashFor, rememberCode, startingCode } from "./state";
 
 import "#components/build-summary";
@@ -141,10 +141,7 @@ function readLoadout(): Loadout {
 		treasures: treasureSlots
 			.map((slot) => {
 				const { levels } = slot;
-				return slot.selected.map((id) => {
-					const [min, max] = levels[id] ?? [0, 0];
-					return treasurePick(id, levelRange(min, max));
-				});
+				return slot.selected.map((id) => treasurePick(id, levels[id] ?? [0]));
 			})
 			.filter((slot) => slot.length > 0),
 		ordered: orderChips.value === "ordered",
@@ -197,10 +194,7 @@ function writeLoadout(loadout: Loadout): void {
 		slot.options = treasureOptions(ids);
 		slot.selected = ids;
 		slot.levels = Object.fromEntries(
-			carried.map((pick) => [
-				pick.id,
-				[pick.levels[0] ?? 0, pick.levels.at(-1) ?? 0] as const,
-			]),
+			carried.map((pick) => [pick.id, pick.levels]),
 		);
 	});
 }
