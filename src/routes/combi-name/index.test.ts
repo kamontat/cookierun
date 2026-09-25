@@ -639,3 +639,61 @@ test("the Auto chip reads Semi-auto once something forces manual work", async ()
 	expect(control("type", "auto").textContent?.trim()).toBe("Semi-auto");
 	await reset();
 });
+
+function levelsOf(slotId: string, treasure: string): string[] {
+	const row = inside(need(slotId)).querySelector<HTMLElement>(
+		`.chip[data-value="${treasure}"]`,
+	);
+	if (row === null) throw new Error(`no row for ${treasure}`);
+	return [
+		...row.querySelectorAll<HTMLButtonElement>(
+			'button.level[aria-pressed="true"]',
+		),
+	].map((button) => button.getAttribute("data-level") ?? "");
+}
+
+test("a code's treasure levels land on the level buttons", async () => {
+	await typeCode("1TU0FZ02_0FZ59_0RB58.0QQ9-1S00000000");
+
+	expect(levelsOf("treasure1", "0FZ")).toEqual([
+		"0",
+		"1",
+		"2",
+		"5",
+		"6",
+		"7",
+		"8",
+		"9",
+	]);
+	expect(levelsOf("treasure1", "0RB")).toEqual(["5", "6", "7", "8"]);
+	expect(levelsOf("treasure2", "0QQ")).toEqual(["9"]);
+	await reset();
+});
+
+test("toggling a level rewrites the code", async () => {
+	await typeCode("1TU0FZ-1S00000000");
+	(codeBar as HTMLElement & { editing: boolean }).editing = false;
+	await settle();
+
+	inside(need("treasure1"))
+		.querySelector<HTMLButtonElement>(
+			'.chip[data-value="0FZ"] button.level[data-level="9"]',
+		)
+		?.click();
+	await settle();
+
+	expect((codeBar as HTMLElement & { value: string }).value).toBe(
+		"1TU0FZ_0FZ9-1S00000000",
+	);
+	await reset();
+});
+
+// A reversed copy does not decode, and a code that does not decode leaves the
+// controls exactly where they were.
+test("a code with a backwards level range changes nothing", async () => {
+	await typeCode("1TU0FZ9-1S00000000");
+	await typeCode("1TU0FZ95-1S00000000");
+
+	expect(levelsOf("treasure1", "0FZ")).toEqual(["9"]);
+	await reset();
+});

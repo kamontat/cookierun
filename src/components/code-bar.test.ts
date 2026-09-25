@@ -92,6 +92,27 @@ test("characters sharing a group are drawn as one run", async () => {
 	]);
 });
 
+// The loadout run is one unbreakable word by design — word-wise selection is
+// the point — so a break opportunity is the only other way to keep a long run
+// from widening the page. It must add nothing a copy or a text-content check
+// would see.
+test("a run gets a break opportunity after each underscore and dot, without changing its text", async () => {
+	const value = "AB_CD.EF";
+	const element = await mount(value);
+	element.hints = [...value].map((char) => ({
+		char,
+		hint: "Loadout",
+		group: "loadout",
+	}));
+	await element.updateComplete;
+
+	const run = runs(element)[0];
+	expect(run?.textContent).toBe(value);
+	expect(run?.querySelectorAll("wbr")).toHaveLength(2);
+	expect(run?.innerHTML).toContain("_<wbr>");
+	expect(run?.innerHTML).toContain(".<wbr>");
+});
+
 test("a run carries its hint as a tooltip", async () => {
 	const element = await mount();
 

@@ -12,6 +12,18 @@ export type Option = readonly [
 	kind?: string | null,
 ];
 
+/** The levels a pick accepts, ascending: each +0 to +9, never none. */
+export type Levels = readonly number[];
+
+const LEVELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+
+const UNUPGRADED: Levels = [0];
+
+/** Whether a number is one of the levels a pick can hold, +0 to +9. */
+function isLevel(value: number): boolean {
+	return Number.isInteger(value) && value >= 0 && value <= 9;
+}
+
 const LIMIT = 50;
 
 const NONE = "None";
@@ -82,9 +94,11 @@ export class EntryTiles extends LitElement {
 			}
 
 			/* One per line: two treasures side by side were two half-names, and a
-			   slot holds alternatives worth reading in full. */
+			   slot holds alternatives worth reading in full. The row wraps so
+			   the level buttons take a line of their own under the name and ✕. */
 			.chip {
 				display: flex;
+				flex-wrap: wrap;
 				gap: var(--cr-space-1);
 				align-items: center;
 				width: 100%;
@@ -96,6 +110,38 @@ export class EntryTiles extends LitElement {
 
 			.chip .name {
 				flex: 1 1 auto;
+			}
+
+			/* A 5-column grid rather than a flex wrap: ten buttons at the
+			   coarse-pointer tap size read as two even rows of five, not nine
+			   plus a straggler. */
+			.levels {
+				display: grid;
+				grid-template-columns: repeat(5, 1fr);
+				gap: var(--cr-space-1);
+				flex: 1 0 100%;
+				padding-bottom: var(--cr-space-1);
+			}
+
+			.levels button {
+				min-width: 2rem;
+				padding: 0 var(--cr-space-1);
+				font-family: var(--cr-mono);
+				font-size: 0.7rem;
+			}
+
+			.levels button[aria-pressed="true"] {
+				border-color: var(--cr-accent);
+				background: color-mix(in srgb, var(--cr-accent) 14%, transparent);
+				font-weight: 600;
+			}
+
+			/* The last level standing cannot be released, so it should not look
+			   like every other pressed button — a treasure has to accept at
+			   least one level. */
+			.levels button[aria-disabled="true"] {
+				border-color: var(--cr-muted);
+				cursor: not-allowed;
 			}
 
 			/* What the tile says when it is closed: how much the slot holds, since
@@ -279,6 +325,15 @@ export class EntryTiles extends LitElement {
 	@state()
 	private draft: ReadonlySet<string> = new Set();
 
+	/**
+	 * Each pick's levels, held here rather than on the pick itself; a pick
+	 * with no entry reads +0. An entry leaves with its pick: a treasure
+	 * dropped and picked again starts over rather than coming back at a
+	 * level nobody set this time.
+	 */
+	@state()
+	private leveled: ReadonlyMap<string, Levels> = new Map();
+
 	@state()
 	private filter = "";
 
@@ -315,6 +370,27 @@ export class EntryTiles extends LitElement {
 		this.chosen = new Set(values.filter((value) => this.#has(value)));
 	}
 
+	/** One entry per pick, in pick order; a pick never levelled reads +0. */
+	get levels(): Readonly<Record<string, Levels>> {
+		return Object.fromEntries(
+			this.selected.map((value) => [
+				value,
+				this.leveled.get(value) ?? UNUPGRADED,
+			]),
+		);
+	}
+
+	set levels(levels: Readonly<Record<string, Levels>>) {
+		this.leveled = new Map(
+			Object.entries(levels)
+				.map(([value, set]): [string, Levels] => [
+					value,
+					[...new Set(set.filter(isLevel))].sort((a, b) => a - b),
+				])
+				.filter(([value, set]) => this.chosen.has(value) && set.length > 0),
+		);
+	}
+
 	override willUpdate(): void {
 		// `options` and the picks are two separate writes, so a list replaced
 		// under a slot would otherwise keep a dropped value in the set —
@@ -322,6 +398,28 @@ export class EntryTiles extends LitElement {
 		// contains it again.
 		const kept = [...this.chosen].filter((value) => this.#has(value));
 		if (kept.length !== this.chosen.size) this.chosen = new Set(kept);
+		this.#prune();
+	}
+
+	/** Levels travel with their picks, so a pick that leaves takes its level. */
+	#prune(): void {
+		const kept = [...this.leveled].filter(([value]) => this.chosen.has(value));
+		if (kept.length !== this.leveled.size) this.leveled = new Map(kept);
+	}
+
+	/**
+	 * A treasure accepts at least one level, so the last one pressed stays
+	 * pressed: releasing it would leave a pick that fits no run at all.
+	 */
+	#toggleLevel(value: string, level: number): void {
+		const current = this.leveled.get(value) ?? UNUPGRADED;
+		const on = current.includes(level);
+		if (on && current.length === 1) return;
+		const next = on
+			? current.filter((held) => held !== level)
+			: [...current, level].sort((a, b) => a - b);
+		this.leveled = new Map(this.leveled).set(value, next);
+		this.dispatchEvent(new Event("input", { bubbles: true }));
 	}
 
 	#has(value: string): boolean {
@@ -363,6 +461,7 @@ export class EntryTiles extends LitElement {
 
 	#commit(): void {
 		this.chosen = new Set(this.draft);
+		this.#prune();
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 		this.#dialog()?.close();
 	}
@@ -418,6 +517,7 @@ export class EntryTiles extends LitElement {
 		const next = new Set(this.chosen);
 		next.delete(value);
 		this.chosen = next;
+		this.#prune();
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 		await this.updateComplete;
 
@@ -443,6 +543,26 @@ export class EntryTiles extends LitElement {
 						>`
 			}</span
 		>`;
+	}
+
+	#levelButtons(value: string, name: string, levels: Levels) {
+		return html`<div class="levels" role="group" aria-label=${`${name} levels`}>
+			${LEVELS.map((level) => {
+				const on = levels.includes(level);
+				return html`<button
+					type="button"
+					class="level"
+					data-level=${level}
+					aria-pressed=${String(on)}
+					aria-disabled=${ifDefined(on && levels.length === 1 ? "true" : undefined)}
+					@click=${() => {
+						this.#toggleLevel(value, level);
+					}}
+				>
+					+${level}
+				</button>`;
+			})}
+		</div>`;
 	}
 
 	override render() {
@@ -500,8 +620,10 @@ export class EntryTiles extends LitElement {
 						: html`<ul class="picks">
 							${chosen.map((value) => {
 								const name = labels.get(value) ?? value;
+								const levels = this.leveled.get(value) ?? UNUPGRADED;
 								return html`<li
 									class="chip"
+									data-value=${value}
 									data-kind=${ifDefined(kinds.get(value))}
 									>${this.#art(name, images.get(value) ?? null)}<span class="name"
 										>${name}</span
@@ -513,7 +635,7 @@ export class EntryTiles extends LitElement {
 											void this.#drop(value);
 										}}
 										>×</button
-									></li
+									>${this.#levelButtons(value, name, levels)}</li
 								>`;
 							})}
 						</ul>`

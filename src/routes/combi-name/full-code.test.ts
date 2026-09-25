@@ -7,7 +7,16 @@ import {
 	encodeFull,
 	isSemiAutoBuild,
 } from "./full-code";
-import { emptyLoadout, type Loadout } from "./loadout";
+import {
+	emptyLoadout,
+	type Loadout,
+	levelRange,
+	type TreasurePick,
+	treasurePick,
+} from "./loadout";
+
+const t = (id: string, min = 0, max = min): TreasurePick =>
+	treasurePick(id, levelRange(min, max));
 
 const combi: Combi = {
 	type: "score",
@@ -29,7 +38,7 @@ test("an empty loadout writes the bare ten-character code", () => {
 test("a loadout is written before the combi, separated by a dot", () => {
 	expect(
 		encodeFull({
-			loadout: loadout({ cookie: "00", treasures: [["000"]] }),
+			loadout: loadout({ cookie: "00", treasures: [[t("000")]] }),
 			combi,
 		}),
 	).toBe("1C00TU000-1S00000000");
@@ -52,7 +61,7 @@ test("both sections decode together", () => {
 
 	expect(full.loadout.cookie).toBe("00");
 	expect(full.loadout.pet).toBe("02");
-	expect(full.loadout.treasures).toEqual([["000"]]);
+	expect(full.loadout.treasures).toEqual([[t("000")]]);
 	expect(full.combi.cookiePowers).toEqual(["fairy", "seaFairy"]);
 });
 
@@ -103,11 +112,16 @@ test("a seeded sample of loadouts round-trips to its canonical form", () => {
 
 	let shuffles = 0;
 	for (let run = 0; run < 2000; run++) {
-		const slots: string[][] = [];
+		const slots: TreasurePick[][] = [];
 		for (let slot = 0; slot < random(4); slot++) {
 			const ids = new Set<string>();
 			for (let alt = 0; alt <= random(3); alt++) ids.add(pick(treasureIds));
-			slots.push([...ids]);
+			slots.push(
+				[...ids].map((id) => {
+					const levels = levelRange(0, 9).filter(() => random(2) === 0);
+					return treasurePick(id, levels.length > 0 ? levels : [random(10)]);
+				}),
+			);
 		}
 
 		const full = {

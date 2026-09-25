@@ -2,7 +2,15 @@ import { expect, test } from "bun:test";
 
 import type { Combi } from "./codec";
 import { describeBuild, describeCombi, describeLoadout } from "./describe";
-import { emptyLoadout } from "./loadout";
+import {
+	emptyLoadout,
+	levelRange,
+	type TreasurePick,
+	treasurePick,
+} from "./loadout";
+
+const t = (id: string, min = 0, max = min): TreasurePick =>
+	treasurePick(id, levelRange(min, max));
 
 const base: Combi = {
 	type: "score",
@@ -118,7 +126,7 @@ test("a shared display name reads with the id that tells it apart", () => {
 test("alternatives read as or, and slots as a numbered list when order matters", () => {
 	const unordered = describeLoadout({
 		...emptyLoadout(),
-		treasures: [["000", "001"], ["002"]],
+		treasures: [[t("000"), t("001")], [t("002")]],
 		ordered: false,
 	});
 	expect(unordered[3]?.field).toBe("Treasures");
@@ -127,7 +135,7 @@ test("alternatives read as or, and slots as a numbered list when order matters",
 
 	const ordered = describeLoadout({
 		...emptyLoadout(),
-		treasures: [["000"], ["001"]],
+		treasures: [[t("000")], [t("001")]],
 		ordered: true,
 	});
 	expect(ordered[3]?.field).toBe("Treasures (exact order)");
@@ -138,11 +146,23 @@ test("alternatives read as or, and slots as a numbered list when order matters",
 test("a single treasure slot never reads as exact order", () => {
 	const rows = describeLoadout({
 		...emptyLoadout(),
-		treasures: [["000"]],
+		treasures: [[t("000")]],
 		ordered: true,
 	});
 
 	expect(rows[3]?.field).toBe("Treasures");
+});
+
+test("each treasure reads with its level, +0 included", () => {
+	const rows = describeLoadout({
+		...emptyLoadout(),
+		treasures: [[t("000"), t("001", 5, 9)], [t("002", 9)]],
+	});
+
+	const value = rows[3]?.value ?? "";
+	const [first, second] = value.split("; ");
+	expect(first).toMatch(/ \+0 or .+ \+5-9$/);
+	expect(second).toMatch(/ \+9$/);
 });
 
 // The relay is the loadout's own reason for manual work, listed beside the
@@ -164,6 +184,15 @@ test("the build verdict names the relay as what forces the work", () => {
 		semi: false,
 		reasons: [],
 	});
+});
+
+test("a treasure's runs read with commas, so 'or' only separates treasures", () => {
+	const rows = describeLoadout({
+		...emptyLoadout(),
+		treasures: [[treasurePick("000", [0, 1, 2, 5, 6, 7, 8, 9]), t("001", 3)]],
+	});
+
+	expect(rows[3]?.value).toMatch(/ \+0-2, \+5-9 or .+ \+3$/);
 });
 
 // Auto versus semi-auto means nothing for the hand-played types, relay or not.

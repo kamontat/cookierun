@@ -76,7 +76,7 @@ The loadout writes down the cookie, relay, pet, and treasure a build uses. The g
 | `C` | Cookie | 2-character catalog id, or `__` for any cookie |
 | `R` | Relay | 2-character catalog id, the same catalog as cookie, or `__` for any relay |
 | `P` | Pet | 2-character catalog id, or `__` for any pet |
-| `T` | Treasures | An order flag (`U` any order, `O` exact order), then up to three slots of 3-character ids joined by `.`; alternatives within a slot are joined by `_` |
+| `T` | Treasures | An order flag (`U` any order, `O` exact order), then up to three slots of 3-character ids joined by `.`; alternatives within a slot are joined by `_`, and each id may be followed by a level — a treasure whose levels are not one run is listed once per run |
 
 `C`, `R`, `P`, and `T` are each written at most once and, when present, always in that order. A group that has nothing to say is simply missing — there is no placeholder character for "unset."
 
@@ -89,13 +89,30 @@ An `R__` counts as a relay for everything a named relay counts for: the build is
 1C2L-1S07014000                     a cookie only
 1C__R__P__-1H00000000               any cookie, any relay, any pet
 1C2LR0BP1ZTU0FZ_0RB.0QQ-1H35R00J00  cookie, relay, pet, two treasure slots, any order
+1TU0FZ02_0FZ59_0RB3.0QQ9-1S00000000 slot 1: 0FZ at +0-2 or +5-9, or 0RB at +3; slot 2: 0QQ at +9
 ```
 
 Encoding always writes the canonical form: ids are sorted within a slot, and whole slots are sorted against each other whenever the order flag is `U` — a single slot is always written `U`, since there is nothing to order with only one slot. That is what keeps one build to exactly one code. Reading a code is more forgiving: a hand-written or otherwise non-canonical loadout still decodes correctly, it just re-encodes into the canonical form rather than back into what you typed.
 
 Every id — cookie, relay, pet, or treasure — is a catalog id from `assets/index.json`, `__` aside. Ids are handed out once, append-only, and never reassigned or reused, so a code you write today still names the same cookie, pet, or treasure years from now, even if that entry is later pulled from the game.
 
-An id must not repeat within one treasure slot — `TU0FZ_0FZ` is invalid, since listing the same treasure as its own alternative says nothing. The same id may repeat across two different slots, though: that is how overlapping alternatives are written, and `loadout.ts` enforces the no-repeat rule per slot, not across the whole group.
+Within one slot, an id repeats only to list another run of its levels, and reading a code merges every copy of an id in a slot into one treasure — so `TU0FZ_0FZ` is simply 0FZ at +0, and `TU0FZ03_0FZ25` is 0FZ at +0-5. The same id may also repeat across two different slots: that is how overlapping alternatives are written.
+
+### Treasure levels
+
+A treasure is upgraded from +0 to +9, and each treasure in a slot says which levels it is accepted at. The level follows its id directly — ids are always three characters, so it needs no separator:
+
+| Written | Levels |
+| --- | --- |
+| `0FZ` | +0, not upgraded |
+| `0FZ5` | +5 |
+| `0FZ58` | +5 to +8 |
+| `0FZ09` | +0 to +9, any level |
+| `0FZ9` | +9 |
+| `0FZ02_0FZ59` | +0 to +2, and +5 to +9 |
+| `0FZ_0FZ9` | +0 and +9 |
+
+No digits means +0, which is also how every code written before levels existed reads. A treasure whose levels are not one run repeats its id once per run, lowest first. Encoding writes the shortest form: runs are merged, a one-level run is one digit, and +0 is nothing. A range that runs backwards, like `95`, is rejected.
 
 ## Auto vs semi-auto
 

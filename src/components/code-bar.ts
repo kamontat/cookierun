@@ -374,6 +374,20 @@ export class CodeBar extends LitElement {
 		this.failed = false;
 	}
 
+	/**
+	 * A run's characters, with a `<wbr>` — no width, no character, nothing a
+	 * copy or a text-content check would ever see — after each `_` and `.`.
+	 * The loadout run is one unbreakable word by design, word-wise selection is
+	 * the point of that, so widening the page is the only other way out; this
+	 * gives the browser somewhere to break the line without touching the code
+	 * itself, what a run is grouped as, or what Copy puts on the clipboard.
+	 */
+	#chars(run: CharHint[]) {
+		return run.map(({ char }) =>
+			char === "_" || char === "." ? html`${char}<wbr />` : char,
+		);
+	}
+
 	/** Characters sharing a group are one run, drawn and labelled together. */
 	#runs(): CharHint[][] {
 		const runs: CharHint[][] = [];
@@ -506,7 +520,7 @@ export class CodeBar extends LitElement {
 										}),
 									);
 								}}
-								>${run.map(({ char }) => char).join("")}</button
+								>${this.#chars(run)}</button
 							>`,
 							)
 				}</code

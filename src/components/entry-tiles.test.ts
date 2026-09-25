@@ -661,3 +661,164 @@ test("focus survives a drop", async () => {
 
 	expect(element.shadowRoot?.activeElement).toBe(tile(element));
 });
+
+function levelButtons(element: EntryTiles, value: string): HTMLButtonElement[] {
+	const row = [
+		...(element.shadowRoot?.querySelectorAll<HTMLElement>(".chip") ?? []),
+	].find((chip) => chip.getAttribute("data-value") === value);
+	return [...(row?.querySelectorAll<HTMLButtonElement>("button.level") ?? [])];
+}
+
+function pressed(element: EntryTiles, value: string): number[] {
+	return levelButtons(element, value)
+		.filter((button) => button.getAttribute("aria-pressed") === "true")
+		.map((button) => Number(button.getAttribute("data-level")));
+}
+
+async function press(
+	element: EntryTiles,
+	value: string,
+	level: number,
+): Promise<void> {
+	levelButtons(element, value)[level]?.click();
+	await element.updateComplete;
+}
+
+test("each pick has ten level buttons, +0 through +9, with only +0 pressed", async () => {
+	const element = await mount();
+	element.selected = ["001", "002"];
+	await element.updateComplete;
+
+	expect(
+		levelButtons(element, "001").map((button) => button.textContent?.trim()),
+	).toEqual(["+0", "+1", "+2", "+3", "+4", "+5", "+6", "+7", "+8", "+9"]);
+	expect(pressed(element, "001")).toEqual([0]);
+	const group = element.shadowRoot?.querySelector(
+		'.chip[data-value="001"] .levels',
+	);
+	expect(group?.getAttribute("role")).toBe("group");
+	expect(group?.getAttribute("aria-label")).toBe("Always Cute Acorn levels");
+	expect(element.levels).toEqual({ "001": [0], "002": [0] });
+});
+
+test("the levels setter shows on the buttons and keeps only selected values", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	element.levels = { "001": [9, 0, 2, 1, 5, 5], "003": [9] };
+	await element.updateComplete;
+
+	expect(pressed(element, "001")).toEqual([0, 1, 2, 5, 9]);
+	expect(element.levels).toEqual({ "001": [0, 1, 2, 5, 9] });
+
+	// A level that is not an integer 0-9 — too high, too low, or fractional —
+	// is dropped the same way an unselected value's levels are.
+	element.levels = { "001": [0, 12, 1.5, -1, 3] };
+	await element.updateComplete;
+
+	expect(element.levels).toEqual({ "001": [0, 3] });
+});
+
+test("pressing a level toggles it and dispatches one input each time", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	await element.updateComplete;
+
+	let inputs = 0;
+	const count = (): void => {
+		inputs++;
+	};
+	element.addEventListener("input", count);
+
+	await press(element, "001", 9);
+	expect(element.levels).toEqual({ "001": [0, 9] });
+	expect(inputs).toBe(1);
+
+	await press(element, "001", 0);
+	expect(element.levels).toEqual({ "001": [9] });
+	expect(inputs).toBe(2);
+
+	element.removeEventListener("input", count);
+});
+
+test("the last pressed level cannot be released", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	await element.updateComplete;
+
+	let inputs = 0;
+	const count = (): void => {
+		inputs++;
+	};
+	element.addEventListener("input", count);
+
+	expect(levelButtons(element, "001")[0]?.getAttribute("aria-disabled")).toBe(
+		"true",
+	);
+	await press(element, "001", 0);
+	expect(element.levels).toEqual({ "001": [0] });
+	expect(inputs).toBe(0);
+
+	await press(element, "001", 3);
+	expect(levelButtons(element, "001")[0]?.hasAttribute("aria-disabled")).toBe(
+		false,
+	);
+
+	element.removeEventListener("input", count);
+});
+
+test("dropping one pick keeps the other's levels", async () => {
+	const element = await mount();
+	element.selected = ["001", "002"];
+	element.levels = { "001": [1], "002": [4, 5, 6, 7, 8, 9] };
+	await element.updateComplete;
+
+	element.shadowRoot
+		?.querySelector<HTMLButtonElement>('.chip[data-value="001"] button.remove')
+		?.click();
+	await element.updateComplete;
+
+	expect(element.selected).toEqual(["002"]);
+	expect(element.levels).toEqual({ "002": [4, 5, 6, 7, 8, 9] });
+});
+
+test("Done keeps the levels of picks that stay, and a re-added pick starts at +0", async () => {
+	const element = await mount();
+	element.selected = ["001", "002"];
+	element.levels = { "001": [6], "002": [9] };
+	await element.updateComplete;
+
+	tile(element).click();
+	await element.updateComplete;
+	entries(element)
+		.find((cell) => cell.value === "002")
+		?.click();
+	entries(element)
+		.find((cell) => cell.value === "003")
+		?.click();
+	await element.updateComplete;
+	done(element).click();
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [6], "003": [0] });
+
+	tile(element).click();
+	await element.updateComplete;
+	entries(element)
+		.find((cell) => cell.value === "002")
+		?.click();
+	await element.updateComplete;
+	done(element).click();
+	await element.updateComplete;
+	expect(element.levels["002"]).toEqual([0]);
+});
+
+test("toggling one pick's level leaves the other pick's buttons alone", async () => {
+	const element = await mount();
+	element.selected = ["001", "002"];
+	element.levels = { "002": [3, 4] };
+	await element.updateComplete;
+
+	await press(element, "001", 7);
+
+	expect(pressed(element, "001")).toEqual([0, 7]);
+	expect(pressed(element, "002")).toEqual([3, 4]);
+});

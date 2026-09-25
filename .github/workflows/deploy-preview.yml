@@ -18,7 +18,9 @@ jobs:
       deployments: write
     environment:
       name: preview
-      url: ${{ steps.deploy.outputs.deployment-url }}
+      ## NOTE: The deployment-url output didn't support alias url so we built it manually
+      ## https://github.com/cloudflare/wrangler-action/blob/a17640ae5ec0d99c8c75e908aa69f5519037cd4e/src/commandOutputParsing.ts#L118
+      url: https://pr-${{ github.event.number }}-cookierun.kcinth.workers.dev/
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -34,7 +36,7 @@ jobs:
           BUN_PUBLIC_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
           BUN_PUBLIC_BUILT_AT: ${{ steps.stamp.outputs.at }}
         with:
-          command: versions upload
+          command: versions upload --preview-alias pr-${{ github.event.number }}
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
