@@ -6,10 +6,14 @@ import {
 	encodeLoadout,
 	isEmptyLoadout,
 	type Loadout,
+	levelRange,
+	levelRuns,
+	type TreasurePick,
 	treasurePick,
 } from "./loadout";
 
-const t = treasurePick;
+const t = (id: string, min = 0, max = min): TreasurePick =>
+	treasurePick(id, levelRange(min, max));
 
 function loadout(over: Partial<Loadout> = {}): Loadout {
 	return { ...emptyLoadout(), ...over };
@@ -192,12 +196,14 @@ test("an empty slot is rejected", () => {
 	);
 });
 
-// The same treasure cannot be equipped twice in one slot, but two slots may
-// both accept it — that is how overlapping alternatives are written.
-test("a repeated id within one slot is rejected, across slots is allowed", () => {
-	expect(() => decodeLoadout("1TU000_000")).toThrow(
-		'loadout group "T": slot 1 lists "000" twice',
-	);
+// On the wire an id repeats within a slot to list another run of its levels,
+// so decoding merges the copies. A Loadout holds each treasure once per slot,
+// so encoding one that lists an id twice is still an error.
+test("a repeated id within one slot merges on decode, is rejected on encode, and may repeat across slots", () => {
+	expect(decodeLoadout("1TU000_000").treasures).toEqual([[t("000")]]);
+	expect(() =>
+		encodeLoadout(loadout({ treasures: [[t("000"), t("000", 3)]] })),
+	).toThrow('loadout group "T": slot 1 lists "000" twice');
 	expect(decodeLoadout("1TU000.000").treasures).toEqual([
 		[t("000")],
 		[t("000")],
@@ -290,18 +296,83 @@ test("a malformed level is rejected", () => {
 
 test("encoding validates levels the same way", () => {
 	expect(() =>
-		encodeLoadout(loadout({ treasures: [[t("0FZ", 9, 5)]] })),
-	).toThrow('loadout group "T": "0FZ" level runs backwards, 9-5');
+		encodeLoadout(loadout({ treasures: [[treasurePick("0FZ", [])]] })),
+	).toThrow('loadout group "T": "0FZ" accepts no level');
 	expect(() =>
 		encodeLoadout(loadout({ treasures: [[t("0FZ", 0, 10)]] })),
-	).toThrow('loadout group "T": "0FZ" level 0-10 is outside 0-9');
+	).toThrow('loadout group "T": "0FZ" level 10 is outside 0-9');
 	expect(() =>
 		encodeLoadout(loadout({ treasures: [[t("0FZ", 1.5)]] })),
-	).toThrow('loadout group "T": "0FZ" level 1.5-1.5 is outside 0-9');
+	).toThrow('loadout group "T": "0FZ" level 1.5 is outside 0-9');
 });
 
-test("a repeated id is rejected whatever levels the two copies carry", () => {
-	expect(() => decodeLoadout("1TU0FZ1_0FZ2")).toThrow(
-		'loadout group "T": slot 1 lists "0FZ" twice',
+test("copies of one id in a slot merge on decode", () => {
+	expect(decodeLoadout("1TU0FZ1_0FZ2").treasures).toEqual([[t("0FZ", 1, 2)]]);
+	expect(encodeLoadout(decodeLoadout("1TU0FZ1_0FZ2"))).toBe("1TU0FZ12");
+});
+
+const SPLIT = [0, 1, 2, 5, 6, 7, 8, 9];
+
+test("a treasure whose levels are not one run is written as one copy per run", () => {
+	expect(
+		encodeLoadout(loadout({ treasures: [[treasurePick("0FZ", SPLIT)]] })),
+	).toBe("1TU0FZ02_0FZ59");
+	expect(
+		encodeLoadout(loadout({ treasures: [[treasurePick("0FZ", [9, 0])]] })),
+	).toBe("1TU0FZ_0FZ9");
+	expect(decodeLoadout("1TU0FZ02_0FZ59").treasures).toEqual([
+		[treasurePick("0FZ", SPLIT)],
+	]);
+});
+
+test("a pick's copies sit together among the other alternatives", () => {
+	const code = encodeLoadout(
+		loadout({
+			treasures: [[t("0RB", 3), treasurePick("0FZ", SPLIT)], [t("0QQ", 9)]],
+		}),
 	);
+
+	expect(code).toBe("1TU0FZ02_0FZ59_0RB3.0QQ9");
+	expect(decodeLoadout(code).treasures).toEqual([
+		[treasurePick("0FZ", SPLIT), t("0RB", 3)],
+		[t("0QQ", 9)],
+	]);
+});
+
+test("unsorted or repeated levels encode canonically", () => {
+	expect(
+		encodeLoadout(
+			loadout({ treasures: [[treasurePick("0FZ", [7, 5, 6, 5])]] }),
+		),
+	).toBe("1TU0FZ57");
+});
+
+test("copies merge whether they overlap, touch or arrive out of order", () => {
+	expect(encodeLoadout(decodeLoadout("1TU0FZ03_0FZ25"))).toBe("1TU0FZ05");
+	expect(encodeLoadout(decodeLoadout("1TU0FZ02_0FZ35"))).toBe("1TU0FZ05");
+	expect(encodeLoadout(decodeLoadout("1TU0FZ59_0FZ02"))).toBe("1TU0FZ02_0FZ59");
+	expect(decodeLoadout("1TU0FZ_0FZ").treasures).toEqual([[t("0FZ")]]);
+});
+
+// "0FZ18" sorts before "0FZ_0FZ9" because "1" (0x31) is below "_" (0x5F).
+test("a slot with split runs still sorts to one code among unordered slots", () => {
+	const split = treasurePick("0FZ", [0, 9]);
+	const run = t("0FZ", 1, 8);
+	const one = encodeLoadout(loadout({ treasures: [[split], [run]] }));
+	const other = encodeLoadout(loadout({ treasures: [[run], [split]] }));
+
+	expect(one).toBe(other);
+	expect(one).toBe("1TU0FZ18.0FZ_0FZ9");
+});
+
+test("levelRuns reads a level set as its runs", () => {
+	expect(levelRuns([0, 1, 2, 5, 6, 7, 8, 9])).toEqual([
+		[0, 2],
+		[5, 9],
+	]);
+	expect(levelRuns([9, 0, 0])).toEqual([
+		[0, 0],
+		[9, 9],
+	]);
+	expect(levelRuns([])).toEqual([]);
 });

@@ -10,11 +10,13 @@ import {
 import {
 	emptyLoadout,
 	type Loadout,
+	levelRange,
 	type TreasurePick,
 	treasurePick,
 } from "./loadout";
 
-const t = treasurePick;
+const t = (id: string, min = 0, max = min): TreasurePick =>
+	treasurePick(id, levelRange(min, max));
 
 const combi: Combi = {
 	type: "score",
@@ -116,8 +118,8 @@ test("a seeded sample of loadouts round-trips to its canonical form", () => {
 			for (let alt = 0; alt <= random(3); alt++) ids.add(pick(treasureIds));
 			slots.push(
 				[...ids].map((id) => {
-					const min = random(10);
-					return t(id, min, min + random(10 - min));
+					const levels = levelRange(0, 9).filter(() => random(2) === 0);
+					return treasurePick(id, levels.length > 0 ? levels : [random(10)]);
 				}),
 			);
 		}

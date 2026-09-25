@@ -2,9 +2,15 @@ import { expect, test } from "bun:test";
 
 import type { Combi } from "./codec";
 import { describeBuild, describeCombi, describeLoadout } from "./describe";
-import { emptyLoadout, treasurePick } from "./loadout";
+import {
+	emptyLoadout,
+	levelRange,
+	type TreasurePick,
+	treasurePick,
+} from "./loadout";
 
-const t = treasurePick;
+const t = (id: string, min = 0, max = min): TreasurePick =>
+	treasurePick(id, levelRange(min, max));
 
 const base: Combi = {
 	type: "score",
@@ -178,6 +184,15 @@ test("the build verdict names the relay as what forces the work", () => {
 		semi: false,
 		reasons: [],
 	});
+});
+
+test("a treasure's runs read with commas, so 'or' only separates treasures", () => {
+	const rows = describeLoadout({
+		...emptyLoadout(),
+		treasures: [[treasurePick("000", [0, 1, 2, 5, 6, 7, 8, 9]), t("001", 3)]],
+	});
+
+	expect(rows[3]?.value).toMatch(/ \+0-2, \+5-9 or .+ \+3$/);
 });
 
 // Auto versus semi-auto means nothing for the hand-played types, relay or not.
