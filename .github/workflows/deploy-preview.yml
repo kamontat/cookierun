@@ -34,7 +34,7 @@ jobs:
           BUN_PUBLIC_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
           BUN_PUBLIC_BUILT_AT: ${{ steps.stamp.outputs.at }}
         with:
-          command: versions upload
+          command: versions upload --preview-alias pr-${{ github.event.number }}
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
