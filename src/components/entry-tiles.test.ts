@@ -709,6 +709,13 @@ test("the levels setter shows on the buttons and keeps only selected values", as
 
 	expect(pressed(element, "001")).toEqual([0, 1, 2, 5, 9]);
 	expect(element.levels).toEqual({ "001": [0, 1, 2, 5, 9] });
+
+	// A level that is not an integer 0-9 — too high, too low, or fractional —
+	// is dropped the same way an unselected value's levels are.
+	element.levels = { "001": [0, 12, 1.5, -1, 3] };
+	await element.updateComplete;
+
+	expect(element.levels).toEqual({ "001": [0, 3] });
 });
 
 test("pressing a level toggles it and dispatches one input each time", async () => {

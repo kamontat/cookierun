@@ -19,6 +19,11 @@ const LEVELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 const UNUPGRADED: Levels = [0];
 
+/** Whether a number is one of the levels a pick can hold, +0 to +9. */
+function isLevel(value: number): boolean {
+	return Number.isInteger(value) && value >= 0 && value <= 9;
+}
+
 const LIMIT = 50;
 
 const NONE = "None";
@@ -90,9 +95,7 @@ export class EntryTiles extends LitElement {
 
 			/* One per line: two treasures side by side were two half-names, and a
 			   slot holds alternatives worth reading in full. The row wraps so
-			   the level buttons take a line of their own under the name and ✕.
-			   At 400px ten buttons at the coarse-pointer tap size do not fit on
-			   one line, and a wrap beats shrinking the target. */
+			   the level buttons take a line of their own under the name and ✕. */
 			.chip {
 				display: flex;
 				flex-wrap: wrap;
@@ -109,11 +112,14 @@ export class EntryTiles extends LitElement {
 				flex: 1 1 auto;
 			}
 
+			/* A 5-column grid rather than a flex wrap: ten buttons at the
+			   coarse-pointer tap size read as two even rows of five, not nine
+			   plus a straggler. */
 			.levels {
-				display: flex;
+				display: grid;
+				grid-template-columns: repeat(5, 1fr);
+				gap: var(--cr-space-1);
 				flex: 1 0 100%;
-				flex-wrap: wrap;
-				gap: 0.15rem;
 				padding-bottom: var(--cr-space-1);
 			}
 
@@ -128,6 +134,14 @@ export class EntryTiles extends LitElement {
 				border-color: var(--cr-accent);
 				background: color-mix(in srgb, var(--cr-accent) 14%, transparent);
 				font-weight: 600;
+			}
+
+			/* The last level standing cannot be released, so it should not look
+			   like every other pressed button — a treasure has to accept at
+			   least one level. */
+			.levels button[aria-disabled="true"] {
+				border-color: var(--cr-muted);
+				cursor: not-allowed;
 			}
 
 			/* What the tile says when it is closed: how much the slot holds, since
@@ -312,9 +326,10 @@ export class EntryTiles extends LitElement {
 	private draft: ReadonlySet<string> = new Set();
 
 	/**
-	 * Each pick's levels. Only picks that have left +0 have an entry, and an
-	 * entry leaves with its pick: a treasure dropped and picked again starts
-	 * over rather than coming back at a level nobody set this time.
+	 * Each pick's levels, held here rather than on the pick itself; a pick
+	 * with no entry reads +0. An entry leaves with its pick: a treasure
+	 * dropped and picked again starts over rather than coming back at a
+	 * level nobody set this time.
 	 */
 	@state()
 	private leveled: ReadonlyMap<string, Levels> = new Map();
@@ -368,11 +383,11 @@ export class EntryTiles extends LitElement {
 	set levels(levels: Readonly<Record<string, Levels>>) {
 		this.leveled = new Map(
 			Object.entries(levels)
-				.filter(([value, set]) => this.chosen.has(value) && set.length > 0)
-				.map(([value, set]) => [
+				.map(([value, set]): [string, Levels] => [
 					value,
-					[...new Set(set)].sort((a, b) => a - b),
-				]),
+					[...new Set(set.filter(isLevel))].sort((a, b) => a - b),
+				])
+				.filter(([value, set]) => this.chosen.has(value) && set.length > 0),
 		);
 	}
 

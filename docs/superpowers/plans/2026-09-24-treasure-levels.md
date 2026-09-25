@@ -1,3 +1,5 @@
+> Superseded by `docs/superpowers/plans/2026-09-25-treasure-level-sets.md` where they differ: the from/to selects and `{ id, min, max }` here were replaced by level sets.
+
 # Treasure Upgrade Levels Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
