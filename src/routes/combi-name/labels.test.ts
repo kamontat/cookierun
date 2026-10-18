@@ -60,8 +60,5 @@ test("labels read the way the game words them", () => {
 	expect(RANDOM_BOOST_LABELS.revive).toBe("Revive once with 80 HP");
 	expect(COOKIE_POWER_LABELS.seaFairy).toBe("Sea Fairy Cookie");
 	expect(ACTION_LABELS.jumpAtStart).toBe("Jump at start");
-});
-
-test("boost labels are the same strings decode errors use", () => {
 	expect(BOOST_LABELS.powerJellyBoost).toBe("Power Jelly Boost");
 });

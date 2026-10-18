@@ -6,27 +6,25 @@ import "./code-bar";
 
 import type { CharHint, CodeBar } from "./code-bar";
 
-const CODE = "1S00000000";
+const CODE = "10S0000000";
+
+const POWERS = {
+	char: "0",
+	hint: "Slots 7-9 · Cookie power+ · None",
+	group: "cookiePowers",
+};
 
 const HINTS: CharHint[] = [
 	{ char: "1", hint: "Slot 1 · Format version", group: "version" },
-	{ char: "S", hint: "Slot 2 · Type · Score", group: "type" },
-	{ char: "0", hint: "Slot 3 · Episode · Any", group: "episode" },
-	{ char: "0", hint: "Slot 4 · Boosts · None", group: "boosts" },
-	{ char: "0", hint: "Slot 5 · Random boost · None", group: "randomBoost" },
-	{
-		char: "0",
-		hint: "Slots 6-7 · Cookie power+ · None",
-		group: "cookiePowers",
-	},
-	{
-		char: "0",
-		hint: "Slots 6-7 · Cookie power+ · None",
-		group: "cookiePowers",
-	},
-	{ char: "0", hint: "Slot 8 · Action · No action", group: "action" },
-	{ char: "0", hint: "Slots 9-10 · Reserved", group: "reserved" },
-	{ char: "0", hint: "Slots 9-10 · Reserved", group: "reserved" },
+	{ char: "0", hint: "Slot 2 · Mode · Manual", group: "mode" },
+	{ char: "S", hint: "Slot 3 · Goal · Score", group: "goal" },
+	{ char: "0", hint: "Slot 4 · Episode · Any", group: "episode" },
+	{ char: "0", hint: "Slot 5 · Boosts · None", group: "boosts" },
+	{ char: "0", hint: "Slot 6 · Random boost · None", group: "randomBoost" },
+	POWERS,
+	POWERS,
+	POWERS,
+	{ char: "0", hint: "Slot 10 · Action · No action", group: "action" },
 ];
 
 async function mount(value = CODE): Promise<CodeBar> {
@@ -82,13 +80,13 @@ test("characters sharing a group are drawn as one run", async () => {
 
 	expect(runs(element).map((run) => run.textContent?.trim())).toEqual([
 		"1",
+		"0",
 		"S",
 		"0",
 		"0",
 		"0",
-		"00",
+		"000",
 		"0",
-		"00",
 	]);
 });
 
@@ -120,7 +118,7 @@ test("a run carries its hint as a tooltip", async () => {
 	await element.updateComplete;
 
 	expect(runs(element)[1]?.getAttribute("data-tooltip")).toBe(
-		"Slot 2 · Type · Score",
+		"Slot 2 · Mode · Manual",
 	);
 });
 
@@ -140,7 +138,7 @@ test("a new value drops hints that described the old one", async () => {
 
 	element.hints = HINTS;
 	await element.updateComplete;
-	element.value = "1H04000000";
+	element.value = "1HM0F00000";
 	await element.updateComplete;
 
 	expect(runs(element)).toHaveLength(0);
@@ -155,7 +153,7 @@ test("clicking a run asks the page to jump to the control that owns it", async (
 		jumped = (event as CustomEvent<string>).detail;
 	});
 
-	runs(element)[2]?.click();
+	runs(element)[3]?.click();
 
 	expect(jumped).toBe("episode");
 });
@@ -167,12 +165,12 @@ test("clicking a run names it under the code", async () => {
 	element.hints = HINTS;
 	await element.updateComplete;
 
-	runs(element)[2]?.click();
+	runs(element)[3]?.click();
 	await element.updateComplete;
 
 	expect(
 		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
-	).toBe("Slot 3 · Episode · Any");
+	).toBe("Slot 4 · Episode · Any");
 	expect(
 		element.shadowRoot?.querySelector(".message")?.classList.contains("error"),
 	).toBe(false);
@@ -215,10 +213,10 @@ test("typing a code reports the draft to the page", async () => {
 	await settle(element);
 	const input = field(element);
 	if (input === null) throw new Error("no input");
-	input.value = "1M35S14J00";
+	input.value = "1HM32SFW0J";
 	input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
 
-	expect(drafts).toEqual(["1M35S14J00"]);
+	expect(drafts).toEqual(["1HM32SFW0J"]);
 });
 
 // Filtering-style noise must not reach the page's form listener as a change of
@@ -284,11 +282,11 @@ test("a value set while editing leaves the typed text alone", async () => {
 	await settle(element);
 	const input = field(element);
 	if (input === null) throw new Error("no input");
-	input.value = "1M3";
-	element.value = "1M00000000";
+	input.value = "10M";
+	element.value = "10M0000000";
 	await settle(element);
 
-	expect(field(element)?.value).toBe("1M3");
+	expect(field(element)?.value).toBe("10M");
 });
 
 test("leaving the editor shows the current value again", async () => {
@@ -296,12 +294,12 @@ test("leaving the editor shows the current value again", async () => {
 
 	element.editing = true;
 	await settle(element);
-	element.value = "1M00000000";
+	element.value = "10M0000000";
 	element.editing = false;
 	await settle(element);
 
 	expect(element.shadowRoot?.querySelector("code")?.textContent?.trim()).toBe(
-		"1M00000000",
+		"10M0000000",
 	);
 });
 
@@ -370,7 +368,7 @@ test("a new value puts the copy button back", async () => {
 
 	element.shadowRoot?.querySelector<HTMLButtonElement>(".copy")?.click();
 	await settle(element);
-	element.value = "1M00000000";
+	element.value = "10M0000000";
 	await settle(element);
 
 	expect(

@@ -1,5 +1,6 @@
 import type {
 	Action,
+	Boost,
 	CookiePower,
 	Episode,
 	Goal,
@@ -7,8 +8,12 @@ import type {
 	RandomBoost,
 } from "./codec";
 
-// Boost names live in codec.ts because decode error messages quote them too.
-export { BOOST_LABELS } from "./codec";
+export const BOOST_LABELS: Record<Boost, string> = {
+	hpExtension: "HP Extension",
+	powerJellyBoost: "Power Jelly Boost",
+	fastStart: "Fast Start",
+	doubleXp: "Double XP",
+};
 
 export const GOAL_LABELS: Record<Goal, string> = {
 	any: "Any",

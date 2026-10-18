@@ -27,7 +27,7 @@ Bun's own API docs are vendored at `node_modules/bun-types/docs/**.mdx` — read
 ```bash
 bun install
 bun run dev                                  # dev server on :3000; / is the home pane, /combi-name/ is the combi tool, /assets/* the icons
-bun run test                                 # whole suite, ~3s (the exhaustive test dominates)
+bun run test                                 # whole suite, ~30s (the exhaustive test dominates)
 bun run test src/routes/combi-name/codec.test.ts # one file
 bun run test -t "decodes every slot"         # one test by name substring
 bun run check:type                           # tsc --noEmit; the test files are typechecked too

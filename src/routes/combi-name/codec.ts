@@ -147,13 +147,6 @@ const BOOST_SLOT: SetSlot<Boost> = {
 	},
 };
 
-const BOOST_NAMES: Record<Boost, string> = {
-	hpExtension: "HP Extension",
-	powerJellyBoost: "Power Jelly Boost",
-	fastStart: "Fast Start",
-	doubleXp: "Double XP",
-};
-
 /**
  * A letter from each boost's own name rather than a running count, so a code
  * says which boost it carries to anyone who has read this table once.
@@ -246,9 +239,6 @@ export const ALL_COOKIE_POWERS = COOKIE_POWER_SLOTS.flatMap(({ members }) =>
 	members.map(({ value }) => value),
 );
 export const ALL_ACTIONS = Object.keys(ACTION_CHARS) as Action[];
-
-/** Boost display names, shared by decode error messages and the UI. */
-export const BOOST_LABELS: Record<Boost, string> = BOOST_NAMES;
 
 /** The goals an auto run can aim for. Score is played by hand. */
 export const AUTO_GOALS: readonly Goal[] = ["any", "money", "exp", "box"];

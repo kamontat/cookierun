@@ -9,11 +9,12 @@
  * stale hint behind.
  */
 
-import { BOOST_LABELS, CODE_LENGTH, type Combi, limitsOf } from "./codec";
+import { CODE_LENGTH, type Combi, limitsOf } from "./codec";
 import { describeLoadout, floorText, NOT_USED } from "./describe";
 import { combiSectionOf, decodeFull, SECTION_SEPARATOR } from "./full-code";
 import {
 	ACTION_LABELS,
+	BOOST_LABELS,
 	COOKIE_POWER_LABELS,
 	EPISODE_LABELS,
 	GOAL_LABELS,
