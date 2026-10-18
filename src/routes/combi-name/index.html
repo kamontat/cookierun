@@ -20,7 +20,7 @@
     <title>Cookie Run combi codes</title>
     <meta
       name="description"
-      content="Pack a Cookie Run run configuration - type, episode, boosts, random boost, cookie power+, and action - into a 10-character combi name."
+      content="Pack a Cookie Run run configuration - goal, mode, episode, boosts, random boost, cookie power+, and action - into a 10-character combi name."
     />
     <!-- Fairy Cookie (assets/index.json -> cookies.FairyCookie); the build
          inlines it as a data URI, so the page stays self-contained. -->
@@ -56,9 +56,9 @@
     <header class="masthead container">
       <h1>Cookie Run combi codes</h1>
       <p>
-        A combi name holds 10 characters - enough to carry the run type,
-        episode, boosts, random boost, cookie power+ selections, and starting
-        action. Put a loadout section in front and the same code carries your
+        A combi name holds 10 characters - enough to carry the run's goal,
+        whether it plays itself, the episode, boosts, random boost, cookie
+        power+ selections, and starting action. Put a loadout section in front and the same code carries your
         cookie, relay, pet, and treasures too. Build one below, or edit the
         code itself and watch the controls follow.
       </p>
@@ -115,23 +115,49 @@
         <section class="band">
           <header class="bandhead">
             <h3>The run</h3>
-            <span class="note">slots 2-3</span>
+            <span class="note">slots 2-4</span>
           </header>
 
           <div class="field">
             <div class="fieldhead">
-              <h4>Type</h4>
+              <h4>Mode</h4>
+              <span class="slot">slot 3</span>
+            </div>
+            <chip-group id="mode" label="Mode"></chip-group>
+          </div>
+
+          <div class="field">
+            <div class="fieldhead">
+              <h4>Goal</h4>
               <span class="slot">slot 2</span>
             </div>
-            <chip-group id="type" label="Type"></chip-group>
+            <chip-group id="goal" label="Goal"></chip-group>
           </div>
 
           <div class="field">
             <div class="fieldhead">
               <h4>Episode</h4>
-              <span class="slot">slot 3</span>
+              <span class="slot">slot 4</span>
             </div>
             <entry-tile id="episode" label="Episode"></entry-tile>
+          </div>
+
+          <!-- Only the tower has floors, so the field is shown only there. -->
+          <div class="field" id="field-floor" hidden>
+            <div class="fieldhead">
+              <h4>Floor</h4>
+              <span class="slot">slots 5-7</span>
+            </div>
+            <input
+              id="floor"
+              type="number"
+              min="1"
+              max="100"
+              step="1"
+              inputmode="numeric"
+              placeholder="Any floor"
+              aria-label="Floor, 1 to 100, empty for any"
+            />
           </div>
         </section>
 
@@ -146,6 +172,7 @@
               <h4>Cookie, relay and pet</h4>
               <span class="slot">groups C R P</span>
             </div>
+            <p class="caveat" id="relay-note" hidden></p>
             <div class="tiles">
               <entry-tile id="cookie" label="Cookie"></entry-tile>
               <entry-tile id="relay" label="Relay"></entry-tile>
@@ -153,7 +180,7 @@
             </div>
           </div>
 
-          <div class="field">
+          <div class="field" id="field-treasures">
             <!-- The order switch rides on the heading, because it is what the
                  slot labels under it are saying. -->
             <div class="fieldhead">
@@ -161,6 +188,7 @@
               <span class="slot">group T</span>
               <chip-group id="treasureOrder" label="Order"></chip-group>
             </div>
+            <p class="unavailable"></p>
             <div class="tiles">
               <entry-tiles id="treasure1"></entry-tiles>
               <entry-tiles id="treasure2"></entry-tiles>
@@ -172,39 +200,46 @@
         <section class="band">
           <header class="bandhead">
             <h3>Boosts and start</h3>
-            <span class="note">slots 4-8</span>
+            <span class="note">slots 5-10</span>
           </header>
 
-          <div class="field">
+          <!-- A field the episode or the mode has no room for keeps its
+               heading and says why in place of its control, so the board does
+               not reflow under someone switching episodes. -->
+          <div class="field" id="field-boosts">
             <div class="fieldhead">
               <h4>Boosts</h4>
-              <span class="slot">slot 4</span>
-            </div>
-            <card-group id="boosts" legend="Boosts"></card-group>
-          </div>
-
-          <div class="field">
-            <div class="fieldhead">
-              <h4>Random boost</h4>
               <span class="slot">slot 5</span>
             </div>
-            <entry-tile id="randomBoost" label="Random boost"></entry-tile>
+            <card-group id="boosts" legend="Boosts"></card-group>
+            <p class="unavailable"></p>
           </div>
 
-          <div class="field">
+          <div class="field" id="field-randomBoost">
+            <div class="fieldhead">
+              <h4>Random boost</h4>
+              <span class="slot">slot 6</span>
+            </div>
+            <entry-tile id="randomBoost" label="Random boost"></entry-tile>
+            <p class="unavailable"></p>
+          </div>
+
+          <div class="field" id="field-cookiePowers">
             <div class="fieldhead">
               <h4>Cookie power+</h4>
-              <span class="slot">slots 6-7</span>
+              <span class="slot">slots 7-9</span>
             </div>
             <card-group id="cookiePowers" legend="Cookie power+"></card-group>
+            <p class="unavailable"></p>
           </div>
 
-          <div class="field">
+          <div class="field" id="field-action">
             <div class="fieldhead">
               <h4>Action</h4>
-              <span class="slot">slot 8</span>
+              <span class="slot">slot 10</span>
             </div>
             <chip-group id="action" label="Action"></chip-group>
+            <p class="unavailable"></p>
           </div>
         </section>
       </form>
@@ -216,9 +251,10 @@
         <summary><h2>Reading a code by eye</h2></summary>
 
         <pre class="diagram">
-slot:  1  2  3  4 5 6  7  8 9  10
-       V  T  E  B B B  R  C C  A
-ex:    1  H  3  H - F  4  1 4  J</pre
+slot:  1  2  3  4  5  6  7 8 9  10
+       V  G  M  E  B  R  P P P  A
+ex:    1  M  H  3  2  R  F W 0  J
+SE2:   1  E  A  T  0  4  2 0 0  0</pre
         >
 
         <div class="scroll-x">
@@ -238,34 +274,48 @@ ex:    1  H  3  H - F  4  1 4  J</pre
               </tr>
               <tr>
                 <td>2</td>
-                <td>Type</td>
+                <td>Goal</td>
                 <td>
                   <code>S</code> Score, <code>M</code> Money, <code>E</code>
-                  Exp, <code>B</code> Box, <code>A</code> Auto, <code>H</code>
-                  Semi-auto
+                  Exp, <code>B</code> Box. An auto run aims for Money, Exp or
+                  Box
                 </td>
               </tr>
               <tr>
                 <td>3</td>
-                <td>Episode</td>
+                <td>Mode</td>
                 <td>
-                  <code>0</code> Any, <code>1</code>-<code>7</code> Episode 1-7,
-                  <code>A</code>/<code>B</code>/<code>C</code> Special Episode
-                  1-3, <code>X</code> Special Exp Episode
+                  <code>0</code> Manual, <code>A</code> Auto, <code>H</code>
+                  Semi-auto
                 </td>
               </tr>
               <tr>
                 <td>4</td>
-                <td>Boosts</td>
+                <td>Episode</td>
                 <td>
-                  Bitmask as one hex digit: <code>1</code> HP Extension,
-                  <code>2</code> Power Jelly Boost, <code>4</code> Fast Start,
-                  <code>8</code> Double XP. Add up what is on - all four is
-                  <code>F</code>
+                  <code>0</code> Any, <code>1</code>-<code>7</code> Episode 1-7,
+                  <code>C</code> Special Episode 1 (Island of Coins),
+                  <code>T</code> Special Episode 2 (Tower of Frozen Waves),
+                  <code>R</code> Special Episode 3 (Rabbit Hole),
+                  <code>X</code> Special Exp Episode
                 </td>
               </tr>
               <tr>
                 <td>5</td>
+                <td>Boosts</td>
+                <td>
+                  One character for the whole set: <code>0</code> none,
+                  <code>H</code> HP Extension, <code>P</code> Power Jelly Boost,
+                  <code>F</code> Fast Start, <code>X</code> Double XP,
+                  <code>A</code> all four. Pairs and triples run in order:
+                  <code>1</code> HP, <code>2</code> HF, <code>3</code> HX,
+                  <code>4</code> PF, <code>5</code> PX, <code>6</code> FX,
+                  <code>7</code> HPF, <code>8</code> HPX, <code>9</code> HFX,
+                  <code>B</code> PFX
+                </td>
+              </tr>
+              <tr>
+                <td>6</td>
                 <td>Random boost</td>
                 <td>
                   <code>0</code> none, otherwise a letter from the boost's
@@ -278,25 +328,39 @@ ex:    1  H  3  H - F  4  1 4  J</pre
                 </td>
               </tr>
               <tr>
-                <td>6-7</td>
+                <td>7-9</td>
                 <td>Cookie power+</td>
                 <td>
-                  Bitmask as two hex digits, <code>00</code>-<code>7F</code>
+                  One slot per group, <code>0</code> for none of it. Slot 7:
+                  <code>C</code> Cheerleader, <code>S</code> Special Force,
+                  <code>F</code> Fairy, <code>1</code> CS, <code>2</code> CF,
+                  <code>3</code> SF, <code>4</code> all three. Slot 8:
+                  <code>K</code> Cheesecake, <code>W</code> Sea Fairy,
+                  <code>1</code> both. Slot 9: <code>L</code> Serenade of
+                  Love, <code>E</code> EXP Party, <code>1</code> both
                 </td>
               </tr>
               <tr>
-                <td>8</td>
+                <td>10</td>
                 <td>Action</td>
-                <td><code>0</code> none, <code>J</code> jump at start</td>
-              </tr>
-              <tr>
-                <td>9-10</td>
-                <td>Reserved</td>
-                <td>Always <code>0</code>, both</td>
+                <td>
+                  <code>0</code> none, <code>J</code> jump at start. Auto runs
+                  only
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
+
+        <h3>Special episodes</h3>
+        <p>
+          Special Episodes 1 and 2 take a cookie, a pet and treasures - no
+          relay, boosts, random boost or cookie power+, so slots 5-9 read
+          <code>0</code>. Special Episode 2 spends slots 5-7 on the tower
+          floor instead: <code>001</code>-<code>100</code>, or
+          <code>000</code> for any floor. The Special Exp Episode takes a
+          cookie and a pet only.
+        </p>
 
         <h3>The loadout section</h3>
         <p>
@@ -353,13 +417,13 @@ ex:    1  H  3  H - F  4  1 4  J</pre
 
         <h3>Auto vs semi-auto</h3>
         <p>
-          A build is semi-auto when <strong>any</strong> of these is true: Fast
-          Start is on (bit <code>4</code> of slot 4), a random boost is selected
-          (slot 5), there is a jump action (slot 8), or the loadout carries a
-          relay cookie (the <code>R</code> group). A relay is swapped in by
-          hand, so a run carrying one never plays itself through. Slot 2 stores
+          An auto build is semi-auto when <strong>any</strong> of these is
+          true: Fast Start is on (slot 5), a random boost is selected (slot 6),
+          there is a jump action (slot 10), or the loadout carries a relay
+          cookie (the <code>R</code> group). A relay is swapped in by hand, so
+          a run carrying one never plays itself through. Slot 3 stores
           <code>A</code> or <code>H</code> so the name reads plainly, but those
-          four are the authority - building a code always rewrites slot 2 to
+          four are the authority - building a code always rewrites slot 3 to
           match them.
         </p>
       </details>

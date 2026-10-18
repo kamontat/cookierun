@@ -204,6 +204,27 @@ main {
 	display: block;
 }
 
+/* A field the episode or the mode has no room for keeps its heading and
+   trades its control for a sentence saying why. */
+.unavailable,
+.caveat {
+	margin: 0;
+	color: var(--cr-muted);
+	font-size: 0.85rem;
+}
+
+.field[data-off] > :not(.fieldhead, .unavailable) {
+	display: none;
+}
+
+.field:not([data-off]) > .unavailable {
+	display: none;
+}
+
+#floor {
+	width: 8rem;
+}
+
 .tiles {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));

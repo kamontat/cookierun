@@ -5,14 +5,17 @@ import {
 	ALL_BOOSTS,
 	ALL_COOKIE_POWERS,
 	ALL_EPISODES,
+	ALL_GOALS,
+	ALL_MODES,
 	ALL_RANDOM_BOOSTS,
-	ALL_TYPES,
 	type Boost,
 	CODE_LENGTH,
 	type Combi,
 	type CookiePower,
 	decode,
 	encode,
+	limitsOf,
+	normalize,
 	type RandomBoost,
 } from "./codec";
 
@@ -20,7 +23,13 @@ function subset<T>(values: readonly T[], mask: number): T[] {
 	return values.filter((_, index) => (mask & (1 << index)) !== 0);
 }
 
-/** Every combi the type system allows, in table-declaration order. */
+const FLOORS = [null, ...Array.from({ length: 100 }, (_, index) => index + 1)];
+
+/**
+ * Every combi a code can carry, in table-declaration order. What an episode has
+ * no room for is not varied there — `normalize` would only drop it again, and
+ * the codec tests cover that it does.
+ */
 function* everyCombi(): Generator<Combi> {
 	const randomBoosts: (RandomBoost | null)[] = [null, ...ALL_RANDOM_BOOSTS];
 	const boostSubsets: Boost[][] = Array.from(
@@ -32,20 +41,32 @@ function* everyCombi(): Generator<Combi> {
 		(_, mask) => subset(ALL_COOKIE_POWERS, mask),
 	);
 
-	for (const type of ALL_TYPES) {
-		for (const episode of ALL_EPISODES) {
-			for (const boosts of boostSubsets) {
-				for (const randomBoost of randomBoosts) {
-					for (const cookiePowers of cookieSubsets) {
-						for (const action of ALL_ACTIONS) {
-							yield {
-								type,
-								episode,
-								boosts,
-								randomBoost,
-								cookiePowers,
-								action,
-							};
+	for (const goal of ALL_GOALS) {
+		for (const mode of ALL_MODES) {
+			for (const episode of ALL_EPISODES) {
+				const limits = limitsOf(episode);
+				const floors = limits.floor ? FLOORS : [null];
+				const boostSets = limits.boosts ? boostSubsets : [[]];
+				const randoms = limits.boosts ? randomBoosts : [null];
+				const cookieSets = limits.boosts ? cookieSubsets : [[]];
+
+				for (const floor of floors) {
+					for (const boosts of boostSets) {
+						for (const randomBoost of randoms) {
+							for (const cookiePowers of cookieSets) {
+								for (const action of ALL_ACTIONS) {
+									yield {
+										goal,
+										mode,
+										episode,
+										floor,
+										boosts,
+										randomBoost,
+										cookiePowers,
+										action,
+									};
+								}
+							}
 						}
 					}
 				}
@@ -81,13 +102,18 @@ test(
 			}
 
 			const { combi: back } = decode(code);
+			const expected = normalize(combi);
 
+			// The mode is derived, so it is the one field allowed to come back
+			// different: re-encoding is what proves it came back right.
 			const same =
-				back.episode === combi.episode &&
-				back.randomBoost === combi.randomBoost &&
-				back.action === combi.action &&
-				back.boosts.join() === combi.boosts.join() &&
-				back.cookiePowers.join() === combi.cookiePowers.join() &&
+				back.goal === expected.goal &&
+				back.episode === expected.episode &&
+				back.floor === expected.floor &&
+				back.randomBoost === expected.randomBoost &&
+				back.action === expected.action &&
+				back.boosts.join() === expected.boosts.join() &&
+				back.cookiePowers.join() === expected.cookiePowers.join() &&
 				encode(back) === code;
 
 			if (!same) {
@@ -100,19 +126,24 @@ test(
 		}
 
 		expect(failures).toEqual([]);
-		expect(checked).toBe(6 * 12 * 16 * 12 * 128 * 2);
+		// Nine ordinary episodes carry everything; the tower carries a floor; the
+		// other two special episodes carry neither.
+		const perGoalAndMode = 9 * 16 * 12 * 128 * 2 + 101 * 2 + 2 * 2;
+		expect(checked).toBe(4 * 3 * perGoalAndMode);
 	},
 	WHOLE_SPACE_TIMEOUT,
 );
 
 test(
-	"codes are unique — the auto family is the only collapse",
+	"codes are unique but for the two derived collapses",
 	() => {
 		const codes = new Set<string>();
 		for (const combi of everyCombi()) codes.add(encode(combi));
 
-		// 4 manual types + 1 auto family, since the auto/semi char is derived.
-		expect(codes.size).toBe(5 * 12 * 16 * 12 * 128 * 2);
+		// Auto and semi-auto are one family, since that char is derived; and a
+		// manual run drops its action, so its two actions are one code.
+		const carried = 9 * 16 * 12 * 128 + 101 + 2;
+		expect(codes.size).toBe(4 * (carried + carried * 2));
 	},
 	WHOLE_SPACE_TIMEOUT,
 );

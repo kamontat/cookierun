@@ -19,8 +19,10 @@ const t = (id: string, min = 0, max = min): TreasurePick =>
 	treasurePick(id, levelRange(min, max));
 
 const combi: Combi = {
-	type: "score",
+	goal: "score",
+	mode: "manual",
 	episode: "any",
+	floor: null,
 	boosts: [],
 	randomBoost: null,
 	cookiePowers: [],
@@ -46,10 +48,10 @@ test("a loadout is written before the combi, separated by a dot", () => {
 
 // Every code that worked before this feature has to keep working.
 test("a bare code decodes with an empty loadout and the same combi", () => {
-	const { full, warnings } = decodeFull("1E36R00J00");
+	const { full, warnings } = decodeFull("1EH34R000J");
 
 	expect(full.loadout).toEqual(emptyLoadout());
-	expect(full.combi.type).toBe("exp");
+	expect(full.combi.goal).toBe("exp");
 	expect(full.combi.boosts).toEqual(["powerJellyBoost", "fastStart"]);
 	expect(full.combi.randomBoost).toBe("revive");
 	expect(full.combi.action).toBe("jumpAtStart");
@@ -57,7 +59,7 @@ test("a bare code decodes with an empty loadout and the same combi", () => {
 });
 
 test("both sections decode together", () => {
-	const { full } = decodeFull("1C00P02TU000-1S07014000");
+	const { full } = decodeFull("1C00P02TU000-1S0070FW00");
 
 	expect(full.loadout.cookie).toBe("00");
 	expect(full.loadout.pet).toBe("02");
@@ -66,10 +68,10 @@ test("both sections decode together", () => {
 });
 
 test("the combi section's soft warning survives the join", () => {
-	const { warnings } = decodeFull("1C00-1A35R00000");
+	const { warnings } = decodeFull("1C00-1MA32R0000");
 
 	expect(warnings).toHaveLength(1);
-	expect(warnings[0]).toContain("slot 2 says Auto");
+	expect(warnings[0]).toContain("slot 3 says Auto");
 });
 
 test("a second section separator is refused", () => {
@@ -160,10 +162,12 @@ test("a seeded sample of loadouts round-trips to its canonical form", () => {
 
 // A relay cookie is swapped in by hand, so a run carrying one never plays
 // itself through — and the ten characters someone pastes into the game say so.
-test("a relay writes Semi-auto into slot 2", () => {
+test("a relay writes Semi-auto into slot 3", () => {
 	const auto: Combi = {
-		type: "auto",
+		goal: "money",
+		mode: "auto",
 		episode: "any",
+		floor: null,
 		boosts: [],
 		randomBoost: null,
 		cookiePowers: [],
@@ -172,17 +176,19 @@ test("a relay writes Semi-auto into slot 2", () => {
 
 	expect(
 		encodeFull({ loadout: { ...emptyLoadout(), relay: "0O" }, combi: auto }),
-	).toBe("1R0O-1H00000000");
+	).toBe("1R0O-1MH0000000");
 	// The combi half on its own knows nothing about a relay and never did.
 	expect(encodeFull({ loadout: emptyLoadout(), combi: auto })).toBe(
-		"1A00000000",
+		"1MA0000000",
 	);
 });
 
 test("a build is semi-auto when the loadout carries a relay", () => {
 	const auto: Combi = {
-		type: "auto",
+		goal: "money",
+		mode: "auto",
 		episode: "any",
+		floor: null,
 		boosts: [],
 		randomBoost: null,
 		cookiePowers: [],
@@ -200,10 +206,12 @@ test("a build is semi-auto when the loadout carries a relay", () => {
 
 // Which relay it is changes nothing: a build that says any relay will do still
 // says a relay gets swapped in by hand. Only no relay at all leaves it auto.
-test("an Any relay is a relay, for slot 2 and for the verdict", () => {
+test("an Any relay is a relay, for slot 3 and for the verdict", () => {
 	const auto: Combi = {
-		type: "auto",
+		goal: "money",
+		mode: "auto",
 		episode: "any",
+		floor: null,
 		boosts: [],
 		randomBoost: null,
 		cookiePowers: [],
@@ -212,7 +220,7 @@ test("an Any relay is a relay, for slot 2 and for the verdict", () => {
 
 	expect(
 		encodeFull({ loadout: { ...emptyLoadout(), relay: "__" }, combi: auto }),
-	).toBe("1R__-1H00000000");
+	).toBe("1R__-1MH0000000");
 	expect(
 		isSemiAutoBuild({
 			loadout: { ...emptyLoadout(), relay: "__" },
@@ -224,19 +232,67 @@ test("an Any relay is a relay, for slot 2 and for the verdict", () => {
 // Hand-typed codes are allowed to contradict themselves; the relay wins, and
 // re-encoding snaps the slot back.
 test("a code saying Auto beside a relay warns rather than refusing", () => {
-	const { full, warnings } = decodeFull("1R0O-1A00000000");
+	const { full, warnings } = decodeFull("1R0O-1MA0000000");
 
-	expect(full.combi.type).toBe("auto");
+	expect(full.combi.mode).toBe("auto");
 	expect(warnings).toEqual([
-		"slot 2 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
+		"slot 3 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
 	]);
-	expect(encodeFull(full)).toBe("1R0O-1H00000000");
+	expect(encodeFull(full)).toBe("1R0O-1MH0000000");
 });
 
 // The codec's own contradiction warning does not fire for an H the loadout
 // explains: nothing is wrong with that code.
 test("a relayed code saying Semi-auto draws no warning", () => {
-	const { warnings } = decodeFull("1R0O-1H00000000");
+	const { warnings } = decodeFull("1R0O-1MH0000000");
 
 	expect(warnings).toEqual([]);
+});
+
+const special = (episode: Combi["episode"]): Combi => ({
+	...combi,
+	goal: "money",
+	mode: "auto",
+	episode,
+});
+
+// The special episodes take a cookie and a pet; the first two treasures too.
+test("a special episode drops the relay, and the exp episode the treasures", () => {
+	const loadout = {
+		...emptyLoadout(),
+		cookie: "00",
+		relay: "0O",
+		pet: "02",
+		treasures: [[t("000")]],
+	};
+
+	expect(encodeFull({ loadout, combi: special("special1") })).toBe(
+		"1C00P02TU000-1MAC000000",
+	);
+	expect(encodeFull({ loadout, combi: special("special2") })).toBe(
+		"1C00P02TU000-1MAT000000",
+	);
+	expect(encodeFull({ loadout, combi: special("specialExp") })).toBe(
+		"1C00P02-1MAX000000",
+	);
+});
+
+test("a relay a special episode has no room for forces nothing", () => {
+	expect(
+		isSemiAutoBuild({
+			loadout: { ...emptyLoadout(), relay: "0O" },
+			combi: special("special1"),
+		}),
+	).toBe(false);
+});
+
+test("decoding drops what the episode has no room for, with a warning", () => {
+	const { full, warnings } = decodeFull("1C00R0OTU000-1MAX000000");
+
+	expect(full.loadout.relay).toBeNull();
+	expect(full.loadout.treasures).toEqual([]);
+	expect(warnings).toEqual([
+		"this episode takes no relay cookie — ignoring it",
+		"this episode takes no treasures — ignoring them",
+	]);
 });

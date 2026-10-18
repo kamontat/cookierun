@@ -19,66 +19,77 @@ test("one hint per character of the code", () => {
 });
 
 test("each slot names its number, its field and what it currently says", () => {
-	const [version, type, episode] = hints("1E36R00J00");
+	const [version, goal, mode, episode] = hints("1EH34R000J");
 
 	expect(version).toBe("Slot 1 · Format version");
-	expect(type).toBe("Slot 2 · Type · Exp");
-	expect(episode).toBe("Slot 3 · Episode · Episode 3");
+	expect(goal).toBe("Slot 2 · Goal · Exp");
+	expect(mode).toBe("Slot 3 · Mode · Semi-auto");
+	expect(episode).toBe("Slot 4 · Episode · Episode 3");
 });
 
 test("the boost slot names every boost that is on", () => {
-	const [, , , boosts] = hints("1E36R00J00");
-
-	expect(boosts).toBe("Slot 4 · Boosts · Power Jelly Boost, Fast Start");
+	expect(hints("1EH34R000J")[4]).toBe(
+		"Slot 5 · Boosts · Power Jelly Boost, Fast Start",
+	);
+	expect(hints("1EA3A0000J")[4]).toBe(
+		"Slot 5 · Boosts · HP Extension, Power Jelly Boost, Fast Start, Double XP",
+	);
 });
 
 test("a boost slot with nothing on reads as None", () => {
-	const [, , , boosts] = hints("1E30R00J00");
-
-	expect(boosts).toBe("Slot 4 · Boosts · None");
+	expect(hints("1EA30R000J")[4]).toBe("Slot 5 · Boosts · None");
 });
 
-test("the reserved slots say so, and say it together", () => {
-	const described = hintsFor("1E3FR00J00");
+test("the three cookie power+ characters share one hint over the whole list", () => {
+	const described = hints("1S0000FW00");
 
-	expect(described[8]?.hint).toBe("Slots 9-10 · Reserved");
-	expect(described[9]?.hint).toBe(described[8]?.hint);
-	expect(described[3]?.hint).toBe(
-		"Slot 4 · Boosts · HP Extension, Power Jelly Boost, Fast Start, Double XP",
+	expect(described[6]).toBe(
+		"Slots 7-9 · Cookie power+ · Fairy Cookie, Sea Fairy Cookie",
 	);
-});
-
-test("the two cookie power+ characters share one hint over the whole mask", () => {
-	const described = hints("1S00014000");
-
-	expect(described[5]).toBe(
-		"Slots 6-7 · Cookie power+ · Fairy Cookie, Sea Fairy Cookie",
-	);
-	expect(described[6]).toBe(described[5]);
+	expect(described[8]).toBe(described[6]);
 });
 
 test("an empty field reads as None rather than as a blank", () => {
 	const described = hints("1S00000000");
 
-	expect(described[4]).toBe("Slot 5 · Random boost · None");
-	expect(described[7]).toBe("Slot 8 · Action · No action");
+	expect(described[5]).toBe("Slot 6 · Random boost · None");
+	expect(described[9]).toBe("Slot 10 · Action · No action");
 });
 
-// The two reserved characters share a group of their own: they say the same
-// nothing, and no control owns them.
 test("characters of one field share a group, and neighbouring fields do not", () => {
 	expect(groups("1S00000000")).toEqual([
 		"version",
-		"type",
+		"goal",
+		"mode",
 		"episode",
 		"boosts",
 		"randomBoost",
 		"cookiePowers",
 		"cookiePowers",
+		"cookiePowers",
 		"action",
-		"reserved",
-		"reserved",
 	]);
+});
+
+test("the tower's floor is one run, and what follows it is reserved", () => {
+	const described = hintsFor("1MAT042000");
+
+	expect(described.slice(4, 7).map(({ hint }) => hint)).toEqual(
+		Array(3).fill("Slots 5-7 · Floor · Floor 42"),
+	);
+	expect(described[4]?.group).toBe("floor");
+	expect(described[7]?.hint).toBe("Slots 8-9 · Reserved");
+	expect(hints("1MAT000000")[4]).toBe("Slots 5-7 · Floor · Any floor");
+});
+
+test("a special episode with no boosts says so over slots 5-9", () => {
+	const described = hintsFor("1MAC000000");
+
+	expect(described[4]?.hint).toBe(
+		"Slots 5-9 · Boosts · Not used in this episode",
+	);
+	expect(described[8]?.hint).toBe(described[4]?.hint);
+	expect(described[9]?.group).toBe("action");
 });
 
 test("a loadout section is hinted group by group, separator included", () => {
