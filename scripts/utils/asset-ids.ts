@@ -80,6 +80,7 @@ export const TREASURE_FAMILIES = [
 	"draw",
 	"pet",
 	"special",
+	"squirrel",
 ] as const;
 
 export type TreasureFamily = (typeof TREASURE_FAMILIES)[number];
