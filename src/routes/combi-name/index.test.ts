@@ -110,12 +110,12 @@ test("choosing a goal writes it into the code", async () => {
 
 test("a boost card writes its set and rewrites the mode slot to semi-auto", async () => {
 	await choose("mode", "auto");
-	// Score is played by hand, so an auto run falls to the first goal it has.
-	expect(await codeText()).toBe("1MA0000000");
+	// Score is played by hand, so an auto run falls to Any, its first goal.
+	expect(await codeText()).toBe("10A0000000");
 
 	await choose("boosts", "fastStart");
 
-	expect(await codeText()).toBe("1MH0F00000");
+	expect(await codeText()).toBe("10H0F00000");
 	expect(shown(summary)).toContain("Semi-auto");
 	expect(shown(summary)).toContain("Fast Start");
 	await reset();
@@ -125,7 +125,7 @@ test("Double XP is its own letter and leaves the run on full auto", async () => 
 	await choose("mode", "auto");
 	await choose("boosts", "doubleXp");
 
-	expect(await codeText()).toBe("1MA0X00000");
+	expect(await codeText()).toBe("10A0X00000");
 	expect(shown(summary)).toContain("Full auto");
 	expect(isOn("boosts", "doubleXp")).toBe(true);
 	await reset();
@@ -171,11 +171,11 @@ test("picking None puts the random boost back to none", async () => {
 test("clicking the chosen action puts it back to no action", async () => {
 	await choose("mode", "auto");
 	await choose("action", "jumpAtStart");
-	expect(await codeText()).toBe("1MH000000J");
+	expect(await codeText()).toBe("10H000000J");
 
 	await choose("action", "jumpAtStart");
 
-	expect(await codeText()).toBe("1MA0000000");
+	expect(await codeText()).toBe("10A0000000");
 	await reset();
 });
 
@@ -231,7 +231,7 @@ test("picking Any on the cookie, relay and pet writes it into the code", async (
 	await choose("pet", "__");
 
 	// The relay writes Semi-auto into slot 3 whichever cookie fills it.
-	expect(await codeText()).toBe("1C__R__P__-1MH0000000");
+	expect(await codeText()).toBe("1C__R__P__-10H0000000");
 	expect(shown(need("cookie"))).toContain("Any cookie");
 	expect(shown(need("pet"))).toContain("Any pet");
 	await reset();
@@ -618,7 +618,7 @@ test("opening the editor takes the page's buttons off the panel", async () => {
 // however the rest of the build reads — and the code says so in slot 2.
 test("a relay turns an auto build semi-auto, code and all", async () => {
 	await choose("mode", "auto");
-	expect(await codeText()).toBe("1MA0000000");
+	expect(await codeText()).toBe("10A0000000");
 
 	await typeCode("1R0O-1MA0000000");
 
@@ -762,12 +762,13 @@ test("a manual run takes the action off the board", async () => {
 	await reset();
 });
 
-test("an auto run is not offered Score", async () => {
+test("an auto run is offered Any instead of Score", async () => {
 	expect(() => control("goal", "score")).not.toThrow();
+	expect(() => control("goal", "any")).toThrow();
 
 	await choose("mode", "auto");
 	expect(() => control("goal", "score")).toThrow();
-	expect(isOn("goal", "money")).toBe(true);
+	expect(isOn("goal", "any")).toBe(true);
 	await reset();
 });
 

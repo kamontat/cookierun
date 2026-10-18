@@ -13,7 +13,6 @@ import {
 	ALL_BOOSTS,
 	ALL_COOKIE_POWERS,
 	ALL_EPISODES,
-	ALL_GOALS,
 	ALL_MODES,
 	ALL_RANDOM_BOOSTS,
 	AUTO_GOALS,
@@ -24,6 +23,7 @@ import {
 	type Episode,
 	type Goal,
 	limitsOf,
+	MANUAL_GOALS,
 	type Mode,
 	type RandomBoost,
 } from "./codec";
@@ -318,8 +318,9 @@ function showWarnings(warnings: readonly string[]): void {
  * through here.
  */
 function render(warnings: readonly string[] = []): void {
-	// Before the form is read: an auto run has no Score to aim for, so the goal
-	// row has to have dropped it by the time its value is taken.
+	// Before the form is read: an auto run has no Score to aim for and a manual
+	// one no Any, so the goal row has to have dropped it by the time its value
+	// is taken.
 	goalChips.options = goalOptions(modeChips.value as Mode);
 	const code = encodeFull({ loadout: readLoadout(), combi: readForm() });
 	// The line under the code answers a question about the code in front of you,
@@ -520,12 +521,14 @@ function modeOptions(semi: boolean): readonly (readonly [string, string])[] {
 }
 
 /**
- * The goals a mode can aim for. Score is played by hand, so an auto run is
- * offered the other three — and a Score pick falls to the first of them, the
- * way a chip row reads a value its options no longer hold.
+ * The goals a mode can aim for. Score is played by hand and Any is an auto
+ * run that specialises in nothing, so each mode is offered its own four — and
+ * a pick the other mode's row lacks falls to the first of them, the way a chip
+ * row reads a value its options no longer hold: Score becomes Any on the way
+ * to auto, and Any becomes Score on the way back.
  */
 function goalOptions(mode: Mode): readonly (readonly [string, string])[] {
-	const goals = mode === "manual" ? ALL_GOALS : AUTO_GOALS;
+	const goals = mode === "manual" ? MANUAL_GOALS : AUTO_GOALS;
 	return pairs(goals, GOAL_LABELS);
 }
 

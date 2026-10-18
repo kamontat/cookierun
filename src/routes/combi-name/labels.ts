@@ -11,6 +11,7 @@ import type {
 export { BOOST_LABELS } from "./codec";
 
 export const GOAL_LABELS: Record<Goal, string> = {
+	any: "Any",
 	score: "Score",
 	money: "Money",
 	exp: "Exp",

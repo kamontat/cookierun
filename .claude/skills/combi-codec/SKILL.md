@@ -31,8 +31,10 @@ The form end of that guarantee is `<card-group>`'s `selected` getter: it filters
 `ALL_MODES` carries `semiauto` and `MODE_CHARS` maps it to `H`, because a code
 carrying `H` has to decode — but the page's mode chips are `ALL_MODES` minus
 that one. A manual run is `0` and is never touched by this rule. An auto run is
-offered Money, Exp and Box (`AUTO_GOALS`) only; a code saying Score beside `A`
-or `H` decodes with a warning. Semi-auto is what `normalizeMode` makes of an auto run when Fast
+offered Any, Money, Exp and Box (`AUTO_GOALS`) and a manual one Score, Money,
+Exp and Box (`MANUAL_GOALS`). Any (`0`) is an auto run that specialises in
+nothing. A code saying Score beside `A` or `H`, or Any beside a manual `0`,
+decodes with a warning. Semi-auto is what `normalizeMode` makes of an auto run when Fast
 Start, a random boost, a jump action or a relay cookie is in play, so a chip for
 it could only disagree with the code those produce. `writeForm` lands a decoded
 `semiauto` on the Auto chip, and the chip's own label follows the build: the
@@ -56,11 +58,11 @@ The separators are chosen for word-wise selection (double-click, Option+Shift+Ar
 
 ## Hard errors vs soft warnings
 
-`decode` throws only when a code is unreadable: wrong length, unknown version, an unknown character in a slot, or a tower floor that is not three digits up to `100` (or slots 8-9 not `00` there). It returns `{ combi, warnings }` and never throws when slot 3 (`A` vs `H`) disagrees with the flag slots, when an auto run says Score, or when a code carries what its episode or mode has no room for, because hand-typed codes can contradict themselves. `isSemiAuto` is always the authority; `encode` normalizes slot 3 to match it. Keep that split — the UI depends on being able to show a contradictory code rather than refusing it.
+`decode` throws only when a code is unreadable: wrong length, unknown version, an unknown character in a slot, or a tower floor that is not three digits up to `100` (or slots 8-9 not `00` there). It returns `{ combi, warnings }` and never throws when slot 3 (`A` vs `H`) disagrees with the flag slots, when an auto run says Score or a manual one Any, or when a code carries what its episode or mode has no room for, because hand-typed codes can contradict themselves. `isSemiAuto` is always the authority; `encode` normalizes slot 3 to match it. Keep that split — the UI depends on being able to show a contradictory code rather than refusing it.
 
 ## The exhaustive test
 
-`src/routes/combi-name/exhaustive.test.ts` round-trips all 2,656,872 combinations a code can carry — what an episode has no room for is not varied there — and asserts encoding yields exactly 2,655,636 distinct codes (the auto/semi-auto character is derived, so the auto family collapses, and a manual run drops its action). Both numbers are hardcoded; changing the configuration space means recomputing them, and a mismatch usually means a table changed size rather than that the test is stale. Both tests also carry an explicit 60s timeout: their runtime is the size of the format, and the 5s Bun allows by default was already tight on a CI runner at half this space.
+`src/routes/combi-name/exhaustive.test.ts` round-trips all 6,638,610 combinations a code can carry — what an episode has no room for is not varied there — and asserts encoding yields exactly 3,319,305 distinct codes (the auto/semi-auto character is derived, so the auto family collapses, and a manual run drops its action). Both numbers are hardcoded; changing the configuration space means recomputing them, and a mismatch usually means a table changed size rather than that the test is stale. Both tests also carry an explicit 120s timeout: their runtime is the size of the format, and the 5s Bun allows by default was already tight on a CI runner at half this space.
 
 It covers the combi section only. A loadout's alternative treasure slots make its space open-ended rather than a fixed count to enumerate, so the loadout is instead covered by a seeded round-trip sample in `full-code.test.ts` — encode 2,000 random loadouts, decode each back, and check the result re-encodes to the same code.
 

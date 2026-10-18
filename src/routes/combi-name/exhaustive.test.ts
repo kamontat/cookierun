@@ -84,7 +84,7 @@ const CODE_PATTERN = /^[0-9A-Z-]{10}$/;
  * slower than a laptop — the explicit budget is what keeps a growing format
  * from reading as a flaky test.
  */
-const WHOLE_SPACE_TIMEOUT = 60_000;
+const WHOLE_SPACE_TIMEOUT = 120_000;
 
 test(
 	"every combi round-trips through a 10-character code",
@@ -129,7 +129,7 @@ test(
 		// Nine ordinary episodes carry everything; the tower carries a floor; the
 		// other two special episodes carry neither.
 		const perGoalAndMode = 9 * 16 * 12 * 128 * 2 + 101 * 2 + 2 * 2;
-		expect(checked).toBe(4 * 3 * perGoalAndMode);
+		expect(checked).toBe(5 * 3 * perGoalAndMode);
 	},
 	WHOLE_SPACE_TIMEOUT,
 );
@@ -143,7 +143,7 @@ test(
 		// Auto and semi-auto are one family, since that char is derived; and a
 		// manual run drops its action, so its two actions are one code.
 		const carried = 9 * 16 * 12 * 128 + 101 + 2;
-		expect(codes.size).toBe(4 * (carried + carried * 2));
+		expect(codes.size).toBe(5 * (carried + carried * 2));
 	},
 	WHOLE_SPACE_TIMEOUT,
 );

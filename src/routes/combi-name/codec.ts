@@ -1,4 +1,8 @@
-export type Goal = "score" | "money" | "exp" | "box";
+/**
+ * What a run aims for. `any` is an auto run that specialises in nothing; a run
+ * played by hand always aims for something.
+ */
+export type Goal = "any" | "score" | "money" | "exp" | "box";
 
 /**
  * Who plays the run. Semi-auto is never picked: it is what an auto run becomes
@@ -64,8 +68,9 @@ export type Combi = {
 
 export const VERSION = "1";
 
-/** A letter from each goal's own name. */
+/** A letter from each goal's own name, and `0` for none in particular. */
 const GOAL_CHARS: Record<Goal, string> = {
+	any: "0",
 	score: "S",
 	money: "M",
 	exp: "E",
@@ -246,7 +251,10 @@ export const ALL_ACTIONS = Object.keys(ACTION_CHARS) as Action[];
 export const BOOST_LABELS: Record<Boost, string> = BOOST_NAMES;
 
 /** The goals an auto run can aim for. Score is played by hand. */
-export const AUTO_GOALS: readonly Goal[] = ["money", "exp", "box"];
+export const AUTO_GOALS: readonly Goal[] = ["any", "money", "exp", "box"];
+
+/** The goals a run played by hand can aim for. Any is an auto run's. */
+export const MANUAL_GOALS: readonly Goal[] = ["score", "money", "exp", "box"];
 
 /**
  * What an episode lets a run carry. `boosts` covers the boost slot, the random
@@ -534,9 +542,15 @@ function droppedWarnings(combi: Combi): string[] {
 }
 
 function goalWarnings(combi: Combi): string[] {
-	if (combi.mode === "manual" || AUTO_GOALS.includes(combi.goal)) return [];
+	if (combi.mode === "manual") {
+		if (MANUAL_GOALS.includes(combi.goal)) return [];
+		return [
+			"slot 2 says Any but a run played by hand aims for Score, Money, Exp, or Box",
+		];
+	}
+	if (AUTO_GOALS.includes(combi.goal)) return [];
 	return [
-		"slot 2 says Score but an auto run aims for Money, Exp, or Box — Score is played by hand",
+		"slot 2 says Score but an auto run aims for Any, Money, Exp, or Box — Score is played by hand",
 	];
 }
 

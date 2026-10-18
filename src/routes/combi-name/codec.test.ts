@@ -229,7 +229,24 @@ test("an auto run aiming for Score decodes, with a warning", () => {
 
 	expect(combi.goal).toBe("score");
 	expect(warnings).toEqual([
-		"slot 2 says Score but an auto run aims for Money, Exp, or Box — Score is played by hand",
+		"slot 2 says Score but an auto run aims for Any, Money, Exp, or Box — Score is played by hand",
+	]);
+});
+
+// Any is an auto run that specialises in nothing: slot 2 reads 0.
+test("an auto run aiming for nothing in particular writes 0 into slot 2", () => {
+	const code = encode({ ...fullAuto, goal: "any" });
+
+	expect(code).toBe("10A0H00000");
+	expect(decode(code)).toEqual({
+		combi: { ...fullAuto, goal: "any" },
+		warnings: [],
+	});
+});
+
+test("a manual run aiming for Any decodes, with a warning", () => {
+	expect(decode("1000000000").warnings).toEqual([
+		"slot 2 says Any but a run played by hand aims for Score, Money, Exp, or Box",
 	]);
 });
 
