@@ -1,4 +1,14 @@
-export type CombiType = "score" | "money" | "exp" | "box" | "auto" | "semiauto";
+/**
+ * What a run aims for. `any` is an auto run that specialises in nothing; a run
+ * played by hand always aims for something.
+ */
+export type Goal = "any" | "score" | "money" | "exp" | "box";
+
+/**
+ * Who plays the run. Semi-auto is never picked: it is what an auto run becomes
+ * once something in it needs a hand, and `encode` derives it.
+ */
+export type Mode = "manual" | "auto" | "semiauto";
 
 export type Episode =
 	| "any"
@@ -45,8 +55,11 @@ export type CookiePower =
 export type Action = "none" | "jumpAtStart";
 
 export type Combi = {
-	type: CombiType;
+	goal: Goal;
+	mode: Mode;
 	episode: Episode;
+	/** The tower floor, on Special Episode 2 only. Null is any floor. */
+	floor: number | null;
 	boosts: Boost[];
 	randomBoost: RandomBoost | null;
 	cookiePowers: CookiePower[];
@@ -55,15 +68,30 @@ export type Combi = {
 
 export const VERSION = "1";
 
-const TYPE_CHARS: Record<CombiType, string> = {
+/** A letter from each goal's own name, and `0` for none in particular. */
+const GOAL_CHARS: Record<Goal, string> = {
+	any: "0",
 	score: "S",
 	money: "M",
 	exp: "E",
 	box: "B",
+};
+
+/**
+ * Manual is `0` because it is auto switched off. Semi-auto is `H`, for a run
+ * that needs a hand.
+ */
+const MODE_CHARS: Record<Mode, string> = {
+	manual: "0",
 	auto: "A",
 	semiauto: "H",
 };
 
+/**
+ * Numbered episodes are their number. The special episodes are a letter from
+ * their own names: Island of Coins, Tower of Frozen Waves, Mysterious Rabbit
+ * Hole, and the XP-Elixir Workshop.
+ */
 const EPISODE_CHARS: Record<Episode, string> = {
 	any: "0",
 	episode1: "1",
@@ -73,24 +101,51 @@ const EPISODE_CHARS: Record<Episode, string> = {
 	episode5: "5",
 	episode6: "6",
 	episode7: "7",
-	special1: "A",
-	special2: "B",
-	special3: "C",
+	special1: "C",
+	special2: "T",
+	special3: "R",
 	specialExp: "X",
 };
 
 /**
- * Bit values for the boost mask in slot 4, one hex digit. A flag slot each was
- * more legible, but three slots for three boosts left nowhere to put a fourth
- * inside ten characters, and the game's field is ten characters. Bit order is
- * the wire format.
+ * One slot holding any set of a few values. A value on its own is its own
+ * letter and no value is `0`; every combination of two or more takes a
+ * character from `combos`, keyed by its members' letters in `members` order.
+ * The combinations have no letter of their own to borrow, so they run in
+ * order instead — digits first, since a digit says "more than one" at a
+ * glance.
  */
-const BOOST_BITS: { boost: Boost; bit: number; label: string }[] = [
-	{ boost: "hpExtension", bit: 0x1, label: "HP Extension" },
-	{ boost: "powerJellyBoost", bit: 0x2, label: "Power Jelly Boost" },
-	{ boost: "fastStart", bit: 0x4, label: "Fast Start" },
-	{ boost: "doubleXp", bit: 0x8, label: "Double XP" },
-];
+type SetSlot<T extends string> = {
+	members: readonly { value: T; char: string }[];
+	combos: Readonly<Record<string, string>>;
+};
+
+/**
+ * Slot 5: every set of boosts in one character. A single boost is its own
+ * letter and all four are `A`; the pairs and triples run `1`-`9`, then `B`.
+ * Member order is also `ALL_BOOSTS`' order.
+ */
+const BOOST_SLOT: SetSlot<Boost> = {
+	members: [
+		{ value: "hpExtension", char: "H" },
+		{ value: "powerJellyBoost", char: "P" },
+		{ value: "fastStart", char: "F" },
+		{ value: "doubleXp", char: "X" },
+	],
+	combos: {
+		HP: "1",
+		HF: "2",
+		HX: "3",
+		PF: "4",
+		PX: "5",
+		FX: "6",
+		HPF: "7",
+		HPX: "8",
+		HFX: "9",
+		PFX: "B",
+		HPFX: "A",
+	},
+};
 
 /**
  * A letter from each boost's own name rather than a running count, so a code
@@ -111,15 +166,37 @@ const RANDOM_BOOST_CHARS: Record<RandomBoost, string> = {
 	pitLifts: "L",
 };
 
-const COOKIE_POWER_BITS: Record<CookiePower, number> = {
-	cheerleader: 1,
-	specialForce: 2,
-	fairy: 4,
-	cheesecake: 8,
-	seaFairy: 16,
-	serenadeOfLove: 32,
-	expParty: 64,
-};
+/**
+ * Slots 7-9: cookie power+, any number of them, so the seven powers are split
+ * into three groups of one slot each, and each slot is a set slot of its own.
+ * A run with at most one power per group reads as plain letters. Cheesecake
+ * is `K`, since `C` is the cheerleader's; Sea Fairy is `W` for water, since
+ * `S` and `F` are taken; Serenade of Love is `L` for love.
+ */
+const COOKIE_POWER_SLOTS: readonly SetSlot<CookiePower>[] = [
+	{
+		members: [
+			{ value: "cheerleader", char: "C" },
+			{ value: "specialForce", char: "S" },
+			{ value: "fairy", char: "F" },
+		],
+		combos: { CS: "1", CF: "2", SF: "3", CSF: "4" },
+	},
+	{
+		members: [
+			{ value: "cheesecake", char: "K" },
+			{ value: "seaFairy", char: "W" },
+		],
+		combos: { KW: "1" },
+	},
+	{
+		members: [
+			{ value: "serenadeOfLove", char: "L" },
+			{ value: "expParty", char: "E" },
+		],
+		combos: { LE: "1" },
+	},
+];
 
 const ACTION_CHARS: Record<Action, string> = {
 	none: "0",
@@ -133,32 +210,70 @@ const ACTION_CHARS: Record<Action, string> = {
  */
 const OFF = "0";
 
-/**
- * Slots 9 and 10, left over when the boosts moved into one slot. They sit at
- * the end so every field in use reads from the front without a gap, and they
- * are held open rather than dropped so the code stays ten characters — and so
- * the next field to arrive has somewhere to go.
- */
-const RESERVED = OFF.repeat(2);
-/** Zero-based index of the first reserved character. */
-const RESERVED_AT = 8;
+/** Zero-based index of each field's first character. */
+const AT = {
+	mode: 1,
+	goal: 2,
+	episode: 3,
+	boosts: 4,
+	randomBoost: 5,
+	cookiePowers: 6,
+	action: 9,
+	floor: 4,
+	/** The two characters a floor leaves after it, before the action. */
+	floorRest: 7,
+} as const;
+
+const FLOOR_MAX = 100;
+const FLOOR_DIGITS = 3;
 
 // Derived from the tables above so the lists can never drift from the codes.
-export const ALL_TYPES = Object.keys(TYPE_CHARS) as CombiType[];
+export const ALL_GOALS = Object.keys(GOAL_CHARS) as Goal[];
+export const ALL_MODES = Object.keys(MODE_CHARS) as Mode[];
 export const ALL_EPISODES = Object.keys(EPISODE_CHARS) as Episode[];
-export const ALL_BOOSTS = BOOST_BITS.map(({ boost }) => boost);
+export const ALL_BOOSTS = BOOST_SLOT.members.map(({ value }) => value);
 export const ALL_RANDOM_BOOSTS = Object.keys(
 	RANDOM_BOOST_CHARS,
 ) as RandomBoost[];
-export const ALL_COOKIE_POWERS = Object.keys(
-	COOKIE_POWER_BITS,
-) as CookiePower[];
+export const ALL_COOKIE_POWERS = COOKIE_POWER_SLOTS.flatMap(({ members }) =>
+	members.map(({ value }) => value),
+);
 export const ALL_ACTIONS = Object.keys(ACTION_CHARS) as Action[];
 
-/** Boost display names, shared by decode error messages and the UI. */
-export const BOOST_LABELS = Object.fromEntries(
-	BOOST_BITS.map(({ boost, label }) => [boost, label]),
-) as Record<Boost, string>;
+/** The goals an auto run can aim for. Score is played by hand. */
+export const AUTO_GOALS: readonly Goal[] = ["any", "money", "exp", "box"];
+
+/** The goals a run played by hand can aim for. Any is an auto run's. */
+export const MANUAL_GOALS: readonly Goal[] = ["score", "money", "exp", "box"];
+
+/**
+ * What an episode lets a run carry. `boosts` covers the boost slot, the random
+ * boost and cookie power+ together; `relay` and `treasures` are the loadout's,
+ * which the codec does not model but is the one place that knows an episode.
+ */
+export type EpisodeLimits = {
+	boosts: boolean;
+	relay: boolean;
+	treasures: boolean;
+	floor: boolean;
+};
+
+const EVERYTHING: EpisodeLimits = {
+	boosts: true,
+	relay: true,
+	treasures: true,
+	floor: false,
+};
+
+const EPISODE_LIMITS: Partial<Record<Episode, EpisodeLimits>> = {
+	special1: { boosts: false, relay: false, treasures: true, floor: false },
+	special2: { boosts: false, relay: false, treasures: true, floor: true },
+	specialExp: { boosts: false, relay: false, treasures: false, floor: false },
+};
+
+export function limitsOf(episode: Episode): EpisodeLimits {
+	return EPISODE_LIMITS[episode] ?? EVERYTHING;
+}
 
 export type DecodeResult = {
 	combi: Combi;
@@ -171,13 +286,51 @@ function invert<K extends string>(table: Record<K, string>): Map<string, K> {
 	);
 }
 
-const TYPE_BY_CHAR = invert(TYPE_CHARS);
+const GOAL_BY_CHAR = invert(GOAL_CHARS);
+const MODE_BY_CHAR = invert(MODE_CHARS);
 const EPISODE_BY_CHAR = invert(EPISODE_CHARS);
 const ACTION_BY_CHAR = invert(ACTION_CHARS);
 const RANDOM_BOOST_BY_CHAR = new Map<string, RandomBoost | null>([
 	[OFF, null],
 	...invert(RANDOM_BOOST_CHARS),
 ]);
+
+/** The character for a set, and each character back to its set. */
+type SetCodec<T extends string> = {
+	encode: (picked: readonly T[]) => string;
+	decode: Map<string, T[]>;
+};
+
+function setCodec<T extends string>({
+	members,
+	combos,
+}: SetSlot<T>): SetCodec<T> {
+	const table: Record<string, string> = { "": OFF, ...combos };
+	for (const { char } of members) table[char] = char;
+
+	const decode = new Map<string, T[]>(
+		Object.entries(table).map(([letters, char]) => [
+			char,
+			members
+				.filter(({ char: letter }) => letters.includes(letter))
+				.map(({ value }) => value),
+		]),
+	);
+
+	return {
+		encode: (picked) =>
+			table[
+				members
+					.filter(({ value }) => picked.includes(value))
+					.map(({ char }) => char)
+					.join("")
+			] as string,
+		decode,
+	};
+}
+
+const BOOST_CODEC = setCodec(BOOST_SLOT);
+const COOKIE_POWER_CODECS = COOKIE_POWER_SLOTS.map(setCodec);
 
 function lookup<V>(table: Map<string, V>, char: string, slot: string): V {
 	if (!table.has(char)) {
@@ -186,14 +339,60 @@ function lookup<V>(table: Map<string, V>, char: string, slot: string): V {
 	return table.get(char) as V;
 }
 
+/** Table order, whatever order the caller listed them in. */
+function inOrder<T>(all: readonly T[], picked: readonly T[]): T[] {
+	return all.filter((value) => picked.includes(value));
+}
+
 /**
- * The type slot stores auto vs semi-auto for readability, but the flag slots
- * are the truth. Encoding rewrites the slot so a generated code never
- * contradicts itself. Non-auto types are untouched — the rule does not apply.
+ * The combi as a code can say it: whatever the episode or the mode leaves no
+ * room for is dropped, and lists are put in table order. The mode is left
+ * exactly as given — whether an auto run is semi-auto is `encode`'s to derive
+ * and `decode`'s to report, not this function's to correct.
  */
-function normalizeType(combi: Combi, forced: boolean): CombiType {
-	if (combi.type !== "auto" && combi.type !== "semiauto") return combi.type;
+export function normalize(combi: Combi): Combi {
+	const limits = limitsOf(combi.episode);
+	return {
+		...combi,
+		floor: limits.floor ? combi.floor : null,
+		boosts: limits.boosts ? inOrder(ALL_BOOSTS, combi.boosts) : [],
+		randomBoost: limits.boosts ? combi.randomBoost : null,
+		cookiePowers: limits.boosts
+			? inOrder(ALL_COOKIE_POWERS, combi.cookiePowers)
+			: [],
+		action: combi.mode === "manual" ? "none" : combi.action,
+	};
+}
+
+/**
+ * The mode slot stores auto vs semi-auto for readability, but the flag slots
+ * are the truth. Encoding rewrites the slot so a generated code never
+ * contradicts itself. A manual run is untouched — the rule does not apply.
+ */
+function normalizeMode(combi: Combi, forced: boolean): Mode {
+	if (combi.mode === "manual") return "manual";
 	return forced || isSemiAuto(combi) ? "semiauto" : "auto";
+}
+
+function encodeFloor(floor: number | null): string {
+	if (floor === null) return OFF.repeat(FLOOR_DIGITS);
+	if (!Number.isInteger(floor) || floor < 1 || floor > FLOOR_MAX) {
+		throw new Error(`floor must be 1-${FLOOR_MAX}, got ${floor}`);
+	}
+	return String(floor).padStart(FLOOR_DIGITS, "0");
+}
+
+/** Slots 5-9: the floor on an episode that has one, or what a run carries. */
+function encodeCarried(combi: Combi): string {
+	if (limitsOf(combi.episode).floor) {
+		return encodeFloor(combi.floor) + OFF.repeat(2);
+	}
+
+	return [
+		BOOST_CODEC.encode(combi.boosts),
+		combi.randomBoost === null ? OFF : RANDOM_BOOST_CHARS[combi.randomBoost],
+		...COOKIE_POWER_CODECS.map((codec) => codec.encode(combi.cookiePowers)),
+	].join("");
 }
 
 /**
@@ -203,82 +402,50 @@ function normalizeType(combi: Combi, forced: boolean): CombiType {
  * combi whose own flags already force manual work is semi-auto either way.
  */
 export function encode(combi: Combi, forcedSemiAuto = false): string {
-	const boostMask = BOOST_BITS.reduce(
-		(mask, { boost, bit }) =>
-			combi.boosts.includes(boost) ? mask | bit : mask,
-		0,
-	);
-
-	const cookieMask = combi.cookiePowers.reduce(
-		(mask, power) => mask | COOKIE_POWER_BITS[power],
-		0,
-	);
+	const canonical = normalize(combi);
 
 	return [
 		VERSION,
-		TYPE_CHARS[normalizeType(combi, forcedSemiAuto)],
-		EPISODE_CHARS[combi.episode],
-		boostMask.toString(16).toUpperCase(),
-		combi.randomBoost === null ? OFF : RANDOM_BOOST_CHARS[combi.randomBoost],
-		cookieMask.toString(16).toUpperCase().padStart(2, "0"),
-		ACTION_CHARS[combi.action],
-		RESERVED,
+		MODE_CHARS[normalizeMode(canonical, forcedSemiAuto)],
+		GOAL_CHARS[canonical.goal],
+		EPISODE_CHARS[canonical.episode],
+		encodeCarried(canonical),
+		ACTION_CHARS[canonical.action],
 	].join("");
 }
 
 export const CODE_LENGTH = 10;
 
-const COOKIE_MASK_MAX = 0x7f;
+function decodeFloor(code: string): number | null {
+	const text = code.slice(AT.floor, AT.floor + FLOOR_DIGITS);
+	if (!/^[0-9]{3}$/.test(text)) {
+		throw new Error(`slots 5-7 (floor): "${text}" is not 3 digits`);
+	}
 
-function decodeBoosts(code: string): Boost[] {
-	const maskText = code[3] as string;
+	const floor = Number.parseInt(text, 10);
+	if (floor > FLOOR_MAX) {
+		throw new Error(`slots 5-7 (floor): ${text} is above ${FLOOR_MAX}`);
+	}
 
-	if (!/^[0-9A-F]$/.test(maskText)) {
+	const rest = code.slice(AT.floorRest, AT.action);
+	if (rest !== OFF.repeat(2)) {
 		throw new Error(
-			`slot 4 (boosts): "${maskText}" is not an uppercase hex digit`,
+			`slots 8-9 (reserved on this episode): "${rest}", expected "${OFF.repeat(2)}"`,
 		);
 	}
 
-	const mask = Number.parseInt(maskText, 16);
-
-	return BOOST_BITS.filter(({ bit }) => (mask & bit) !== 0).map(
-		({ boost }) => boost,
-	);
-}
-
-/**
- * The reserved slots carry no meaning yet, so the only thing to check is that
- * nobody has written meaning into them: a code using them says something this
- * version cannot read, which is exactly what the hard errors are for.
- */
-function checkReserved(code: string): void {
-	RESERVED.split("").forEach((char, index) => {
-		const slotChar = code[RESERVED_AT + index];
-		if (slotChar !== char) {
-			throw new Error(
-				`slot ${RESERVED_AT + 1 + index} (reserved): unknown char "${slotChar}", expected "${OFF}"`,
-			);
-		}
-	});
+	return floor === 0 ? null : floor;
 }
 
 function decodeCookiePowers(code: string): CookiePower[] {
-	const maskText = code.slice(5, 7);
-
-	if (!/^[0-9A-F]{2}$/.test(maskText)) {
-		throw new Error(
-			`slots 6-7 (cookie power+): "${maskText}" is not 2 uppercase hex digits`,
+	return COOKIE_POWER_CODECS.flatMap((codec, index) => {
+		const at = AT.cookiePowers + index;
+		return lookup(
+			codec.decode,
+			code[at] as string,
+			`${at + 1} (cookie power+)`,
 		);
-	}
-
-	const mask = Number.parseInt(maskText, 16);
-	if (mask > COOKIE_MASK_MAX) {
-		throw new Error(`slots 6-7 (cookie power+): mask ${maskText} exceeds 7F`);
-	}
-
-	return (Object.entries(COOKIE_POWER_BITS) as [CookiePower, number][])
-		.filter(([, bit]) => (mask & bit) !== 0)
-		.map(([power]) => power);
+	});
 }
 
 /**
@@ -286,6 +453,10 @@ function decodeCookiePowers(code: string): CookiePower[] {
  * these ten characters already forces manual work. It only silences the
  * contradiction warnings, since a stored `H` that the loadout explains is not a
  * contradiction — and the caller that knows about the loadout says so itself.
+ *
+ * What the episode or the mode leaves no room for is dropped with a warning
+ * rather than refused: a hand-typed code may carry it, and the rest of that
+ * code still says something worth reading.
  */
 export function decode(code: string, forcedSemiAuto = false): DecodeResult {
 	if (code.length !== CODE_LENGTH) {
@@ -298,30 +469,87 @@ export function decode(code: string, forcedSemiAuto = false): DecodeResult {
 		throw new Error(`unsupported version "${code[0]}"`);
 	}
 
-	checkReserved(code);
+	const episode = lookup(
+		EPISODE_BY_CHAR,
+		code[AT.episode] as string,
+		"4 (episode)",
+	);
+	const hasFloor = limitsOf(episode).floor;
 
-	const combi: Combi = {
-		type: lookup(TYPE_BY_CHAR, code[1] as string, "2 (type)"),
-		episode: lookup(EPISODE_BY_CHAR, code[2] as string, "3 (episode)"),
-		boosts: decodeBoosts(code),
-		randomBoost: lookup(
-			RANDOM_BOOST_BY_CHAR,
-			code[4] as string,
-			"5 (random boost)",
-		),
-		cookiePowers: decodeCookiePowers(code),
-		action: lookup(ACTION_BY_CHAR, code[7] as string, "8 (action)"),
+	const written: Combi = {
+		goal: lookup(GOAL_BY_CHAR, code[AT.goal] as string, "3 (goal)"),
+		mode: lookup(MODE_BY_CHAR, code[AT.mode] as string, "2 (mode)"),
+		episode,
+		floor: hasFloor ? decodeFloor(code) : null,
+		boosts: hasFloor
+			? []
+			: lookup(BOOST_CODEC.decode, code[AT.boosts] as string, "5 (boosts)"),
+		randomBoost: hasFloor
+			? null
+			: lookup(
+					RANDOM_BOOST_BY_CHAR,
+					code[AT.randomBoost] as string,
+					"6 (random boost)",
+				),
+		cookiePowers: hasFloor ? [] : decodeCookiePowers(code),
+		action: lookup(ACTION_BY_CHAR, code[AT.action] as string, "10 (action)"),
 	};
 
-	return { combi, warnings: typeWarnings(combi, forcedSemiAuto) };
+	const combi = normalize(written);
+
+	return {
+		combi,
+		warnings: [
+			...droppedWarnings(written),
+			...goalWarnings(combi),
+			...modeWarnings(combi, forcedSemiAuto),
+		],
+	};
+}
+
+/** What `normalize` is about to drop from a code as written. */
+function droppedWarnings(combi: Combi): string[] {
+	const warnings: string[] = [];
+
+	if (
+		!limitsOf(combi.episode).boosts &&
+		(combi.boosts.length > 0 ||
+			combi.randomBoost !== null ||
+			combi.cookiePowers.length > 0)
+	) {
+		warnings.push(
+			"this episode takes no boosts, random boost, or cookie power+ — ignoring them",
+		);
+	}
+
+	if (combi.mode === "manual" && combi.action !== "none") {
+		warnings.push(
+			"slot 10 sets an action but the run is played by hand — ignoring it",
+		);
+	}
+
+	return warnings;
+}
+
+function goalWarnings(combi: Combi): string[] {
+	if (combi.mode === "manual") {
+		if (MANUAL_GOALS.includes(combi.goal)) return [];
+		return [
+			"slot 3 says Any but a run played by hand aims for Score, Money, Exp, or Box",
+		];
+	}
+	if (AUTO_GOALS.includes(combi.goal)) return [];
+	return [
+		"slot 3 says Score but an auto run aims for Any, Money, Exp, or Box — Score is played by hand",
+	];
 }
 
 /**
- * A stored type slot can disagree with the flag slots when a code is typed by
- * hand. That is a soft problem: decoding still succeeds, `combi.type` keeps
+ * A stored mode slot can disagree with the flag slots when a code is typed by
+ * hand. That is a soft problem: decoding still succeeds, `combi.mode` keeps
  * what the code actually says, and `isSemiAuto` remains the authority.
  */
-function typeWarnings(combi: Combi, forced: boolean): string[] {
+function modeWarnings(combi: Combi, forced: boolean): string[] {
 	const semi = isSemiAuto(combi);
 
 	// Whatever forces manual work from outside these ten characters is the
@@ -329,13 +557,13 @@ function typeWarnings(combi: Combi, forced: boolean): string[] {
 	// deliberately does not.
 	if (forced) return [];
 
-	if (combi.type === "auto" && semi) {
+	if (combi.mode === "auto" && semi) {
 		return [
 			"slot 2 says Auto but Fast Start, a random boost, or an action is present — treating as Semi-auto",
 		];
 	}
 
-	if (combi.type === "semiauto" && !semi) {
+	if (combi.mode === "semiauto" && !semi) {
 		return [
 			"slot 2 says Semi-auto but there is no Fast Start, random boost, or action",
 		];
@@ -345,7 +573,7 @@ function typeWarnings(combi: Combi, forced: boolean): string[] {
 }
 
 /**
- * Semi-auto is derived, never trusted from the stored type slot:
+ * Semi-auto is derived, never trusted from the stored mode slot:
  * Fast Start OR any random boost OR a jump action means manual work per run.
  */
 export function isSemiAuto(combi: Combi): boolean {
@@ -354,4 +582,9 @@ export function isSemiAuto(combi: Combi): boolean {
 		combi.randomBoost !== null ||
 		combi.action !== "none"
 	);
+}
+
+/** Whether a run is auto at all, semi-auto or not. */
+export function isAutoMode(mode: Mode): boolean {
+	return mode !== "manual";
 }

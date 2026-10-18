@@ -1,19 +1,30 @@
 import type {
 	Action,
-	CombiType,
+	Boost,
 	CookiePower,
 	Episode,
+	Goal,
+	Mode,
 	RandomBoost,
 } from "./codec";
 
-// Boost names live in codec.ts because decode error messages quote them too.
-export { BOOST_LABELS } from "./codec";
+export const BOOST_LABELS: Record<Boost, string> = {
+	hpExtension: "HP Extension",
+	powerJellyBoost: "Power Jelly Boost",
+	fastStart: "Fast Start",
+	doubleXp: "Double XP",
+};
 
-export const TYPE_LABELS: Record<CombiType, string> = {
+export const GOAL_LABELS: Record<Goal, string> = {
+	any: "Any",
 	score: "Score",
 	money: "Money",
 	exp: "Exp",
 	box: "Box",
+};
+
+export const MODE_LABELS: Record<Mode, string> = {
+	manual: "Manual",
 	auto: "Auto",
 	semiauto: "Semi-auto",
 };

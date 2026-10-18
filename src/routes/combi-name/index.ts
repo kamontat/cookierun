@@ -13,14 +13,18 @@ import {
 	ALL_BOOSTS,
 	ALL_COOKIE_POWERS,
 	ALL_EPISODES,
+	ALL_MODES,
 	ALL_RANDOM_BOOSTS,
-	ALL_TYPES,
+	AUTO_GOALS,
 	type Boost,
 	CODE_LENGTH,
 	type Combi,
-	type CombiType,
 	type CookiePower,
 	type Episode,
+	type Goal,
+	limitsOf,
+	MANUAL_GOALS,
+	type Mode,
 	type RandomBoost,
 } from "./codec";
 import { describeBuild } from "./describe";
@@ -36,8 +40,9 @@ import {
 	BOOST_LABELS,
 	COOKIE_POWER_LABELS,
 	EPISODE_LABELS,
+	GOAL_LABELS,
+	MODE_LABELS,
 	RANDOM_BOOST_LABELS,
-	TYPE_LABELS,
 } from "./labels";
 import { type Loadout, treasurePick } from "./loadout";
 import { codeInHash, hashFor, rememberCode, startingCode } from "./state";
@@ -73,8 +78,11 @@ const resetButton = need<HTMLButtonElement>("reset");
 const linkStatus = need("link-status");
 
 const buildForm = need<HTMLFormElement>("build");
-const typeChips = need<ChipGroup>("type");
+const modeChips = need<ChipGroup>("mode");
+const goalChips = need<ChipGroup>("goal");
 const episodeTile = need<EntryTile>("episode");
+const floorField = need("field-floor");
+const floorInput = need<HTMLInputElement>("floor");
 const boostCards = need<CardGroup>("boosts");
 const randomBoostTile = need<EntryTile>("randomBoost");
 const cookiePowerCards = need<CardGroup>("cookiePowers");
@@ -89,6 +97,16 @@ const treasureSlots = [
 	need<EntryTiles>("treasure3"),
 ];
 const orderChips = need<ChipGroup>("treasureOrder");
+const relayNote = need("relay-note");
+
+/** The fields an episode or a mode can take off the board. */
+const offFields = {
+	boosts: need("field-boosts"),
+	randomBoost: need("field-randomBoost"),
+	cookiePowers: need("field-cookiePowers"),
+	action: need("field-action"),
+	treasures: need("field-treasures"),
+};
 
 /** Icons sit beside the built page, one directory up from this route. */
 const ASSET_BASE = "../assets/";
@@ -199,12 +217,26 @@ function writeLoadout(loadout: Loadout): void {
 	});
 }
 
+const FLOOR_MAX = 100;
+
+/**
+ * The floor box as the codec takes it: empty, or anything that is not a floor
+ * yet, is any floor, and a number past either end is held to it.
+ */
+function readFloor(): number | null {
+	const floor = Number.parseInt(floorInput.value, 10);
+	if (Number.isNaN(floor) || floor < 1) return null;
+	return Math.min(floor, FLOOR_MAX);
+}
+
 function readForm(): Combi {
 	return {
-		type: typeChips.value as CombiType,
+		goal: goalChips.value as Goal,
+		mode: modeChips.value as Mode,
 		// The tile offers no None of its own — `any` is the episode's — so the
 		// fallback is a type-level one and never a value the page can produce.
 		episode: (episodeTile.value ?? "any") as Episode,
+		floor: readFloor(),
 		boosts: boostCards.selected as Boost[],
 		randomBoost: randomBoostTile.value as RandomBoost | null,
 		cookiePowers: cookiePowerCards.selected as CookiePower[],
@@ -214,9 +246,11 @@ function readForm(): Combi {
 
 function writeForm(combi: Combi): void {
 	// A semi-auto code lands on the Auto chip: semi-auto is what the flag slots
-	// make of an auto run, not a type anyone picks, so there is no chip for it.
-	typeChips.value = combi.type === "semiauto" ? "auto" : combi.type;
+	// make of an auto run, not a mode anyone picks, so there is no chip for it.
+	modeChips.value = combi.mode === "semiauto" ? "auto" : combi.mode;
+	goalChips.value = combi.goal;
 	episodeTile.value = combi.episode;
+	floorInput.value = combi.floor === null ? "" : String(combi.floor);
 	// No sentinel in either direction: the tile's own empty pick is null, which
 	// is exactly what a combi carrying no random boost holds.
 	randomBoostTile.value = combi.randomBoost;
@@ -284,6 +318,10 @@ function showWarnings(warnings: readonly string[]): void {
  * through here.
  */
 function render(warnings: readonly string[] = []): void {
+	// Before the form is read: an auto run has no Score to aim for and a manual
+	// one no Any, so the goal row has to have dropped it by the time its value
+	// is taken.
+	goalChips.options = goalOptions(modeChips.value as Mode);
 	const code = encodeFull({ loadout: readLoadout(), combi: readForm() });
 	// The line under the code answers a question about the code in front of you,
 	// so a new code clears it. The two callers that have something to say about
@@ -303,7 +341,8 @@ function render(warnings: readonly string[] = []): void {
 	// with Fast Start, a random boost, an action or a relay is a semi-auto run,
 	// and the chip reading Auto beside a code reading H is the disagreement the
 	// page exists to prevent.
-	typeChips.options = typeOptions(isSemiAutoBuild(full));
+	modeChips.options = modeOptions(isSemiAutoBuild(full));
+	showLimits(full.combi);
 
 	// A numbered slot claims a position, and the code only carries one when the
 	// order is exact. Read from the decoded code, not the switch: the code's truth
@@ -318,6 +357,42 @@ function render(warnings: readonly string[] = []): void {
 
 	showWarnings(warnings);
 	publish(code);
+}
+
+/**
+ * Takes off the board whatever the episode or the mode has no room for. The
+ * controls keep what they hold — switching back to an episode that takes
+ * boosts brings the same boosts back — while the code, written through
+ * `normalize`, already leaves them out.
+ */
+function showLimits(combi: Combi): void {
+	const limits = limitsOf(combi.episode);
+	const episode = EPISODE_LABELS[combi.episode];
+
+	floorField.hidden = !limits.floor;
+
+	const off = (field: HTMLElement, reason: string | null): void => {
+		field.toggleAttribute("data-off", reason !== null);
+		const note = field.querySelector(".unavailable");
+		if (note !== null) note.textContent = reason ?? "";
+	};
+
+	const noBoosts = limits.boosts ? null : `${episode} takes none.`;
+	off(offFields.boosts, noBoosts);
+	off(offFields.randomBoost, noBoosts);
+	off(offFields.cookiePowers, noBoosts);
+	off(
+		offFields.treasures,
+		limits.treasures ? null : `${episode} takes no treasures.`,
+	);
+	off(
+		offFields.action,
+		combi.mode === "manual" ? "Only an auto run starts with an action." : null,
+	);
+
+	relayTile.hidden = !limits.relay;
+	relayNote.hidden = limits.relay;
+	relayNote.textContent = limits.relay ? "" : `${episode} takes no relay.`;
 }
 
 function applyCode(code: string, warnings: readonly string[] = []): void {
@@ -364,8 +439,10 @@ function readDraft(text: string): void {
 
 /** Which control writes each group of characters the hints mark out. */
 const OWNER: Record<string, HTMLElement> = {
-	type: typeChips,
+	goal: goalChips,
+	mode: modeChips,
 	episode: episodeTile,
+	floor: floorInput,
 	boosts: boostCards,
 	randomBoost: randomBoostTile,
 	cookiePowers: cookiePowerCards,
@@ -420,30 +497,43 @@ function pairs<K extends string>(
 }
 
 /**
- * Every type but semi-auto. That one is derived, not chosen: `encode` writes
+ * Every mode but semi-auto. That one is derived, not chosen: `encode` writes
  * slot 2 from the flag slots — Fast Start, a random boost, a jump action — so
  * an auto run becomes semi-auto by what else is on, and a chip for it could
  * only disagree with the code. The codec still knows the value, and a code
  * carrying `H` still decodes to it; `writeForm` lands that on the Auto chip.
  */
-const PICKABLE_TYPES = ALL_TYPES.filter((type) => type !== "semiauto");
+const PICKABLE_MODES = ALL_MODES.filter((mode) => mode !== "semiauto");
 
 /**
- * Every pickable type, with the Auto chip wearing whichever of the two names
+ * Every pickable mode, with the Auto chip wearing whichever of the two names
  * the build has earned. Semi-auto is still not a choice — picking it and
  * picking Auto are the same click — but the chip says which one you are on.
  */
-function typeOptions(semi: boolean): readonly (readonly [string, string])[] {
-	return PICKABLE_TYPES.map(
-		(type) =>
+function modeOptions(semi: boolean): readonly (readonly [string, string])[] {
+	return PICKABLE_MODES.map(
+		(mode) =>
 			[
-				type,
-				type === "auto" && semi ? TYPE_LABELS.semiauto : TYPE_LABELS[type],
+				mode,
+				mode === "auto" && semi ? MODE_LABELS.semiauto : MODE_LABELS[mode],
 			] as const,
 	);
 }
 
-typeChips.options = typeOptions(false);
+/**
+ * The goals a mode can aim for. Score is played by hand and Any is an auto
+ * run that specialises in nothing, so each mode is offered its own four — and
+ * a pick the other mode's row lacks falls to the first of them, the way a chip
+ * row reads a value its options no longer hold: Score becomes Any on the way
+ * to auto, and Any becomes Score on the way back.
+ */
+function goalOptions(mode: Mode): readonly (readonly [string, string])[] {
+	const goals = mode === "manual" ? MANUAL_GOALS : AUTO_GOALS;
+	return pairs(goals, GOAL_LABELS);
+}
+
+modeChips.options = modeOptions(false);
+goalChips.options = goalOptions("manual");
 // Twelve landscape cards is a grid, not a row: an episode is a place, and the
 // picture is what anyone recognises it by. `any` has no icon and falls back to
 // the lettered cell the catalog pickers already use.
@@ -490,7 +580,8 @@ boostCards.options = ALL_BOOSTS.map(
 // not the field's name but a second question asked beside it.
 boostCards.legendHidden = true;
 cookiePowerCards.legendHidden = true;
-typeChips.labelHidden = true;
+modeChips.labelHidden = true;
+goalChips.labelHidden = true;
 actionChips.labelHidden = true;
 // The order switch keeps its name for a screen reader and hands the screen
 // back to its own two chips, which say "Any order" and "Exact order" and so

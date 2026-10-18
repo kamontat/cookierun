@@ -8,7 +8,7 @@ export type Option = readonly [
 	label: string,
 	/**
 	 * A thumbnail for the chip, drawn before its label. Optional because most
-	 * rows here have no art at all — a run type or an action is a word, not a
+	 * rows here have no art at all — a mode, a goal or an action is a word, not a
 	 * place — and `null` where a row that does have art has none for this one
 	 * value. Either way the chip is its label alone, which is what every row
 	 * looked like before pictures arrived.

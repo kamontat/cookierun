@@ -6,7 +6,7 @@ This file is the always-loaded core: what the project is, how to run it, and whe
 
 ## What this project is
 
-A Cookie Run combi name is 10 characters, and the game stores only the cookie, relay, pet, and treasure in it. This project packs the rest of a run's configuration — type, episode, boosts, random boost, cookie power+ selections, and starting action — into those 10 characters, plus a browser page for building and reading codes. `README.md` documents the slot format for humans.
+A Cookie Run combi name is 10 characters, and the game stores only the cookie, relay, pet, and treasure in it. This project packs the rest of a run's configuration — goal, mode, episode (and the tower's floor), boosts, random boost, cookie power+ selections, and starting action — into those 10 characters, plus a browser page for building and reading codes. `README.md` documents the slot format for humans.
 
 ## Runtime
 
@@ -27,7 +27,7 @@ Bun's own API docs are vendored at `node_modules/bun-types/docs/**.mdx` — read
 ```bash
 bun install
 bun run dev                                  # dev server on :3000; / is the home pane, /combi-name/ is the combi tool, /assets/* the icons
-bun run test                                 # whole suite, ~3s (the exhaustive test dominates)
+bun run test                                 # whole suite, ~30s (the exhaustive test dominates)
 bun run test src/routes/combi-name/codec.test.ts # one file
 bun run test -t "decodes every slot"         # one test by name substring
 bun run check:type                           # tsc --noEmit; the test files are typechecked too

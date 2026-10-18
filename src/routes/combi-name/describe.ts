@@ -1,13 +1,14 @@
 import { type CatalogSection, isRetired, labelFor } from "./catalog";
-import { type Combi, isSemiAuto } from "./codec";
-import { type FullCode, isSemiAutoBuild } from "./full-code";
+import { type Combi, isSemiAuto, limitsOf } from "./codec";
+import { carriesRelay, type FullCode, isSemiAutoBuild } from "./full-code";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
 	COOKIE_POWER_LABELS,
 	EPISODE_LABELS,
+	GOAL_LABELS,
+	MODE_LABELS,
 	RANDOM_BOOST_LABELS,
-	TYPE_LABELS,
 } from "./labels";
 import { type Loadout, levelRuns, type TreasurePick } from "./loadout";
 
@@ -24,7 +25,7 @@ export type AutoVerdict = {
 
 export type DescribedCombi = {
 	rows: DescribedRow[];
-	/** Null for the hand-played types, where auto vs semi-auto means nothing. */
+	/** Null for a manual run, where auto vs semi-auto means nothing. */
 	auto: AutoVerdict | null;
 };
 
@@ -35,7 +36,7 @@ function list(values: string[]): string {
 }
 
 function verdict(combi: Combi): AutoVerdict | null {
-	if (combi.type !== "auto" && combi.type !== "semiauto") return null;
+	if (combi.mode === "manual") return null;
 
 	const reasons: string[] = [];
 	if (combi.boosts.includes("fastStart")) reasons.push(BOOST_LABELS.fastStart);
@@ -61,35 +62,51 @@ export function describeBuild(full: FullCode): AutoVerdict | null {
 
 	return {
 		semi: isSemiAutoBuild(full),
-		reasons:
-			full.loadout.relay === null
-				? own.reasons
-				: [...own.reasons, RELAY_REASON],
+		reasons: carriesRelay(full) ? [...own.reasons, RELAY_REASON] : own.reasons,
 	};
 }
 
+/** What a field the episode has no room for reads as. */
+export const NOT_USED = "Not used in this episode";
+
+/** The floor as a reader says it: a number, or any floor at all. */
+export function floorText(floor: number | null): string {
+	return floor === null ? "Any floor" : `Floor ${floor}`;
+}
+
 export function describeCombi(combi: Combi): DescribedCombi {
+	const limits = limitsOf(combi.episode);
+	const carried: DescribedRow[] = limits.boosts
+		? [
+				{
+					field: "Boosts",
+					value: list(combi.boosts.map((boost) => BOOST_LABELS[boost])),
+				},
+				{
+					field: "Random boost",
+					value:
+						combi.randomBoost === null
+							? NONE
+							: RANDOM_BOOST_LABELS[combi.randomBoost],
+				},
+				{
+					field: "Cookie power+",
+					value: list(
+						combi.cookiePowers.map((power) => COOKIE_POWER_LABELS[power]),
+					),
+				},
+			]
+		: [{ field: "Boosts", value: NOT_USED }];
+
 	return {
 		rows: [
-			{ field: "Type", value: TYPE_LABELS[combi.type] },
+			{ field: "Goal", value: GOAL_LABELS[combi.goal] },
+			{ field: "Mode", value: MODE_LABELS[combi.mode] },
 			{ field: "Episode", value: EPISODE_LABELS[combi.episode] },
-			{
-				field: "Boosts",
-				value: list(combi.boosts.map((boost) => BOOST_LABELS[boost])),
-			},
-			{
-				field: "Random boost",
-				value:
-					combi.randomBoost === null
-						? NONE
-						: RANDOM_BOOST_LABELS[combi.randomBoost],
-			},
-			{
-				field: "Cookie power+",
-				value: list(
-					combi.cookiePowers.map((power) => COOKIE_POWER_LABELS[power]),
-				),
-			},
+			...(limits.floor
+				? [{ field: "Floor", value: floorText(combi.floor) }]
+				: []),
+			...carried,
 			{ field: "Action", value: ACTION_LABELS[combi.action] },
 		],
 		auto: verdict(combi),

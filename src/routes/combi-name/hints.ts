@@ -9,15 +9,17 @@
  * stale hint behind.
  */
 
-import { BOOST_LABELS, CODE_LENGTH, type Combi } from "./codec";
-import { describeLoadout } from "./describe";
+import { CODE_LENGTH, type Combi, limitsOf } from "./codec";
+import { describeLoadout, floorText, NOT_USED } from "./describe";
 import { combiSectionOf, decodeFull, SECTION_SEPARATOR } from "./full-code";
 import {
 	ACTION_LABELS,
+	BOOST_LABELS,
 	COOKIE_POWER_LABELS,
 	EPISODE_LABELS,
+	GOAL_LABELS,
+	MODE_LABELS,
 	RANDOM_BOOST_LABELS,
-	TYPE_LABELS,
 } from "./labels";
 import type { Loadout } from "./loadout";
 
@@ -35,54 +37,94 @@ const NONE = "None";
 /** A run of characters that all describe the same field. */
 type Span = { length: number; group: string; hint: string };
 
-function spansOfCombi(combi: Combi): Span[] {
-	const boosts = combi.boosts.map((boost) => BOOST_LABELS[boost]);
-	const powers = combi.cookiePowers.map((power) => COOKIE_POWER_LABELS[power]);
+function listed(values: string[]): string {
+	return values.length === 0 ? NONE : values.join(", ");
+}
+
+/**
+ * Slots 5-9, which say different things on different episodes: the tower
+ * floor where there is one, what the run carries where there is room for it,
+ * and nothing at all on an episode that takes neither.
+ */
+function carriedSpans(combi: Combi): Span[] {
+	const limits = limitsOf(combi.episode);
+
+	if (limits.floor) {
+		return [
+			{
+				length: 3,
+				group: "floor",
+				hint: `Slots 5-7 · Floor${SEPARATOR}${floorText(combi.floor)}`,
+			},
+			// Reserved characters own a group of their own so the code bar draws
+			// them as one run, and no control claims them: `index.ts`'s OWNER map
+			// has no entry for this group, which is what keeps a click on them
+			// from jumping.
+			{ length: 2, group: "reserved", hint: "Slots 8-9 · Reserved" },
+		];
+	}
+
+	if (!limits.boosts) {
+		return [
+			{
+				length: 5,
+				group: "reserved",
+				hint: `Slots 5-9 · Boosts${SEPARATOR}${NOT_USED}`,
+			},
+		];
+	}
 
 	return [
-		{ length: 1, group: "version", hint: "Slot 1 · Format version" },
-		{
-			length: 1,
-			group: "type",
-			hint: `Slot 2 · Type${SEPARATOR}${TYPE_LABELS[combi.type]}`,
-		},
-		{
-			length: 1,
-			group: "episode",
-			hint: `Slot 3 · Episode${SEPARATOR}${EPISODE_LABELS[combi.episode]}`,
-		},
 		{
 			length: 1,
 			group: "boosts",
-			hint: `Slot 4 · Boosts${SEPARATOR}${
-				boosts.length === 0 ? NONE : boosts.join(", ")
-			}`,
+			hint: `Slot 5 · Boosts${SEPARATOR}${listed(
+				combi.boosts.map((boost) => BOOST_LABELS[boost]),
+			)}`,
 		},
 		{
 			length: 1,
 			group: "randomBoost",
-			hint: `Slot 5 · Random boost${SEPARATOR}${
+			hint: `Slot 6 · Random boost${SEPARATOR}${
 				combi.randomBoost === null
 					? NONE
 					: RANDOM_BOOST_LABELS[combi.randomBoost]
 			}`,
 		},
 		{
-			length: 2,
+			length: 3,
 			group: "cookiePowers",
-			hint: `Slots 6-7 · Cookie power+${SEPARATOR}${
-				powers.length === 0 ? NONE : powers.join(", ")
-			}`,
+			hint: `Slots 7-9 · Cookie power+${SEPARATOR}${listed(
+				combi.cookiePowers.map((power) => COOKIE_POWER_LABELS[power]),
+			)}`,
+		},
+	];
+}
+
+function spansOfCombi(combi: Combi): Span[] {
+	return [
+		{ length: 1, group: "version", hint: "Slot 1 · Format version" },
+		{
+			length: 1,
+			group: "mode",
+			hint: `Slot 2 · Mode${SEPARATOR}${MODE_LABELS[combi.mode]}`,
 		},
 		{
 			length: 1,
-			group: "action",
-			hint: `Slot 8 · Action${SEPARATOR}${ACTION_LABELS[combi.action]}`,
+			group: "goal",
+			hint: `Slot 3 · Goal${SEPARATOR}${GOAL_LABELS[combi.goal]}`,
 		},
-		// Reserved characters own a group of their own so the code bar draws them
-		// as one run, and no control claims them: `index.ts`'s OWNER map has no
-		// entry for this group, which is what keeps a click on them from jumping.
-		{ length: 2, group: "reserved", hint: "Slots 9-10 · Reserved" },
+		{
+			length: 1,
+			group: "episode",
+			hint: `Slot 4 · Episode${SEPARATOR}${EPISODE_LABELS[combi.episode]}`,
+		},
+		...carriedSpans(combi),
+		{
+			length: 1,
+			group: "action",
+			hint: `Slot 10 · Action${SEPARATOR}${ACTION_LABELS[combi.action]}`,
+		},
 	];
 }
 

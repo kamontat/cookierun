@@ -9,7 +9,7 @@
  * game, and what keeps every code written before the loadout existed valid.
  */
 
-import { type Combi, decode, encode, isSemiAuto } from "./codec";
+import { type Combi, decode, encode, isSemiAuto, limitsOf } from "./codec";
 import {
 	decodeLoadout,
 	emptyLoadout,
@@ -35,15 +35,39 @@ export const SECTION_SEPARATOR = "-";
  * whose answer needs both halves, and the codec does not model a loadout.
  */
 export function isSemiAutoBuild(full: FullCode): boolean {
-	return isSemiAuto(full.combi) || full.loadout.relay !== null;
+	return isSemiAuto(full.combi) || carriesRelay(full);
+}
+
+/**
+ * Whether the build has a relay cookie that counts. An episode with no relay
+ * slot — the special episodes that take a cookie and a pet alone — ignores
+ * one, so it forces nothing there.
+ */
+export function carriesRelay(full: FullCode): boolean {
+	return full.loadout.relay !== null && limitsOf(full.combi.episode).relay;
+}
+
+/**
+ * The loadout as the build's episode lets it be written: a relay or treasures
+ * the episode has no room for are dropped, the way `normalize` in the codec
+ * drops the combi's own.
+ */
+export function fitLoadout(loadout: Loadout, combi: Combi): Loadout {
+	const limits = limitsOf(combi.episode);
+	return {
+		...loadout,
+		relay: limits.relay ? loadout.relay : null,
+		treasures: limits.treasures ? loadout.treasures : [],
+	};
 }
 
 export function encodeFull(full: FullCode): string {
+	const loadout = fitLoadout(full.loadout, full.combi);
 	// Slot 2 is written from the whole build, so a code carrying a relay says
 	// Semi-auto in the ten characters someone pastes into the game.
-	const combi = encode(full.combi, full.loadout.relay !== null);
-	if (isEmptyLoadout(full.loadout)) return combi;
-	return `${encodeLoadout(full.loadout)}${SECTION_SEPARATOR}${combi}`;
+	const combi = encode(full.combi, loadout.relay !== null);
+	if (isEmptyLoadout(loadout)) return combi;
+	return `${encodeLoadout(loadout)}${SECTION_SEPARATOR}${combi}`;
 }
 
 /**
@@ -72,13 +96,34 @@ export function decodeFull(code: string): {
 		return { full: { loadout: emptyLoadout(), combi }, warnings };
 	}
 
-	const loadout = decodeLoadout(first);
-	const relayed = loadout.relay !== null;
+	const written = decodeLoadout(first);
+	// The episode lives in the combi half, so it is read before the relay is
+	// allowed to say anything about slot 2.
+	const episode = decode(second).combi.episode;
+	const limits = limitsOf(episode);
+	const relayed = written.relay !== null && limits.relay;
 	const { combi, warnings } = decode(second, relayed);
+	const loadout = fitLoadout(written, combi);
 	return {
 		full: { loadout, combi },
-		warnings: relayed ? [...warnings, ...relayWarnings(combi)] : warnings,
+		warnings: [
+			...warnings,
+			...loadoutWarnings(written, loadout),
+			...(relayed ? relayWarnings(combi) : []),
+		],
 	};
+}
+
+/** What `fitLoadout` dropped from a loadout as written. */
+function loadoutWarnings(written: Loadout, kept: Loadout): string[] {
+	const warnings: string[] = [];
+	if (written.relay !== null && kept.relay === null) {
+		warnings.push("this episode takes no relay cookie — ignoring it");
+	}
+	if (written.treasures.length > 0 && kept.treasures.length === 0) {
+		warnings.push("this episode takes no treasures — ignoring them");
+	}
+	return warnings;
 }
 
 /**
@@ -88,7 +133,7 @@ export function decodeFull(code: string): {
  * what the code says, and re-encoding is what snaps the slot back.
  */
 function relayWarnings(combi: Combi): string[] {
-	if (combi.type !== "auto") return [];
+	if (combi.mode !== "auto") return [];
 	return [
 		"slot 2 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
 	];

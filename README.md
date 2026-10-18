@@ -1,44 +1,49 @@
 # Cookie Run combi codes
 
-A Cookie Run combi stores a cookie, relay, pet, and treasure, but nothing else — the run type, episode, boosts, and cookie power+ selections would otherwise live only in your head. The combi name is 10 characters, which is enough room to carry all of it. An optional loadout section goes further still, writing down the cookie, relay, pet, and treasure choices themselves, so a whole build travels as one code even without the game in front of you.
+A Cookie Run combi stores a cookie, relay, pet, and treasure, but nothing else — the run's goal, whether it plays itself, the episode, boosts, and cookie power+ selections would otherwise live only in your head. The combi name is 10 characters, which is enough room to carry all of it. An optional loadout section goes further still, writing down the cookie, relay, pet, and treasure choices themselves, so a whole build travels as one code even without the game in front of you.
 
-The full configuration space is 6 types x 12 episodes x 16 boost subsets x 12 random-boost choices x 128 cookie-power+ subsets x 2 actions = 3,538,944 combinations, or about 22 bits. Ten characters of `A-Z0-9` hold roughly 52 bits, so this encoding spends the surplus on legibility instead of packing: every field gets a fixed slot you can read at a glance.
+Every slot is a character you can read at a glance: a letter from the name of what it holds, a digit where the thing is a number, and `0` for off or none.
 
 ## Format
 
 ```
-slot:  1  2  3  4  5  6 7  8  9 10
-       V  T  E  B  R  C C  A  . .
-ex:    1  H  3  5  R  1 4  J  0 0
+slot:  1  2  3  4  5  6  7 8 9  10
+       V  M  G  E  B  R  P P P  A
+ex:    1  H  M  3  2  R  F W 0  J
+SE2:   1  A  E  T  0  4  2 0 0  0
 ```
 
 | Slot | Field | Encoding |
 | --- | --- | --- |
 | 1 | Format version | `1` |
-| 2 | Type | `S` Score, `M` Money, `E` Exp, `B` Box, `A` Auto, `H` Semi-auto |
-| 3 | Episode | `0` Any, `1`-`7` Episode 1-7, `A`/`B`/`C` Special Episode 1-3, `X` Special Exp Episode |
-| 4 | Boosts | Bitmask as one uppercase hex digit, `0`-`F` |
-| 5 | Random boost | `0` none, otherwise one of the eleven below |
-| 6-7 | Cookie power+ | Bitmask as two uppercase hex digits, `00`-`7F` |
-| 8 | Action | `0` none, `J` jump at start |
-| 9-10 | Reserved | Always `0`, both |
+| 2 | Mode | `0` Manual, `A` Auto, `H` Semi-auto |
+| 3 | Goal | `S` Score, `M` Money, `E` Exp, `B` Box, `0` Any (auto only) |
+| 4 | Episode | `0` Any, `1`-`7` Episode 1-7, `C` Special Episode 1 (Island of Coins), `T` Special Episode 2 (Tower of Frozen Waves), `R` Special Episode 3 (Mysterious Rabbit Hole), `X` Special Exp Episode (XP-Elixir Workshop) |
+| 5 | Boosts | One character for the whole set, below |
+| 6 | Random boost | `0` none, otherwise one of the eleven below |
+| 7-9 | Cookie power+ | One slot per group of powers, below |
+| 10 | Action | `0` none, `J` jump at start — an auto run only |
 
 `0` means off or none in every slot. The combi name is letters and digits only: the game field takes it as is, and a `-` inside it would read as the section separator below.
 
-Slots 9 and 10 are held open, not used. The boosts had a flag slot each until a fourth boost arrived and there were only ten characters to have; they moved into one slot, and the two that came free sit at the end, so every field in use reads from the front with no gap — and so the next field to arrive has somewhere to go. A code that writes anything but `0` in either one is rejected outright.
+An auto run aims for Money, Exp, or Box, or for nothing in particular — Any, `0`; Score is played by hand. A code that says Score beside `A` or `H`, or Any beside a manual `0`, still decodes, with a warning. A manual run has no starting action: a `J` beside a manual `0` is dropped, with a warning.
 
-### Boost bitmask (slot 4)
+### Boosts (slot 5)
 
-| Value | Boost | Value | Boost |
-| --- | --- | --- | --- |
-| `1` | HP Extension | `4` | Fast Start |
-| `2` | Power Jelly Boost | `8` | Double XP |
+Each of the sixteen sets of boosts has a fixed character. A single boost is its own letter and all four is `A`; the pairs and triples have no letter of their own, so they run in order, digits first — a digit in slot 5 always means more than one boost:
 
-Add the values of every boost you turned on and write the sum in hex, the same way as the cookie power+ mask below. HP Extension plus Fast Start is `1 + 4 = 5`; all four is `F`.
+| Char | Boosts | Char | Boosts | Char | Boosts |
+| --- | --- | --- | --- | --- | --- |
+| `0` | none | `1` | HP Extension + Power Jelly | `7` | HP Extension + Power Jelly + Fast Start |
+| `H` | HP Extension | `2` | HP Extension + Fast Start | `8` | HP Extension + Power Jelly + Double XP |
+| `P` | Power Jelly Boost | `3` | HP Extension + Double XP | `9` | HP Extension + Fast Start + Double XP |
+| `F` | Fast Start | `4` | Power Jelly + Fast Start | `B` | Power Jelly + Fast Start + Double XP |
+| `X` | Double XP | `5` | Power Jelly + Double XP | `A` | all four |
+| | | `6` | Fast Start + Double XP | | |
 
 Cookie Relay is not here: a run that uses one says so by naming a relay cookie in the loadout section.
 
-### Random boost (slot 5)
+### Random boost (slot 6)
 
 Each boost is a letter from its own name.
 
@@ -51,16 +56,31 @@ Each boost is a letter from its own name.
 | `C` | 70% Crush Chance | `L` | 2 Pit Lifts |
 | `B` | +17% Base Speed | | |
 
-### Cookie power+ bitmask (slots 6-7)
+### Cookie power+ (slots 7-9)
 
-| Value | Cookie | Value | Cookie |
-| --- | --- | --- | --- |
-| `01` | Cheerleader | `10` | Sea Fairy |
-| `02` | Special Force | `20` | Serenade of Love |
-| `04` | Fairy | `40` | EXP Party |
-| `08` | Cheesecake | | |
+Any number of the seven can be on, so they are split into three groups with a slot each. A slot works like the boost slot: `0` for none of its group, a power's own letter when it is the only one of its group, and a running digit for two or more.
 
-Add the values of everything you selected and write the sum in hex. Fairy plus Sea Fairy is `04 + 10 = 14`.
+| Slot | Powers | Combinations |
+| --- | --- | --- |
+| 7 | `C` Cheerleader, `S` Special Force, `F` Fairy | `1` C+S, `2` C+F, `3` S+F, `4` all three |
+| 8 | `K` Cheesecake, `W` Sea Fairy (W for water) | `1` both |
+| 9 | `L` Serenade of Love, `E` EXP Party | `1` both |
+
+Fairy plus Sea Fairy is `FW0`; Cheerleader, Fairy and EXP Party is `20E`; all seven is `411`.
+
+### Special episodes
+
+Some episodes take less than a full run:
+
+| Episode | Takes |
+| --- | --- |
+| Special Episode 1 (`C`) | cookie, pet, treasures |
+| Special Episode 2 (`T`) | cookie, pet, treasures, and a tower floor |
+| Special Exp Episode (`X`) | cookie and pet |
+
+None of the three takes a relay, boosts, a random boost, or cookie power+, so slots 5-9 read `0`. Special Episode 2 spends slots 5-7 on the floor instead — `001` to `100`, or `000` for any floor — and slots 8-9 stay `0`. The goal, mode, and action apply as they do anywhere else.
+
+Encoding drops what the episode has no room for. Decoding a code that carries it anyway drops it too, with a warning, rather than refusing the code.
 
 ## Loadout section
 
@@ -85,11 +105,11 @@ The loadout writes down the cookie, relay, pet, and treasure a build uses. The g
 An `R__` counts as a relay for everything a named relay counts for: the build is semi-auto, and slot 2 is written `H`. Which cookie relays in is not what makes the run need a hand.
 
 ```
-1S07014000                          no loadout
-1C2L-1S07014000                     a cookie only
-1C__R__P__-1H00000000               any cookie, any relay, any pet
-1C2LR0BP1ZTU0FZ_0RB.0QQ-1H35R00J00  cookie, relay, pet, two treasure slots, any order
-1TU0FZ02_0FZ59_0RB3.0QQ9-1S00000000 slot 1: 0FZ at +0-2 or +5-9, or 0RB at +3; slot 2: 0QQ at +9
+10S070FW00                          no loadout
+1C2L-10S070FW00                     a cookie only
+1C__R__P__-1HM0000000               any cookie, any relay, any pet
+1C2LR0BP1ZTU0FZ_0RB.0QQ-1HM32R000J  cookie, relay, pet, two treasure slots, any order
+1TU0FZ02_0FZ59_0RB3.0QQ9-10S0000000 slot 1: 0FZ at +0-2 or +5-9, or 0RB at +3; slot 2: 0QQ at +9
 ```
 
 Encoding always writes the canonical form: ids are sorted within a slot, and whole slots are sorted against each other whenever the order flag is `U` — a single slot is always written `U`, since there is nothing to order with only one slot. That is what keeps one build to exactly one code. Reading a code is more forgiving: a hand-written or otherwise non-canonical loadout still decodes correctly, it just re-encodes into the canonical form rather than back into what you typed.
@@ -116,17 +136,19 @@ No digits means +0, which is also how every code written before levels existed r
 
 ## Auto vs semi-auto
 
-Semi-auto is a run that needs manual work each time. A build is semi-auto when **any** of these is true: Fast Start is on (bit `4` of slot 4), a random boost is selected (slot 5), there is a jump action (slot 8), or the loadout carries a relay cookie (the `R` group, `R__` included). The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
+Semi-auto is an auto run that needs manual work each time. An auto build is semi-auto when **any** of these is true: Fast Start is on (slot 5), a random boost is selected (slot 6), there is a jump action (slot 10), or the loadout carries a relay cookie (the `R` group, `R__` included) on an episode that takes one. The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
 
 The relay is the one reason that lives outside the ten characters: a relay cookie is swapped in by hand, so a run carrying one never plays itself through. Slot 2 is written from the whole build, so the ten characters you paste into the game say `H` when a relay is in front of them — while a bare combi code, having no loadout to read, answers for its own three flags alone.
 
-Slot 2 stores `A` or `H` for readability, but those four reasons are the authority. `encodeFull` normalizes slot 2 so a generated code never contradicts itself. `decodeFull` accepts a hand-typed code that does contradict, keeps `combi.type` as written, and returns a warning; `isSemiAutoBuild` always answers from the fields above.
+Slot 2 stores `A` or `H` for readability, but those four reasons are the authority. `encodeFull` normalizes slot 2 so a generated code never contradicts itself. `decodeFull` accepts a hand-typed code that does contradict, keeps `combi.mode` as written, and returns a warning; `isSemiAutoBuild` always answers from the fields above.
 
 ```
-1A31000000    full auto (HP Extension only)
-1H35R00000    semi-auto (Fast Start + Revive)
-1H31000J00    semi-auto (jump only)
-1A39000000    full auto (HP Extension + Double XP)
+1AM3H00000    full auto, money (HP Extension only)
+1A03H00000    full auto, no goal in particular
+1HM32R0000    semi-auto (HP Extension + Fast Start, Revive)
+1HE3H0000J    semi-auto (jump only)
+1AB3300000    full auto, box (HP Extension + Double XP)
+1AMT042000    full auto on the tower, floor 42
 ```
 
 ## Usage
@@ -135,20 +157,22 @@ Slot 2 stores `A` or `H` for readability, but those four reasons are the authori
 import { encode, decode, isSemiAuto } from "./src/routes/combi-name/codec";
 
 encode({
-  type: "score",
+  goal: "score",
+  mode: "manual",
   episode: "any",
+  floor: null,
   boosts: ["hpExtension", "powerJellyBoost", "fastStart"],
   randomBoost: null,
   cookiePowers: ["fairy", "seaFairy"],
   action: "none",
 });
-// "1S07014000"
+// "10S070FW00"
 
-const { combi, warnings } = decode("1E36R00J00");
+const { combi, warnings } = decode("1HE34R000J");
 isSemiAuto(combi); // true
 ```
 
-`decode` throws on a code it cannot read — wrong length, unknown version, an unknown character in a slot, or a cookie mask above `7F`. Contradictions between slot 2 and the flag slots are soft: they come back in `warnings`.
+`decode` throws on a code it cannot read — wrong length, unknown version, an unknown character in a slot, or a tower floor that is not `000`-`100`. Everything else is soft and comes back in `warnings`: slot 2 disagreeing with the flag slots, Score on an auto run or Any on a manual one, an action on a manual run, or anything the episode has no room for.
 
 ## Web app
 
@@ -160,7 +184,7 @@ The code and what it says in words stay pinned at the top of the page as you wor
 
 Each field of the code is drawn as its own run. Hover one and it names its slot and what it currently says; click it and the page jumps to the control that writes it. That is why the slot tables sit folded away at the bottom — they confirm the format rather than being where you look things up.
 
-Below the code, one board in three bands, in the order you set a run up: **the run** (type and episode), **your loadout** (cookie, relay, pet and treasures), then **boosts and start** (boosts, random boost, cookie power+ and action). That is not the order the code reads — the loadout is written first, before the dash — so every field on the board states the slot or group it writes, in the same language the tooltips on the code speak. Every value it shows is the control that writes it. There is no Semi-auto chip — pick **Auto**, and the build turns semi-auto by itself the moment Fast Start, a random boost, a jump action or a relay cookie is in play, which is what the format says anyway. The chip itself then reads Semi-auto, and the badge on the board says so too. Episode and Random boost are tiles rather than chip rows, and each is the only pick in its band, so it lies on its side — the face, then what it holds, then the size of the list it opens. Clicking one opens that list as a grid in a dialog over the page. Twelve episode cards and eleven random boosts are grids, not rows, and both are short enough that neither picker carries a filter box. The episode's own none is **Any**; the random boost's is a **None** cell in its grid. Action opens with a none of its own, and clicking the chip you already picked goes back to it. Cookie power+ wears the portrait of the cookie it belongs to. The cookie, relay and pet controls stand the face of what they hold under the role they fill; clicking one opens a filterable grid of faces in a dialog over the page, which Escape or a click on its backdrop closes again. Each of those three grids opens with two answers before the catalog: **None**, the slot the build never mentions, and **Any**, the slot it says anything fits. A treasure slot is its name over its alternatives, one to a line, each with a button that drops just that one; the name opens the same grid, where picks are a draft until **Done** and Escape throws the draft away whole. The treasure grid offers only what a run can equip — the consumable family, 7 of the 1,144 entries, is left out of the picker, though a code that already carries one still reads and still keeps it.
+Below the code, one board in three bands, in the order you set a run up: **the run** (mode, goal, episode, and — on the tower — its floor), **your loadout** (cookie, relay, pet and treasures), then **boosts and start** (boosts, random boost, cookie power+ and action). That is not the order the code reads — the loadout is written first, before the dash — so every field on the board states the slot or group it writes, in the same language the tooltips on the code speak. Every value it shows is the control that writes it. Mode and goal are chip rows; an auto run is offered Any, Money, Exp, and Box, and a manual one Score, Money, Exp, and Box. There is no Semi-auto chip — pick **Auto**, and the build turns semi-auto by itself the moment Fast Start, a random boost, a jump action or a relay cookie is in play, which is what the format says anyway. The chip itself then reads Semi-auto, and the badge on the board says so too. Episode and Random boost are tiles rather than chip rows, and each is the only pick in its band, so it lies on its side — the face, then what it holds, then the size of the list it opens. Clicking one opens that list as a grid in a dialog over the page. A field the episode or the mode has no room for keeps its heading and says so in place of its control, and switching back brings back what it held. Twelve episode cards and eleven random boosts are grids, not rows, and both are short enough that neither picker carries a filter box. The episode's own none is **Any**; the random boost's is a **None** cell in its grid. Action opens with a none of its own, and clicking the chip you already picked goes back to it. Cookie power+ wears the portrait of the cookie it belongs to. The cookie, relay and pet controls stand the face of what they hold under the role they fill; clicking one opens a filterable grid of faces in a dialog over the page, which Escape or a click on its backdrop closes again. Each of those three grids opens with two answers before the catalog: **None**, the slot the build never mentions, and **Any**, the slot it says anything fits. A treasure slot is its name over its alternatives, one to a line, each with a button that drops just that one; the name opens the same grid, where picks are a draft until **Done** and Escape throws the draft away whole. The treasure grid offers only what a run can equip — the consumable family, 7 of the 1,144 entries, is left out of the picker, though a code that already carries one still reads and still keeps it.
 
 Your code lives in the address bar, so a build is a link you can send, and it is remembered between visits — a link wins over the remembered one, and **Reset** goes back to an empty code. Pasting a link into the address bar of a tab that is already open works too: the page notices the new code rather than overwriting it. **Copy** takes the code, **Copy link** takes the whole address. The sidebar carries a light/dark control that defaults to following your system. Everything runs in the browser — no network calls, no analytics.
 
@@ -171,21 +195,21 @@ The build produces one `index.html` per page, the JavaScript and CSS they share 
 ```bash
 bun install
 bun run dev           # dev server on :3000; / is the home pane, /combi-name/ is the combi tool
-bun run test          # 332 tests, including an exhaustive round-trip over all 3,538,944 combis
+bun run test          # 456 tests, including an exhaustive round-trip over all 6,638,610 combis
 bun run check         # typecheck and Biome, in one pass
 bun run build         # writes dist/index.html, dist/combi-name/index.html, their chunks, and dist/assets/
 bun run preview       # serves the built dist/ on :4000; build first
 bun run verify:assets # asks cookierundb.com whether assets/index.json is still complete
 ```
 
-The exhaustive test asserts that encoding produces exactly 2,949,120 distinct codes — 3,538,944 inputs collapse to that many because the auto/semi-auto character is derived rather than free. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
+The exhaustive test asserts that encoding produces exactly 3,319,305 distinct codes — 6,638,610 inputs collapse to that many because the auto/semi-auto character is derived rather than free, and a manual run drops its action. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
 
 ### Layout
 
 | Path | Role |
 | --- | --- |
 | `src/routes/` | One directory per page — markup, stylesheet, page script, and that page's own logic. `src/routes/index.*` is the home pane. |
-| `src/routes/combi-name/codec.ts` | Slot tables, `encode`, `decode`, `isSemiAuto`. No DOM, no dependencies. |
+| `src/routes/combi-name/codec.ts` | Slot tables, episode limits, `encode`, `decode`, `normalize`, `isSemiAuto`. No DOM, no dependencies. |
 | `src/routes/combi-name/labels.ts` | Display names for every enum value. |
 | `src/routes/combi-name/describe.ts` | Turns a combi into rows and an auto/semi-auto verdict. |
 | `src/routes/combi-name/catalog.ts` | Resolves cookie, pet, and treasure ids against `assets/index.json`. |
@@ -198,7 +222,7 @@ The exhaustive test asserts that encoding produces exactly 2,949,120 distinct co
 | `scripts/` | The two asset programs and their helpers: `fetch-assets.ts` scrapes, `verify-assets.ts` checks the result offline. Every other package script is the command itself, in `package.json`. |
 | `tests/` | Test configuration only; every test sits beside the code it covers. |
 
-The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a boost or episode cannot silently ship a page with a missing option.
+The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a goal or episode cannot silently ship a page with a missing option.
 
 ## Deployment
 

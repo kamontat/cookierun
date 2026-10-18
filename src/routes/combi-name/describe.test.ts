@@ -13,17 +13,20 @@ const t = (id: string, min = 0, max = min): TreasurePick =>
 	treasurePick(id, levelRange(min, max));
 
 const base: Combi = {
-	type: "score",
+	goal: "score",
+	mode: "manual",
 	episode: "episode3",
+	floor: null,
 	boosts: [],
 	randomBoost: null,
 	cookiePowers: [],
 	action: "none",
 };
 
-test("describes all six fields, using None for empty selections", () => {
+test("describes every field, using None for empty selections", () => {
 	expect(describeCombi(base).rows).toEqual([
-		{ field: "Type", value: "Score" },
+		{ field: "Goal", value: "Score" },
+		{ field: "Mode", value: "Manual" },
 		{ field: "Episode", value: "Episode 3" },
 		{ field: "Boosts", value: "None" },
 		{ field: "Random boost", value: "None" },
@@ -39,22 +42,34 @@ test("joins multiple boosts and cookie powers in slot order", () => {
 		cookiePowers: ["fairy", "expParty"],
 	});
 
-	expect(rows[2]).toEqual({
+	expect(rows[3]).toEqual({
 		field: "Boosts",
 		value: "HP Extension, Fast Start",
 	});
-	expect(rows[4]).toEqual({
+	expect(rows[5]).toEqual({
 		field: "Cookie power+",
 		value: "Fairy Cookie, EXP Party",
 	});
 });
 
-test("no auto verdict for a type that is played by hand", () => {
+test("the tower reads its floor, and a special episode says boosts are not used", () => {
+	const tower = describeCombi({ ...base, episode: "special2", floor: 7 }).rows;
+	expect(tower[3]).toEqual({ field: "Floor", value: "Floor 7" });
+	expect(tower[4]).toEqual({
+		field: "Boosts",
+		value: "Not used in this episode",
+	});
+
+	const anyFloor = describeCombi({ ...base, episode: "special2" }).rows;
+	expect(anyFloor[3]).toEqual({ field: "Floor", value: "Any floor" });
+});
+
+test("no auto verdict for a run played by hand", () => {
 	expect(describeCombi(base).auto).toBeNull();
 });
 
 test("a full auto combi gets a verdict with no reasons", () => {
-	expect(describeCombi({ ...base, type: "auto" }).auto).toEqual({
+	expect(describeCombi({ ...base, goal: "money", mode: "auto" }).auto).toEqual({
 		semi: false,
 		reasons: [],
 	});
@@ -63,7 +78,8 @@ test("a full auto combi gets a verdict with no reasons", () => {
 test("a semi-auto verdict names every reason it needs manual work", () => {
 	const { auto } = describeCombi({
 		...base,
-		type: "auto",
+		goal: "money",
+		mode: "auto",
 		boosts: ["hpExtension", "fastStart"],
 		randomBoost: "revive",
 		action: "jumpAtStart",
@@ -169,8 +185,10 @@ test("each treasure reads with its level, +0 included", () => {
 // three the combi carries.
 test("the build verdict names the relay as what forces the work", () => {
 	const auto: Combi = {
-		type: "auto",
+		goal: "money",
+		mode: "auto",
 		episode: "any",
+		floor: null,
 		boosts: [],
 		randomBoost: null,
 		cookiePowers: [],
@@ -195,14 +213,30 @@ test("a treasure's runs read with commas, so 'or' only separates treasures", () 
 	expect(rows[3]?.value).toMatch(/ \+0-2, \+5-9 or .+ \+3$/);
 });
 
-// Auto versus semi-auto means nothing for the hand-played types, relay or not.
-test("a hand-played type has no verdict even with a relay", () => {
+// The special episodes take no relay, so one in the loadout forces nothing.
+test("a relay on an episode with no relay slot is no reason", () => {
+	const auto: Combi = {
+		...base,
+		goal: "money",
+		mode: "auto",
+		episode: "special1",
+	};
+
+	expect(
+		describeBuild({ loadout: { ...emptyLoadout(), relay: "0O" }, combi: auto }),
+	).toEqual({ semi: false, reasons: [] });
+});
+
+// Auto versus semi-auto means nothing for a manual run, relay or not.
+test("a manual run has no verdict even with a relay", () => {
 	expect(
 		describeBuild({
 			loadout: { ...emptyLoadout(), relay: "0O" },
 			combi: {
-				type: "score",
+				goal: "score",
+				mode: "manual",
 				episode: "any",
+				floor: null,
 				boosts: [],
 				randomBoost: null,
 				cookiePowers: [],
