@@ -219,8 +219,8 @@ const OFF = "0";
 
 /** Zero-based index of each field's first character. */
 const AT = {
-	goal: 1,
-	mode: 2,
+	mode: 1,
+	goal: 2,
 	episode: 3,
 	boosts: 4,
 	randomBoost: 5,
@@ -416,8 +416,8 @@ export function encode(combi: Combi, forcedSemiAuto = false): string {
 
 	return [
 		VERSION,
-		GOAL_CHARS[canonical.goal],
 		MODE_CHARS[normalizeMode(canonical, forcedSemiAuto)],
+		GOAL_CHARS[canonical.goal],
 		EPISODE_CHARS[canonical.episode],
 		encodeCarried(canonical),
 		ACTION_CHARS[canonical.action],
@@ -487,8 +487,8 @@ export function decode(code: string, forcedSemiAuto = false): DecodeResult {
 	const hasFloor = limitsOf(episode).floor;
 
 	const written: Combi = {
-		goal: lookup(GOAL_BY_CHAR, code[AT.goal] as string, "2 (goal)"),
-		mode: lookup(MODE_BY_CHAR, code[AT.mode] as string, "3 (mode)"),
+		goal: lookup(GOAL_BY_CHAR, code[AT.goal] as string, "3 (goal)"),
+		mode: lookup(MODE_BY_CHAR, code[AT.mode] as string, "2 (mode)"),
 		episode,
 		floor: hasFloor ? decodeFloor(code) : null,
 		boosts: hasFloor
@@ -545,12 +545,12 @@ function goalWarnings(combi: Combi): string[] {
 	if (combi.mode === "manual") {
 		if (MANUAL_GOALS.includes(combi.goal)) return [];
 		return [
-			"slot 2 says Any but a run played by hand aims for Score, Money, Exp, or Box",
+			"slot 3 says Any but a run played by hand aims for Score, Money, Exp, or Box",
 		];
 	}
 	if (AUTO_GOALS.includes(combi.goal)) return [];
 	return [
-		"slot 2 says Score but an auto run aims for Any, Money, Exp, or Box — Score is played by hand",
+		"slot 3 says Score but an auto run aims for Any, Money, Exp, or Box — Score is played by hand",
 	];
 }
 
@@ -569,13 +569,13 @@ function modeWarnings(combi: Combi, forced: boolean): string[] {
 
 	if (combi.mode === "auto" && semi) {
 		return [
-			"slot 3 says Auto but Fast Start, a random boost, or an action is present — treating as Semi-auto",
+			"slot 2 says Auto but Fast Start, a random boost, or an action is present — treating as Semi-auto",
 		];
 	}
 
 	if (combi.mode === "semiauto" && !semi) {
 		return [
-			"slot 3 says Semi-auto but there is no Fast Start, random boost, or action",
+			"slot 2 says Semi-auto but there is no Fast Start, random boost, or action",
 		];
 	}
 

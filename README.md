@@ -8,16 +8,16 @@ Every slot is a character you can read at a glance: a letter from the name of wh
 
 ```
 slot:  1  2  3  4  5  6  7 8 9  10
-       V  G  M  E  B  R  P P P  A
-ex:    1  M  H  3  C  R  F W 0  J
-SE2:   1  E  A  T  0  4  2 0 0  0
+       V  M  G  E  B  R  P P P  A
+ex:    1  H  M  3  2  R  F W 0  J
+SE2:   1  A  E  T  0  4  2 0 0  0
 ```
 
 | Slot | Field | Encoding |
 | --- | --- | --- |
 | 1 | Format version | `1` |
-| 2 | Goal | `S` Score, `M` Money, `E` Exp, `B` Box, `0` Any (auto only) |
-| 3 | Mode | `0` Manual, `A` Auto, `H` Semi-auto |
+| 2 | Mode | `0` Manual, `A` Auto, `H` Semi-auto |
+| 3 | Goal | `S` Score, `M` Money, `E` Exp, `B` Box, `0` Any (auto only) |
 | 4 | Episode | `0` Any, `1`-`7` Episode 1-7, `C` Special Episode 1 (Island of Coins), `T` Special Episode 2 (Tower of Frozen Waves), `R` Special Episode 3 (Mysterious Rabbit Hole), `X` Special Exp Episode (XP-Elixir Workshop) |
 | 5 | Boosts | One character for the whole set, below |
 | 6 | Random boost | `0` none, otherwise one of the eleven below |
@@ -102,14 +102,14 @@ The loadout writes down the cookie, relay, pet, and treasure a build uses. The g
 
 "Any" is not that placeholder, and the difference is the point: a missing group is a build that never mentions the slot, while `__` is one that says anything fits there. `_` is outside the `[0-9A-Z]` alphabet ids are drawn from, so it can never collide with a catalog id however far the catalog grows. Only `C`, `R`, and `P` accept it — a treasure slot already holds a list of acceptable alternatives, which is a different idea, and `TU___` is rejected like any other malformed id (there `_` is the alternative separator, so it reads as empty ids).
 
-An `R__` counts as a relay for everything a named relay counts for: the build is semi-auto, and slot 3 is written `H`. Which cookie relays in is not what makes the run need a hand.
+An `R__` counts as a relay for everything a named relay counts for: the build is semi-auto, and slot 2 is written `H`. Which cookie relays in is not what makes the run need a hand.
 
 ```
-1S0070FW00                          no loadout
-1C2L-1S0070FW00                     a cookie only
-1C__R__P__-1MH0000000               any cookie, any relay, any pet
-1C2LR0BP1ZTU0FZ_0RB.0QQ-1MH32R000J  cookie, relay, pet, two treasure slots, any order
-1TU0FZ02_0FZ59_0RB3.0QQ9-1S00000000 slot 1: 0FZ at +0-2 or +5-9, or 0RB at +3; slot 2: 0QQ at +9
+10S070FW00                          no loadout
+1C2L-10S070FW00                     a cookie only
+1C__R__P__-1HM0000000               any cookie, any relay, any pet
+1C2LR0BP1ZTU0FZ_0RB.0QQ-1HM32R000J  cookie, relay, pet, two treasure slots, any order
+1TU0FZ02_0FZ59_0RB3.0QQ9-10S0000000 slot 1: 0FZ at +0-2 or +5-9, or 0RB at +3; slot 2: 0QQ at +9
 ```
 
 Encoding always writes the canonical form: ids are sorted within a slot, and whole slots are sorted against each other whenever the order flag is `U` — a single slot is always written `U`, since there is nothing to order with only one slot. That is what keeps one build to exactly one code. Reading a code is more forgiving: a hand-written or otherwise non-canonical loadout still decodes correctly, it just re-encodes into the canonical form rather than back into what you typed.
@@ -138,17 +138,17 @@ No digits means +0, which is also how every code written before levels existed r
 
 Semi-auto is an auto run that needs manual work each time. An auto build is semi-auto when **any** of these is true: Fast Start is on (slot 5), a random boost is selected (slot 6), there is a jump action (slot 10), or the loadout carries a relay cookie (the `R` group, `R__` included) on an episode that takes one. The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
 
-The relay is the one reason that lives outside the ten characters: a relay cookie is swapped in by hand, so a run carrying one never plays itself through. Slot 3 is written from the whole build, so the ten characters you paste into the game say `H` when a relay is in front of them — while a bare combi code, having no loadout to read, answers for its own three flags alone.
+The relay is the one reason that lives outside the ten characters: a relay cookie is swapped in by hand, so a run carrying one never plays itself through. Slot 2 is written from the whole build, so the ten characters you paste into the game say `H` when a relay is in front of them — while a bare combi code, having no loadout to read, answers for its own three flags alone.
 
-Slot 3 stores `A` or `H` for readability, but those four reasons are the authority. `encodeFull` normalizes slot 3 so a generated code never contradicts itself. `decodeFull` accepts a hand-typed code that does contradict, keeps `combi.mode` as written, and returns a warning; `isSemiAutoBuild` always answers from the fields above.
+Slot 2 stores `A` or `H` for readability, but those four reasons are the authority. `encodeFull` normalizes slot 2 so a generated code never contradicts itself. `decodeFull` accepts a hand-typed code that does contradict, keeps `combi.mode` as written, and returns a warning; `isSemiAutoBuild` always answers from the fields above.
 
 ```
-1MA3H00000    full auto, money (HP Extension only)
-10A3H00000    full auto, no goal in particular
-1MH32R0000    semi-auto (HP Extension + Fast Start, Revive)
-1EH3H0000J    semi-auto (jump only)
-1BA3300000    full auto, box (HP Extension + Double XP)
-1MAT042000    full auto on the tower, floor 42
+1AM3H00000    full auto, money (HP Extension only)
+1A03H00000    full auto, no goal in particular
+1HM32R0000    semi-auto (HP Extension + Fast Start, Revive)
+1HE3H0000J    semi-auto (jump only)
+1AB3300000    full auto, box (HP Extension + Double XP)
+1AMT042000    full auto on the tower, floor 42
 ```
 
 ## Usage
@@ -166,13 +166,13 @@ encode({
   cookiePowers: ["fairy", "seaFairy"],
   action: "none",
 });
-// "1S0070FW00"
+// "10S070FW00"
 
-const { combi, warnings } = decode("1EH34R000J");
+const { combi, warnings } = decode("1HE34R000J");
 isSemiAuto(combi); // true
 ```
 
-`decode` throws on a code it cannot read — wrong length, unknown version, an unknown character in a slot, or a tower floor that is not `000`-`100`. Everything else is soft and comes back in `warnings`: slot 3 disagreeing with the flag slots, Score on an auto run or Any on a manual one, an action on a manual run, or anything the episode has no room for.
+`decode` throws on a code it cannot read — wrong length, unknown version, an unknown character in a slot, or a tower floor that is not `000`-`100`. Everything else is soft and comes back in `warnings`: slot 2 disagreeing with the flag slots, Score on an auto run or Any on a manual one, an action on a manual run, or anything the episode has no room for.
 
 ## Web app
 

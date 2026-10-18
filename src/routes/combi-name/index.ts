@@ -498,7 +498,7 @@ function pairs<K extends string>(
 
 /**
  * Every mode but semi-auto. That one is derived, not chosen: `encode` writes
- * slot 3 from the flag slots — Fast Start, a random boost, a jump action — so
+ * slot 2 from the flag slots — Fast Start, a random boost, a jump action — so
  * an auto run becomes semi-auto by what else is on, and a chip for it could
  * only disagree with the code. The codec still knows the value, and a code
  * carrying `H` still decodes to it; `writeForm` lands that on the Auto chip.

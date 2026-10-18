@@ -63,7 +63,7 @@ export function fitLoadout(loadout: Loadout, combi: Combi): Loadout {
 
 export function encodeFull(full: FullCode): string {
 	const loadout = fitLoadout(full.loadout, full.combi);
-	// Slot 3 is written from the whole build, so a code carrying a relay says
+	// Slot 2 is written from the whole build, so a code carrying a relay says
 	// Semi-auto in the ten characters someone pastes into the game.
 	const combi = encode(full.combi, loadout.relay !== null);
 	if (isEmptyLoadout(loadout)) return combi;
@@ -98,7 +98,7 @@ export function decodeFull(code: string): {
 
 	const written = decodeLoadout(first);
 	// The episode lives in the combi half, so it is read before the relay is
-	// allowed to say anything about slot 3.
+	// allowed to say anything about slot 2.
 	const episode = decode(second).combi.episode;
 	const limits = limitsOf(episode);
 	const relayed = written.relay !== null && limits.relay;
@@ -135,6 +135,6 @@ function loadoutWarnings(written: Loadout, kept: Loadout): string[] {
 function relayWarnings(combi: Combi): string[] {
 	if (combi.mode !== "auto") return [];
 	return [
-		"slot 3 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
+		"slot 2 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
 	];
 }

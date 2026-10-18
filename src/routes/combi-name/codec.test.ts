@@ -31,11 +31,11 @@ test("encodes a manual score combi with three boosts and two cookie powers", () 
 		cookiePowers: ["fairy", "seaFairy"],
 	});
 
-	expect(code).toBe("1S0070FW00");
+	expect(code).toBe("10S070FW00");
 });
 
 test("decodes every slot back into a combi", () => {
-	const { combi } = decode("1EH34RC0EJ");
+	const { combi } = decode("1HE34RC0EJ");
 
 	expect(combi).toEqual({
 		goal: "exp",
@@ -83,7 +83,7 @@ test("each group of cookie powers has a slot of its own", () => {
 			boosts: [],
 			cookiePowers: ["expParty", "cheerleader"],
 		}),
-	).toBe("1S0000C0E0");
+	).toBe("10S000C0E0");
 });
 
 // A slot with two or more of its group on reads as a running character.
@@ -94,7 +94,7 @@ test("every cookie power at once is 4 1 1", () => {
 		cookiePowers: ALL_COOKIE_POWERS,
 	});
 
-	expect(code).toBe("1S00004110");
+	expect(code).toBe("10S0004110");
 	expect(decode(code).combi.cookiePowers).toEqual(ALL_COOKIE_POWERS);
 });
 
@@ -114,7 +114,7 @@ test("every set of cookie powers has its own code and reads back as itself", () 
 });
 
 test("rejects a power letter in another group's slot", () => {
-	expect(() => decode("1S0000K000")).toThrow(
+	expect(() => decode("10S000K000")).toThrow(
 		'slot 7 (cookie power+): unknown char "K"',
 	);
 });
@@ -124,7 +124,7 @@ test("Double XP alone leaves a run on full auto", () => {
 });
 
 test("rejects an unknown boost set character", () => {
-	expect(() => decode("1S00Z00000")).toThrow(
+	expect(() => decode("10S0Z00000")).toThrow(
 		'slot 5 (boosts): unknown char "Z"',
 	);
 });
@@ -140,9 +140,9 @@ test("rejects an unsupported version", () => {
 });
 
 test("rejects an unknown char in a slot", () => {
-	expect(() => decode("1Z00000000")).toThrow('slot 2 (goal): unknown char "Z"');
-	expect(() => decode("1SZ0000000")).toThrow('slot 3 (mode): unknown char "Z"');
-	expect(() => decode("1S0Z000000")).toThrow(
+	expect(() => decode("10Z0000000")).toThrow('slot 3 (goal): unknown char "Z"');
+	expect(() => decode("1ZS0000000")).toThrow('slot 2 (mode): unknown char "Z"');
+	expect(() => decode("10SZ000000")).toThrow(
 		'slot 4 (episode): unknown char "Z"',
 	);
 });
@@ -162,26 +162,26 @@ test("the tower writes its floor in slots 5-7", () => {
 		floor: 42,
 	};
 
-	expect(encode(tower)).toBe("1MAT042000");
-	expect(decode("1MAT042000").combi).toEqual(tower);
-	expect(encode({ ...tower, floor: 100 })).toBe("1MAT100000");
+	expect(encode(tower)).toBe("1AMT042000");
+	expect(decode("1AMT042000").combi).toEqual(tower);
+	expect(encode({ ...tower, floor: 100 })).toBe("1AMT100000");
 });
 
 test("a tower with no floor picked is any floor, 000", () => {
-	const { combi } = decode("1MAT000000");
+	const { combi } = decode("1AMT000000");
 
 	expect(combi.floor).toBeNull();
-	expect(encode(combi)).toBe("1MAT000000");
+	expect(encode(combi)).toBe("1AMT000000");
 });
 
 test("rejects a tower floor that is not one", () => {
-	expect(() => decode("1MAT101000")).toThrow(
+	expect(() => decode("1AMT101000")).toThrow(
 		"slots 5-7 (floor): 101 is above 100",
 	);
-	expect(() => decode("1MATH00000")).toThrow(
+	expect(() => decode("1AMTH00000")).toThrow(
 		'slots 5-7 (floor): "H00" is not 3 digits',
 	);
-	expect(() => decode("1MAT001X00")).toThrow("slots 8-9");
+	expect(() => decode("1AMT001X00")).toThrow("slots 8-9");
 });
 
 test("a floor means nothing outside the tower and is dropped", () => {
@@ -197,15 +197,15 @@ test("the special episodes drop boosts, random boost and cookie power+", () => {
 		cookiePowers: ["fairy"],
 	};
 
-	expect(encode(loaded)).toBe("1MAC000000");
-	expect(encode({ ...loaded, episode: "specialExp" })).toBe("1MAX000000");
-	expect(encode({ ...loaded, episode: "special2" })).toBe("1MAT000000");
+	expect(encode(loaded)).toBe("1AMC000000");
+	expect(encode({ ...loaded, episode: "specialExp" })).toBe("1AMX000000");
+	expect(encode({ ...loaded, episode: "special2" })).toBe("1AMT000000");
 	// Special Episode 3 is an ordinary run.
-	expect(encode({ ...loaded, episode: "special3" })).toBe("1MHR2RF000");
+	expect(encode({ ...loaded, episode: "special3" })).toBe("1HMR2RF000");
 });
 
 test("decode drops what a special episode has no room for, with a warning", () => {
-	const { combi, warnings } = decode("1MAXHR0000");
+	const { combi, warnings } = decode("1AMXHR0000");
 
 	expect(combi.boosts).toEqual([]);
 	expect(combi.randomBoost).toBeNull();
@@ -215,9 +215,9 @@ test("decode drops what a special episode has no room for, with a warning", () =
 });
 
 test("a manual run carries no action", () => {
-	expect(encode({ ...manual, action: "jumpAtStart" })).toBe("1S00H00000");
+	expect(encode({ ...manual, action: "jumpAtStart" })).toBe("10S0H00000");
 
-	const { combi, warnings } = decode("1S00H0000J");
+	const { combi, warnings } = decode("10S0H0000J");
 	expect(combi.action).toBe("none");
 	expect(warnings).toEqual([
 		"slot 10 sets an action but the run is played by hand — ignoring it",
@@ -225,11 +225,11 @@ test("a manual run carries no action", () => {
 });
 
 test("an auto run aiming for Score decodes, with a warning", () => {
-	const { combi, warnings } = decode("1SA0H00000");
+	const { combi, warnings } = decode("1AS0H00000");
 
 	expect(combi.goal).toBe("score");
 	expect(warnings).toEqual([
-		"slot 2 says Score but an auto run aims for Any, Money, Exp, or Box — Score is played by hand",
+		"slot 3 says Score but an auto run aims for Any, Money, Exp, or Box — Score is played by hand",
 	]);
 });
 
@@ -237,7 +237,7 @@ test("an auto run aiming for Score decodes, with a warning", () => {
 test("an auto run aiming for nothing in particular writes 0 into slot 2", () => {
 	const code = encode({ ...fullAuto, goal: "any" });
 
-	expect(code).toBe("10A0H00000");
+	expect(code).toBe("1A00H00000");
 	expect(decode(code)).toEqual({
 		combi: { ...fullAuto, goal: "any" },
 		warnings: [],
@@ -246,7 +246,7 @@ test("an auto run aiming for nothing in particular writes 0 into slot 2", () => 
 
 test("a manual run aiming for Any decodes, with a warning", () => {
 	expect(decode("1000000000").warnings).toEqual([
-		"slot 2 says Any but a run played by hand aims for Score, Money, Exp, or Box",
+		"slot 3 says Any but a run played by hand aims for Score, Money, Exp, or Box",
 	]);
 });
 
@@ -275,13 +275,13 @@ test("encode writes H when an auto combi needs manual work", () => {
 		boosts: ["hpExtension", "fastStart"],
 	});
 
-	expect(code).toBe("1MH3200000");
+	expect(code).toBe("1HM3200000");
 });
 
 test("encode writes A when a semiauto combi needs no manual work", () => {
 	const code = encode({ ...fullAuto, mode: "semiauto", episode: "episode3" });
 
-	expect(code).toBe("1MA3H00000");
+	expect(code).toBe("1AM3H00000");
 });
 
 test("encode leaves a manual run alone", () => {
@@ -291,31 +291,31 @@ test("encode leaves a manual run alone", () => {
 		boosts: ["fastStart"],
 	});
 
-	expect(code).toBe("1S03F00000");
+	expect(code).toBe("10S3F00000");
 });
 
 test("decode warns when the mode slot says Auto but manual work is present", () => {
-	const { combi, warnings } = decode("1MA32R0000");
+	const { combi, warnings } = decode("1AM32R0000");
 
 	expect(combi.mode).toBe("auto");
 	expect(warnings).toEqual([
-		"slot 3 says Auto but Fast Start, a random boost, or an action is present — treating as Semi-auto",
+		"slot 2 says Auto but Fast Start, a random boost, or an action is present — treating as Semi-auto",
 	]);
 });
 
 test("decode warns when the mode slot says Semi-auto but nothing is manual", () => {
-	const { combi, warnings } = decode("1MH3H00000");
+	const { combi, warnings } = decode("1HM3H00000");
 
 	expect(combi.mode).toBe("semiauto");
 	expect(warnings).toEqual([
-		"slot 3 says Semi-auto but there is no Fast Start, random boost, or action",
+		"slot 2 says Semi-auto but there is no Fast Start, random boost, or action",
 	]);
 });
 
 test("decode stays quiet when the mode slot agrees with the flag slots", () => {
-	expect(decode("1MH32R0000").warnings).toEqual([]);
+	expect(decode("1HM32R0000").warnings).toEqual([]);
 });
 
 test("decode stays quiet for a manual run regardless of the flag slots", () => {
-	expect(decode("1S03F00000").warnings).toEqual([]);
+	expect(decode("10S3F00000").warnings).toEqual([]);
 });

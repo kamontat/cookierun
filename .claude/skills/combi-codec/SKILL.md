@@ -22,7 +22,7 @@ To add an episode or cookie power: add it to its character table, its label tabl
 
 `Object.keys` order determines the `ALL_*` order for the character tables, and the `members` order of `BOOST_SLOT` and `COOKIE_POWER_SLOTS` determines `ALL_BOOSTS` and `ALL_COOKIE_POWERS`. A character is written out per value, never derived from position, so reordering a `*_CHARS` table moves the chips on the page without changing what a character means — except for a `SetSlot`, whose `combos` keys spell each set in `members` order, so reordering members breaks every combination key; and which group a power sits in decides which slot it is written to. Changing a character moves the wire format. If the slot layout or a character mapping has to change, bump `VERSION` in `src/routes/combi-name/codec.ts` — `decode` rejects any other version outright. (`VERSION` is still `1` after the move to goal + mode slots and lettered boosts and powers: the owner chose a breaking change over a bump.)
 
-The layout: 1 version, 2 goal, 3 mode, 4 episode, 5 boost set, 6 random boost, 7-9 cookie power+ (one set slot per group: Cheerleader/Special Force/Fairy, Cheesecake/Sea Fairy, Serenade of Love/EXP Party), 10 action. On Special Episode 2 slots 5-7 are the floor instead, `000` for any and `001`-`100`, and slots 8-9 must be `00`; `decode` reads slots 5-9 by the episode in slot 4.
+The layout: 1 version, 2 mode, 3 goal, 4 episode, 5 boost set, 6 random boost, 7-9 cookie power+ (one set slot per group: Cheerleader/Special Force/Fairy, Cheesecake/Sea Fairy, Serenade of Love/EXP Party), 10 action. On Special Episode 2 slots 5-7 are the floor instead, `000` for any and `001`-`100`, and slots 8-9 must be `00`; `decode` reads slots 5-9 by the episode in slot 4.
 
 The form end of that guarantee is `<card-group>`'s `selected` getter: it filters the element's own `options` rather than reading DOM order, which is what keeps boosts and cookie powers in table order.
 
@@ -49,7 +49,7 @@ question whose answer needs both halves. `encode` and `decode` take a
 caller that knows the reason is also the one that names it in a warning.
 
 That is a page decision, not a format one. Do not remove `semiauto` from
-`codec.ts` to match the picker: it is slot 3's `H`, and dropping it would make
+`codec.ts` to match the picker: it is slot 2's `H`, and dropping it would make
 every semi-auto code ever written unreadable.
 
 ## Which characters a code may use
@@ -58,7 +58,7 @@ The separators are chosen for word-wise selection (double-click, Option+Shift+Ar
 
 ## Hard errors vs soft warnings
 
-`decode` throws only when a code is unreadable: wrong length, unknown version, an unknown character in a slot, or a tower floor that is not three digits up to `100` (or slots 8-9 not `00` there). It returns `{ combi, warnings }` and never throws when slot 3 (`A` vs `H`) disagrees with the flag slots, when an auto run says Score or a manual one Any, or when a code carries what its episode or mode has no room for, because hand-typed codes can contradict themselves. `isSemiAuto` is always the authority; `encode` normalizes slot 3 to match it. Keep that split — the UI depends on being able to show a contradictory code rather than refusing it.
+`decode` throws only when a code is unreadable: wrong length, unknown version, an unknown character in a slot, or a tower floor that is not three digits up to `100` (or slots 8-9 not `00` there). It returns `{ combi, warnings }` and never throws when slot 2 (`A` vs `H`) disagrees with the flag slots, when an auto run says Score or a manual one Any, or when a code carries what its episode or mode has no room for, because hand-typed codes can contradict themselves. `isSemiAuto` is always the authority; `encode` normalizes slot 2 to match it. Keep that split — the UI depends on being able to show a contradictory code rather than refusing it.
 
 ## The exhaustive test
 

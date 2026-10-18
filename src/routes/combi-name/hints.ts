@@ -105,13 +105,13 @@ function spansOfCombi(combi: Combi): Span[] {
 		{ length: 1, group: "version", hint: "Slot 1 · Format version" },
 		{
 			length: 1,
-			group: "goal",
-			hint: `Slot 2 · Goal${SEPARATOR}${GOAL_LABELS[combi.goal]}`,
+			group: "mode",
+			hint: `Slot 2 · Mode${SEPARATOR}${MODE_LABELS[combi.mode]}`,
 		},
 		{
 			length: 1,
-			group: "mode",
-			hint: `Slot 3 · Mode${SEPARATOR}${MODE_LABELS[combi.mode]}`,
+			group: "goal",
+			hint: `Slot 3 · Goal${SEPARATOR}${GOAL_LABELS[combi.goal]}`,
 		},
 		{
 			length: 1,
