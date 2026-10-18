@@ -17,12 +17,14 @@ export const ORIGIN = "https://cookierundb.com";
  * Each listing page renders one `<a class="ecard">` per entry. The icon frame
  * holds an `<img>` for entries with a sprite and a placeholder `<span>` for
  * the handful that have none, so the `<img>` is matched optionally. Only the
- * treasure listing carries `data-fam` and `data-evo`, so both are optional —
- * and `data-fam` is written before `data-evo` on every card that has them,
- * which is the order this pattern reads them in.
+ * treasure listing carries `data-fam` and `data-stage`, so both are optional —
+ * and `data-fam` is written before `data-stage` on every card that has them,
+ * which is the order this pattern reads them in. `data-stage` is `base`,
+ * `base canevolve`, `evolved` or `blessed`; the last two are what the scrape
+ * calls evolved, since both need a detail page to find their base.
  */
 const CARD_RE =
-	/<a class="ecard" href="([^"]+)"[^>]*?data-name="([^"]*)"(?:[^>]*?data-fam="([^"]*)")?(?:[^>]*?data-evo="([^"]*)")?[^>]*>\s*<span class="icon-frame">(?:<img src="([^"]+)")?/g;
+	/<a class="ecard" href="([^"]+)"[^>]*?data-name="([^"]*)"(?:[^>]*?data-fam="([^"]*)")?(?:[^>]*?data-stage="([^"]*)")?[^>]*>\s*<span class="icon-frame">(?:<img src="([^"]+)")?/g;
 
 /**
  * A treasure detail page renders its relatives as `<a class="rel-card">`, each
@@ -32,6 +34,8 @@ const CARD_RE =
  */
 const REL_RE =
 	/<a class="rel-card" href="\.\.\/treasures\/([^"]+)"[\s\S]*?<span class="rc-sub">([^<]*)<\/span>/g;
+
+const EVOLVED_STAGES = new Set(["evolved", "blessed"]);
 
 const LOC_RE = /<loc>https:\/\/cookierundb\.com\/([^<]*)<\/loc>/g;
 
@@ -69,11 +73,11 @@ export async function get(path: string): Promise<Response> {
 
 export function parseListing(html: string): Card[] {
 	return [...html.matchAll(CARD_RE)].map(
-		([, href = "", name = "", fam, evo = "0", icon]) => ({
+		([, href = "", name = "", fam, stage = "", icon]) => ({
 			slug: href.split("/").pop() ?? "",
 			name: unescapeHtml(name),
 			icon: icon ? icon.replace(/^\.\.\//, "/") : null,
-			evolved: evo === "1",
+			evolved: EVOLVED_STAGES.has(stage),
 			family: fam ?? null,
 		}),
 	);
