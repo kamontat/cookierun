@@ -353,7 +353,7 @@ test("a treasure whose family is not one the site uses is caught", async () => {
 	});
 
 	expect(problems[0]).toBe(
-		'treasures/000: family "snack" is not one of cookie, consumable, draw, pet, special',
+		'treasures/000: family "snack" is not one of cookie, consumable, draw, pet, special, squirrel',
 	);
 });
 

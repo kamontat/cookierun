@@ -90,10 +90,10 @@ export type CatalogEntry = {
 
 /**
  * The treasure families the picker does not offer. `consumable` is the
- * XP-Elixirs and their like, 13 of the 1,144 entries, and none of them can go
+ * XP-Elixirs and their like, 7 of the 1,144 entries, and none of them can go
  * in a slot. The `special` family — trophies, certificates and commemorative
  * frames — was hidden alongside them and is offered again: a run can equip
- * one, and 195 entries is too many to leave out of the picker on a guess.
+ * one, and 192 entries is too many to leave out of the picker on a guess.
  *
  * This hides them from the picker and from nowhere else. A code that already
  * carries one still decodes and still names it, the same promise a retired

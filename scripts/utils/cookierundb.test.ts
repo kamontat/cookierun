@@ -15,12 +15,12 @@ const escaped =
 	'<span class="icon-frame"><img src="../img/cookies/ch07.png" alt=""></span></a>';
 
 const evolvedCard =
-	'<a class="ecard" href="../treasures/stretched-acorn" data-name="Stretched Acorn" data-evo="1">' +
+	'<a class="ecard" href="../treasures/stretched-acorn" data-name="Stretched Acorn" data-stage="evolved">' +
 	'<span class="icon-frame"><img src="../img/treasures/tr034.png" alt=""></span></a>';
 
 const familyCard =
 	'<a class="ecard" href="../treasures/xp-elixir-l" data-name="XP-Elixir (L)" ' +
-	'data-grade="C" data-fam="consumable" data-evo="0">' +
+	'data-grade="C" data-fam="consumable" data-stage="base">' +
 	'<span class="icon-frame"><img src="../img/treasures/tr_medal_03.png" alt=""></span></a>';
 
 test("a listing card yields its slug, name and icon, rooted at the site", () => {
@@ -58,10 +58,23 @@ test("a card name is unescaped", () => {
 	expect(parseListing(escaped)[0]?.name).toBe('Dr. Wasabi\'s "Cookie"');
 });
 
-// Only the treasure listing carries data-evo, which is why the pattern makes it
-// optional — but when it is there, it has to be read.
-test("data-evo marks a treasure as evolved", () => {
+const blessedCard = evolvedCard
+	.replace("stretched-acorn", "blessed-stretched-acorn")
+	.replace('data-stage="evolved"', 'data-stage="blessed"');
+
+const canEvolveCard = familyCard.replace(
+	'data-stage="base"',
+	'data-stage="base canevolve"',
+);
+
+// Only the treasure listing carries data-stage, which is why the pattern makes
+// it optional — but when it is there, it has to be read. A base that can evolve
+// is still a base: only the evolved and blessed forms name a source.
+test("data-stage marks evolved and blessed treasures as evolved", () => {
 	expect(parseListing(evolvedCard)[0]?.evolved).toBe(true);
+	expect(parseListing(blessedCard)[0]?.evolved).toBe(true);
+	expect(parseListing(familyCard)[0]?.evolved).toBe(false);
+	expect(parseListing(canEvolveCard)[0]?.evolved).toBe(false);
 	expect(parseListing(withIcon)[0]?.evolved).toBe(false);
 });
 
