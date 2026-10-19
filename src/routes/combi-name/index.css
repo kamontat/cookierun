@@ -277,3 +277,95 @@ main {
 	padding: var(--cr-space-3);
 	font-size: 0.85rem;
 }
+
+/* The saved list sits after the board: it is somewhere to keep a build once
+   it is made, not part of making one. */
+.saveform {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--cr-space-2);
+}
+
+/* The button sits at the foot of the box rather than stretching to its
+   height. */
+.saveform {
+	align-items: flex-end;
+}
+
+.saveform textarea {
+	flex: 1 1 14rem;
+	min-width: 0;
+	resize: vertical;
+	font: inherit;
+}
+
+#save-status:empty {
+	min-height: 0;
+}
+
+.savedlist {
+	display: grid;
+	gap: var(--cr-space-2);
+	margin: var(--cr-space-2) 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.savedlist:empty {
+	margin: 0;
+}
+
+/* One entry per row: the note and its code on the left, the two buttons on
+   the right, wrapping under them where the row is too narrow. */
+.savedlist li {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--cr-space-2);
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: var(--cr-radius);
+	background: var(--cr-surface-2);
+	padding: var(--cr-space-2) var(--cr-space-3);
+}
+
+/* The entry holding the code on screen now says so with the accent edge. */
+.savedlist li[aria-current="true"] {
+	border-left-color: var(--cr-accent);
+}
+
+.savedlist .entry {
+	display: grid;
+	flex: 1 1 14rem;
+	gap: 0.15rem;
+	min-width: 0;
+}
+
+/* A description keeps the line breaks it was typed with. */
+.savedlist .description {
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+	font-weight: 600;
+}
+
+.savedlist .description.blank {
+	color: var(--cr-muted);
+	font-weight: 400;
+	font-style: italic;
+}
+
+.savedlist code {
+	overflow-wrap: anywhere;
+	font-family: var(--cr-mono);
+	font-size: 0.85rem;
+}
+
+.savedlist time {
+	color: var(--cr-muted);
+	font-size: 0.75rem;
+}
+
+.savedlist .buttons {
+	display: flex;
+	flex-direction: row;
+	gap: var(--cr-space-2);
+}

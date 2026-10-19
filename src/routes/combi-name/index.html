@@ -244,6 +244,27 @@
         </section>
       </form>
 
+      <!-- Codes kept on purpose, each with a note. They live in this browser
+           only; the link is still how a code reaches anyone else. -->
+      <section class="panel saved" aria-labelledby="saved-heading">
+        <h2 id="saved-heading">Saved codes</h2>
+        <form id="save-form" class="saveform" novalidate>
+          <textarea
+            id="save-description"
+            rows="3"
+            maxlength="500"
+            placeholder="What is this build for? Ctrl+Enter saves."
+            aria-label="Description for the current code"
+          ></textarea>
+          <button id="save" type="submit">Save code</button>
+        </form>
+        <p id="save-status" class="status" role="status"></p>
+        <p id="saved-empty" class="caveat">
+          Nothing saved yet. Saved codes stay in this browser.
+        </p>
+        <ul id="saved-list" class="savedlist"></ul>
+      </section>
+
       <!-- Folded away: the tooltips on the code above answer "which one is the
            episode?" for the code actually in front of you, which is the
            question this table used to be here to answer. -->

@@ -788,3 +788,62 @@ test("every cookie power can be on at once", async () => {
 	expect(await codeText()).toBe("10S0004110");
 	await reset();
 });
+
+function savedRows(): HTMLLIElement[] {
+	return [...need("saved-list").querySelectorAll("li")];
+}
+
+function savedButtonFor(code: string, action: "load" | "delete") {
+	const button = need("saved-list").querySelector<HTMLButtonElement>(
+		`button[data-action="${action}"][data-code="${code}"]`,
+	);
+	if (button === null) throw new Error(`no ${action} button for ${code}`);
+	return button;
+}
+
+async function saveCurrent(description: string): Promise<void> {
+	need<HTMLTextAreaElement>("save-description").value = description;
+	need<HTMLFormElement>("save-form").requestSubmit();
+	await settle();
+}
+
+test("saving the code lists it with its description, in storage too", async () => {
+	expect(need("saved-empty").hidden).toBe(false);
+	await choose("goal", "money");
+
+	await saveCurrent("Coin farm\nuse Fairy");
+
+	const [row] = savedRows();
+	expect(row?.querySelector(".description")?.textContent).toBe(
+		"Coin farm\nuse Fairy",
+	);
+	expect(row?.textContent).toContain("10M0000000");
+	expect(row?.getAttribute("aria-current")).toBe("true");
+	expect(need("saved-empty").hidden).toBe(true);
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
+	expect(localStorage.getItem("combi-name:saved")).toContain("Coin farm");
+
+	await reset();
+	expect(savedRows()[0]?.getAttribute("aria-current")).toBe("false");
+});
+
+test("loading a saved code moves the controls to it", async () => {
+	expect(await codeText()).toBe("10S0000000");
+
+	savedButtonFor("10M0000000", "load").click();
+
+	expect(await codeText()).toBe("10M0000000");
+	expect(isOn("goal", "money")).toBe(true);
+	expect(need("save-status").textContent).toBe("Loaded Coin farm.");
+	await reset();
+});
+
+test("deleting a saved code takes it off the list and out of storage", async () => {
+	savedButtonFor("10M0000000", "delete").click();
+	await settle();
+
+	expect(savedRows()).toHaveLength(0);
+	expect(need("saved-empty").hidden).toBe(false);
+	expect(localStorage.getItem("combi-name:saved")).toBe("[]");
+	expect(document.activeElement).toBe(need("save-description"));
+});

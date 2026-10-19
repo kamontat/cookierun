@@ -45,6 +45,13 @@ import {
 	RANDOM_BOOST_LABELS,
 } from "./labels";
 import { type Loadout, treasurePick } from "./loadout";
+import {
+	descriptionTitle,
+	readSaved,
+	removeSaved,
+	type SavedCode,
+	saveCode,
+} from "./saved";
 import { codeInHash, hashFor, rememberCode, startingCode } from "./state";
 
 import "#components/build-summary";
@@ -98,6 +105,12 @@ const treasureSlots = [
 ];
 const orderChips = need<ChipGroup>("treasureOrder");
 const relayNote = need("relay-note");
+
+const saveForm = need<HTMLFormElement>("save-form");
+const saveDescription = need<HTMLTextAreaElement>("save-description");
+const saveStatus = need("save-status");
+const savedEmpty = need("saved-empty");
+const savedList = need<HTMLUListElement>("saved-list");
 
 /** The fields an episode or a mode can take off the board. */
 const offFields = {
@@ -356,6 +369,7 @@ function render(warnings: readonly string[] = []): void {
 	});
 
 	showWarnings(warnings);
+	markCurrent(code);
 	publish(code);
 }
 
@@ -436,6 +450,157 @@ function readDraft(text: string): void {
 		codeBar.invalid = true;
 	}
 }
+
+/** The saved list as the page last drew it. */
+let savedEntries: readonly SavedCode[] = readSaved(localStorage);
+
+const savedAtFormat = new Intl.DateTimeFormat(undefined, {
+	dateStyle: "medium",
+	timeStyle: "short",
+});
+
+function savedButton(
+	label: string,
+	action: "load" | "delete",
+	entry: SavedCode,
+): HTMLButtonElement {
+	const button = document.createElement("button");
+	button.type = "button";
+	button.textContent = label;
+	button.setAttribute("data-action", action);
+	button.setAttribute("data-code", entry.code);
+	const name =
+		entry.description === "" ? entry.code : descriptionTitle(entry.description);
+	button.setAttribute("aria-label", `${label} ${name}`);
+	return button;
+}
+
+/**
+ * Draws the saved list from scratch. It is short and changes only on a click,
+ * so there is nothing to gain from patching it in place.
+ */
+function showSaved(entries: readonly SavedCode[]): void {
+	savedEntries = entries;
+	savedEmpty.hidden = entries.length > 0;
+	savedList.replaceChildren(
+		...entries.map((entry) => {
+			const item = document.createElement("li");
+			item.setAttribute("data-code", entry.code);
+
+			const text = document.createElement("div");
+			text.className = "entry";
+			const description = document.createElement("span");
+			description.className = "description";
+			if (entry.description === "") {
+				description.classList.add("blank");
+				description.textContent = "No description";
+			} else {
+				description.textContent = entry.description;
+			}
+			const code = document.createElement("code");
+			code.textContent = entry.code;
+			const time = document.createElement("time");
+			const when = new Date(entry.savedAt);
+			time.dateTime = when.toISOString();
+			time.textContent = `Saved ${savedAtFormat.format(when)}`;
+			text.append(description, code, time);
+
+			const buttons = document.createElement("div");
+			buttons.className = "buttons";
+			buttons.append(
+				savedButton("Load", "load", entry),
+				savedButton("Delete", "delete", entry),
+			);
+
+			item.append(text, buttons);
+			return item;
+		}),
+	);
+	markCurrent(codeBar.value);
+}
+
+/** Marks the saved entry, if any, that holds the code on screen. */
+function markCurrent(code: string): void {
+	for (const item of savedList.children) {
+		const current = item.getAttribute("data-code") === code;
+		item.setAttribute("aria-current", String(current));
+	}
+}
+
+saveForm.addEventListener("submit", (event) => {
+	event.preventDefault();
+	const code = codeBar.value;
+	const { entries, stored } = saveCode(
+		localStorage,
+		code,
+		saveDescription.value,
+	);
+	showSaved(entries);
+	if (stored) {
+		saveDescription.value = "";
+		setStatus(saveStatus, `Saved ${code}.`);
+	} else {
+		setStatus(
+			saveStatus,
+			"The browser refused to store it. It is listed for this visit only.",
+			true,
+		);
+	}
+});
+
+// A description takes line breaks, so Enter is a new line and Ctrl+Enter (or
+// Cmd+Enter) is the shortcut for the button beside it.
+saveDescription.addEventListener("keydown", (event) => {
+	if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+		event.preventDefault();
+		saveForm.requestSubmit();
+	}
+});
+
+savedList.addEventListener("click", (event) => {
+	const button = (event.target as Element | null)?.closest<HTMLButtonElement>(
+		"button[data-action]",
+	);
+	if (button === null || button === undefined) return;
+	const code = button.getAttribute("data-code") ?? "";
+	const index = savedEntries.findIndex((entry) => entry.code === code);
+	const entry = savedEntries[index];
+	if (entry === undefined) return;
+
+	if (button.getAttribute("data-action") === "load") {
+		try {
+			const { warnings } = decodeFull(code);
+			codeBar.editing = false;
+			applyCode(code, warnings);
+			setStatus(
+				saveStatus,
+				`Loaded ${entry.description === "" ? code : descriptionTitle(entry.description)}.`,
+			);
+		} catch (error) {
+			setStatus(
+				saveStatus,
+				`${code} no longer reads: ${error instanceof Error ? error.message : String(error)}`,
+				true,
+			);
+		}
+		return;
+	}
+
+	const { entries, stored } = removeSaved(localStorage, code);
+	showSaved(entries);
+	setStatus(
+		saveStatus,
+		stored
+			? `Deleted ${code}.`
+			: "The browser refused to store the change. It is gone for this visit only.",
+		!stored,
+	);
+	// Focus takes the gone entry's place, or falls back to the box that adds one.
+	const next = savedList.querySelectorAll<HTMLButtonElement>(
+		'button[data-action="delete"]',
+	)[Math.min(index, entries.length - 1)];
+	(next ?? saveDescription).focus();
+});
 
 /** Which control writes each group of characters the hints mark out. */
 const OWNER: Record<string, HTMLElement> = {
@@ -697,6 +862,8 @@ resetButton.addEventListener("click", () => {
 	applyCode(DEFAULT_CODE);
 	setStatus(linkStatus, "");
 });
+
+showSaved(savedEntries);
 
 /**
  * A code in the link wins over the one left from last time; neither is trusted,
