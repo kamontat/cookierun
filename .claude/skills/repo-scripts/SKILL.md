@@ -13,15 +13,21 @@ A script that is a *program* is a file under `scripts/`, and there are exactly t
 
 ## Biome
 
-`check:biome` reports without touching anything. `bun run check:biome --write` applies what Biome can fix on its own. `format:biome` is the same check with `--write --unsafe` — read the diff after (`format` is an alias).
+`check:biome` reports without touching anything. `bun run check:biome --write` applies what Biome can fix on its own. `format:biome` is the same check with `--write --unsafe` — read the diff after, since unsafe fixes can change behaviour (`format` is an alias).
 
-The repository's formatting comes from `@kcconfigs/biome` via `biome.json`, which also ignores `assets/` — that directory is 14 MB of generated scrape output and reformatting it would bury every real diff.
+The repository's formatting comes from `@kcconfigs/biome` via `biome.json` — tabs, double quotes, line width 120. `biome.json` also ignores `assets/` — that directory is 14 MB of generated scrape output and reformatting it would bury every real diff — and `.claude/` and `.worktrees/`, so a worktree's copy of the repository is never linted from the main checkout. Import order is enforced by the organize-imports assist: type imports, blank line, `bun:`/`node:` built-ins and packages, blank line, aliases and relative paths.
 
 ## The two checks are stricter together than either is alone
 
-`tsconfig.json` sets `noUncheckedIndexedAccess`, so every index and every regex capture group arrives as `T | undefined`; `@kcconfigs/biome` forbids `!`, so the usual escape hatch fails lint. Narrow instead: a destructuring default (`const [, href = ""] = match`), `??`, or pulling the element into a `const` and guarding it. `scripts/fetch-assets.ts` does all three. `!` after `?.` is worse still — that one is an error rather than a warning, and Biome is right that it defeats the optional chain.
+The `@kcconfigs/tsconfig` preset sets `noUncheckedIndexedAccess`, so every index and every regex capture group arrives as `T | undefined`; `@kcconfigs/biome` warns on `!` outside test files (`**/*.test.*` turn `noNonNullAssertion` off), so the usual escape hatch fails lint. Narrow instead: a destructuring default (`const [, href = ""] = match`), `??`, or pulling the element into a `const` and guarding it. `scripts/fetch-assets.ts` does all three. `!` after `?.` is worse still — that one is an error rather than a warning, and Biome is right that it defeats the optional chain.
 
-`noPropertyAccessFromIndexSignature` is the same squeeze from the other side: a property that comes from an index signature — `element.dataset.theme`, or a field on the loose JSON shape `scripts/utils/asset-ids.ts` reads — cannot be reached with a dot. The subscript that satisfies TypeScript is what `useLiteralKeys` complains about, so reach for neither: use `setAttribute`/`removeAttribute` for `dataset`, and destructure (`const { key: scraped } = entry`) for a plain object.
+`noPropertyAccessFromIndexSignature` is the same squeeze from the other side: a property that comes from an index signature — `element.dataset.theme`, `process.env.FOO`, or a field on the loose JSON shape `scripts/utils/asset-ids.ts` reads — cannot be reached with a dot. Use the subscript (`dataset["theme"]`), `getAttribute`/`setAttribute`, or destructure (`const { key: scraped } = entry`) for a plain object. Biome's `useLiteralKeys` is turned off in the shared preset for exactly this reason, so the subscript is not a lint error. The one place the dot is required is a `process.env.BUN_PUBLIC_…` read, which the build inlines only as property access — declare it on `Bun.Env` instead, as `src/lib/build-info.ts` does.
+
+`exactOptionalPropertyTypes` is on: `{ name?: string }` does not accept `{ name: undefined }`. Omit the key or widen the type to `string | undefined`.
+
+`noImplicitOverride` is on: every overridden member needs `override` — `static styles`, `render`, lifecycle methods, and any reactive property whose name collides with a DOM member.
+
+`verbatimModuleSyntax` is on: a type-only import must be `import type`.
 
 ## What `check:type` covers
 
@@ -34,5 +40,7 @@ No import carries a `.ts` extension, which is what keeps `allowImportingTsExtens
 `bun run dev` is `bun-server dev`, on :3000. It scans `src/routes/` for HTML and registers each page under both an exact route and a wildcard, so every spelling the sidebar renders answers: `/` and `/index.html` for the home pane, `/<slug>`, `/<slug>/`, and `/<slug>/index.html` for each tool. Nothing lists the pages, so adding one needs no edit to any script — see the `build-and-deploy` skill.
 
 `--statics 'assets/**/*.png'` serves the repository's own icons at `/assets/...`, the path the combi page asks for, so development matches a built `dist/`. Keep the glob quoted: the shell would otherwise expand it and every extra path would arrive as another entrypoint to serve.
+
+`dev` and `preview` both take `--port` and `--hostname`. A busy port is an error unless `--next-port` is passed, in which case the server tries the next ones — read the logged URL rather than assuming the default.
 
 An unrouted URL comes back as a 404 with an empty body, which paints as a blank page rather than as an error — check the status code before concluding the page itself broke.

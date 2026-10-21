@@ -67,7 +67,10 @@ Route-only logic stays in the route. The combi codec is imported by exactly one 
 | --- | --- |
 | `combi-codec` | touching `src/routes/combi-name/` — the tables are the wire format, and their order is load-bearing |
 | `ui-components` | editing `src/components/`, using a custom element, styling `src/routes/base.css`, or touching theming or `src/lib/href.ts` |
-| `adding-a-tool` | adding a `src/routes/<slug>/` page, or debugging one that fails `src/lib/tools.test.ts` |
+| `adding-a-page` | adding a `src/routes/<slug>/` page, or debugging one that fails `src/lib/tools.test.ts`, paints unstyled, or 404s |
 | `repo-scripts` | editing `scripts/`, or fixing a `check:type` / `check:biome` failure — the two checks are stricter together than either alone |
 | `build-and-deploy` | changing the build, a stylesheet's import chain, `wrangler.jsonc`, or `.github/workflows/` |
 | `assets` | touching `assets/` or putting an icon in a page — a new icon is inlined by default, which has a size consequence |
+| `shipping-a-change` | starting any change — worktree, test first, checks, PR and preview URL |
+| `landing-a-change` | merging an approved PR — changelog entry, merge, worktree cleanup |
+| `changelog` | writing or editing a `CHANGELOG.md` entry |

@@ -11,7 +11,11 @@ description: Use when changing `bun run build`, `bun run dev`, `bun run preview`
 
 `build` writes `dist/index.html` and `dist/combi-name/index.html` with `splitting: true` and `sourcemap: "linked"`, so the JavaScript and CSS they share land beside them as `chunk-*.js`, `chunk-*.css`, and `.map` files, and the favicon is extracted as a hashed sibling rather than inlined. Pages link all of it relatively, so `dist/` carries no base-path assumption — but a built page is a directory now, not one self-contained file, and `file://` no longer opens it: module scripts from a `file://` origin are blocked. `bun run preview` serves `dist/` on :4000, which is how you look at a build locally.
 
-`build` sets `NODE_ENV=production` ahead of the command, and that is not decoration: `lit-html`'s export map carries a `development` condition, and Bun's bundler resolves it unless `NODE_ENV` says otherwise. Without it every visitor downloads Lit's development build — 12,636 B gzip in the shared chunk against 8,421 B, Lit's per-update assertions on every keystroke in the builder, and a `lit.dev/msg/dev-mode` warning on every page. It sits on the script rather than on a caller because there are three callers and all of them are the same command: `wrangler.jsonc`'s `build.command`, `main.yml`, and whoever types it. `dev` deliberately does not set it — the warnings are the point there.
+`build` sets `NODE_ENV=production` ahead of the command, and that is not decoration: `lit-html`'s export map carries a `development` condition, and Bun's bundler resolves it unless `NODE_ENV` says otherwise. Without it every visitor downloads Lit's development build — 12,636 B gzip in the shared chunk against 8,421 B, Lit's per-update assertions on every keystroke in the builder, and a `lit.dev/msg/dev-mode` warning on every page. It sits on the script rather than on a caller because there are three callers and all of them are the same command: `wrangler.jsonc`'s `build.command`, `main.yml`, and whoever types it. `dev` deliberately does not set it — the warnings are the point there. Verify a build with:
+
+```bash
+grep -l "dev-mode" dist/*.js   # prints nothing for a production build
+```
 
 `bun-server build` passes `env: "BUN_PUBLIC_*"` to `Bun.build`, so a `process.env.BUN_PUBLIC_…` written as property access — and only as property access, never a computed `process.env[name]` — is rewritten to a string literal at build time. Two of them exist, both read by `src/lib/build-info.ts` for the footer: `BUN_PUBLIC_COMMIT_SHA` and `BUN_PUBLIC_BUILT_AT`. Neither is set by the build script, and the dev server inlines nothing at all and ships no `process` shim, so the read is wrapped in a `try` — untouched, `process` is a ReferenceError in a browser — and the page falls back to saying `local build`. A variable matching the prefix but unset is left untouched too, so the wrap covers a partial build as well as no build.
 
@@ -42,9 +46,11 @@ The site is a Cloudflare Worker serving static assets. `wrangler.jsonc` names th
 Four workflows, each pinning every action to a full commit SHA with the release tag in a trailing comment:
 
 - `main.yml` — install, `bun test`, `bun run check`, `bun run build`. This is the only place the suite runs in CI. It calls `bun test` directly rather than `bun run test`, so the wrapper script is for local callers only.
-- `deploy-preview.yml` — on pull requests, `wrangler versions upload`, reporting into the `preview` environment.
+- `deploy-preview.yml` — on pull requests, `wrangler versions upload --preview-alias pr-<number>`, reporting into the `preview` environment.
 - `deploy-production.yml` — on pushes to `main`, `wrangler deploy`, reporting into the `production` environment.
 - `assets.yml` — Mondays at 06:00 UTC and on `workflow_dispatch`, `bun run verify:assets`. It is the only workflow that reaches cookierundb.com, and the only one on a schedule. It is deliberately not part of `main.yml`: it fails whenever the site gains an entry, and `main.yml` gates the deploys.
+
+Each deploy workflow's `environment.url` is only the link GitHub shows on the deployment; wrangler does not read it. It is built by hand because the action's `deployment-url` output knows neither preview aliases nor custom domains, so it must be edited whenever the Worker name, the workers.dev subdomain (`kcinth`) or the custom domain (`cookierun.kc.in.th`) changes.
 
 Both deploy workflows need `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in repository secrets, and grant `deployments: write` on the job rather than at the top of the file — the workflows open with `permissions: {}` and hand back only what each job needs. Keep that shape in anything new.
 
@@ -60,3 +66,9 @@ gh api repos/actions/checkout/commits/v7.0.1 --jq .sha                # the SHA 
 Update the comment in the same edit — a stale comment is worse than none, since it is the only readable record of which version the SHA is.
 
 Pushing any change under `.github/workflows/` requires a token with the `workflow` scope. `gh auth refresh -h github.com -u <account> -s workflow` grants it.
+
+## Debugging a failed deploy
+
+- `gh run view <id> --log-failed` first; quote the decisive line.
+- `Authentication error` / `10000`: the token is an account API token scoped to one Worker with **Editor**. Check it is scoped to the Worker named in `wrangler.jsonc` (a renamed Worker needs a new token), lives in the `CLOUDFLARE_ACCOUNT_ID` account, and has **Workers Routes: Edit** on the zone when a custom domain is set (the production URL is one, attached outside `wrangler.jsonc`). A Worker-scoped token cannot create a Worker: a new Worker name needs one local `bunx wrangler deploy` under `wrangler login` first.
+- Deploy passed but the page is blank: open the browser console. A 404 on a chunk means a stale or partial `dist/` (`rm -rf dist` and build again — the build does not clean); a 404 on the page itself means no `index.html` under `src/routes/` maps to that path (see `adding-a-page`).
