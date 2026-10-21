@@ -135,7 +135,9 @@ test("each alternative is its own row under the slot's name", async () => {
 	element.selected = ["001", "003"];
 	await element.updateComplete;
 
-	const rows = [...(element.shadowRoot?.querySelectorAll(".picks > li") ?? [])];
+	const rows = [
+		...(element.shadowRoot?.querySelectorAll(".picks > li.chip") ?? []),
+	];
 
 	expect(
 		rows.map((row) => row.querySelector(".name")?.textContent?.trim()),
@@ -718,52 +720,159 @@ test("the levels setter shows on the buttons and keeps only selected values", as
 	expect(element.levels).toEqual({ "001": [0, 3] });
 });
 
-test("pressing a level toggles it and dispatches one input each time", async () => {
+async function pressWith(
+	element: EntryTiles,
+	value: string,
+	level: number,
+	modifiers: MouseEventInit,
+): Promise<void> {
+	levelButtons(element, value)[level]?.dispatchEvent(
+		new MouseEvent("click", { bubbles: true, composed: true, ...modifiers }),
+	);
+	await element.updateComplete;
+}
+
+function counting(element: EntryTiles): { inputs: number } {
+	const seen = { inputs: 0 };
+	element.addEventListener("input", () => {
+		seen.inputs++;
+	});
+	return seen;
+}
+
+test("pressing a level holds only that level and dispatches one input", async () => {
 	const element = await mount();
 	element.selected = ["001"];
+	element.levels = { "001": [0, 3, 4] };
 	await element.updateComplete;
-
-	let inputs = 0;
-	const count = (): void => {
-		inputs++;
-	};
-	element.addEventListener("input", count);
+	const seen = counting(element);
 
 	await press(element, "001", 9);
-	expect(element.levels).toEqual({ "001": [0, 9] });
-	expect(inputs).toBe(1);
-
-	await press(element, "001", 0);
 	expect(element.levels).toEqual({ "001": [9] });
-	expect(inputs).toBe(2);
+	expect(seen.inputs).toBe(1);
 
-	element.removeEventListener("input", count);
+	await press(element, "001", 4);
+	expect(element.levels).toEqual({ "001": [4] });
+	expect(seen.inputs).toBe(2);
 });
 
-test("the last pressed level cannot be released", async () => {
+test("pressing the only held level changes nothing", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	await element.updateComplete;
+	const seen = counting(element);
+
+	await press(element, "001", 0);
+
+	expect(element.levels).toEqual({ "001": [0] });
+	expect(seen.inputs).toBe(0);
+});
+
+test("shift-pressing a level holds the range from the last pressed one", async () => {
 	const element = await mount();
 	element.selected = ["001"];
 	await element.updateComplete;
 
-	let inputs = 0;
-	const count = (): void => {
-		inputs++;
+	await press(element, "001", 7);
+	await pressWith(element, "001", 3, { shiftKey: true });
+	expect(element.levels).toEqual({ "001": [3, 4, 5, 6, 7] });
+
+	// The anchor stays where the plain press left it.
+	await pressWith(element, "001", 9, { shiftKey: true });
+	expect(element.levels).toEqual({ "001": [7, 8, 9] });
+});
+
+test("with nothing pressed yet, a shift-press ranges from the lowest held level", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	element.levels = { "001": [2, 8] };
+	await element.updateComplete;
+
+	await pressWith(element, "001", 5, { shiftKey: true });
+
+	expect(element.levels).toEqual({ "001": [2, 3, 4, 5] });
+});
+
+test("a ctrl- or meta-press toggles one level, but never the last one", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	await element.updateComplete;
+	const seen = counting(element);
+
+	await pressWith(element, "001", 9, { ctrlKey: true });
+	expect(element.levels).toEqual({ "001": [0, 9] });
+
+	await pressWith(element, "001", 0, { metaKey: true });
+	expect(element.levels).toEqual({ "001": [9] });
+
+	await pressWith(element, "001", 9, { metaKey: true });
+	expect(element.levels).toEqual({ "001": [9] });
+	expect(seen.inputs).toBe(2);
+});
+
+test("dragging across the strip holds the range it covers", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	await element.updateComplete;
+	const buttons = levelButtons(element, "001");
+
+	buttons[2]?.dispatchEvent(
+		new PointerEvent("pointerdown", {
+			bubbles: true,
+			composed: true,
+			buttons: 1,
+		}),
+	);
+	buttons[5]?.dispatchEvent(
+		new PointerEvent("pointerover", {
+			bubbles: true,
+			composed: true,
+			buttons: 1,
+		}),
+	);
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [2, 3, 4, 5] });
+
+	// A pointer passing over with nothing held is not a drag.
+	levelButtons(element, "001")[8]?.dispatchEvent(
+		new PointerEvent("pointerover", {
+			bubbles: true,
+			composed: true,
+			buttons: 0,
+		}),
+	);
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [2, 3, 4, 5] });
+});
+
+test("each pick says which levels it holds in a line of text", async () => {
+	const element = await mount();
+	element.selected = ["001", "002", "003"];
+	element.levels = {
+		"001": [7, 8, 9],
+		"002": [0, 2, 3, 4],
+		"003": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
 	};
-	element.addEventListener("input", count);
+	await element.updateComplete;
 
-	expect(levelButtons(element, "001")[0]?.getAttribute("aria-disabled")).toBe(
-		"true",
-	);
-	await press(element, "001", 0);
-	expect(element.levels).toEqual({ "001": [0] });
-	expect(inputs).toBe(0);
+	const summary = (value: string): string | undefined =>
+		element.shadowRoot
+			?.querySelector(`.chip[data-value="${value}"] .sum`)
+			?.textContent?.trim();
+	expect(summary("001")).toBe("+7–9");
+	expect(summary("002")).toBe("+0, +2–4");
+	expect(summary("003")).toBe("any");
 
-	await press(element, "001", 3);
-	expect(levelButtons(element, "001")[0]?.hasAttribute("aria-disabled")).toBe(
-		false,
-	);
+	await press(element, "001", 9);
+	expect(summary("001")).toBe("+9");
+});
 
-	element.removeEventListener("input", count);
+test("alternatives are separated by an or", async () => {
+	const element = await mount();
+	element.selected = ["001", "002", "003"];
+	await element.updateComplete;
+
+	expect(element.shadowRoot?.querySelectorAll(".picks .or").length).toBe(2);
 });
 
 test("dropping one pick keeps the other's levels", async () => {
@@ -811,7 +920,7 @@ test("Done keeps the levels of picks that stay, and a re-added pick starts at +0
 	expect(element.levels["002"]).toEqual([0]);
 });
 
-test("toggling one pick's level leaves the other pick's buttons alone", async () => {
+test("pressing one pick's level leaves the other pick's buttons alone", async () => {
 	const element = await mount();
 	element.selected = ["001", "002"];
 	element.levels = { "002": [3, 4] };
@@ -819,6 +928,6 @@ test("toggling one pick's level leaves the other pick's buttons alone", async ()
 
 	await press(element, "001", 7);
 
-	expect(pressed(element, "001")).toEqual([0, 7]);
+	expect(pressed(element, "001")).toEqual([7]);
 	expect(pressed(element, "002")).toEqual([3, 4]);
 });

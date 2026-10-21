@@ -232,6 +232,12 @@ main {
 	align-items: start;
 }
 
+/* A treasure slot is a row, not a column: its picks carry full names and a
+   level strip each, which three columns side by side squeeze into half-names. */
+#field-treasures .tiles {
+	grid-template-columns: 1fr;
+}
+
 .warnings {
 	display: grid;
 	gap: var(--cr-space-2);
