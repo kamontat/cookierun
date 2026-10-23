@@ -185,9 +185,14 @@ export class TabStrip extends LitElement {
 		const landing = tabs[to];
 		if (landing === undefined) return;
 
-		await this.#choose(landing.value);
-		// After the await: the choice re-renders, and focus has to follow the
-		// tab into its replacement.
+		// Home/End can land back on the tab already open — it may already be
+		// the first or last enabled one — and that changes nothing, so (like a
+		// click on the chosen tab) it announces nothing. Focus still follows
+		// the walk either way, even onto the tab it was already on.
+		if (landing.value !== this.value) await this.#choose(landing.value);
+		await this.updateComplete;
+		// After the await: the choice (if any) re-renders, and focus has to
+		// follow the tab into its replacement.
 		this.#tabs()
 			.find((tab) => tab.value === landing.value)
 			?.focus();

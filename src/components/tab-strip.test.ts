@@ -189,6 +189,41 @@ test("Home and End land on the first and last enabled tab when an end is disable
 	expect(element.value).toBe("treasures");
 });
 
+// Home on the tab that is already first, or End on the one already last,
+// changes nothing — so, like a click on the tab already open, it fires
+// nothing. Only a value that actually changes is a pick worth announcing.
+test("Home fires nothing already on the first tab, and End already on the last", async () => {
+	const first = await mount(OPTIONS, "main");
+	let seenFirst = 0;
+	first.addEventListener("tab-change", () => {
+		seenFirst += 1;
+	});
+
+	tab(first, "main")?.focus();
+	tab(first, "main")?.dispatchEvent(
+		new KeyboardEvent("keydown", { key: "Home", bubbles: true }),
+	);
+	await settle(first);
+
+	expect(seenFirst).toBe(0);
+	expect(first.value).toBe("main");
+
+	const last = await mount(OPTIONS, "boosts");
+	let seenLast = 0;
+	last.addEventListener("tab-change", () => {
+		seenLast += 1;
+	});
+
+	tab(last, "boosts")?.focus();
+	tab(last, "boosts")?.dispatchEvent(
+		new KeyboardEvent("keydown", { key: "End", bubbles: true }),
+	);
+	await settle(last);
+
+	expect(seenLast).toBe(0);
+	expect(last.value).toBe("boosts");
+});
+
 test("setting value fires nothing", async () => {
 	const element = await mount();
 	let seen = 0;
