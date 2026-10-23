@@ -2,7 +2,7 @@ import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 
-import { glyphFor, tileStyles } from "./entry-tile";
+import { glyphFor, lockPageScroll, tileStyles } from "./entry-tile";
 import { base, controls } from "./theme";
 
 export type Option = readonly [
@@ -600,10 +600,18 @@ export class EntryTiles extends LitElement {
 		window.addEventListener("pointercancel", this.#endDrag);
 	}
 
+	/** Lets the page scroll again; set while this element's picker is open. */
+	#unlockPage: (() => void) | undefined;
+
+	#releasePage(): void {
+		this.#unlockPage?.();
+		this.#unlockPage = undefined;
+	}
+
 	override disconnectedCallback(): void {
 		super.disconnectedCallback();
 		// A slot removed with its picker open never hears the close.
-		if (this.#dialog()?.open) document.documentElement.style.overflow = "";
+		this.#releasePage();
 		window.removeEventListener("pointerup", this.#endDrag);
 		window.removeEventListener("pointercancel", this.#endDrag);
 	}
@@ -785,9 +793,7 @@ export class EntryTiles extends LitElement {
 		this.kind = ANY_KIND;
 		await this.updateComplete;
 		this.#dialog()?.showModal();
-		// A modal traps focus but not the page's scroll: a finger on the
-		// backdrop would otherwise scroll the board behind it.
-		document.documentElement.style.overflow = "hidden";
+		this.#unlockPage ??= lockPageScroll();
 		this.#search()?.focus();
 	}
 
@@ -1022,7 +1028,7 @@ export class EntryTiles extends LitElement {
 					this.#pressedBackdrop = event.target === this.#dialog();
 				}}
 				@close=${() => {
-					document.documentElement.style.overflow = "";
+					this.#releasePage();
 					this.#tile()?.focus();
 				}}
 				@click=${(event: Event) => {

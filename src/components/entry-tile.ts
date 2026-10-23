@@ -24,6 +24,32 @@ export function glyphFor(label: string): string {
 }
 
 /**
+ * Holds the page still under an open picker, and hands back what lets it go.
+ * A modal traps focus but not scroll. overflow: hidden on the root is enough
+ * everywhere but iOS, which scrolls past it once the keyboard is up for the
+ * search box, so the body is pinned where the page was and the page goes back
+ * to that offset when the picker lets go. Shared with <entry-tiles> like the
+ * styles below, since both open the same dialog.
+ */
+export function lockPageScroll(): () => void {
+	const root = document.documentElement;
+	const body = document.body;
+	const y = window.scrollY;
+	root.style.overflow = "hidden";
+	Object.assign(body.style, {
+		position: "fixed",
+		top: `${-y}px`,
+		left: "0",
+		right: "0",
+	});
+	return () => {
+		root.style.overflow = "";
+		Object.assign(body.style, { position: "", top: "", left: "", right: "" });
+		window.scrollTo(0, y);
+	};
+}
+
+/**
  * The look both catalog controls share. Shared because they are the same
  * control with one pick and with several; each keeps its own logic and its own
  * `Option` type.
@@ -251,6 +277,9 @@ export const tileStyles = css`
 		align-content: start;
 		gap: var(--cr-space-1);
 		overflow-y: auto;
+		/* Reaching either end of the grid stops there rather than handing the
+		   rest of the swipe to the page behind the dialog. */
+		overscroll-behavior: contain;
 		flex: 1 1 auto;
 		min-height: 0;
 	}
@@ -434,19 +463,25 @@ export class EntryTile extends LitElement {
 	 * and six inline grids was a page you had to tidy up after. The platform
 	 * takes care of the backdrop, the focus trap and Escape.
 	 */
+	/** Lets the page scroll again; set while this element's picker is open. */
+	#unlockPage: (() => void) | undefined;
+
+	#releasePage(): void {
+		this.#unlockPage?.();
+		this.#unlockPage = undefined;
+	}
+
 	override disconnectedCallback(): void {
 		super.disconnectedCallback();
 		// A tile removed with its picker open never hears the close.
-		if (this.#dialog()?.open) document.documentElement.style.overflow = "";
+		this.#releasePage();
 	}
 
 	async #openPicker(): Promise<void> {
 		this.filter = "";
 		await this.updateComplete;
 		this.#dialog()?.showModal();
-		// A modal traps focus but not the page's scroll: a finger on the
-		// backdrop would otherwise scroll the board behind it.
-		document.documentElement.style.overflow = "hidden";
+		this.#unlockPage ??= lockPageScroll();
 		// The search box is the way in where there is one. Without it, focus goes
 		// to the grid's own tab stop — the picked cell — rather than to Close,
 		// which is what a dialog opens on when nothing asks for focus.
@@ -576,7 +611,7 @@ export class EntryTile extends LitElement {
 					this.#pressedBackdrop = event.target === this.#dialog();
 				}}
 				@close=${() => {
-					document.documentElement.style.overflow = "";
+					this.#releasePage();
 					this.#tile()?.focus();
 				}}
 				@click=${(event: Event) => {
