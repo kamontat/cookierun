@@ -33,9 +33,39 @@ export function codeInHash(hash: string): string | null {
 	return code === "" ? null : code;
 }
 
+/**
+ * A note travels as base64url of its UTF-8 bytes rather than percent-escaped:
+ * the link then holds only letters, digits, `-` and `_`, with no space, `+` or
+ * `%` for a chat app to end the link at or re-escape, and a note in Thai or
+ * with an emoji comes out at under half the length its escapes would take.
+ */
+function encodeNote(note: string): string {
+	let binary = "";
+	for (const byte of new TextEncoder().encode(note)) {
+		binary += String.fromCharCode(byte);
+	}
+	return btoa(binary)
+		.replace(/\+/g, "-")
+		.replace(/\//g, "_")
+		.replace(/=+$/, "");
+}
+
+function decodeNote(encoded: string): string | null {
+	if (!/^[A-Za-z0-9_-]+$/.test(encoded)) return null;
+	try {
+		const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
+		const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+		return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+	} catch {
+		return null;
+	}
+}
+
 /** The note a shared link carries beside its code, as it was written. */
 export function noteInHash(hash: string): string | null {
-	const note = new URLSearchParams(splitHash(hash).query).get("note");
+	const encoded = new URLSearchParams(splitHash(hash).query).get("note");
+	if (encoded === null) return null;
+	const note = decodeNote(encoded);
 	return note === null || note.trim() === "" ? null : note;
 }
 
@@ -47,7 +77,7 @@ export function hashFor(code: string): string {
 export function shareHashFor(code: string, note: string): string {
 	const canonical = code.trim().toUpperCase();
 	if (note.trim() === "") return hashFor(canonical);
-	return `${hashFor(canonical)}${NOTE_MARK}${new URLSearchParams({ note })}`;
+	return `${hashFor(canonical)}${NOTE_MARK}note=${encodeNote(note)}`;
 }
 
 export function storedCode(storage: Storage): string | null {

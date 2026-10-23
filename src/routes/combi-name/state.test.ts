@@ -101,6 +101,21 @@ test("a note keeps its own case while the code is uppercased", () => {
 	expect(noteInHash(hash)).toBe("Keep My Case");
 });
 
+// Base64url rather than percent-escapes: no space, `+` or `%` for a chat app to
+// end the link at, and non-Latin text comes out shorter, not three times longer.
+test("a note travels as base64url, safe for any script", () => {
+	const note = "ฟาร์มเหรียญ 🍪\nuse Fairy & co / 100%";
+	const hash = shareHashFor("10M0000000", note);
+
+	expect(hash).toMatch(/^#10M0000000\?note=[A-Za-z0-9_-]+$/);
+	expect(noteInHash(hash)).toBe(note);
+});
+
+test("a note that is not base64url, or not text, reads as none", () => {
+	expect(noteInHash("#10M0000000?note=***")).toBeNull();
+	expect(noteInHash("#10M0000000?note=_-_-")).toBeNull();
+});
+
 test("a folded board is remembered, and anything else reads as open", () => {
 	const held = storage(null);
 	expect(boardCollapsed(held)).toBe(false);

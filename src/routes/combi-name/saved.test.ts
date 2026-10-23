@@ -13,6 +13,7 @@ import {
 	saveCode,
 	updateSaved,
 } from "./saved";
+import { shareHashFor } from "./state";
 
 function storage(initial: string | null = null): Storage {
 	let held = initial;
@@ -221,7 +222,7 @@ test("reading text takes bare codes, canonicalises them, and skips what does not
 
 test("reading text takes a shared link, and the note the link carries", () => {
 	const { entries } = parseSaved(
-		"https://example.com/combi-name/#10M0000000?note=Coin%20farm\nhttps://example.com/combi-name/#10S0000000\n> typed under it",
+		`https://example.com/combi-name/${shareHashFor("10M0000000", "Coin farm")}\nhttps://example.com/combi-name/#10S0000000\n> typed under it`,
 	);
 
 	expect(entries).toEqual([

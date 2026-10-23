@@ -981,7 +981,8 @@ test("sharing an entry copies a link that carries its note", async () => {
 	);
 
 	expect(written).toBe(
-		`${location.href.split("#")[0]}#10M0000000?note=Coin+farm`,
+		// "Coin farm" as base64url.
+		`${location.href.split("#")[0]}#10M0000000?note=Q29pbiBmYXJt`,
 	);
 	expect(
 		savedButtonFor("10M0000000", "share")
@@ -1027,7 +1028,8 @@ test("importing text adds the new codes on top, keeps saved notes, and names the
 });
 
 test("a link that carries a note offers it in the save box", async () => {
-	location.hash = "#10B5000000?note=From%20a%20friend";
+	// "From a friend" as base64url.
+	location.hash = "#10B5000000?note=RnJvbSBhIGZyaWVuZA";
 	window.dispatchEvent(new Event("hashchange"));
 	await settle();
 
