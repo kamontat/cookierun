@@ -519,24 +519,74 @@ function savedButton(
 	button.setAttribute("data-action", action);
 	button.setAttribute("data-code", entry.code);
 	button.setAttribute("aria-label", `${label} ${entryName(entry)}`);
-	if (action === "copy") {
-		// Two labels in one cell, like the code bar's Copy link: a copy that
-		// worked says so on the button without the row reflowing around it.
-		const swap = document.createElement("span");
-		swap.className = "swap";
-		const rest = document.createElement("span");
-		rest.className = "rest";
-		rest.textContent = label;
-		const said = document.createElement("span");
-		said.className = "said";
-		said.textContent = "Copied";
-		swap.append(rest, said);
-		button.append(swap);
-	} else {
-		button.textContent = label;
-	}
+	button.textContent = label;
 	return button;
 }
+
+/**
+ * Everything a row does besides Load, behind one button. A `<details>` rather
+ * than a hand-rolled popup: it opens and closes from the keyboard and tells a
+ * screen reader its state with nothing written for it. What the platform does
+ * not do — close on a pick, on Escape, on a click elsewhere, or when another
+ * row's opens — is wired once on the list, below.
+ */
+function savedMenu(entry: SavedCode): HTMLDetailsElement {
+	const menu = document.createElement("details");
+	menu.className = "more";
+	const summary = document.createElement("summary");
+	summary.className = "moretoggle";
+	summary.setAttribute("aria-label", `More for ${entryName(entry)}`);
+	const dots = document.createElement("span");
+	dots.setAttribute("aria-hidden", "true");
+	dots.textContent = "⋯";
+	summary.append(dots);
+
+	const items = document.createElement("div");
+	items.className = "menu";
+	items.append(
+		savedButton("Edit", "edit", entry),
+		savedButton("Copy link", "copy", entry),
+	);
+	if (canShare()) items.append(savedButton("Share", "share", entry));
+	items.append(savedButton("Delete", "delete", entry));
+
+	menu.append(summary, items);
+	return menu;
+}
+
+function closeMenus(except: Element | null = null): void {
+	for (const menu of savedList.querySelectorAll<HTMLDetailsElement>(
+		"details.more[open]",
+	)) {
+		if (menu !== except) menu.open = false;
+	}
+}
+
+// `toggle` does not bubble, so the list hears it in the capture phase.
+savedList.addEventListener(
+	"toggle",
+	(event) => {
+		const menu = event.target as HTMLDetailsElement;
+		if (menu.matches("details.more") && menu.open) closeMenus(menu);
+	},
+	true,
+);
+
+savedList.addEventListener("keydown", (event) => {
+	if (event.key !== "Escape") return;
+	const menu = (event.target as Element | null)?.closest<HTMLDetailsElement>(
+		"details.more[open]",
+	);
+	if (menu === null || menu === undefined) return;
+	event.preventDefault();
+	menu.open = false;
+	menu.querySelector("summary")?.focus();
+});
+
+document.addEventListener("click", (event) => {
+	const target = event.target as Element | null;
+	closeMenus(target?.closest("details.more") ?? null);
+});
 
 /**
  * Draws the saved list from scratch. It is short and changes only on a click,
@@ -570,13 +620,7 @@ function showSaved(entries: readonly SavedCode[]): void {
 
 			const buttons = document.createElement("div");
 			buttons.className = "buttons";
-			buttons.append(
-				savedButton("Load", "load", entry),
-				savedButton("Edit", "edit", entry),
-				savedButton("Copy link", "copy", entry),
-			);
-			if (canShare()) buttons.append(savedButton("Share", "share", entry));
-			buttons.append(savedButton("Delete", "delete", entry));
+			buttons.append(savedButton("Load", "load", entry), savedMenu(entry));
 
 			item.append(text, buttons);
 			return item;
@@ -761,11 +805,15 @@ function shareEntry(entry: SavedCode): void {
 }
 
 /** Copy link: the link alone, to the clipboard, wherever the browser is. */
-function copyEntryLink(entry: SavedCode, button: HTMLButtonElement): void {
+function copyEntryLink(entry: SavedCode): void {
 	const url = shareLink(entry);
 	void navigator.clipboard
 		.writeText(url)
-		.then(() => confirmOn(button))
+		// The menu the button sits in has closed by now, so the word cannot ride
+		// on the button the way the code bar's Copy link does.
+		.then(() =>
+			setStatus(saveStatus, `Copied the link to ${entryName(entry)}.`),
+		)
 		.catch(() => {
 			setStatus(
 				saveStatus,
@@ -785,6 +833,9 @@ savedList.addEventListener("click", (event) => {
 	const entry = savedEntries[index];
 	if (entry === undefined) return;
 	const action = button.getAttribute("data-action") as SavedAction;
+	// A pick from a row's menu is the menu's answer; it closes behind it.
+	const menu = button.closest<HTMLDetailsElement>("details.more");
+	if (menu !== null) menu.open = false;
 
 	if (action === "load") {
 		// Loading is using an entry, not editing it, so an edit in progress
@@ -807,7 +858,7 @@ savedList.addEventListener("click", (event) => {
 	}
 
 	if (action === "copy") {
-		copyEntryLink(entry, button);
+		copyEntryLink(entry);
 		return;
 	}
 
@@ -831,7 +882,7 @@ savedList.addEventListener("click", (event) => {
 	);
 	// Focus takes the gone entry's place, or falls back to the box that adds one.
 	const next = savedList.querySelectorAll<HTMLButtonElement>(
-		'button[data-action="delete"]',
+		'button[data-action="load"]',
 	)[Math.min(index, entries.length - 1)];
 	(next ?? saveDescription).focus();
 });

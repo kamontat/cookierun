@@ -984,11 +984,82 @@ test("copying an entry's link copies a link that carries its note", async () => 
 	);
 
 	expect(written).toBe(COIN_FARM_LINK);
+	// The menu it sits in closes on the click, so the word goes in the line.
+	expect(need("save-status").textContent).toBe("Copied the link to Coin farm.");
+});
+
+function rowFor(code: string): HTMLLIElement {
+	const row = savedRows().find(
+		(item) => item.getAttribute("data-code") === code,
+	);
+	if (row === undefined) throw new Error(`no row for ${code}`);
+	return row;
+}
+
+// Five buttons a row was a wall. Load is what a row is for; the rest is one
+// tap further, behind the row's own menu.
+test("a row shows Load and a menu, and the rest of its actions sit in the menu", () => {
+	const row = rowFor("10M0000000");
+	const menu = row.querySelector<HTMLDetailsElement>("details.more");
+	if (menu === null) throw new Error("the row has no menu");
+
+	const outside = [
+		...row.querySelectorAll<HTMLButtonElement>("button[data-action]"),
+	].filter((button) => !menu.contains(button));
+	expect(outside.map((button) => button.getAttribute("data-action"))).toEqual([
+		"load",
+	]);
 	expect(
-		savedButtonFor("10M0000000", "copy")
-			.querySelector(".swap")
-			?.classList.contains("done"),
-	).toBe(true);
+		[...menu.querySelectorAll<HTMLButtonElement>("button[data-action]")].map(
+			(button) => button.getAttribute("data-action"),
+		),
+	).toEqual(["edit", "copy", "delete"]);
+	expect(menu.querySelector("summary")?.getAttribute("aria-label")).toBe(
+		"More for Coin farm",
+	);
+});
+
+test("a row's menu closes on a pick, on Escape, on a click elsewhere, and when another opens", async () => {
+	const menuOf = (code: string) =>
+		rowFor(code).querySelector<HTMLDetailsElement>(
+			"details.more",
+		) as HTMLDetailsElement;
+
+	menuOf("10M0000000").open = true;
+	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
+	await withClipboard(
+		() => Promise.resolve(),
+		async () => {
+			savedButtonFor("10M0000000", "copy").click();
+			await settle();
+		},
+	);
+	expect(menuOf("10M0000000").open).toBe(false);
+
+	menuOf("10M0000000").open = true;
+	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
+	menuOf("10M0000000")
+		.querySelector("summary")
+		?.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+		);
+	expect(menuOf("10M0000000").open).toBe(false);
+	expect(document.activeElement).toBe(
+		menuOf("10M0000000").querySelector("summary"),
+	);
+
+	menuOf("10M0000000").open = true;
+	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
+	need("saved-heading").click();
+	expect(menuOf("10M0000000").open).toBe(false);
+
+	menuOf("10M0000000").open = true;
+	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
+	menuOf("10S0000000").open = true;
+	menuOf("10S0000000").dispatchEvent(new Event("toggle"));
+	expect(menuOf("10M0000000").open).toBe(false);
+	menuOf("10S0000000").open = false;
+	await reset();
 });
 
 // Without a share sheet, Share could only do what Copy link already does.

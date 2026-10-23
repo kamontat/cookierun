@@ -409,14 +409,90 @@ main {
 	outline-offset: 2px;
 }
 
+/* Held to the right even once the row wraps them under the note, so the
+   menu, which hangs from its button's right edge, opens inside the row. */
 .savedlist .buttons {
 	display: flex;
 	flex-direction: row;
 	flex-wrap: wrap;
 	gap: var(--cr-space-2);
+	margin-left: auto;
 }
 
-/* The one button on the row that loses something. */
+/* Load on the row, everything else behind the row's own menu. The menu
+   hangs from its button's right edge, over whatever is below, so opening it
+   moves nothing on the page. */
+.savedlist .more {
+	position: relative;
+}
+
+/* A summary is not a button, so it takes the button look by hand — and the
+   coarse-pointer tap size base.css gives real buttons. */
+.savedlist .moretoggle {
+	display: grid;
+	place-items: center;
+	list-style: none;
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: var(--cr-radius);
+	background: var(--cr-surface-2);
+	box-shadow: var(--cr-block);
+	padding: var(--cr-space-1) var(--cr-space-3);
+	font-size: 0.85rem;
+	line-height: inherit;
+	cursor: pointer;
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.savedlist .moretoggle::-webkit-details-marker {
+	display: none;
+}
+
+.savedlist .moretoggle:focus-visible {
+	outline: var(--cr-border) solid var(--cr-accent);
+	outline-offset: 2px;
+}
+
+.savedlist .more[open] > .moretoggle {
+	transform: translate(2px, 2px);
+	box-shadow: none;
+}
+
+@media (pointer: coarse) {
+	.savedlist .moretoggle {
+		min-height: var(--cr-tap);
+		min-width: var(--cr-tap);
+	}
+}
+
+.savedlist .menu {
+	position: absolute;
+	top: calc(100% + var(--cr-space-1));
+	right: 0;
+	z-index: 2;
+	display: grid;
+	gap: var(--cr-space-1);
+	min-width: 9rem;
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: var(--cr-radius);
+	background: var(--cr-surface);
+	box-shadow: var(--cr-block);
+	padding: var(--cr-space-1);
+}
+
+/* Items read as a list, not a stack of raised buttons. */
+.savedlist .menu button {
+	border-color: transparent;
+	background: none;
+	box-shadow: none;
+	text-align: left;
+}
+
+.savedlist .menu button:hover {
+	background: var(--cr-surface-2);
+}
+
+/* The one item that loses something. */
 .savedlist button[data-action="delete"] {
 	color: var(--cr-danger);
 }
@@ -431,12 +507,12 @@ main {
 
 /* Scoped under the panel so it outranks nothing above it by order alone:
    the reference's open summary is the other summary rule on the page. */
-.saved .transfer summary {
+.saved .transfer > summary {
 	cursor: pointer;
 	font-weight: 600;
 }
 
-.transfer[open] summary {
+.saved .transfer[open] > summary {
 	margin-bottom: var(--cr-space-2);
 }
 
