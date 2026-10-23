@@ -12,14 +12,72 @@
 
 export const STORAGE_KEY = "combi-name:code";
 
+/**
+ * A shared link may carry a note after the code, as `#CODE?note=...`. The page's
+ * own hash never does — it is the build on screen and nothing else — so only a
+ * link someone sent on purpose has one.
+ */
+const NOTE_MARK = "?";
+
+function splitHash(hash: string): { code: string; query: string } {
+	const body = hash.replace(/^#/, "");
+	const at = body.indexOf(NOTE_MARK);
+	return at === -1
+		? { code: body, query: "" }
+		: { code: body.slice(0, at), query: body.slice(at + 1) };
+}
+
 /** The code a `location.hash` carries, canonicalised the way the reader does. */
 export function codeInHash(hash: string): string | null {
-	const code = hash.replace(/^#/, "").trim().toUpperCase();
+	const code = splitHash(hash).code.trim().toUpperCase();
 	return code === "" ? null : code;
+}
+
+/**
+ * A note travels as base64url of its UTF-8 bytes rather than percent-escaped:
+ * the link then holds only letters, digits, `-` and `_`, with no space, `+` or
+ * `%` for a chat app to end the link at or re-escape, and a note in Thai or
+ * with an emoji comes out at under half the length its escapes would take.
+ */
+function encodeNote(note: string): string {
+	let binary = "";
+	for (const byte of new TextEncoder().encode(note)) {
+		binary += String.fromCharCode(byte);
+	}
+	return btoa(binary)
+		.replace(/\+/g, "-")
+		.replace(/\//g, "_")
+		.replace(/=+$/, "");
+}
+
+function decodeNote(encoded: string): string | null {
+	if (!/^[A-Za-z0-9_-]+$/.test(encoded)) return null;
+	try {
+		const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
+		const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+		return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+	} catch {
+		return null;
+	}
+}
+
+/** The note a shared link carries beside its code, as it was written. */
+export function noteInHash(hash: string): string | null {
+	const encoded = new URLSearchParams(splitHash(hash).query).get("note");
+	if (encoded === null) return null;
+	const note = decodeNote(encoded);
+	return note === null || note.trim() === "" ? null : note;
 }
 
 export function hashFor(code: string): string {
 	return `#${code}`;
+}
+
+/** The hash of a link that hands someone a code and the note that goes with it. */
+export function shareHashFor(code: string, note: string): string {
+	const canonical = code.trim().toUpperCase();
+	if (note.trim() === "") return hashFor(canonical);
+	return `${hashFor(canonical)}${NOTE_MARK}note=${encodeNote(note)}`;
 }
 
 export function storedCode(storage: Storage): string | null {
@@ -33,6 +91,29 @@ export function storedCode(storage: Storage): string | null {
 export function rememberCode(storage: Storage, code: string): void {
 	try {
 		storage.setItem(STORAGE_KEY, code);
+	} catch {}
+}
+
+/**
+ * Whether the board was left folded. A view preference rather than part of the
+ * build, so it is kept apart from the code and never travels in a link.
+ */
+export const BOARD_KEY = "combi-name:board-collapsed";
+
+export function boardCollapsed(storage: Storage): boolean {
+	try {
+		return storage.getItem(BOARD_KEY) === "true";
+	} catch {
+		return false;
+	}
+}
+
+export function rememberBoardCollapsed(
+	storage: Storage,
+	collapsed: boolean,
+): void {
+	try {
+		storage.setItem(BOARD_KEY, String(collapsed));
 	} catch {}
 }
 

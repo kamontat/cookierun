@@ -1,10 +1,15 @@
 import { expect, test } from "bun:test";
 
 import {
+	BOARD_KEY,
+	boardCollapsed,
 	codeInHash,
 	hashFor,
+	noteInHash,
+	rememberBoardCollapsed,
 	rememberCode,
 	STORAGE_KEY,
+	shareHashFor,
 	startingCode,
 	storedCode,
 } from "./state";
@@ -72,4 +77,59 @@ test("a link beats the last visit, which beats nothing at all", () => {
 
 test("the storage key names the page, so another tool cannot collide with it", () => {
 	expect(STORAGE_KEY).toBe("combi-name:code");
+});
+
+test("a shared link carries its note after the code, and the code reads without it", () => {
+	const hash = shareHashFor("10M0000000", "Coin farm\nuse Fairy & co");
+
+	expect(hash.startsWith("#10M0000000?note=")).toBe(true);
+	expect(codeInHash(hash)).toBe("10M0000000");
+	expect(noteInHash(hash)).toBe("Coin farm\nuse Fairy & co");
+});
+
+test("a link with no note, or an empty one, carries none", () => {
+	expect(shareHashFor("10M0000000", "")).toBe("#10M0000000");
+	expect(noteInHash("#10M0000000")).toBeNull();
+	expect(noteInHash("#10M0000000?note=")).toBeNull();
+	expect(noteInHash("")).toBeNull();
+});
+
+test("a note keeps its own case while the code is uppercased", () => {
+	const hash = shareHashFor("10m0000000", "Keep My Case");
+
+	expect(codeInHash(hash)).toBe("10M0000000");
+	expect(noteInHash(hash)).toBe("Keep My Case");
+});
+
+// Base64url rather than percent-escapes: no space, `+` or `%` for a chat app to
+// end the link at, and non-Latin text comes out shorter, not three times longer.
+test("a note travels as base64url, safe for any script", () => {
+	const note = "ฟาร์มเหรียญ 🍪\nuse Fairy & co / 100%";
+	const hash = shareHashFor("10M0000000", note);
+
+	expect(hash).toMatch(/^#10M0000000\?note=[A-Za-z0-9_-]+$/);
+	expect(noteInHash(hash)).toBe(note);
+});
+
+test("a note that is not base64url, or not text, reads as none", () => {
+	expect(noteInHash("#10M0000000?note=***")).toBeNull();
+	expect(noteInHash("#10M0000000?note=_-_-")).toBeNull();
+});
+
+test("a folded board is remembered, and anything else reads as open", () => {
+	const held = storage(null);
+	expect(boardCollapsed(held)).toBe(false);
+
+	rememberBoardCollapsed(held, true);
+	expect(boardCollapsed(held)).toBe(true);
+
+	rememberBoardCollapsed(held, false);
+	expect(boardCollapsed(held)).toBe(false);
+	expect(boardCollapsed(storage("yes"))).toBe(false);
+});
+
+test("a browser that refuses storage leaves the board open, and swallows the write", () => {
+	expect(boardCollapsed(REFUSING)).toBe(false);
+	expect(() => rememberBoardCollapsed(REFUSING, true)).not.toThrow();
+	expect(BOARD_KEY).toBe("combi-name:board-collapsed");
 });

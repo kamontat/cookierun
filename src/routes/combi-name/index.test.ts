@@ -196,6 +196,45 @@ test("the build summary sits inside the board, as its header", () => {
 	expect(summary.closest(".codepanel")).toBe(null);
 });
 
+function summaryToggle(): HTMLButtonElement {
+	const button = inside(summary).querySelector<HTMLButtonElement>(
+		"button[aria-expanded]",
+	);
+	if (button === null) throw new Error("the board's heading is not a toggle");
+	return button;
+}
+
+test("the board's heading folds the board away and back, and the choice is remembered", async () => {
+	summaryToggle().click();
+	await settle();
+
+	expect(need("build").hasAttribute("data-collapsed")).toBe(true);
+	expect(localStorage.getItem("combi-name:board-collapsed")).toBe("true");
+	// Folding the board is not a change to the build.
+	expect(await codeText()).toBe("10S0000000");
+
+	summaryToggle().click();
+	await settle();
+
+	expect(need("build").hasAttribute("data-collapsed")).toBe(false);
+	expect(localStorage.getItem("combi-name:board-collapsed")).toBe("false");
+});
+
+// A click on the code asks for the control that writes it, and a folded board
+// would hide exactly that control.
+test("jumping to a slot opens a folded board first", async () => {
+	summaryToggle().click();
+	await settle();
+
+	codeBar.dispatchEvent(new CustomEvent("slot-jump", { detail: "goal" }));
+	await settle();
+
+	expect(need("build").hasAttribute("data-collapsed")).toBe(false);
+	expect((summary as HTMLElement & { collapsed: boolean }).collapsed).toBe(
+		false,
+	);
+});
+
 test("a cookie power card writes its letter into the code", async () => {
 	await choose("cookiePowers", "cheerleader");
 
@@ -433,7 +472,7 @@ test("a hash the page cannot read leaves the build alone", async () => {
 
 /** Runs `body` with the clipboard answering however the test needs it to. */
 async function withClipboard(
-	writeText: () => Promise<void>,
+	writeText: (text: string) => Promise<void>,
 	body: () => Promise<void>,
 ): Promise<void> {
 	const real = navigator.clipboard;
@@ -793,7 +832,10 @@ function savedRows(): HTMLLIElement[] {
 	return [...need("saved-list").querySelectorAll("li")];
 }
 
-function savedButtonFor(code: string, action: "load" | "delete") {
+function savedButtonFor(
+	code: string,
+	action: "load" | "copy" | "share" | "delete",
+) {
 	const button = need("saved-list").querySelector<HTMLButtonElement>(
 		`button[data-action="${action}"][data-code="${code}"]`,
 	);
@@ -827,7 +869,9 @@ test("saving the code lists it with its description, in storage too", async () =
 	expect(savedRows()[0]?.getAttribute("aria-current")).toBe("false");
 });
 
-test("loading a saved code moves the controls to it", async () => {
+// One action, not Load beside Edit: the two differed only in whether saving
+// afterwards wrote back, and that is a choice the save box already offers.
+test("loading a saved code moves the controls to it and opens it for updating", async () => {
 	expect(await codeText()).toBe("10S0000000");
 
 	savedButtonFor("10M0000000", "load").click();
@@ -835,7 +879,20 @@ test("loading a saved code moves the controls to it", async () => {
 	expect(await codeText()).toBe("10M0000000");
 	expect(isOn("goal", "money")).toBe(true);
 	expect(need("save-status").textContent).toBe("Loaded Coin farm.");
+	expect(!need("save-editing").hidden).toBe(true);
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe(
+		"Coin farm\nuse Fairy",
+	);
+	expect(need("save").textContent?.trim()).toBe("Update");
+});
+
+// Reset is starting over, so Update must not be left aimed at the entry.
+test("resetting the board closes the entry it was opened from", async () => {
 	await reset();
+
+	expect(need("save-editing").hidden).toBe(true);
+	expect(need("save").textContent?.trim()).toBe("Save code");
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
 });
 
 test("deleting a saved code takes it off the list and out of storage", async () => {
@@ -846,4 +903,260 @@ test("deleting a saved code takes it off the list and out of storage", async () 
 	expect(need("saved-empty").hidden).toBe(false);
 	expect(localStorage.getItem("combi-name:saved")).toBe("[]");
 	expect(document.activeElement).toBe(need("save-description"));
+});
+
+function savedCodes(): string[] {
+	return savedRows().map((row) => row.getAttribute("data-code") ?? "");
+}
+
+function isEditing(): boolean {
+	return !need("save-editing").hidden;
+}
+
+test("Update writes the board and the note into the loaded entry in place", async () => {
+	await choose("goal", "money");
+	await saveCurrent("Coin farm");
+	await reset();
+	await saveCurrent("Score run");
+	expect(savedCodes()).toEqual(["10S0000000", "10M0000000"]);
+
+	savedButtonFor("10M0000000", "load").click();
+	await settle();
+
+	expect(await codeText()).toBe("10M0000000");
+	expect(isEditing()).toBe(true);
+	expect(need("save-editing").textContent).toContain("Coin farm");
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe("Coin farm");
+	expect(savedRows()[1]?.hasAttribute("data-editing")).toBe(true);
+
+	await choose("goal", "box");
+	const edited = await codeText();
+	expect(need("save-editing").textContent).toContain(edited);
+	await saveCurrent("Box farm");
+
+	expect(savedCodes()).toEqual(["10S0000000", edited]);
+	expect(savedRows()[1]?.querySelector(".description")?.textContent).toBe(
+		"Box farm",
+	);
+	expect(isEditing()).toBe(false);
+	expect(need("save").textContent?.trim()).toBe("Save code");
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
+	expect(need("save-status").textContent).toBe("Updated Box farm.");
+	await reset();
+});
+
+test("an update onto a code saved elsewhere is refused and the edit stays open until cancelled", async () => {
+	const [, edited = ""] = savedCodes();
+	savedButtonFor(edited, "load").click();
+	await settle();
+
+	await typeCode("10S0000000");
+	await saveCurrent("Box farm");
+
+	expect(need("save-status").textContent).toContain("already saved");
+	expect(need("save-status").classList.contains("error")).toBe(true);
+	expect(savedCodes()).toEqual(["10S0000000", edited]);
+	expect(isEditing()).toBe(true);
+
+	need<HTMLButtonElement>("save-cancel").click();
+	await settle();
+	expect(isEditing()).toBe(false);
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
+	expect(savedRows()[1]?.hasAttribute("data-editing")).toBe(false);
+});
+
+test("saving as new while editing keeps the entry being edited", async () => {
+	const [, edited = ""] = savedCodes();
+	savedButtonFor(edited, "load").click();
+	await settle();
+	await choose("goal", "money");
+
+	need<HTMLTextAreaElement>("save-description").value = "Coin farm";
+	need<HTMLButtonElement>("save-new").click();
+	await settle();
+
+	expect(savedCodes()).toEqual(["10M0000000", "10S0000000", edited]);
+	expect(isEditing()).toBe(false);
+	await reset();
+});
+
+// "Coin farm" as base64url.
+const COIN_FARM_LINK = `${location.href.split("#")[0]}#10M0000000?note=Q29pbiBmYXJt`;
+
+test("copying an entry's link copies a link that carries its note", async () => {
+	let written = "";
+	await withClipboard(
+		(text) => {
+			written = text;
+			return Promise.resolve();
+		},
+		async () => {
+			savedButtonFor("10M0000000", "copy").click();
+			await settle();
+		},
+	);
+
+	expect(written).toBe(COIN_FARM_LINK);
+	// The menu it sits in closes on the click, so the word goes in the line.
+	expect(need("save-status").textContent).toBe("Copied the link to Coin farm.");
+});
+
+function rowFor(code: string): HTMLLIElement {
+	const row = savedRows().find(
+		(item) => item.getAttribute("data-code") === code,
+	);
+	if (row === undefined) throw new Error(`no row for ${code}`);
+	return row;
+}
+
+// Five buttons a row was a wall. Load is what a row is for; the rest is one
+// tap further, behind the row's own menu.
+test("a row shows Load and a menu, and the rest of its actions sit in the menu", () => {
+	const row = rowFor("10M0000000");
+	const menu = row.querySelector<HTMLDetailsElement>("details.more");
+	if (menu === null) throw new Error("the row has no menu");
+
+	const outside = [
+		...row.querySelectorAll<HTMLButtonElement>("button[data-action]"),
+	].filter((button) => !menu.contains(button));
+	expect(outside.map((button) => button.getAttribute("data-action"))).toEqual([
+		"load",
+	]);
+	expect(
+		[...menu.querySelectorAll<HTMLButtonElement>("button[data-action]")].map(
+			(button) => button.getAttribute("data-action"),
+		),
+	).toEqual(["copy", "delete"]);
+	expect(menu.querySelector("summary")?.getAttribute("aria-label")).toBe(
+		"More for Coin farm",
+	);
+});
+
+test("a row's menu closes on a pick, on Escape, on a click elsewhere, and when another opens", async () => {
+	const menuOf = (code: string) =>
+		rowFor(code).querySelector<HTMLDetailsElement>(
+			"details.more",
+		) as HTMLDetailsElement;
+
+	menuOf("10M0000000").open = true;
+	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
+	await withClipboard(
+		() => Promise.resolve(),
+		async () => {
+			savedButtonFor("10M0000000", "copy").click();
+			await settle();
+		},
+	);
+	expect(menuOf("10M0000000").open).toBe(false);
+
+	menuOf("10M0000000").open = true;
+	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
+	menuOf("10M0000000")
+		.querySelector("summary")
+		?.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+		);
+	expect(menuOf("10M0000000").open).toBe(false);
+	expect(document.activeElement).toBe(
+		menuOf("10M0000000").querySelector("summary"),
+	);
+
+	menuOf("10M0000000").open = true;
+	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
+	need("saved-heading").click();
+	expect(menuOf("10M0000000").open).toBe(false);
+
+	menuOf("10M0000000").open = true;
+	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
+	menuOf("10S0000000").open = true;
+	menuOf("10S0000000").dispatchEvent(new Event("toggle"));
+	expect(menuOf("10M0000000").open).toBe(false);
+	menuOf("10S0000000").open = false;
+	await reset();
+});
+
+// Without a share sheet, Share could only do what Copy link already does.
+test("an entry offers Share only where the browser has a share sheet", async () => {
+	expect(typeof navigator.share).not.toBe("function");
+	expect(() => savedButtonFor("10M0000000", "share")).toThrow();
+
+	let shared: ShareData | undefined;
+	Object.defineProperty(navigator, "share", {
+		configurable: true,
+		value: (data: ShareData) => {
+			shared = data;
+			return Promise.resolve();
+		},
+	});
+	try {
+		// Re-importing a saved code adds nothing but redraws the list.
+		need<HTMLTextAreaElement>("import-text").value = "10M0000000";
+		need<HTMLButtonElement>("import").click();
+		await settle();
+
+		savedButtonFor("10M0000000", "share").click();
+		await settle();
+
+		expect(shared).toEqual({
+			title: "Coin farm",
+			text: "Coin farm",
+			url: COIN_FARM_LINK,
+		});
+	} finally {
+		Reflect.deleteProperty(navigator, "share");
+	}
+});
+
+test("exporting copies the whole list as text", async () => {
+	let written = "";
+	await withClipboard(
+		(text) => {
+			written = text;
+			return Promise.resolve();
+		},
+		async () => {
+			need<HTMLButtonElement>("export-copy").click();
+			await settle();
+		},
+	);
+
+	const [, , edited] = savedCodes();
+	expect(written).toBe(
+		`10M0000000\n> Coin farm\n\n10S0000000\n> Score run\n\n${edited}\n> Box farm\n`,
+	);
+});
+
+test("importing text adds the new codes on top, keeps saved notes, and names the lines it skipped", async () => {
+	need<HTMLTextAreaElement>("import-text").value =
+		"10M5000000\n> imported\n10M0000000\n> not mine\nnope";
+	need<HTMLButtonElement>("import").click();
+	await settle();
+
+	expect(savedCodes()[0]).toBe("10M5000000");
+	expect(savedCodes()).toHaveLength(4);
+	expect(savedRows()[1]?.querySelector(".description")?.textContent).toBe(
+		"Coin farm",
+	);
+	expect(need("transfer-status").textContent).toBe(
+		"Added 1 code. 1 was already saved. Skipped line 5.",
+	);
+	expect(need<HTMLTextAreaElement>("import-text").value).toBe("");
+});
+
+test("a link that carries a note offers it in the save box", async () => {
+	// "From a friend" as base64url.
+	location.hash = "#10B5000000?note=RnJvbSBhIGZyaWVuZA";
+	window.dispatchEvent(new Event("hashchange"));
+	await settle();
+
+	expect(await codeText()).toBe("10B5000000");
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe(
+		"From a friend",
+	);
+	expect(need("save-status").textContent).toContain("came with a note");
+	// The page's own hash goes back to being the build alone.
+	expect(location.hash).toBe("#10B5000000");
+
+	need<HTMLTextAreaElement>("save-description").value = "";
+	await reset();
 });

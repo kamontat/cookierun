@@ -47,12 +47,25 @@ import {
 import { type Loadout, treasurePick } from "./loadout";
 import {
 	descriptionTitle,
+	formatSaved,
+	importSaved,
+	parseSaved,
 	readSaved,
 	removeSaved,
 	type SavedCode,
 	saveCode,
+	updateSaved,
 } from "./saved";
-import { codeInHash, hashFor, rememberCode, startingCode } from "./state";
+import {
+	boardCollapsed,
+	codeInHash,
+	hashFor,
+	noteInHash,
+	rememberBoardCollapsed,
+	rememberCode,
+	shareHashFor,
+	startingCode,
+} from "./state";
 
 import "#components/build-summary";
 import "#components/card-group";
@@ -108,9 +121,20 @@ const relayNote = need("relay-note");
 
 const saveForm = need<HTMLFormElement>("save-form");
 const saveDescription = need<HTMLTextAreaElement>("save-description");
+const saveEditing = need("save-editing");
+const saveButton = need<HTMLButtonElement>("save");
+const saveNewButton = need<HTMLButtonElement>("save-new");
+const saveCancelButton = need<HTMLButtonElement>("save-cancel");
 const saveStatus = need("save-status");
 const savedEmpty = need("saved-empty");
 const savedList = need<HTMLUListElement>("saved-list");
+
+const exportCopyButton = need<HTMLButtonElement>("export-copy");
+const exportDownloadButton = need<HTMLButtonElement>("export-download");
+const importInput = need<HTMLTextAreaElement>("import-text");
+const importButton = need<HTMLButtonElement>("import");
+const importFile = need<HTMLInputElement>("import-file");
+const transferStatus = need("transfer-status");
 
 /** The fields an episode or a mode can take off the board. */
 const offFields = {
@@ -454,26 +478,112 @@ function readDraft(text: string): void {
 /** The saved list as the page last drew it. */
 let savedEntries: readonly SavedCode[] = readSaved(localStorage);
 
+/**
+ * The entry open for editing, by its code, or null when the form adds the
+ * build on screen as a new entry. Editing an entry is loading it with a promise
+ * to write back: Update puts whatever the board and the box then hold into it.
+ */
+let editing: string | null = null;
+
 const savedAtFormat = new Intl.DateTimeFormat(undefined, {
 	dateStyle: "medium",
 	timeStyle: "short",
 });
 
+/** How an entry is named in a sentence or a button's label. */
+function entryName(entry: SavedCode): string {
+	return entry.description === ""
+		? entry.code
+		: descriptionTitle(entry.description);
+}
+
+type SavedAction = "load" | "copy" | "share" | "delete";
+
+/**
+ * Whether the browser has a share sheet. Asked each time the list is drawn
+ * rather than once, so it is the browser's answer and not a guess cached at
+ * load. Without one, Share could only do what Copy link already does, so the
+ * row does not offer it.
+ */
+function canShare(): boolean {
+	return typeof navigator.share === "function";
+}
+
 function savedButton(
 	label: string,
-	action: "load" | "delete",
+	action: SavedAction,
 	entry: SavedCode,
 ): HTMLButtonElement {
 	const button = document.createElement("button");
 	button.type = "button";
-	button.textContent = label;
 	button.setAttribute("data-action", action);
 	button.setAttribute("data-code", entry.code);
-	const name =
-		entry.description === "" ? entry.code : descriptionTitle(entry.description);
-	button.setAttribute("aria-label", `${label} ${name}`);
+	button.setAttribute("aria-label", `${label} ${entryName(entry)}`);
+	button.textContent = label;
 	return button;
 }
+
+/**
+ * Everything a row does besides Load, behind one button. A `<details>` rather
+ * than a hand-rolled popup: it opens and closes from the keyboard and tells a
+ * screen reader its state with nothing written for it. What the platform does
+ * not do — close on a pick, on Escape, on a click elsewhere, or when another
+ * row's opens — is wired once on the list, below.
+ */
+function savedMenu(entry: SavedCode): HTMLDetailsElement {
+	const menu = document.createElement("details");
+	menu.className = "more";
+	const summary = document.createElement("summary");
+	summary.className = "moretoggle";
+	summary.setAttribute("aria-label", `More for ${entryName(entry)}`);
+	const dots = document.createElement("span");
+	dots.setAttribute("aria-hidden", "true");
+	dots.textContent = "⋯";
+	summary.append(dots);
+
+	const items = document.createElement("div");
+	items.className = "menu";
+	items.append(savedButton("Copy link", "copy", entry));
+	if (canShare()) items.append(savedButton("Share", "share", entry));
+	items.append(savedButton("Delete", "delete", entry));
+
+	menu.append(summary, items);
+	return menu;
+}
+
+function closeMenus(except: Element | null = null): void {
+	for (const menu of savedList.querySelectorAll<HTMLDetailsElement>(
+		"details.more[open]",
+	)) {
+		if (menu !== except) menu.open = false;
+	}
+}
+
+// `toggle` does not bubble, so the list hears it in the capture phase.
+savedList.addEventListener(
+	"toggle",
+	(event) => {
+		const menu = event.target as HTMLDetailsElement;
+		if (menu.matches("details.more") && menu.open) closeMenus(menu);
+	},
+	true,
+);
+
+savedList.addEventListener("keydown", (event) => {
+	if (event.key !== "Escape") return;
+	const menu = (event.target as Element | null)?.closest<HTMLDetailsElement>(
+		"details.more[open]",
+	);
+	if (menu === null || menu === undefined) return;
+	event.preventDefault();
+	menu.open = false;
+	menu.querySelector("summary")?.focus();
+});
+
+document.addEventListener("click", (event) => {
+	const target = event.target as Element | null;
+	closeMenus(target?.closest("details.more") ?? null);
+});
 
 /**
  * Draws the saved list from scratch. It is short and changes only on a click,
@@ -507,10 +617,7 @@ function showSaved(entries: readonly SavedCode[]): void {
 
 			const buttons = document.createElement("div");
 			buttons.className = "buttons";
-			buttons.append(
-				savedButton("Load", "load", entry),
-				savedButton("Delete", "delete", entry),
-			);
+			buttons.append(savedButton("Load", "load", entry), savedMenu(entry));
 
 			item.append(text, buttons);
 			return item;
@@ -519,43 +626,201 @@ function showSaved(entries: readonly SavedCode[]): void {
 	markCurrent(codeBar.value);
 }
 
-/** Marks the saved entry, if any, that holds the code on screen. */
+/**
+ * Marks the saved entry, if any, that holds the code on screen, and the one
+ * open for editing — which, once the board has moved, is a different entry or
+ * none, so the two marks are kept apart.
+ */
 function markCurrent(code: string): void {
 	for (const item of savedList.children) {
 		const current = item.getAttribute("data-code") === code;
 		item.setAttribute("aria-current", String(current));
+		item.toggleAttribute(
+			"data-editing",
+			item.getAttribute("data-code") === editing,
+		);
 	}
+	showEditing(code);
 }
 
-saveForm.addEventListener("submit", (event) => {
-	event.preventDefault();
+/**
+ * Puts the form in step with `editing`: one form, two jobs. While an entry is
+ * open the submit button rewrites it, and the line above the box says what
+ * Update is about to do — including a code change, since the board may have
+ * moved since the entry was opened.
+ */
+function showEditing(code: string): void {
+	const entry =
+		editing === null
+			? undefined
+			: savedEntries.find((saved) => saved.code === editing);
+	if (entry === undefined) editing = null;
+
+	saveEditing.hidden = entry === undefined;
+	saveNewButton.hidden = entry === undefined;
+	saveCancelButton.hidden = entry === undefined;
+	saveButton.textContent = entry === undefined ? "Save code" : "Update";
+	if (entry === undefined) {
+		saveEditing.textContent = "";
+		return;
+	}
+
+	const name = document.createElement("strong");
+	name.textContent = entryName(entry);
+	// Loading opens an entry whether or not anyone means to change it, so the
+	// line says what Update would do rather than assuming an edit is under way.
+	const change =
+		code === entry.code
+			? "Update saves changes to it; Save as new leaves it as it is."
+			: `Update moves it from ${entry.code} to ${code}; Save as new leaves it as it is.`;
+	saveEditing.replaceChildren("Loaded from ", name, `. ${change}`);
+}
+
+/** Closes the entry open for editing, and clears the box it filled. */
+function stopEditing(): void {
+	editing = null;
+	saveDescription.value = "";
+	markCurrent(codeBar.value);
+}
+
+const REFUSED_SAVE =
+	"The browser refused to store it. It is listed for this visit only.";
+
+function saveAsNew(): void {
 	const code = codeBar.value;
 	const { entries, stored } = saveCode(
 		localStorage,
 		code,
 		saveDescription.value,
 	);
+	editing = null;
 	showSaved(entries);
 	if (stored) {
 		saveDescription.value = "";
 		setStatus(saveStatus, `Saved ${code}.`);
 	} else {
+		setStatus(saveStatus, REFUSED_SAVE, true);
+	}
+}
+
+function updateEntry(from: string): void {
+	const code = codeBar.value;
+	const result = updateSaved(localStorage, from, {
+		code,
+		description: saveDescription.value,
+	});
+
+	if (!result.ok) {
+		if (result.reason === "missing") {
+			// Deleted in another tab since it was opened. Nothing left to update.
+			showSaved(result.entries);
+			stopEditing();
+			setStatus(saveStatus, "That entry is gone. Save code adds it again.");
+			return;
+		}
+		const other = result.entries.find((saved) => saved.code === code);
 		setStatus(
 			saveStatus,
-			"The browser refused to store it. It is listed for this visit only.",
+			`This build is already saved as ${other === undefined ? code : entryName(other)}. Change the build, or delete that entry first.`,
 			true,
 		);
+		return;
 	}
+
+	editing = null;
+	showSaved(result.entries);
+	saveDescription.value = "";
+	const updated = result.entries.find((saved) => saved.code === code);
+	setStatus(
+		saveStatus,
+		result.stored
+			? `Updated ${updated === undefined ? code : entryName(updated)}.`
+			: REFUSED_SAVE,
+		!result.stored,
+	);
+}
+
+saveForm.addEventListener("submit", (event) => {
+	event.preventDefault();
+	if (editing === null) saveAsNew();
+	else updateEntry(editing);
+});
+
+saveNewButton.addEventListener("click", saveAsNew);
+
+saveCancelButton.addEventListener("click", () => {
+	stopEditing();
+	setStatus(saveStatus, "");
+	saveDescription.focus();
 });
 
 // A description takes line breaks, so Enter is a new line and Ctrl+Enter (or
-// Cmd+Enter) is the shortcut for the button beside it.
+// Cmd+Enter) is the shortcut for the button beside it. Escape backs out of an
+// edit the way it backs out of the code editor.
 saveDescription.addEventListener("keydown", (event) => {
 	if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
 		event.preventDefault();
 		saveForm.requestSubmit();
+	} else if (event.key === "Escape" && editing !== null) {
+		event.preventDefault();
+		stopEditing();
+		setStatus(saveStatus, "");
 	}
 });
+
+/** Applies a saved code, or says it no longer reads. */
+function openSaved(code: string): boolean {
+	try {
+		const { warnings } = decodeFull(code);
+		codeBar.editing = false;
+		applyCode(code, warnings);
+		return true;
+	} catch (error) {
+		setStatus(
+			saveStatus,
+			`${code} no longer reads: ${error instanceof Error ? error.message : String(error)}`,
+			true,
+		);
+		return false;
+	}
+}
+
+/** The page's own address with a hash that carries a code and its note. */
+function shareLink(entry: SavedCode): string {
+	const page = location.href.split("#")[0] ?? "";
+	return `${page}${shareHashFor(entry.code, entry.description)}`;
+}
+
+/**
+ * The share sheet, where someone sending a build to a friend on a phone
+ * expects to end up. Only offered where the browser has one (`canShare`).
+ * Cancelling the sheet is not a failure worth a sentence.
+ */
+function shareEntry(entry: SavedCode): void {
+	const text = entry.description === "" ? {} : { text: entry.description };
+	void navigator
+		.share({ title: entryName(entry), ...text, url: shareLink(entry) })
+		.catch(() => {});
+}
+
+/** Copy link: the link alone, to the clipboard, wherever the browser is. */
+function copyEntryLink(entry: SavedCode): void {
+	const url = shareLink(entry);
+	void navigator.clipboard
+		.writeText(url)
+		// The menu the button sits in has closed by now, so the word cannot ride
+		// on the button the way the code bar's Copy link does.
+		.then(() =>
+			setStatus(saveStatus, `Copied the link to ${entryName(entry)}.`),
+		)
+		.catch(() => {
+			setStatus(
+				saveStatus,
+				`The browser blocked the clipboard. The link is ${url}`,
+				true,
+			);
+		});
+}
 
 savedList.addEventListener("click", (event) => {
 	const button = (event.target as Element | null)?.closest<HTMLButtonElement>(
@@ -566,26 +831,41 @@ savedList.addEventListener("click", (event) => {
 	const index = savedEntries.findIndex((entry) => entry.code === code);
 	const entry = savedEntries[index];
 	if (entry === undefined) return;
+	const action = button.getAttribute("data-action") as SavedAction;
+	// A pick from a row's menu is the menu's answer; it closes behind it.
+	const menu = button.closest<HTMLDetailsElement>("details.more");
+	if (menu !== null) menu.open = false;
 
-	if (button.getAttribute("data-action") === "load") {
-		try {
-			const { warnings } = decodeFull(code);
-			codeBar.editing = false;
-			applyCode(code, warnings);
-			setStatus(
-				saveStatus,
-				`Loaded ${entry.description === "" ? code : descriptionTitle(entry.description)}.`,
-			);
-		} catch (error) {
-			setStatus(
-				saveStatus,
-				`${code} no longer reads: ${error instanceof Error ? error.message : String(error)}`,
-				true,
-			);
+	if (action === "load") {
+		// Loading opens the entry too: there used to be an Edit beside Load, and
+		// the two differed only in whether a later save wrote back. The box now
+		// asks that question itself — Update or Save as new — so one action
+		// serves both. Focus stays on the row: someone who only wanted the
+		// build has not asked to type.
+		editing = code;
+		if (!openSaved(code)) {
+			stopEditing();
+			return;
 		}
+		saveDescription.value = entry.description;
+		setStatus(saveStatus, `Loaded ${entryName(entry)}.`);
 		return;
 	}
 
+	if (action === "copy") {
+		copyEntryLink(entry);
+		return;
+	}
+
+	if (action === "share") {
+		shareEntry(entry);
+		return;
+	}
+
+	if (editing === code) {
+		editing = null;
+		saveDescription.value = "";
+	}
 	const { entries, stored } = removeSaved(localStorage, code);
 	showSaved(entries);
 	setStatus(
@@ -597,9 +877,117 @@ savedList.addEventListener("click", (event) => {
 	);
 	// Focus takes the gone entry's place, or falls back to the box that adds one.
 	const next = savedList.querySelectorAll<HTMLButtonElement>(
-		'button[data-action="delete"]',
+		'button[data-action="load"]',
 	)[Math.min(index, entries.length - 1)];
 	(next ?? saveDescription).focus();
+});
+
+/**
+ * A link someone sent may carry a note. It is offered, not saved: the note
+ * goes into the box, and keeping it is one click on Save code — a link that
+ * filled someone's list on its own would be a link nobody dared follow.
+ */
+function offerNote(code: string, note: string | null): void {
+	if (note === null || editing !== null) return;
+	const saved = savedEntries.find((entry) => entry.code === code);
+	if (saved !== undefined) {
+		setStatus(
+			saveStatus,
+			`This link's code is already saved as ${entryName(saved)}.`,
+		);
+		return;
+	}
+	saveDescription.value = note;
+	setStatus(saveStatus, "This link came with a note. Save code keeps it.");
+}
+
+function plural(count: number, word: string): string {
+	return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+/** Reads text into the saved list and says what came of every line. */
+function importText(text: string): boolean {
+	const { entries: incoming, skipped } = parseSaved(text);
+	const lines = skipped.map((line) => line.line).join(", ");
+	const skippedNote =
+		skipped.length === 0
+			? ""
+			: ` Skipped line${skipped.length === 1 ? "" : "s"} ${lines}.`;
+
+	if (incoming.length === 0) {
+		setStatus(
+			transferStatus,
+			skipped.length === 0
+				? "Nothing to import."
+				: `No code read.${skippedNote}`,
+			true,
+		);
+		return false;
+	}
+
+	const { entries, stored, added, kept } = importSaved(localStorage, incoming);
+	showSaved(entries);
+	const keptNote =
+		kept === 0 ? "" : ` ${kept} ${kept === 1 ? "was" : "were"} already saved.`;
+	setStatus(
+		transferStatus,
+		stored
+			? `Added ${plural(added, "code")}.${keptNote}${skippedNote}`
+			: "The browser refused to store them. They are listed for this visit only.",
+		!stored,
+	);
+	return true;
+}
+
+importButton.addEventListener("click", () => {
+	if (importText(importInput.value)) importInput.value = "";
+});
+
+importFile.addEventListener("change", () => {
+	const file = importFile.files?.[0];
+	if (file === undefined) return;
+	void file.text().then((text) => {
+		importText(text);
+		// Cleared so picking the same file again is a change the input hears.
+		importFile.value = "";
+	});
+});
+
+const NOTHING_TO_EXPORT = "Nothing saved to export yet.";
+
+exportCopyButton.addEventListener("click", () => {
+	if (savedEntries.length === 0) {
+		setStatus(transferStatus, NOTHING_TO_EXPORT, true);
+		return;
+	}
+	void navigator.clipboard
+		.writeText(formatSaved(savedEntries))
+		.then(() => {
+			setStatus(transferStatus, "");
+			confirmOn(exportCopyButton);
+		})
+		.catch(() => {
+			setStatus(
+				transferStatus,
+				"The browser blocked the clipboard. Download the list instead.",
+				true,
+			);
+		});
+});
+
+exportDownloadButton.addEventListener("click", () => {
+	if (savedEntries.length === 0) {
+		setStatus(transferStatus, NOTHING_TO_EXPORT, true);
+		return;
+	}
+	const blob = new Blob([formatSaved(savedEntries)], { type: "text/plain" });
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement("a");
+	link.href = url;
+	link.download = "combi-codes.txt";
+	link.click();
+	URL.revokeObjectURL(url);
+	setStatus(transferStatus, "");
 });
 
 /** Which control writes each group of characters the hints mark out. */
@@ -626,9 +1014,24 @@ const OWNER: Record<string, HTMLElement> = {
  */
 for (const element of new Set(Object.values(OWNER))) element.tabIndex = -1;
 
+/**
+ * Folds the board away or opens it again. The header draws the handle; the
+ * bands are the page's, so hiding them is too. The verdict stays in the header
+ * either way, which is what makes a folded board still worth looking at.
+ */
+function foldBoard(collapsed: boolean): void {
+	summaryCard.collapsed = collapsed;
+	buildForm.toggleAttribute("data-collapsed", collapsed);
+}
+
 function jumpTo(group: string): void {
 	const owner = OWNER[group];
 	if (owner === undefined) return;
+	// The control asked for is on the board, and a folded board hides it.
+	if (summaryCard.collapsed) {
+		foldBoard(false);
+		rememberBoardCollapsed(localStorage, false);
+	}
 	owner.scrollIntoView({ block: "center", behavior: "smooth" });
 	owner.focus();
 }
@@ -771,6 +1174,13 @@ relayTile.options = cookieOptions;
 petTile.options = tileOptions("pets");
 for (const slot of treasureSlots) slot.options = treasureCatalog;
 
+foldBoard(boardCollapsed(localStorage));
+
+summaryCard.addEventListener("toggle", () => {
+	foldBoard(summaryCard.collapsed);
+	rememberBoardCollapsed(localStorage, summaryCard.collapsed);
+});
+
 buildForm.addEventListener("input", () => {
 	render();
 });
@@ -825,14 +1235,24 @@ document.addEventListener("paste", (event) => {
  */
 window.addEventListener("hashchange", () => {
 	const code = codeInHash(location.hash);
-	if (code === null || code === codeBar.value) return;
+	if (code === null) return;
+	const note = noteInHash(location.hash);
 
-	try {
-		const { warnings } = decodeFull(code);
-		applyCode(code, warnings);
-	} catch {
-		// Someone else's fragment, or a typo. The build stands.
+	if (code === codeBar.value) {
+		// The build already stands; only a note is news, and the address goes
+		// back to holding the build alone once the note is in the box.
+		if (note === null) return;
+		publish(code);
+	} else {
+		try {
+			const { warnings } = decodeFull(code);
+			applyCode(code, warnings);
+		} catch {
+			// Someone else's fragment, or a typo. The build stands.
+			return;
+		}
 	}
+	offerNote(codeBar.value, note);
 });
 
 copyLinkButton.addEventListener("click", () => {
@@ -859,6 +1279,8 @@ resetButton.addEventListener("click", () => {
 	codeBar.editing = false;
 	codeBar.message = "";
 	codeBar.invalid = false;
+	// Starting over, so Update must not stay aimed at the entry last loaded.
+	if (editing !== null) stopEditing();
 	applyCode(DEFAULT_CODE);
 	setStatus(linkStatus, "");
 });
@@ -870,9 +1292,14 @@ showSaved(savedEntries);
  * since both outlive the page that wrote them and a link can be typed by hand.
  */
 const opening = startingCode(location.hash, localStorage);
+// Read before the first render rewrites the hash without it.
+const openingNote = noteInHash(location.hash);
 if (opening !== null) {
 	try {
 		applyCode(opening);
+		// A note only ever arrives in the hash, and a hash wins over storage, so
+		// a note present here belongs to the code just applied.
+		offerNote(codeBar.value, openingNote);
 	} catch {
 		render();
 	}

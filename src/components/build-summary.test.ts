@@ -66,3 +66,65 @@ test("the card announces itself politely", async () => {
 
 	expect(element.getAttribute("aria-live")).toBe("polite");
 });
+
+function toggleButton(element: BuildSummary): HTMLButtonElement {
+	const button = inside(element).querySelector<HTMLButtonElement>(
+		"h2 button[aria-expanded]",
+	);
+	if (button === null) throw new Error("the heading is not a toggle");
+	return button;
+}
+
+test("the heading is a button that collapses and reopens the board, saying which", async () => {
+	const element = await mount();
+	let toggles = 0;
+	element.addEventListener("toggle", () => {
+		toggles += 1;
+	});
+
+	expect(element.collapsed).toBe(false);
+	expect(toggleButton(element).getAttribute("aria-expanded")).toBe("true");
+
+	toggleButton(element).click();
+	await element.updateComplete;
+
+	expect(element.collapsed).toBe(true);
+	expect(element.hasAttribute("collapsed")).toBe(true);
+	expect(toggleButton(element).getAttribute("aria-expanded")).toBe("false");
+	expect(toggles).toBe(1);
+
+	toggleButton(element).click();
+	await element.updateComplete;
+
+	expect(element.collapsed).toBe(false);
+	expect(toggles).toBe(2);
+});
+
+// The page sets it from what it remembered; that is not a click to announce.
+test("setting collapsed from outside dispatches nothing", async () => {
+	const element = await mount();
+	let toggles = 0;
+	element.addEventListener("toggle", () => {
+		toggles += 1;
+	});
+
+	element.collapsed = true;
+	await element.updateComplete;
+
+	expect(toggleButton(element).getAttribute("aria-expanded")).toBe("false");
+	expect(toggles).toBe(0);
+});
+
+// Folded away, the badge and the sentence are what is left to read the build
+// by, so they stay.
+test("a collapsed board keeps its verdict on show", async () => {
+	const element = await mount();
+	element.verdict = { semi: true, reasons: ["Fast Start"] };
+	element.collapsed = true;
+	await element.updateComplete;
+
+	expect(text(element, ".badge")).toBe("Semi-auto");
+	expect(text(element, ".verdict")).toBe(
+		"Fast Start needs manual work each run.",
+	);
+});

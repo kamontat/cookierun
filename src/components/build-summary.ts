@@ -16,7 +16,9 @@ export type Verdict = {
 
 /**
  * The board's header — the title, the auto badge, and the sentence naming what
- * forces manual work each run.
+ * forces manual work each run. The title is also the board's fold: the badge
+ * and the sentence stay on show either way, since folded they are what is left
+ * to read the build by.
  */
 export class BuildSummary extends LitElement {
 	static override styles = [
@@ -38,11 +40,63 @@ export class BuildSummary extends LitElement {
 
 			h2 {
 				margin: 0;
-				color: var(--cr-muted);
 				font-size: 0.75rem;
 				font-weight: 500;
+			}
+
+			/* The heading is the fold's handle. It keeps the heading's quiet look
+			   rather than the site's button look: it is a title first. */
+			h2 button {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--cr-space-2);
+				border: 0;
+				background: none;
+				padding: 0;
+				color: var(--cr-muted);
+				font: inherit;
 				letter-spacing: var(--cr-tracking);
 				text-transform: uppercase;
+				cursor: pointer;
+			}
+
+			h2 button:hover {
+				color: var(--cr-text);
+			}
+
+			h2 button:focus-visible {
+				outline: var(--cr-border) solid var(--cr-accent);
+				outline-offset: 2px;
+			}
+
+			/* Drawn rather than typed, so the heading's text stays its name. */
+			.chevron {
+				width: 0.45em;
+				height: 0.45em;
+				border-right: 2px solid currentColor;
+				border-bottom: 2px solid currentColor;
+				transform: translateY(-0.15em) rotate(45deg);
+				transition: transform 120ms ease;
+			}
+
+			:host([collapsed]) .chevron {
+				transform: rotate(-45deg);
+			}
+
+			:host([collapsed]) header {
+				border-bottom-color: transparent;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.chevron {
+					transition: none;
+				}
+			}
+
+			@media (pointer: coarse) {
+				h2 button {
+					min-height: var(--cr-tap);
+				}
 			}
 
 			.badge {
@@ -69,6 +123,26 @@ export class BuildSummary extends LitElement {
 	@property({ attribute: false })
 	verdict: Verdict | null = null;
 
+	/**
+	 * Whether the board under this header is folded away. The element only
+	 * draws the handle and says which way it points; hiding the board is the
+	 * page's, since the board is not inside this element. Reflected so the
+	 * chevron can turn on it, and so the page's own styles can read it.
+	 */
+	@property({ type: Boolean, reflect: true })
+	collapsed = false;
+
+	/**
+	 * A click turns the fold and says so with `toggle`, the event a native
+	 * `<details>` fires. Not `input`: folding the board changes no value, and
+	 * this element sits inside the form whose `input` re-renders the build.
+	 * Setting `collapsed` from outside dispatches nothing.
+	 */
+	#toggle(): void {
+		this.collapsed = !this.collapsed;
+		this.dispatchEvent(new Event("toggle"));
+	}
+
 	override connectedCallback(): void {
 		super.connectedCallback();
 		this.setAttribute("aria-live", "polite");
@@ -89,7 +163,13 @@ export class BuildSummary extends LitElement {
 
 	override render() {
 		return html`<header>
-				<h2>Your build</h2>
+				<h2>
+					<button
+						type="button"
+						aria-expanded=${String(!this.collapsed)}
+						@click=${this.#toggle}
+					><span class="chevron" aria-hidden="true"></span>Your build</button>
+				</h2>
 				${
 					this.verdict === null
 						? nothing
