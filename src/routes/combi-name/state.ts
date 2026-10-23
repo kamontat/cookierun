@@ -117,6 +117,41 @@ export function rememberBoardCollapsed(
 	} catch {}
 }
 
+/**
+ * Which tab was open in the workbench below the summary. A view preference
+ * rather than part of the build, so — like `BOARD_KEY` — it is kept apart
+ * from the code and never travels in a link.
+ */
+export const TAB_KEY = "combi-name:tab";
+
+export type TabName = "main" | "cookies" | "treasures" | "boosts";
+
+export const TAB_NAMES: readonly TabName[] = [
+	"main",
+	"cookies",
+	"treasures",
+	"boosts",
+];
+
+function isTabName(value: string | null): value is TabName {
+	return (TAB_NAMES as readonly string[]).includes(value ?? "");
+}
+
+export function storedTab(storage: Storage): TabName {
+	try {
+		const value = storage.getItem(TAB_KEY);
+		return isTabName(value) ? value : "main";
+	} catch {
+		return "main";
+	}
+}
+
+export function rememberTab(storage: Storage, tab: TabName): void {
+	try {
+		storage.setItem(TAB_KEY, tab);
+	} catch {}
+}
+
 export function startingCode(hash: string, storage: Storage): string | null {
 	return codeInHash(hash) ?? storedCode(storage);
 }

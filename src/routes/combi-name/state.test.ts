@@ -8,10 +8,12 @@ import {
 	noteInHash,
 	rememberBoardCollapsed,
 	rememberCode,
+	rememberTab,
 	STORAGE_KEY,
 	shareHashFor,
 	startingCode,
 	storedCode,
+	storedTab,
 } from "./state";
 
 function storage(initial: string | null): Storage & { written: string[] } {
@@ -132,4 +134,22 @@ test("a browser that refuses storage leaves the board open, and swallows the wri
 	expect(boardCollapsed(REFUSING)).toBe(false);
 	expect(() => rememberBoardCollapsed(REFUSING, true)).not.toThrow();
 	expect(BOARD_KEY).toBe("combi-name:board-collapsed");
+});
+
+test("a remembered tab is read back", () => {
+	const held = storage(null);
+
+	rememberTab(held, "treasures");
+
+	expect(storedTab(held)).toBe("treasures");
+});
+
+test("an unknown or missing tab reads as main", () => {
+	expect(storedTab(storage("nope"))).toBe("main");
+	expect(storedTab(storage(null))).toBe("main");
+});
+
+test("a storage that throws reads main and remembers nothing", () => {
+	expect(storedTab(REFUSING)).toBe("main");
+	expect(() => rememberTab(REFUSING, "boosts")).not.toThrow();
 });
