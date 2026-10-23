@@ -1012,3 +1012,16 @@ test("a filled slot offers a button that opens the picker for another alternativ
 	await settle(element);
 	expect(dialog(element).open).toBe(true);
 });
+
+// A finger on the backdrop would otherwise scroll the board behind the picker.
+test("the page behind an open picker does not scroll", async () => {
+	const element = await mount();
+
+	tile(element).click();
+	await settle(element);
+	expect(document.documentElement.style.overflow).toBe("hidden");
+
+	dialog(element).close();
+	await settle(element);
+	expect(document.documentElement.style.overflow).toBe("");
+});

@@ -476,3 +476,16 @@ test("the dialog's own styles are keyed to an open dialog", () => {
 	expect(css).toContain("dialog[open]");
 	expect(css).not.toMatch(/(^|[^[\]\w])dialog\s*\{/);
 });
+
+// A finger on the backdrop would otherwise scroll the board behind the picker.
+test("the page behind an open picker does not scroll", async () => {
+	const element = await mount();
+
+	tile(element).click();
+	await settle(element);
+	expect(document.documentElement.style.overflow).toBe("hidden");
+
+	dialog(element).close();
+	await settle(element);
+	expect(document.documentElement.style.overflow).toBe("");
+});

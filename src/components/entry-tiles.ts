@@ -602,6 +602,8 @@ export class EntryTiles extends LitElement {
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback();
+		// A slot removed with its picker open never hears the close.
+		if (this.#dialog()?.open) document.documentElement.style.overflow = "";
 		window.removeEventListener("pointerup", this.#endDrag);
 		window.removeEventListener("pointercancel", this.#endDrag);
 	}
@@ -783,6 +785,9 @@ export class EntryTiles extends LitElement {
 		this.kind = ANY_KIND;
 		await this.updateComplete;
 		this.#dialog()?.showModal();
+		// A modal traps focus but not the page's scroll: a finger on the
+		// backdrop would otherwise scroll the board behind it.
+		document.documentElement.style.overflow = "hidden";
 		this.#search()?.focus();
 	}
 
@@ -1017,6 +1022,7 @@ export class EntryTiles extends LitElement {
 					this.#pressedBackdrop = event.target === this.#dialog();
 				}}
 				@close=${() => {
+					document.documentElement.style.overflow = "";
 					this.#tile()?.focus();
 				}}
 				@click=${(event: Event) => {

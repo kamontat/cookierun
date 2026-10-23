@@ -133,6 +133,16 @@ export const tileStyles = css`
 		color: var(--cr-text);
 	}
 
+	/* vh on a phone is the viewport with its toolbars hidden, so 85vh is
+	   taller than the screen actually showing while they are up, and the
+	   header and footer end up behind them. svh is the viewport with the
+	   toolbars shown, which is what is on screen when the dialog opens. */
+	@supports (height: 1svh) {
+		dialog[open] {
+			max-height: 85svh;
+		}
+	}
+
 	dialog::backdrop {
 		background: var(--cr-backdrop);
 	}
@@ -424,10 +434,19 @@ export class EntryTile extends LitElement {
 	 * and six inline grids was a page you had to tidy up after. The platform
 	 * takes care of the backdrop, the focus trap and Escape.
 	 */
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		// A tile removed with its picker open never hears the close.
+		if (this.#dialog()?.open) document.documentElement.style.overflow = "";
+	}
+
 	async #openPicker(): Promise<void> {
 		this.filter = "";
 		await this.updateComplete;
 		this.#dialog()?.showModal();
+		// A modal traps focus but not the page's scroll: a finger on the
+		// backdrop would otherwise scroll the board behind it.
+		document.documentElement.style.overflow = "hidden";
 		// The search box is the way in where there is one. Without it, focus goes
 		// to the grid's own tab stop — the picked cell — rather than to Close,
 		// which is what a dialog opens on when nothing asks for focus.
@@ -557,6 +576,7 @@ export class EntryTile extends LitElement {
 					this.#pressedBackdrop = event.target === this.#dialog();
 				}}
 				@close=${() => {
+					document.documentElement.style.overflow = "";
 					this.#tile()?.focus();
 				}}
 				@click=${(event: Event) => {
