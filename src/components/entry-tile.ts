@@ -24,6 +24,32 @@ export function glyphFor(label: string): string {
 }
 
 /**
+ * Holds the page still under an open picker, and hands back what lets it go.
+ * A modal traps focus but not scroll. overflow: hidden on the root is enough
+ * everywhere but iOS, which scrolls past it once the keyboard is up for the
+ * search box, so the body is pinned where the page was and the page goes back
+ * to that offset when the picker lets go. Shared with <entry-tiles> like the
+ * styles below, since both open the same dialog.
+ */
+export function lockPageScroll(): () => void {
+	const root = document.documentElement;
+	const body = document.body;
+	const y = window.scrollY;
+	root.style.overflow = "hidden";
+	Object.assign(body.style, {
+		position: "fixed",
+		top: `${-y}px`,
+		left: "0",
+		right: "0",
+	});
+	return () => {
+		root.style.overflow = "";
+		Object.assign(body.style, { position: "", top: "", left: "", right: "" });
+		window.scrollTo(0, y);
+	};
+}
+
+/**
  * The look both catalog controls share. Shared because they are the same
  * control with one pick and with several; each keeps its own logic and its own
  * `Option` type.
@@ -133,6 +159,16 @@ export const tileStyles = css`
 		color: var(--cr-text);
 	}
 
+	/* vh on a phone is the viewport with its toolbars hidden, so 85vh is
+	   taller than the screen actually showing while they are up, and the
+	   header and footer end up behind them. svh is the viewport with the
+	   toolbars shown, which is what is on screen when the dialog opens. */
+	@supports (height: 1svh) {
+		dialog[open] {
+			max-height: 85svh;
+		}
+	}
+
 	dialog::backdrop {
 		background: var(--cr-backdrop);
 	}
@@ -228,12 +264,22 @@ export const tileStyles = css`
 	/* A grid of faces, not a list of names: the whole reason these catalogs
 	   carry pictures is that a cookie is quicker to recognise than to read.
 	   flex: 1 1 auto and min-height: 0 are what let this row claim the sheet's
-	   leftover space and scroll in it, whatever else the sheet holds. */
+	   leftover space and scroll in it, whatever else the sheet holds.
+
+	   The rows are sized to their content outright: WebKit sizes an auto row
+	   of buttons in a shrunken grid to the buttons' min-height, which under a
+	   coarse pointer is the tap size, and every name below its picture then
+	   spills into the row underneath. */
 	.entries {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+		grid-auto-rows: max-content;
+		align-content: start;
 		gap: var(--cr-space-1);
 		overflow-y: auto;
+		/* Reaching either end of the grid stops there rather than handing the
+		   rest of the swipe to the page behind the dialog. */
+		overscroll-behavior: contain;
 		flex: 1 1 auto;
 		min-height: 0;
 	}
@@ -417,10 +463,25 @@ export class EntryTile extends LitElement {
 	 * and six inline grids was a page you had to tidy up after. The platform
 	 * takes care of the backdrop, the focus trap and Escape.
 	 */
+	/** Lets the page scroll again; set while this element's picker is open. */
+	#unlockPage: (() => void) | undefined;
+
+	#releasePage(): void {
+		this.#unlockPage?.();
+		this.#unlockPage = undefined;
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		// A tile removed with its picker open never hears the close.
+		this.#releasePage();
+	}
+
 	async #openPicker(): Promise<void> {
 		this.filter = "";
 		await this.updateComplete;
 		this.#dialog()?.showModal();
+		this.#unlockPage ??= lockPageScroll();
 		// The search box is the way in where there is one. Without it, focus goes
 		// to the grid's own tab stop — the picked cell — rather than to Close,
 		// which is what a dialog opens on when nothing asks for focus.
@@ -550,6 +611,7 @@ export class EntryTile extends LitElement {
 					this.#pressedBackdrop = event.target === this.#dialog();
 				}}
 				@close=${() => {
+					this.#releasePage();
 					this.#tile()?.focus();
 				}}
 				@click=${(event: Event) => {

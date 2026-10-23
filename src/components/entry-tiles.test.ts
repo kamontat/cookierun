@@ -4,7 +4,7 @@ import { expect, test } from "bun:test";
 
 import "./entry-tiles";
 
-import type { EntryTiles } from "./entry-tiles";
+import { type EntryTiles, LONG_PRESS } from "./entry-tiles";
 
 const TREASURES = [
 	["001", "Always Cute Acorn", "../assets/treasures/tr_ga034.png"],
@@ -135,7 +135,9 @@ test("each alternative is its own row under the slot's name", async () => {
 	element.selected = ["001", "003"];
 	await element.updateComplete;
 
-	const rows = [...(element.shadowRoot?.querySelectorAll(".picks > li") ?? [])];
+	const rows = [
+		...(element.shadowRoot?.querySelectorAll(".picks > li.chip") ?? []),
+	];
 
 	expect(
 		rows.map((row) => row.querySelector(".name")?.textContent?.trim()),
@@ -718,52 +720,223 @@ test("the levels setter shows on the buttons and keeps only selected values", as
 	expect(element.levels).toEqual({ "001": [0, 3] });
 });
 
-test("pressing a level toggles it and dispatches one input each time", async () => {
+async function pressWith(
+	element: EntryTiles,
+	value: string,
+	level: number,
+	modifiers: MouseEventInit,
+): Promise<void> {
+	levelButtons(element, value)[level]?.dispatchEvent(
+		new MouseEvent("click", { bubbles: true, composed: true, ...modifiers }),
+	);
+	await element.updateComplete;
+}
+
+function counting(element: EntryTiles): { inputs: number } {
+	const seen = { inputs: 0 };
+	element.addEventListener("input", () => {
+		seen.inputs++;
+	});
+	return seen;
+}
+
+// A press toggles one level, so +2, +4 and +6 are three presses on any device
+// — a touch screen has no modifier key to ask for more than one.
+test("pressing a level toggles it, but never the last one", async () => {
 	const element = await mount();
 	element.selected = ["001"];
 	await element.updateComplete;
-
-	let inputs = 0;
-	const count = (): void => {
-		inputs++;
-	};
-	element.addEventListener("input", count);
+	const seen = counting(element);
 
 	await press(element, "001", 9);
 	expect(element.levels).toEqual({ "001": [0, 9] });
-	expect(inputs).toBe(1);
 
 	await press(element, "001", 0);
 	expect(element.levels).toEqual({ "001": [9] });
-	expect(inputs).toBe(2);
 
-	element.removeEventListener("input", count);
+	await press(element, "001", 9);
+	expect(element.levels).toEqual({ "001": [9] });
+	expect(seen.inputs).toBe(2);
 });
 
-test("the last pressed level cannot be released", async () => {
+test("shift-pressing a level holds the range from the last pressed one", async () => {
 	const element = await mount();
 	element.selected = ["001"];
 	await element.updateComplete;
 
-	let inputs = 0;
-	const count = (): void => {
-		inputs++;
-	};
-	element.addEventListener("input", count);
+	await press(element, "001", 7);
+	await pressWith(element, "001", 3, { shiftKey: true });
+	expect(element.levels).toEqual({ "001": [3, 4, 5, 6, 7] });
 
-	expect(levelButtons(element, "001")[0]?.getAttribute("aria-disabled")).toBe(
-		"true",
+	// The anchor stays where the plain press left it.
+	await pressWith(element, "001", 9, { shiftKey: true });
+	expect(element.levels).toEqual({ "001": [7, 8, 9] });
+});
+
+test("with nothing pressed yet, a shift-press ranges from the lowest held level", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	element.levels = { "001": [2, 8] };
+	await element.updateComplete;
+
+	await pressWith(element, "001", 5, { shiftKey: true });
+
+	expect(element.levels).toEqual({ "001": [2, 3, 4, 5] });
+});
+
+function pointer(
+	button: HTMLButtonElement | undefined,
+	type: string,
+	buttons = 1,
+): void {
+	button?.dispatchEvent(
+		new PointerEvent(type, { bubbles: true, composed: true, buttons }),
 	);
-	await press(element, "001", 0);
+}
+
+// Holding a level is the way to the one-level case, +0 straight to +9 alone,
+// without first pressing every other level off.
+test("holding a level down holds that level alone, and its click does not toggle it back", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	element.levels = { "001": [0, 3, 4] };
+	await element.updateComplete;
+	const seen = counting(element);
+
+	pointer(levelButtons(element, "001")[9], "pointerdown");
+	await Bun.sleep(LONG_PRESS + 50);
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [9] });
+
+	pointer(levelButtons(element, "001")[9], "pointerup", 0);
+	levelButtons(element, "001")[9]?.click();
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [9] });
+	expect(seen.inputs).toBe(1);
+});
+
+test("a press released before the hold time is an ordinary toggle", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	await element.updateComplete;
+
+	pointer(levelButtons(element, "001")[5], "pointerdown");
+	pointer(levelButtons(element, "001")[5], "pointerup", 0);
+	levelButtons(element, "001")[5]?.click();
+	await Bun.sleep(LONG_PRESS + 50);
+	await element.updateComplete;
+
+	expect(element.levels).toEqual({ "001": [0, 5] });
+});
+
+test("the click that ends a drag does not toggle the cell it lands on", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	await element.updateComplete;
+	const buttons = levelButtons(element, "001");
+
+	pointer(buttons[2], "pointerdown");
+	pointer(buttons[5], "pointerover");
+	pointer(buttons[4], "pointerover");
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [2, 3, 4] });
+
+	pointer(levelButtons(element, "001")[4], "pointerup", 0);
+	levelButtons(element, "001")[4]?.click();
+	await Bun.sleep(LONG_PRESS + 50);
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [2, 3, 4] });
+});
+
+function anyButton(element: EntryTiles, value: string): HTMLButtonElement {
+	const node = element.shadowRoot?.querySelector<HTMLButtonElement>(
+		`.chip[data-value="${value}"] button.any`,
+	);
+	if (node === null || node === undefined) throw new Error("no any button");
+	return node;
+}
+
+test("any holds every level, and pressed again goes back to +0", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	element.levels = { "001": [3] };
+	await element.updateComplete;
+
+	expect(anyButton(element, "001").getAttribute("aria-pressed")).toBe("false");
+
+	anyButton(element, "001").click();
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] });
+	expect(anyButton(element, "001").getAttribute("aria-pressed")).toBe("true");
+
+	anyButton(element, "001").click();
+	await element.updateComplete;
 	expect(element.levels).toEqual({ "001": [0] });
-	expect(inputs).toBe(0);
+});
 
-	await press(element, "001", 3);
-	expect(levelButtons(element, "001")[0]?.hasAttribute("aria-disabled")).toBe(
-		false,
+test("dragging across the strip holds the range it covers", async () => {
+	const element = await mount();
+	element.selected = ["001"];
+	await element.updateComplete;
+	const buttons = levelButtons(element, "001");
+
+	buttons[2]?.dispatchEvent(
+		new PointerEvent("pointerdown", {
+			bubbles: true,
+			composed: true,
+			buttons: 1,
+		}),
 	);
+	buttons[5]?.dispatchEvent(
+		new PointerEvent("pointerover", {
+			bubbles: true,
+			composed: true,
+			buttons: 1,
+		}),
+	);
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [2, 3, 4, 5] });
 
-	element.removeEventListener("input", count);
+	// A pointer passing over with nothing held is not a drag.
+	levelButtons(element, "001")[8]?.dispatchEvent(
+		new PointerEvent("pointerover", {
+			bubbles: true,
+			composed: true,
+			buttons: 0,
+		}),
+	);
+	await element.updateComplete;
+	expect(element.levels).toEqual({ "001": [2, 3, 4, 5] });
+});
+
+test("each pick says which levels it holds in a line of text", async () => {
+	const element = await mount();
+	element.selected = ["001", "002", "003"];
+	element.levels = {
+		"001": [7, 8, 9],
+		"002": [0, 2, 3, 4],
+		"003": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+	};
+	await element.updateComplete;
+
+	const summary = (value: string): string | undefined =>
+		element.shadowRoot
+			?.querySelector(`.chip[data-value="${value}"] .sum`)
+			?.textContent?.trim();
+	expect(summary("001")).toBe("+7–9");
+	expect(summary("002")).toBe("+0, +2–4");
+	expect(summary("003")).toBe("any");
+
+	await press(element, "001", 9);
+	expect(summary("001")).toBe("+7–8");
+});
+
+test("alternatives are separated by an or", async () => {
+	const element = await mount();
+	element.selected = ["001", "002", "003"];
+	await element.updateComplete;
+
+	expect(element.shadowRoot?.querySelectorAll(".picks .or").length).toBe(2);
 });
 
 test("dropping one pick keeps the other's levels", async () => {
@@ -811,7 +984,7 @@ test("Done keeps the levels of picks that stay, and a re-added pick starts at +0
 	expect(element.levels["002"]).toEqual([0]);
 });
 
-test("toggling one pick's level leaves the other pick's buttons alone", async () => {
+test("pressing one pick's level leaves the other pick's buttons alone", async () => {
 	const element = await mount();
 	element.selected = ["001", "002"];
 	element.levels = { "002": [3, 4] };
@@ -821,4 +994,39 @@ test("toggling one pick's level leaves the other pick's buttons alone", async ()
 
 	expect(pressed(element, "001")).toEqual([0, 7]);
 	expect(pressed(element, "002")).toEqual([3, 4]);
+});
+
+// The slot's own name opens the picker too, but a filled slot's name reads as
+// a label; the button at the foot of the list says what pressing it does.
+test("a filled slot offers a button that opens the picker for another alternative", async () => {
+	const element = await mount();
+	expect(element.shadowRoot?.querySelector(".picks button.add")).toBe(null);
+
+	element.selected = ["001"];
+	await element.updateComplete;
+	const add =
+		element.shadowRoot?.querySelector<HTMLButtonElement>(".picks button.add");
+	expect(add?.textContent?.trim()).toBe("+ Add alternative");
+
+	add?.click();
+	await settle(element);
+	expect(dialog(element).open).toBe(true);
+});
+
+// A finger on the backdrop would otherwise scroll the board behind the picker.
+test("the page behind an open picker does not scroll", async () => {
+	const element = await mount();
+
+	tile(element).click();
+	await settle(element);
+	expect(document.documentElement.style.overflow).toBe("hidden");
+	// iOS scrolls past overflow: hidden once the keyboard is up, so the body
+	// itself is pinned where the page was.
+	expect(document.body.style.position).toBe("fixed");
+
+	dialog(element).close();
+	await settle(element);
+	expect(document.documentElement.style.overflow).toBe("");
+	expect(document.body.style.position).toBe("");
+	expect(document.body.style.top).toBe("");
 });

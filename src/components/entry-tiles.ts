@@ -2,7 +2,7 @@ import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 
-import { glyphFor, tileStyles } from "./entry-tile";
+import { glyphFor, lockPageScroll, tileStyles } from "./entry-tile";
 import { base, controls } from "./theme";
 
 export type Option = readonly [
@@ -19,9 +19,39 @@ const LEVELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 const UNUPGRADED: Levels = [0];
 
+/**
+ * How long a press on a level has to be held, in milliseconds, before it holds
+ * that level alone. Long enough that an ordinary tap never trips it.
+ */
+export const LONG_PRESS = 500;
+
 /** Whether a number is one of the levels a pick can hold, +0 to +9. */
 function isLevel(value: number): boolean {
 	return Number.isInteger(value) && value >= 0 && value <= 9;
+}
+
+/** Every level from one end to the other, whichever end is given first. */
+function span(from: number, to: number): number[] {
+	const low = Math.min(from, to);
+	return Array.from({ length: Math.abs(to - from) + 1 }, (_, at) => low + at);
+}
+
+/**
+ * A pick's levels as one line — "+9", "+7–9", "+0, +2–4" — so what a strip
+ * holds reads without counting lit cells. All ten is "any", since that is what
+ * a pick accepting every level means.
+ */
+function describeLevels(levels: Levels): string {
+	if (levels.length === LEVELS.length) return "any";
+	const runs: [number, number][] = [];
+	for (const level of levels) {
+		const last = runs.at(-1);
+		if (last !== undefined && level === last[1] + 1) last[1] = level;
+		else runs.push([level, level]);
+	}
+	return runs
+		.map(([from, to]) => (from === to ? `+${from}` : `+${from}–${to}`))
+		.join(", ");
 }
 
 const LIMIT = 50;
@@ -62,106 +92,285 @@ export class EntryTiles extends LitElement {
 		controls,
 		tileStyles,
 		css`
-			/* The word between two alternatives, quieter than either of them. */
+			/* Every query below measures the slot, not the window: the same
+			   slot is a row of the board on a desktop and a full-width card on a
+			   phone, and only its own width says which. */
+			:host {
+				container-type: inline-size;
+			}
+
+			/* A slot is one row of the field: its name on the left and its picks
+			   beside it, or its name as a bar above them once the slot is too
+			   narrow for both. The name stays a button of its own rather than
+			   one button holding the list: a remove button inside the button that
+			   opens the picker is not markup. */
+			.slot {
+				display: grid;
+				border: var(--cr-border) solid var(--cr-line);
+				border-radius: var(--cr-radius);
+				background: var(--cr-surface);
+			}
+
+			/* An empty slot still has to invite a click, so the frame dashes
+			   the way an empty tile does. */
+			.slot.empty {
+				border-style: dashed;
+				border-color: var(--cr-muted);
+			}
+
+			.slot > button.tile {
+				flex-direction: row;
+				gap: var(--cr-space-2);
+				align-items: baseline;
+				justify-content: space-between;
+				border: none;
+				border-radius: 0;
+				background: var(--cr-surface-2);
+				padding: var(--cr-space-2) var(--cr-space-3);
+				text-align: left;
+			}
+
+			.slot.empty > button.tile {
+				background: none;
+			}
+
+			/* With nothing to list, the name is the whole slot, so the whole
+			   frame is the button rather than its left column. */
+			.slot.empty {
+				grid-template-columns: minmax(0, 1fr);
+			}
+
+			.slot > button.tile .label {
+				font-weight: 600;
+			}
+
+			@container (min-width: 36rem) {
+				.slot {
+					grid-template-columns: 9rem minmax(0, 1fr);
+				}
+
+				.slot > button.tile {
+					flex-direction: column;
+					gap: var(--cr-space-1);
+					align-items: flex-start;
+					justify-content: flex-start;
+					padding: var(--cr-space-3);
+				}
+			}
+
+			.picks {
+				display: grid;
+				container: picks / inline-size;
+				margin: 0;
+				padding: 0;
+				min-width: 0;
+				list-style: none;
+			}
+
+			/* The word between two alternatives, quieter than either of them,
+			   on the rule that separates them: two picks in one slot mean "this
+			   or that", and the list says so. */
 			.or {
-				flex: 0 0 auto;
+				display: flex;
+				gap: var(--cr-space-2);
+				align-items: center;
+				padding: 0 var(--cr-space-3);
 				color: var(--cr-muted);
 				font-family: var(--cr-mono);
-				font-size: 0.7rem;
+				font-size: 0.65rem;
+				line-height: 1;
 				text-transform: uppercase;
 				letter-spacing: var(--cr-tracking);
 			}
 
-			/* One pick, small enough that four of them wrap across a line rather
-			   than stacking into a column of portraits. */
-			/* The slot is its name and its list, not one button holding both: a
-			   remove button inside the button that opens the picker is not
-			   markup, and dropping one alternative is the thing this list is
-			   read for. */
-			.slot {
-				display: flex;
-				flex-direction: column;
-				gap: var(--cr-space-2);
+			.or::before,
+			.or::after {
+				flex: 1;
+				border-top: 1px dashed var(--cr-line);
+				content: "";
 			}
 
-			.picks {
-				display: flex;
-				flex-direction: column;
-				gap: var(--cr-space-1);
-				margin: 0;
-				padding: 0;
-				list-style: none;
+			.or::before {
+				flex: 0 0 var(--cr-space-5);
 			}
 
-			/* One per line: two treasures side by side were two half-names, and a
-			   slot holds alternatives worth reading in full. The row wraps so
-			   the level buttons take a line of their own under the name and ✕. */
+			/* One pick per line, its name in full: the name is what tells an
+			   evolved form from the blessed one beside it. The strip takes a
+			   line of its own under the name, and joins it on one line only
+			   where the pointer is fine and the row has the room — ten cells at
+			   the coarse tap size would squeeze the name to nothing. */
 			.chip {
-				display: flex;
-				flex-wrap: wrap;
-				gap: var(--cr-space-1);
-				align-items: center;
-				width: 100%;
-				border: var(--cr-border) solid var(--cr-line);
-				border-radius: var(--cr-radius);
-				background: var(--cr-surface-2);
-				padding: 0 var(--cr-space-1);
-			}
-
-			.chip .name {
-				flex: 1 1 auto;
-			}
-
-			/* A 5-column grid rather than a flex wrap: ten buttons at the
-			   coarse-pointer tap size read as two even rows of five, not nine
-			   plus a straggler. */
-			.levels {
 				display: grid;
-				grid-template-columns: repeat(5, 1fr);
-				gap: var(--cr-space-1);
-				flex: 1 0 100%;
-				padding-bottom: var(--cr-space-1);
+				grid-template-areas:
+					"art who sum remove"
+					"levels levels levels any";
+				grid-template-columns: auto minmax(0, 1fr) auto auto;
+				gap: var(--cr-space-2) var(--cr-space-3);
+				align-items: center;
+				padding: var(--cr-space-2) var(--cr-space-3);
 			}
 
-			.levels button {
-				min-width: 2rem;
-				padding: 0 var(--cr-space-1);
-				font-family: var(--cr-mono);
-				font-size: 0.7rem;
+			@media (pointer: fine) {
+				@container picks (min-width: 42rem) {
+					.chip {
+						grid-template-areas: "art who sum levels any remove";
+						grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+					}
+
+					/* Qualified by .chip so it outranks the bare .levels rule
+					   below, which would otherwise win on source order alone. */
+					.chip .levels {
+						grid-template-columns: repeat(10, 2.25rem);
+					}
+				}
 			}
 
-			.levels button[aria-pressed="true"] {
-				border-color: var(--cr-accent);
-				background: color-mix(in srgb, var(--cr-accent) 14%, transparent);
-				font-weight: 600;
-			}
-
-			/* The last level standing cannot be released, so it should not look
-			   like every other pressed button — a treasure has to accept at
-			   least one level. */
-			.levels button[aria-disabled="true"] {
-				border-color: var(--cr-muted);
-				cursor: not-allowed;
-			}
-
-			/* What the tile says when it is closed: how much the slot holds, since
-			   the names are right underneath it. */
-			.hint {
-				color: var(--cr-muted);
-				font-size: 0.8rem;
+			.chip .art {
+				grid-area: art;
 			}
 
 			.chip .art,
 			.chip .art img {
-				width: 2rem;
-				height: 2rem;
+				width: 2.25rem;
+				height: 2.25rem;
+			}
+
+			.who {
+				display: grid;
+				grid-area: who;
+				min-width: 0;
 			}
 
 			.chip .name {
-				overflow: hidden;
+				font-size: 0.9rem;
+				font-weight: 600;
+				line-height: 1.25;
+				overflow-wrap: anywhere;
+			}
+
+			.chip .kind {
+				color: var(--kind);
+				font-family: var(--cr-mono);
+				font-size: 0.65rem;
+				text-transform: uppercase;
+				letter-spacing: var(--cr-tracking);
+			}
+
+			/* What the strip holds, as words: "+7–9" reads faster than counting
+			   three lit cells out of ten. */
+			.sum {
+				grid-area: sum;
+				color: var(--cr-accent);
+				font-family: var(--cr-mono);
 				font-size: 0.8rem;
-				text-overflow: ellipsis;
+				font-weight: 700;
+				font-variant-numeric: tabular-nums;
+				text-align: right;
 				white-space: nowrap;
+			}
+
+			/* Ten cells in one strip rather than ten separate buttons: a strip
+			   lit from +7 to +9 is a range at a glance, where a grid of ten
+			   bordered buttons was ten things to read. pan-y keeps a thumb
+			   scrolling the page while a sideways drag stays a drag. */
+			.levels {
+				display: grid;
+				grid-area: levels;
+				grid-template-columns: repeat(10, minmax(0, 1fr));
+				border: var(--cr-border) solid var(--cr-line);
+				border-radius: var(--cr-radius);
+				overflow: hidden;
+				user-select: none;
+				-webkit-user-select: none;
+				-webkit-touch-callout: none;
+			}
+
+			.levels button {
+				border: none;
+				border-left: 1px solid var(--cr-line);
+				border-radius: 0;
+				background: none;
+				box-shadow: none;
+				padding: 0;
+				min-width: 0;
+				min-height: 2rem;
+				color: var(--cr-muted);
+				font-size: 0.8rem;
+				letter-spacing: normal;
+				touch-action: pan-y;
+			}
+
+			.levels button:first-child {
+				border-left: none;
+			}
+
+			.levels button:active {
+				transform: none;
+			}
+
+			.levels button[aria-pressed="true"] {
+				background: var(--cr-accent);
+				color: var(--cr-bg);
+				font-weight: 700;
+			}
+
+			/* Every level at once, beside the strip rather than in it: "any" is
+			   not an eleventh level, and a press on it is not a toggle of one. */
+			.any {
+				grid-area: any;
+				box-shadow: none;
+				padding: 0 var(--cr-space-2);
+				min-height: 2rem;
+				font-size: 0.7rem;
+			}
+
+			.any:active {
+				transform: none;
+			}
+
+			.any[aria-pressed="true"] {
+				border-color: var(--cr-accent);
+				background: var(--cr-accent);
+				color: var(--cr-bg);
+			}
+
+			@media (pointer: coarse) {
+				.levels button,
+				.any {
+					min-height: var(--cr-tap);
+				}
+			}
+
+			/* The slot's name opens the picker too, but once the slot is
+			   filled it reads as a label; this says what pressing it does. */
+			.picks > li.add {
+				padding: var(--cr-space-2) var(--cr-space-3);
+				border-top: 1px dashed var(--cr-line);
+			}
+
+			button.add {
+				border-style: dashed;
+				background: none;
+				box-shadow: none;
+				color: var(--cr-muted);
+				font-size: 0.75rem;
+			}
+
+			button.add:hover,
+			button.add:focus-visible {
+				border-color: var(--cr-accent);
+				color: var(--cr-text);
+			}
+
+			button.add:active {
+				transform: none;
+			}
+
+			/* What the tile says when it is closed: how much the slot holds, since
+			   the names are right beside it. */
+			.hint {
+				color: var(--cr-muted);
+				font-size: 0.8rem;
 			}
 
 			/* Which of the three colours this cell or chip borrows. Local
@@ -205,15 +414,14 @@ export class EntryTiles extends LitElement {
 			/* A ring on the art rather than on the cell: the cell's own border
 			   carries the picked state, and two meanings on one edge is one
 			   meaning lost. */
-			.entry[data-kind] .art {
+			.entry[data-kind] .art,
+			.chip[data-kind] .art {
 				border-radius: var(--cr-radius);
 				box-shadow: inset 0 0 0 var(--cr-border) var(--kind);
 			}
 
-			/* The closed line has no room for a frame, so the chip's own edge
-			   answers the question - border and a thicker bar down its start. */
 			.remove {
-				flex: 0 0 auto;
+				grid-area: remove;
 				border: none;
 				border-radius: var(--cr-radius);
 				background: none;
@@ -244,11 +452,6 @@ export class EntryTiles extends LitElement {
 					min-width: 2.25rem;
 					min-height: 2.25rem;
 				}
-			}
-
-			.chip[data-kind] {
-				border-color: var(--kind);
-				box-shadow: inset 0.25rem 0 0 var(--kind);
 			}
 
 			/* Narrowing the grid to one kind, and the colour key for the badges
@@ -391,6 +594,28 @@ export class EntryTiles extends LitElement {
 		);
 	}
 
+	override connectedCallback(): void {
+		super.connectedCallback();
+		window.addEventListener("pointerup", this.#endDrag);
+		window.addEventListener("pointercancel", this.#endDrag);
+	}
+
+	/** Lets the page scroll again; set while this element's picker is open. */
+	#unlockPage: (() => void) | undefined;
+
+	#releasePage(): void {
+		this.#unlockPage?.();
+		this.#unlockPage = undefined;
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+		// A slot removed with its picker open never hears the close.
+		this.#releasePage();
+		window.removeEventListener("pointerup", this.#endDrag);
+		window.removeEventListener("pointercancel", this.#endDrag);
+	}
+
 	override willUpdate(): void {
 		// `options` and the picks are two separate writes, so a list replaced
 		// under a slot would otherwise keep a dropped value in the set —
@@ -408,19 +633,131 @@ export class EntryTiles extends LitElement {
 	}
 
 	/**
-	 * A treasure accepts at least one level, so the last one pressed stays
-	 * pressed: releasing it would leave a pick that fits no run at all.
+	 * Where a shift-press or a drag measures its range from, per pick: the last
+	 * level pressed without shift. A pick nobody has pressed yet ranges from its
+	 * lowest held level, which is +0 for one never levelled.
 	 */
-	#toggleLevel(value: string, level: number): void {
+	#anchors = new Map<string, number>();
+
+	/** The pick a press on its strip started on, until the press is released. */
+	#dragging: string | null = null;
+
+	/** The level that press started on, so a drag knows when it has moved. */
+	#pressedLevel: number | null = null;
+
+	/** Holds the pressed level alone once the press has lasted LONG_PRESS. */
+	#holdTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/**
+	 * Whether the click about to end this press has already been answered — by
+	 * a hold or a drag — and must not toggle the level it lands on as well.
+	 */
+	#answered = false;
+
+	#anchorOf(value: string): number {
+		return (
+			this.#anchors.get(value) ??
+			(this.leveled.get(value) ?? UNUPGRADED)[0] ??
+			0
+		);
+	}
+
+	/**
+	 * A press toggles one level, because a touch screen has no modifier key and
+	 * +2, +4 and +6 has to be reachable there too — though never the last
+	 * level, since a treasure has to accept at least one. Holding a level
+	 * holds it alone, dragging holds a range, and shift holds the range from
+	 * the last level pressed.
+	 */
+	#pressLevel(value: string, level: number, event: MouseEvent): void {
+		if (this.#answered) {
+			this.#answered = false;
+			return;
+		}
+		if (event.shiftKey) {
+			this.#setLevels(value, span(this.#anchorOf(value), level));
+			return;
+		}
+		this.#anchors.set(value, level);
 		const current = this.leveled.get(value) ?? UNUPGRADED;
 		const on = current.includes(level);
 		if (on && current.length === 1) return;
-		const next = on
-			? current.filter((held) => held !== level)
-			: [...current, level].sort((a, b) => a - b);
+		this.#setLevels(
+			value,
+			on ? current.filter((held) => held !== level) : [...current, level],
+		);
+	}
+
+	/** Every level, or back to +0 from every level. */
+	#pressAny(value: string): void {
+		const current = this.leveled.get(value) ?? UNUPGRADED;
+		this.#setLevels(
+			value,
+			current.length === LEVELS.length ? UNUPGRADED : LEVELS,
+		);
+	}
+
+	/** Writes one pick's levels and says so, unless nothing actually changed. */
+	#setLevels(value: string, levels: readonly number[]): void {
+		const current = this.leveled.get(value) ?? UNUPGRADED;
+		const next = [...levels].sort((a, b) => a - b);
+		if (next.join() === current.join()) return;
 		this.leveled = new Map(this.leveled).set(value, next);
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 	}
+
+	/**
+	 * A press on a level starts a drag and a hold; passing over another level
+	 * while it is still held turns it into a drag, which holds the range
+	 * between them, and staying put for LONG_PRESS holds that level alone. The
+	 * capture a touch takes on pointerdown is released, or every pointerover
+	 * after it would land on the level the finger started on.
+	 */
+	#startDrag(value: string, level: number, event: PointerEvent): void {
+		this.#answered = false;
+		if (event.shiftKey) return;
+		this.#dragging = value;
+		this.#pressedLevel = level;
+		this.#anchors.set(value, level);
+		clearTimeout(this.#holdTimer);
+		this.#holdTimer = setTimeout(() => {
+			this.#answered = true;
+			this.#setLevels(value, [level]);
+		}, LONG_PRESS);
+		const target = event.target as Element;
+		if (target.hasPointerCapture?.(event.pointerId)) {
+			target.releasePointerCapture(event.pointerId);
+		}
+	}
+
+	#dragOver(value: string, event: PointerEvent): void {
+		if (this.#dragging !== value || (event.buttons & 1) === 0) return;
+		const cell = (event.target as Element).closest?.("button.level");
+		if (cell === null || cell === undefined) return;
+		const level = Number(cell.getAttribute("data-level"));
+		if (level !== this.#pressedLevel) {
+			clearTimeout(this.#holdTimer);
+			this.#answered = true;
+		}
+		if (!this.#answered) return;
+		this.#setLevels(value, span(this.#anchorOf(value), level));
+	}
+
+	/**
+	 * The click that follows a release is dispatched in the same task, so an
+	 * answer it should swallow is forgotten one task later — a release off the
+	 * strip produces no click, and the next one must not be eaten instead.
+	 */
+	#endDrag = (): void => {
+		clearTimeout(this.#holdTimer);
+		this.#dragging = null;
+		this.#pressedLevel = null;
+		if (this.#answered) {
+			setTimeout(() => {
+				this.#answered = false;
+			}, 0);
+		}
+	};
 
 	#has(value: string): boolean {
 		return this.options.some(([candidate]) => candidate === value);
@@ -456,6 +793,7 @@ export class EntryTiles extends LitElement {
 		this.kind = ANY_KIND;
 		await this.updateComplete;
 		this.#dialog()?.showModal();
+		this.#unlockPage ??= lockPageScroll();
 		this.#search()?.focus();
 	}
 
@@ -546,22 +884,34 @@ export class EntryTiles extends LitElement {
 	}
 
 	#levelButtons(value: string, name: string, levels: Levels) {
-		return html`<div class="levels" role="group" aria-label=${`${name} levels`}>
-			${LEVELS.map((level) => {
-				const on = levels.includes(level);
-				return html`<button
+		return html`<div
+			class="levels"
+			role="group"
+			aria-label=${`${name} levels`}
+			@pointerover=${(event: PointerEvent) => {
+				this.#dragOver(value, event);
+			}}
+			@contextmenu=${(event: Event) => {
+				// A held finger is a hold, not a request for the platform's menu.
+				event.preventDefault();
+			}}
+		>
+			${LEVELS.map(
+				(level) => html`<button
 					type="button"
 					class="level"
 					data-level=${level}
-					aria-pressed=${String(on)}
-					aria-disabled=${ifDefined(on && levels.length === 1 ? "true" : undefined)}
-					@click=${() => {
-						this.#toggleLevel(value, level);
+					aria-pressed=${String(levels.includes(level))}
+					@pointerdown=${(event: PointerEvent) => {
+						this.#startDrag(value, level, event);
+					}}
+					@click=${(event: MouseEvent) => {
+						this.#pressLevel(value, level, event);
 					}}
 				>
 					+${level}
-				</button>`;
-			})}
+				</button>`,
+			)}
 		</div>`;
 	}
 
@@ -618,15 +968,36 @@ export class EntryTiles extends LitElement {
 					chosen.length === 0
 						? nothing
 						: html`<ul class="picks">
-							${chosen.map((value) => {
+							${chosen.map((value, at) => {
 								const name = labels.get(value) ?? value;
+								const kind = kinds.get(value);
 								const levels = this.leveled.get(value) ?? UNUPGRADED;
-								return html`<li
+								return html`${
+									at === 0
+										? nothing
+										: html`<li class="or" aria-hidden="true">or</li>`
+								}<li
 									class="chip"
 									data-value=${value}
-									data-kind=${ifDefined(kinds.get(value))}
-									>${this.#art(name, images.get(value) ?? null)}<span class="name"
-										>${name}</span
+									data-kind=${ifDefined(kind)}
+									>${this.#art(name, images.get(value) ?? null, kind)}<span
+										class="who"
+										><span class="name">${name}</span>${
+											kind === undefined
+												? nothing
+												: html`<span class="kind">${KINDS[kind]?.name}</span>`
+										}</span
+									><span class="sum" aria-hidden="true"
+										>${describeLevels(levels)}</span
+									>${this.#levelButtons(value, name, levels)}<button
+										type="button"
+										class="any"
+										aria-label=${`${name} at any level`}
+										aria-pressed=${String(levels.length === LEVELS.length)}
+										@click=${() => {
+											this.#pressAny(value);
+										}}
+										>any</button
 									><button
 										type="button"
 										class="remove"
@@ -635,9 +1006,20 @@ export class EntryTiles extends LitElement {
 											void this.#drop(value);
 										}}
 										>×</button
-									>${this.#levelButtons(value, name, levels)}</li
+									></li
 								>`;
 							})}
+							<li class="add">
+								<button
+									type="button"
+									class="add"
+									@click=${() => {
+										void this.#openPicker();
+									}}
+								>
+									+ Add alternative
+								</button>
+							</li>
 						</ul>`
 				}
 			</div>
@@ -646,6 +1028,7 @@ export class EntryTiles extends LitElement {
 					this.#pressedBackdrop = event.target === this.#dialog();
 				}}
 				@close=${() => {
+					this.#releasePage();
 					this.#tile()?.focus();
 				}}
 				@click=${(event: Event) => {
