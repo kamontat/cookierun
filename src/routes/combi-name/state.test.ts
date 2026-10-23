@@ -1,9 +1,12 @@
 import { expect, test } from "bun:test";
 
 import {
+	BOARD_KEY,
+	boardCollapsed,
 	codeInHash,
 	hashFor,
 	noteInHash,
+	rememberBoardCollapsed,
 	rememberCode,
 	STORAGE_KEY,
 	shareHashFor,
@@ -96,4 +99,22 @@ test("a note keeps its own case while the code is uppercased", () => {
 
 	expect(codeInHash(hash)).toBe("10M0000000");
 	expect(noteInHash(hash)).toBe("Keep My Case");
+});
+
+test("a folded board is remembered, and anything else reads as open", () => {
+	const held = storage(null);
+	expect(boardCollapsed(held)).toBe(false);
+
+	rememberBoardCollapsed(held, true);
+	expect(boardCollapsed(held)).toBe(true);
+
+	rememberBoardCollapsed(held, false);
+	expect(boardCollapsed(held)).toBe(false);
+	expect(boardCollapsed(storage("yes"))).toBe(false);
+});
+
+test("a browser that refuses storage leaves the board open, and swallows the write", () => {
+	expect(boardCollapsed(REFUSING)).toBe(false);
+	expect(() => rememberBoardCollapsed(REFUSING, true)).not.toThrow();
+	expect(BOARD_KEY).toBe("combi-name:board-collapsed");
 });

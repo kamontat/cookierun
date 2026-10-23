@@ -57,9 +57,11 @@ import {
 	updateSaved,
 } from "./saved";
 import {
+	boardCollapsed,
 	codeInHash,
 	hashFor,
 	noteInHash,
+	rememberBoardCollapsed,
 	rememberCode,
 	shareHashFor,
 	startingCode,
@@ -948,9 +950,24 @@ const OWNER: Record<string, HTMLElement> = {
  */
 for (const element of new Set(Object.values(OWNER))) element.tabIndex = -1;
 
+/**
+ * Folds the board away or opens it again. The header draws the handle; the
+ * bands are the page's, so hiding them is too. The verdict stays in the header
+ * either way, which is what makes a folded board still worth looking at.
+ */
+function foldBoard(collapsed: boolean): void {
+	summaryCard.collapsed = collapsed;
+	buildForm.toggleAttribute("data-collapsed", collapsed);
+}
+
 function jumpTo(group: string): void {
 	const owner = OWNER[group];
 	if (owner === undefined) return;
+	// The control asked for is on the board, and a folded board hides it.
+	if (summaryCard.collapsed) {
+		foldBoard(false);
+		rememberBoardCollapsed(localStorage, false);
+	}
 	owner.scrollIntoView({ block: "center", behavior: "smooth" });
 	owner.focus();
 }
@@ -1092,6 +1109,13 @@ cookieTile.options = cookieOptions;
 relayTile.options = cookieOptions;
 petTile.options = tileOptions("pets");
 for (const slot of treasureSlots) slot.options = treasureCatalog;
+
+foldBoard(boardCollapsed(localStorage));
+
+summaryCard.addEventListener("toggle", () => {
+	foldBoard(summaryCard.collapsed);
+	rememberBoardCollapsed(localStorage, summaryCard.collapsed);
+});
 
 buildForm.addEventListener("input", () => {
 	render();

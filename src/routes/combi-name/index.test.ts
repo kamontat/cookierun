@@ -196,6 +196,45 @@ test("the build summary sits inside the board, as its header", () => {
 	expect(summary.closest(".codepanel")).toBe(null);
 });
 
+function summaryToggle(): HTMLButtonElement {
+	const button = inside(summary).querySelector<HTMLButtonElement>(
+		"button[aria-expanded]",
+	);
+	if (button === null) throw new Error("the board's heading is not a toggle");
+	return button;
+}
+
+test("the board's heading folds the board away and back, and the choice is remembered", async () => {
+	summaryToggle().click();
+	await settle();
+
+	expect(need("build").hasAttribute("data-collapsed")).toBe(true);
+	expect(localStorage.getItem("combi-name:board-collapsed")).toBe("true");
+	// Folding the board is not a change to the build.
+	expect(await codeText()).toBe("10S0000000");
+
+	summaryToggle().click();
+	await settle();
+
+	expect(need("build").hasAttribute("data-collapsed")).toBe(false);
+	expect(localStorage.getItem("combi-name:board-collapsed")).toBe("false");
+});
+
+// A click on the code asks for the control that writes it, and a folded board
+// would hide exactly that control.
+test("jumping to a slot opens a folded board first", async () => {
+	summaryToggle().click();
+	await settle();
+
+	codeBar.dispatchEvent(new CustomEvent("slot-jump", { detail: "goal" }));
+	await settle();
+
+	expect(need("build").hasAttribute("data-collapsed")).toBe(false);
+	expect((summary as HTMLElement & { collapsed: boolean }).collapsed).toBe(
+		false,
+	);
+});
+
 test("a cookie power card writes its letter into the code", async () => {
 	await choose("cookiePowers", "cheerleader");
 

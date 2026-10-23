@@ -132,6 +132,17 @@ main {
 	margin-top: var(--cr-space-5);
 }
 
+/* Folded under its header: the bands go, and the header with its verdict is
+   the whole board. The controls still hold their values, so the code above
+   is unchanged. */
+#build[data-collapsed] > .band {
+	display: none;
+}
+
+#build[data-collapsed] {
+	padding-bottom: var(--cr-space-3);
+}
+
 .bandhead {
 	display: flex;
 	flex-wrap: wrap;

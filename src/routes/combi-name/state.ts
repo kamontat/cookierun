@@ -64,6 +64,29 @@ export function rememberCode(storage: Storage, code: string): void {
 	} catch {}
 }
 
+/**
+ * Whether the board was left folded. A view preference rather than part of the
+ * build, so it is kept apart from the code and never travels in a link.
+ */
+export const BOARD_KEY = "combi-name:board-collapsed";
+
+export function boardCollapsed(storage: Storage): boolean {
+	try {
+		return storage.getItem(BOARD_KEY) === "true";
+	} catch {
+		return false;
+	}
+}
+
+export function rememberBoardCollapsed(
+	storage: Storage,
+	collapsed: boolean,
+): void {
+	try {
+		storage.setItem(BOARD_KEY, String(collapsed));
+	} catch {}
+}
+
 export function startingCode(hash: string, storage: Storage): string | null {
 	return codeInHash(hash) ?? storedCode(storage);
 }
