@@ -181,13 +181,24 @@ in place of the sidebar on every page. The combi page reads, top to bottom:
 - Modify: `src/routes/base.css` (body grid) and `src/routes/index.html` (the home pane, if its markup assumes the rail).
 
 **Interfaces:**
-- Produces: `<site-nav>` renders `<a class="brand" href=home>` with the Fairy Cookie icon and "Cookie Run tools", then `<nav><ul>` of the tool links, then `<slot>`, then `<theme-toggle>`.
+- Produces: `<site-nav>` renders, in order:
+  - `<a class="brand" href=home>` with the Fairy Cookie icon and "Cookie Run tools". The text is hidden under 48rem.
+  - `<details class="switcher">` with a `<summary>` reading the current tool's `name`, or "All tools" when `current` is empty, then ▾.
+  - Inside it, `<nav aria-label="Tools">` holding:
+    - an "All tools" link to home;
+    - a "Tools" divider;
+    - one link per `TOOLS` entry, holding its name and tagline, through `hrefFor`.
+  - The current link carries `aria-current="page"`. The menu closes on a link click, on Escape (focus back to the summary) and on a click outside the host.
+  - `<slot>`, then `<theme-toggle>`.
   - The icon is an `<img>` with `src` taken from a new optional `icon` attribute or property, set by the page. The home page uses the same `ch26.png` its favicon uses. Without one, the brand is drawn as text only.
   - The host is `display: flex; align-items: center` with a bottom border on `--cr-surface`, at every width. Remove the rail rules.
 - `base.css`: `body` becomes `grid-template-columns: minmax(0, 1fr)` with rows `auto auto 1fr`. Remove the `< 48rem` override and the footer comment about the rail.
 
 - [ ] **Step 1: Write failing tests.**
-  - `"renders the brand, the links and the theme toggle in one bar"`.
+  - `"renders the brand, the tool menu and the theme toggle in one bar"`.
+  - `"the tool menu names the current tool, and All tools on the home pane"`.
+  - `"the menu lists All tools then every registered tool with its tagline, the current one marked"`.
+  - `"the menu closes on Escape and returns focus to its button"`.
   - `"slotted page actions render inside the bar"`. Append a `<button>` to `<site-nav>`. It is assigned to the slot: `shadowRoot.querySelector("slot").assignedElements()` includes it.
 - [ ] **Step 2:** Run `bun run test src/components/site-nav.test.ts src/lib/tools.test.ts`. Expected: the new tests FAIL.
 - [ ] **Step 3:** Implement it.

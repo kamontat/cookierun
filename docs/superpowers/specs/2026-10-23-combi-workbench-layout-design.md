@@ -99,7 +99,13 @@ The owner's answer: **remove the sidebar and use the mockup's layout** on every
 page. `<site-nav>` becomes a top bar at every width. It holds:
 
 - the brand ("Cookie Run tools" with the Fairy Cookie icon) linking home;
-- the tool links from the registry, the current one marked;
+- a **tool menu** (the owner's answer, so the bar stays one line as tools are
+  added). It is a button naming the current page: the tool's name, or "All
+  tools" on the home pane, then ▾. It opens a list with "All tools" (home)
+  first, then a "Tools" divider, then every tool from the registry with its
+  name and tagline. The current entry is marked `aria-current="page"`. It
+  closes on a pick, on Escape (focus back to the button) and on a click
+  elsewhere;
 - the theme toggle;
 - a default slot at the far end for page actions.
 
@@ -111,8 +117,8 @@ the masthead and `main`. The home pane gets the same top bar.
 `src/lib/tools.test.ts` still finds `<site-nav>` on every page. Only its shape
 changes.
 
-Under 48rem the links may scroll sideways, as today, and the slotted actions
-stay visible. The code panel is no longer pinned at the top on a phone, so the
+Under 48rem the brand shows its icon only and the theme control shrinks to an
+icon button. The tool menu and the slotted actions stay visible. The code panel is no longer pinned at the top on a phone, so the
 bar can stay static there.
 
 ### 3. Warnings
