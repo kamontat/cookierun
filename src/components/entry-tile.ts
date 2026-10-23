@@ -228,10 +228,17 @@ export const tileStyles = css`
 	/* A grid of faces, not a list of names: the whole reason these catalogs
 	   carry pictures is that a cookie is quicker to recognise than to read.
 	   flex: 1 1 auto and min-height: 0 are what let this row claim the sheet's
-	   leftover space and scroll in it, whatever else the sheet holds. */
+	   leftover space and scroll in it, whatever else the sheet holds.
+
+	   The rows are sized to their content outright: WebKit sizes an auto row
+	   of buttons in a shrunken grid to the buttons' min-height, which under a
+	   coarse pointer is the tap size, and every name below its picture then
+	   spills into the row underneath. */
 	.entries {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+		grid-auto-rows: max-content;
+		align-content: start;
 		gap: var(--cr-space-1);
 		overflow-y: auto;
 		flex: 1 1 auto;

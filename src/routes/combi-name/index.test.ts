@@ -673,7 +673,7 @@ test("a code's treasure levels land on the level buttons", async () => {
 	await reset();
 });
 
-test("pressing a level rewrites the code", async () => {
+test("toggling a level rewrites the code", async () => {
 	await typeCode("1TU0FZ-10S0000000");
 	(codeBar as HTMLElement & { editing: boolean }).editing = false;
 	await settle();
@@ -686,7 +686,7 @@ test("pressing a level rewrites the code", async () => {
 	await settle();
 
 	expect((codeBar as HTMLElement & { value: string }).value).toBe(
-		"1TU0FZ9-10S0000000",
+		"1TU0FZ_0FZ9-10S0000000",
 	);
 	await reset();
 });

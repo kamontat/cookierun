@@ -19,6 +19,12 @@ const LEVELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 const UNUPGRADED: Levels = [0];
 
+/**
+ * How long a press on a level has to be held, in milliseconds, before it holds
+ * that level alone. Long enough that an ordinary tap never trips it.
+ */
+export const LONG_PRESS = 500;
+
 /** Whether a number is one of the levels a pick can hold, +0 to +9. */
 function isLevel(value: number): boolean {
 	return Number.isInteger(value) && value >= 0 && value <= 9;
@@ -128,6 +134,12 @@ export class EntryTiles extends LitElement {
 				background: none;
 			}
 
+			/* With nothing to list, the name is the whole slot, so the whole
+			   frame is the button rather than its left column. */
+			.slot.empty {
+				grid-template-columns: minmax(0, 1fr);
+			}
+
 			.slot > button.tile .label {
 				font-weight: 600;
 			}
@@ -191,7 +203,7 @@ export class EntryTiles extends LitElement {
 				display: grid;
 				grid-template-areas:
 					"art who sum remove"
-					"levels levels levels levels";
+					"levels levels levels any";
 				grid-template-columns: auto minmax(0, 1fr) auto auto;
 				gap: var(--cr-space-2) var(--cr-space-3);
 				align-items: center;
@@ -199,14 +211,16 @@ export class EntryTiles extends LitElement {
 			}
 
 			@media (pointer: fine) {
-				@container picks (min-width: 34rem) {
+				@container picks (min-width: 42rem) {
 					.chip {
-						grid-template-areas: "art who sum levels remove";
-						grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+						grid-template-areas: "art who sum levels any remove";
+						grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
 					}
 
-					.levels {
-						grid-template-columns: repeat(10, 1.75rem);
+					/* Qualified by .chip so it outranks the bare .levels rule
+					   below, which would otherwise win on source order alone. */
+					.chip .levels {
+						grid-template-columns: repeat(10, 2.25rem);
 					}
 				}
 			}
@@ -267,6 +281,8 @@ export class EntryTiles extends LitElement {
 				border-radius: var(--cr-radius);
 				overflow: hidden;
 				user-select: none;
+				-webkit-user-select: none;
+				-webkit-touch-callout: none;
 			}
 
 			.levels button {
@@ -277,9 +293,9 @@ export class EntryTiles extends LitElement {
 				box-shadow: none;
 				padding: 0;
 				min-width: 0;
-				min-height: 1.75rem;
+				min-height: 2rem;
 				color: var(--cr-muted);
-				font-size: 0.7rem;
+				font-size: 0.8rem;
 				letter-spacing: normal;
 				touch-action: pan-y;
 			}
@@ -298,10 +314,56 @@ export class EntryTiles extends LitElement {
 				font-weight: 700;
 			}
 
+			/* Every level at once, beside the strip rather than in it: "any" is
+			   not an eleventh level, and a press on it is not a toggle of one. */
+			.any {
+				grid-area: any;
+				box-shadow: none;
+				padding: 0 var(--cr-space-2);
+				min-height: 2rem;
+				font-size: 0.7rem;
+			}
+
+			.any:active {
+				transform: none;
+			}
+
+			.any[aria-pressed="true"] {
+				border-color: var(--cr-accent);
+				background: var(--cr-accent);
+				color: var(--cr-bg);
+			}
+
 			@media (pointer: coarse) {
-				.levels button {
+				.levels button,
+				.any {
 					min-height: var(--cr-tap);
 				}
+			}
+
+			/* The slot's name opens the picker too, but once the slot is
+			   filled it reads as a label; this says what pressing it does. */
+			.picks > li.add {
+				padding: var(--cr-space-2) var(--cr-space-3);
+				border-top: 1px dashed var(--cr-line);
+			}
+
+			button.add {
+				border-style: dashed;
+				background: none;
+				box-shadow: none;
+				color: var(--cr-muted);
+				font-size: 0.75rem;
+			}
+
+			button.add:hover,
+			button.add:focus-visible {
+				border-color: var(--cr-accent);
+				color: var(--cr-text);
+			}
+
+			button.add:active {
+				transform: none;
 			}
 
 			/* What the tile says when it is closed: how much the slot holds, since
@@ -570,6 +632,18 @@ export class EntryTiles extends LitElement {
 	/** The pick a press on its strip started on, until the press is released. */
 	#dragging: string | null = null;
 
+	/** The level that press started on, so a drag knows when it has moved. */
+	#pressedLevel: number | null = null;
+
+	/** Holds the pressed level alone once the press has lasted LONG_PRESS. */
+	#holdTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/**
+	 * Whether the click about to end this press has already been answered — by
+	 * a hold or a drag — and must not toggle the level it lands on as well.
+	 */
+	#answered = false;
+
 	#anchorOf(value: string): number {
 		return (
 			this.#anchors.get(value) ??
@@ -579,29 +653,38 @@ export class EntryTiles extends LitElement {
 	}
 
 	/**
-	 * A plain press holds that level alone, because the common change is from
-	 * the default +0 to one other level, and a toggle made that two presses.
-	 * Shift holds the range from the anchor, and ctrl or meta toggles one level
-	 * the way every press used to — though never the last one, since a
-	 * treasure has to accept at least one level.
+	 * A press toggles one level, because a touch screen has no modifier key and
+	 * +2, +4 and +6 has to be reachable there too — though never the last
+	 * level, since a treasure has to accept at least one. Holding a level
+	 * holds it alone, dragging holds a range, and shift holds the range from
+	 * the last level pressed.
 	 */
 	#pressLevel(value: string, level: number, event: MouseEvent): void {
-		const current = this.leveled.get(value) ?? UNUPGRADED;
+		if (this.#answered) {
+			this.#answered = false;
+			return;
+		}
 		if (event.shiftKey) {
 			this.#setLevels(value, span(this.#anchorOf(value), level));
 			return;
 		}
 		this.#anchors.set(value, level);
-		if (event.ctrlKey || event.metaKey) {
-			const on = current.includes(level);
-			if (on && current.length === 1) return;
-			this.#setLevels(
-				value,
-				on ? current.filter((held) => held !== level) : [...current, level],
-			);
-			return;
-		}
-		this.#setLevels(value, [level]);
+		const current = this.leveled.get(value) ?? UNUPGRADED;
+		const on = current.includes(level);
+		if (on && current.length === 1) return;
+		this.#setLevels(
+			value,
+			on ? current.filter((held) => held !== level) : [...current, level],
+		);
+	}
+
+	/** Every level, or back to +0 from every level. */
+	#pressAny(value: string): void {
+		const current = this.leveled.get(value) ?? UNUPGRADED;
+		this.#setLevels(
+			value,
+			current.length === LEVELS.length ? UNUPGRADED : LEVELS,
+		);
 	}
 
 	/** Writes one pick's levels and says so, unless nothing actually changed. */
@@ -614,15 +697,23 @@ export class EntryTiles extends LitElement {
 	}
 
 	/**
-	 * A press on a level starts a drag; passing over another level while it is
-	 * still held holds the range between them. The capture a touch takes on
-	 * pointerdown is released, or every pointerover after it would land on the
-	 * level the finger started on.
+	 * A press on a level starts a drag and a hold; passing over another level
+	 * while it is still held turns it into a drag, which holds the range
+	 * between them, and staying put for LONG_PRESS holds that level alone. The
+	 * capture a touch takes on pointerdown is released, or every pointerover
+	 * after it would land on the level the finger started on.
 	 */
 	#startDrag(value: string, level: number, event: PointerEvent): void {
-		if (event.shiftKey || event.ctrlKey || event.metaKey) return;
+		this.#answered = false;
+		if (event.shiftKey) return;
 		this.#dragging = value;
+		this.#pressedLevel = level;
 		this.#anchors.set(value, level);
+		clearTimeout(this.#holdTimer);
+		this.#holdTimer = setTimeout(() => {
+			this.#answered = true;
+			this.#setLevels(value, [level]);
+		}, LONG_PRESS);
 		const target = event.target as Element;
 		if (target.hasPointerCapture?.(event.pointerId)) {
 			target.releasePointerCapture(event.pointerId);
@@ -631,16 +722,31 @@ export class EntryTiles extends LitElement {
 
 	#dragOver(value: string, event: PointerEvent): void {
 		if (this.#dragging !== value || (event.buttons & 1) === 0) return;
-		const level = (event.target as Element).closest?.("button.level");
-		if (level === null || level === undefined) return;
-		this.#setLevels(
-			value,
-			span(this.#anchorOf(value), Number(level.getAttribute("data-level"))),
-		);
+		const cell = (event.target as Element).closest?.("button.level");
+		if (cell === null || cell === undefined) return;
+		const level = Number(cell.getAttribute("data-level"));
+		if (level !== this.#pressedLevel) {
+			clearTimeout(this.#holdTimer);
+			this.#answered = true;
+		}
+		if (!this.#answered) return;
+		this.#setLevels(value, span(this.#anchorOf(value), level));
 	}
 
+	/**
+	 * The click that follows a release is dispatched in the same task, so an
+	 * answer it should swallow is forgotten one task later — a release off the
+	 * strip produces no click, and the next one must not be eaten instead.
+	 */
 	#endDrag = (): void => {
+		clearTimeout(this.#holdTimer);
 		this.#dragging = null;
+		this.#pressedLevel = null;
+		if (this.#answered) {
+			setTimeout(() => {
+				this.#answered = false;
+			}, 0);
+		}
 	};
 
 	#has(value: string): boolean {
@@ -774,6 +880,10 @@ export class EntryTiles extends LitElement {
 			@pointerover=${(event: PointerEvent) => {
 				this.#dragOver(value, event);
 			}}
+			@contextmenu=${(event: Event) => {
+				// A held finger is a hold, not a request for the platform's menu.
+				event.preventDefault();
+			}}
 		>
 			${LEVELS.map(
 				(level) => html`<button
@@ -870,6 +980,15 @@ export class EntryTiles extends LitElement {
 										>${describeLevels(levels)}</span
 									>${this.#levelButtons(value, name, levels)}<button
 										type="button"
+										class="any"
+										aria-label=${`${name} at any level`}
+										aria-pressed=${String(levels.length === LEVELS.length)}
+										@click=${() => {
+											this.#pressAny(value);
+										}}
+										>any</button
+									><button
+										type="button"
 										class="remove"
 										aria-label=${`Remove ${name}`}
 										@click=${() => {
@@ -879,6 +998,17 @@ export class EntryTiles extends LitElement {
 									></li
 								>`;
 							})}
+							<li class="add">
+								<button
+									type="button"
+									class="add"
+									@click=${() => {
+										void this.#openPicker();
+									}}
+								>
+									+ Add alternative
+								</button>
+							</li>
 						</ul>`
 				}
 			</div>
