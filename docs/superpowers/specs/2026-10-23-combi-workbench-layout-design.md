@@ -32,13 +32,13 @@ the build at the top, and splits the controls into tabs so the page is short.
 
 - No change to the wire format, the codec, the loadout grammar, `describe.ts`,
   `hints.ts`, `saved.ts`'s storage format or the share-link format.
-- No change to the controls themselves. Every picker keeps its current
-  component and behaviour: `<chip-group>`, `<card-group>`, `<entry-tile>` with
-  its dialog, `<entry-tiles>` with its level strip. The owner asked for "the
-  current design" for the treasure selector specifically. The builder's call is
-  to apply the same rule everywhere, so no inline grids.
-- No change to `<site-nav>` or the home pane. The mockups drew a top bar, but
-  the sidebar rail stays; it already becomes a top bar under 48rem.
+- The treasure slots keep their current control: `<entry-tiles>`, with its
+  picker dialog and level strip, as the owner asked ("use current design").
+  The boost and cookie power+ cards (`<card-group>`) and the mode, goal and
+  action chips (`<chip-group>`) also stay as they are.
+- Every other picker **drops its dialog and becomes an inline grid**, as in the
+  mockup (the owner's answer). That covers the episode, random boost, cookie,
+  relay and pet pickers. See section 6.
 - No new features in Saved codes: Load, the ⋯ menu, Update / Save as new,
   import and export all behave as they do today, in a new place.
 
@@ -82,19 +82,42 @@ The slotted buttons (the owner's answer on the dock):
   checks it on a real phone width.
 - Clicking a run of the code works as today: `slot-jump` with the group name.
   `jumpTo` now also switches tabs (see 6).
+- **Unused parts are not clickable** (the owner's answer). A run is drawn as
+  plain text with its tooltip still on, not as a button, when:
+  - no control owns its group (`version`, `loadoutVersion`, `reserved`); or
+  - its tab is disabled for the episode (slots 5–9 on special1, special2 and
+    specialExp).
+
+  The route marks those hints. `<code-bar>`'s `CharHint` gains an optional
+  `inert: true`, and an inert run is a `<span>` that fires nothing.
 - The page's `<h1>` stays. The intro paragraph under it moves to the top of the
   Help drawer (the owner's answer).
 
-### 2. Toolbar row
+### 2. Top bar (replaces the sidebar)
 
-A small right-aligned row at the top of the content, above everything else:
-**Saved** with a count (for example "Saved 3") and **Help**. Each opens its
-drawer (see 8). In the mockups these sat in a top bar. With the sidebar kept,
-this row is their place on both widths.
+The owner's answer: **remove the sidebar and use the mockup's layout** on every
+page. `<site-nav>` becomes a top bar at every width. It holds:
+
+- the brand ("Cookie Run tools" with the Fairy Cookie icon) linking home;
+- the tool links from the registry, the current one marked;
+- the theme toggle;
+- a default slot at the far end for page actions.
+
+The combi page slots **Saved** with a count (for example "Saved 3") and
+**Help** there. Each opens its drawer (see 8).
+
+`base.css` drops the rail grid. `body` becomes one column: the top bar, then
+the masthead and `main`. The home pane gets the same top bar.
+`src/lib/tools.test.ts` still finds `<site-nav>` on every page. Only its shape
+changes.
+
+Under 48rem the links may scroll sideways, as today, and the slotted actions
+stay visible. The code panel is no longer pinned at the top on a phone, so the
+bar can stay static there.
 
 ### 3. Warnings
 
-`#warnings` moves from `.readout` to a banner right under the toolbar, above the
+`#warnings` moves from `.readout` to a banner at the top of the content, above the
 note. It shows only when there is something to say, and nothing about which
 warnings appear changes.
 
@@ -169,10 +192,36 @@ Four tabs: **Main**, **Cookies**, **Treasures**, **Boosts**.
 
 | Tab | Holds (existing elements, moved, not rebuilt) | Badge |
 | --- | --- | --- |
-| Main | mode chips (with the verdict sentence under them), goal chips, episode tile, floor field, action chips | none |
-| Cookies | cookie tile, `→`, relay tile (or the "takes no relay" note), pet tile | how many of cookie / relay / pet are set (relay counts only where the episode takes one) |
+| Main | mode chips (with the verdict sentence under them), goal chips, **episode grid** (inline, the episode art, no search), floor field, action chips | none |
+| Cookies | three **role cards**: Cookie `→` Relay `·` Pet, each showing its face and name, or None / Any. The relay card is disabled with "No relay here" where the episode takes none. Picking a card chooses which role the grid below writes. Under the cards: a Clear button when that role holds something, then one **inline grid** with a search box over the role's catalog (cookies for Cookie and Relay, pets for Pet). | how many of cookie / relay / pet are set (relay counts only where the episode takes one) |
 | Treasures | the order chips, then the three `<entry-tiles>` slots | `n/3` slots filled |
-| Boosts | boost cards, random boost tile, cookie power+ cards | boosts + (random boost ? 1 : 0) + powers, hidden at 0 |
+| Boosts | boost cards, **random boost chips** (None first, then the eleven), cookie power+ cards | boosts + (random boost ? 1 : 0) + powers, hidden at 0 |
+
+**The inline grid (builder's call on the shape).** A new component,
+`<entry-grid>`: a single-pick grid drawn in place.
+
+- **Same contract as `<entry-tile>`, minus the dialog:**
+  - `options` as `[value, label, image]`;
+  - `value` (string or null);
+  - `required` (drops the None cell);
+  - `searchable` (shows the filter box);
+  - an untargeted `input` on a pick.
+- **Shared look:** it reuses `tileStyles` and `glyphFor` for the cell look,
+  and the roving tabindex with arrow keys, Home and End.
+- **No cap:** it renders every match, with no 50-cell cap, since it's the only
+  grid on screen.
+- **Filtering:** the search box is not a value change and fires no `input`,
+  the same rule `<entry-tile>` follows.
+- **Ids and getters:** the episode keeps its id (`#episode`), and so do cookie,
+  relay and pet (`#cookie`, `#relay`, `#pet`). The Cookies tab holds the three
+  grids and shows only the selected role's. The role cards are light-DOM
+  buttons the route draws from the three values. `readLoadout` and `readForm`
+  keep reading `.value` from the same ids.
+- **The old component:** `<entry-tile>` the element goes away once nothing uses
+  it. `tileStyles`, `glyphFor` and `lockPageScroll` stay exported for
+  `<entry-tiles>`; the builder may move them to their own file.
+- **Random boost:** becomes a `<chip-group>` with `""` for None, read back as
+  null. It stays `resettable`, so clicking the chosen chip goes back to None.
 
 - A tab the episode has no room for is **disabled**, with its reason as a title
   ("Not used in Special Exp Episode"). Treasures is off for specialExp, and
@@ -188,10 +237,9 @@ Four tabs: **Main**, **Cookies**, **Treasures**, **Boosts**.
 - `jumpTo(group)` gains a group → tab map. It selects that tab, then scrolls
   and focuses the owner as today. `summary-jump` goes through the same
   function.
-- If the tab is disabled (slots 5–9 on special1, special2 and specialExp are
-  still clickable runs), nothing moves. Instead `jumpTo` writes the reason to
-  the code bar's message line, for example "Special Episode 2 takes no boosts."
-  (builder's call).
+- Those runs are inert (see 1), so a jump to a disabled tab can't come from the
+  code. The summary never shows a row for one either. If `jumpTo` is reached
+  for a disabled tab anyway, it does nothing.
 - The tab bar sticks under the code panel on desktop and at the top on a
   phone. Desktop needs the code panel's height. The builder may set it as a
   custom property from a `ResizeObserver`. Without it the tab bar simply
@@ -229,7 +277,7 @@ backdrop click. Lock page scroll the way `lockPageScroll` does.
 
 - **Saved codes**: the existing `#saved-empty`, `#saved-list` with its rows and
   ⋯ menus, and the Import and export `<details>`, moved as they are. The
-  toolbar button's count follows `savedEntries.length`.
+  top bar button's count follows `savedEntries.length`.
 - **Load closes the drawer at every width** (builder's call), so the build it
   loaded and the note it filled are what you see. Because the drawer is modal,
   everything behind it is inert. So "Loaded X." and "X no longer reads"
@@ -266,9 +314,14 @@ backdrop click. Lock page scroll the way `lockPageScroll` does.
     summary. It now has a summary, rendered from the same decoded `FullCode`
     in the same `render`, so it cannot drift. Say that instead.
   - Mentions of the board header, its badge and its fold.
-- **`.claude/skills/ui-components/SKILL.md`**: the element table, with the new
-  `<build-summary>` contract and the new `<tab-strip>`, and the
-  `<build-summary>` paragraph.
+- **`.claude/skills/ui-components/SKILL.md`**:
+  - The element table: the new `<build-summary>` contract, `<tab-strip>`,
+    `<entry-grid>`, `CharHint.inert`, `<site-nav>` as a top bar with a slot,
+    and `<entry-tile>` removed.
+  - The paragraphs on `<build-summary>`, on the dialogs ("six open grids…",
+    which no longer applies), on the rail and on `base.css`'s body rows.
+- **`AGENTS.md`**: the `bun run dev` line and the layout section, if they name
+  the sidebar.
 - **`CHANGELOG.md`**: at landing, per `landing-a-change`.
 
 ## Testing
@@ -280,6 +333,19 @@ Test first, per `shipping-a-change`.
   - A disabled tab can't be picked, by click or arrow.
   - Arrow keys, Home and End move the selection.
   - Fires `tab-change` and not `input`.
+- **`<entry-grid>`**:
+  - Renders all options inline, with None unless `required`.
+  - A pick fires `input` and sets `value`.
+  - Filtering fires nothing.
+  - Arrow keys, Home and End rove the cells.
+  - It refuses a value its options lack.
+- **`<code-bar>`**: an `inert` hint run is a `<span>`, not a button, and fires
+  no `slot-jump`.
+- **`<site-nav>`**: renders the brand, the links and the theme toggle, plus
+  slotted content.
+- **Route**: the runs for unused parts are inert on special episodes and for
+  the version characters. The Cookies role cards switch which grid shows, and
+  a pick updates the card and the code.
 - **`<build-summary>`**: renders its rows and items, a row click fires
   `summary-jump` with its target, and the phone toggle flips the folded state.
   Layout itself is a preview check.
@@ -313,5 +379,5 @@ Test first, per `shipping-a-change`.
   offset.
 - Exact spacing and type inside the summary, following the mockup and
   `tokens.css`.
-- Whether the toolbar row is its own element or part of the note's label line.
 - Splitting the work into commits. One PR.
+
