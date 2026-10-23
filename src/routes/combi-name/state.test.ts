@@ -3,8 +3,10 @@ import { expect, test } from "bun:test";
 import {
 	codeInHash,
 	hashFor,
+	noteInHash,
 	rememberCode,
 	STORAGE_KEY,
+	shareHashFor,
 	startingCode,
 	storedCode,
 } from "./state";
@@ -72,4 +74,26 @@ test("a link beats the last visit, which beats nothing at all", () => {
 
 test("the storage key names the page, so another tool cannot collide with it", () => {
 	expect(STORAGE_KEY).toBe("combi-name:code");
+});
+
+test("a shared link carries its note after the code, and the code reads without it", () => {
+	const hash = shareHashFor("10M0000000", "Coin farm\nuse Fairy & co");
+
+	expect(hash.startsWith("#10M0000000?note=")).toBe(true);
+	expect(codeInHash(hash)).toBe("10M0000000");
+	expect(noteInHash(hash)).toBe("Coin farm\nuse Fairy & co");
+});
+
+test("a link with no note, or an empty one, carries none", () => {
+	expect(shareHashFor("10M0000000", "")).toBe("#10M0000000");
+	expect(noteInHash("#10M0000000")).toBeNull();
+	expect(noteInHash("#10M0000000?note=")).toBeNull();
+	expect(noteInHash("")).toBeNull();
+});
+
+test("a note keeps its own case while the code is uppercased", () => {
+	const hash = shareHashFor("10m0000000", "Keep My Case");
+
+	expect(codeInHash(hash)).toBe("10M0000000");
+	expect(noteInHash(hash)).toBe("Keep My Case");
 });

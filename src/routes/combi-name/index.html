@@ -245,10 +245,14 @@
       </form>
 
       <!-- Codes kept on purpose, each with a note. They live in this browser
-           only; the link is still how a code reaches anyone else. -->
+           until someone sends them: Share hands over one as a link carrying
+           its note, and Export the whole list as text Import reads back. -->
       <section class="panel saved" aria-labelledby="saved-heading">
         <h2 id="saved-heading">Saved codes</h2>
         <form id="save-form" class="saveform" novalidate>
+          <!-- Shown only while an entry is open for editing: the one form
+               either adds the build on screen or rewrites that entry. -->
+          <p id="save-editing" class="editing" hidden></p>
           <textarea
             id="save-description"
             rows="3"
@@ -256,13 +260,49 @@
             placeholder="What is this build for? Ctrl+Enter saves."
             aria-label="Description for the current code"
           ></textarea>
-          <button id="save" type="submit">Save code</button>
+          <div class="savebuttons">
+            <button id="save" type="submit">Save code</button>
+            <button id="save-new" type="button" hidden>Save as new</button>
+            <button id="save-cancel" type="button" hidden>Cancel</button>
+          </div>
         </form>
         <p id="save-status" class="status" role="status"></p>
         <p id="saved-empty" class="caveat">
-          Nothing saved yet. Saved codes stay in this browser.
+          Nothing saved yet. Saved codes stay in this browser until you share
+          or export them.
         </p>
         <ul id="saved-list" class="savedlist"></ul>
+
+        <details class="transfer">
+          <summary>Import and export</summary>
+          <p class="caveat">
+            One code per line, with its note on the lines under it, each
+            starting with <code>&gt;</code>. A shared link works as a line too.
+          </p>
+          <div class="transferbuttons">
+            <button id="export-copy" type="button">
+              <span class="swap">
+                <span class="rest">Copy all as text</span>
+                <span class="said">Copied</span>
+              </span>
+            </button>
+            <button id="export-download" type="button">Download .txt</button>
+          </div>
+          <textarea
+            id="import-text"
+            rows="5"
+            placeholder="Paste codes, an exported list, or shared links."
+            aria-label="Codes to import"
+          ></textarea>
+          <div class="transferbuttons">
+            <button id="import" type="button">Import</button>
+            <label class="filebutton">
+              Import a file
+              <input id="import-file" type="file" accept=".txt,text/plain" />
+            </label>
+          </div>
+          <p id="transfer-status" class="status" role="status"></p>
+        </details>
       </section>
 
       <!-- Folded away: the tooltips on the code above answer "which one is the
