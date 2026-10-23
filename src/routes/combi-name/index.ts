@@ -497,7 +497,17 @@ function entryName(entry: SavedCode): string {
 		: descriptionTitle(entry.description);
 }
 
-type SavedAction = "load" | "edit" | "share" | "delete";
+type SavedAction = "load" | "edit" | "copy" | "share" | "delete";
+
+/**
+ * Whether the browser has a share sheet. Asked each time the list is drawn
+ * rather than once, so it is the browser's answer and not a guess cached at
+ * load. Without one, Share could only do what Copy link already does, so the
+ * row does not offer it.
+ */
+function canShare(): boolean {
+	return typeof navigator.share === "function";
+}
 
 function savedButton(
 	label: string,
@@ -509,9 +519,9 @@ function savedButton(
 	button.setAttribute("data-action", action);
 	button.setAttribute("data-code", entry.code);
 	button.setAttribute("aria-label", `${label} ${entryName(entry)}`);
-	if (action === "share") {
-		// Two labels in one cell, like Copy link: a copy that worked says so on
-		// the button without the row reflowing around it.
+	if (action === "copy") {
+		// Two labels in one cell, like the code bar's Copy link: a copy that
+		// worked says so on the button without the row reflowing around it.
 		const swap = document.createElement("span");
 		swap.className = "swap";
 		const rest = document.createElement("span");
@@ -563,9 +573,10 @@ function showSaved(entries: readonly SavedCode[]): void {
 			buttons.append(
 				savedButton("Load", "load", entry),
 				savedButton("Edit", "edit", entry),
-				savedButton("Share", "share", entry),
-				savedButton("Delete", "delete", entry),
+				savedButton("Copy link", "copy", entry),
 			);
+			if (canShare()) buttons.append(savedButton("Share", "share", entry));
+			buttons.append(savedButton("Delete", "delete", entry));
 
 			item.append(text, buttons);
 			return item;
@@ -738,18 +749,20 @@ function shareLink(entry: SavedCode): string {
 }
 
 /**
- * A phone has a share sheet, and the sheet is where someone sending a build
- * to a friend expects to end up; anywhere else the link goes to the clipboard.
+ * The share sheet, where someone sending a build to a friend on a phone
+ * expects to end up. Only offered where the browser has one (`canShare`).
  * Cancelling the sheet is not a failure worth a sentence.
  */
-function shareEntry(entry: SavedCode, button: HTMLButtonElement): void {
+function shareEntry(entry: SavedCode): void {
+	const text = entry.description === "" ? {} : { text: entry.description };
+	void navigator
+		.share({ title: entryName(entry), ...text, url: shareLink(entry) })
+		.catch(() => {});
+}
+
+/** Copy link: the link alone, to the clipboard, wherever the browser is. */
+function copyEntryLink(entry: SavedCode, button: HTMLButtonElement): void {
 	const url = shareLink(entry);
-	if (typeof navigator.share === "function") {
-		void navigator
-			.share({ title: entryName(entry), text: entry.description, url })
-			.catch(() => {});
-		return;
-	}
 	void navigator.clipboard
 		.writeText(url)
 		.then(() => confirmOn(button))
@@ -793,8 +806,13 @@ savedList.addEventListener("click", (event) => {
 		return;
 	}
 
+	if (action === "copy") {
+		copyEntryLink(entry, button);
+		return;
+	}
+
 	if (action === "share") {
-		shareEntry(entry, button);
+		shareEntry(entry);
 		return;
 	}
 

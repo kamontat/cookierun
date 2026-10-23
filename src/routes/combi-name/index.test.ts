@@ -834,7 +834,7 @@ function savedRows(): HTMLLIElement[] {
 
 function savedButtonFor(
 	code: string,
-	action: "load" | "edit" | "share" | "delete",
+	action: "load" | "edit" | "copy" | "share" | "delete",
 ) {
 	const button = need("saved-list").querySelector<HTMLButtonElement>(
 		`button[data-action="${action}"][data-code="${code}"]`,
@@ -967,7 +967,10 @@ test("saving as new while editing keeps the entry being edited", async () => {
 	await reset();
 });
 
-test("sharing an entry copies a link that carries its note", async () => {
+// "Coin farm" as base64url.
+const COIN_FARM_LINK = `${location.href.split("#")[0]}#10M0000000?note=Q29pbiBmYXJt`;
+
+test("copying an entry's link copies a link that carries its note", async () => {
 	let written = "";
 	await withClipboard(
 		(text) => {
@@ -975,20 +978,49 @@ test("sharing an entry copies a link that carries its note", async () => {
 			return Promise.resolve();
 		},
 		async () => {
-			savedButtonFor("10M0000000", "share").click();
+			savedButtonFor("10M0000000", "copy").click();
 			await settle();
 		},
 	);
 
-	expect(written).toBe(
-		// "Coin farm" as base64url.
-		`${location.href.split("#")[0]}#10M0000000?note=Q29pbiBmYXJt`,
-	);
+	expect(written).toBe(COIN_FARM_LINK);
 	expect(
-		savedButtonFor("10M0000000", "share")
+		savedButtonFor("10M0000000", "copy")
 			.querySelector(".swap")
 			?.classList.contains("done"),
 	).toBe(true);
+});
+
+// Without a share sheet, Share could only do what Copy link already does.
+test("an entry offers Share only where the browser has a share sheet", async () => {
+	expect(typeof navigator.share).not.toBe("function");
+	expect(() => savedButtonFor("10M0000000", "share")).toThrow();
+
+	let shared: ShareData | undefined;
+	Object.defineProperty(navigator, "share", {
+		configurable: true,
+		value: (data: ShareData) => {
+			shared = data;
+			return Promise.resolve();
+		},
+	});
+	try {
+		// Re-importing a saved code adds nothing but redraws the list.
+		need<HTMLTextAreaElement>("import-text").value = "10M0000000";
+		need<HTMLButtonElement>("import").click();
+		await settle();
+
+		savedButtonFor("10M0000000", "share").click();
+		await settle();
+
+		expect(shared).toEqual({
+			title: "Coin farm",
+			text: "Coin farm",
+			url: COIN_FARM_LINK,
+		});
+	} finally {
+		Reflect.deleteProperty(navigator, "share");
+	}
 });
 
 test("exporting copies the whole list as text", async () => {
