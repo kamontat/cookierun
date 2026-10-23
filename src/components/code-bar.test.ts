@@ -158,6 +158,44 @@ test("clicking a run asks the page to jump to the control that owns it", async (
 	expect(jumped).toBe("episode");
 });
 
+// A run with nothing to jump to — a version character, a reserved slot, a
+// slot an episode doesn't use — is drawn as plain text rather than a button,
+// so there is nothing to tab to or click.
+test("an inert run is drawn as text and does not jump", async () => {
+	const element = await mount("1HM3");
+	element.hints = [
+		{
+			char: "1",
+			hint: "Slot 1 · Format version",
+			group: "version",
+			inert: true,
+		},
+		{ char: "H", hint: "Slot 2 · Mode · Hard", group: "mode" },
+		{ char: "M", hint: "Slot 3 · Goal · Mission", group: "goal" },
+		{ char: "3", hint: "Slot 4 · Episode · 3", group: "episode" },
+	];
+	await element.updateComplete;
+
+	const inertRuns = [
+		...(element.shadowRoot?.querySelectorAll<HTMLSpanElement>("span.inert") ??
+			[]),
+	];
+	expect(inertRuns).toHaveLength(1);
+	expect(runs(element)).toHaveLength(3);
+	expect(inertRuns[0]?.getAttribute("data-tooltip")).toBe(
+		"Slot 1 · Format version",
+	);
+	expect(inertRuns[0]?.hasAttribute("tabindex")).toBe(false);
+
+	let jumped = "";
+	element.addEventListener("slot-jump", (event) => {
+		jumped = (event as CustomEvent<string>).detail;
+	});
+	inertRuns[0]?.click();
+
+	expect(jumped).toBe("");
+});
+
 // The hover bubble is behind a hover query, so on a phone this line is the only
 // place the run's meaning is said at all.
 test("clicking a run names it under the code", async () => {
