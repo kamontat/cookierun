@@ -497,7 +497,7 @@ function entryName(entry: SavedCode): string {
 		: descriptionTitle(entry.description);
 }
 
-type SavedAction = "load" | "edit" | "copy" | "share" | "delete";
+type SavedAction = "load" | "copy" | "share" | "delete";
 
 /**
  * Whether the browser has a share sheet. Asked each time the list is drawn
@@ -543,10 +543,7 @@ function savedMenu(entry: SavedCode): HTMLDetailsElement {
 
 	const items = document.createElement("div");
 	items.className = "menu";
-	items.append(
-		savedButton("Edit", "edit", entry),
-		savedButton("Copy link", "copy", entry),
-	);
+	items.append(savedButton("Copy link", "copy", entry));
 	if (canShare()) items.append(savedButton("Share", "share", entry));
 	items.append(savedButton("Delete", "delete", entry));
 
@@ -670,11 +667,13 @@ function showEditing(code: string): void {
 
 	const name = document.createElement("strong");
 	name.textContent = entryName(entry);
+	// Loading opens an entry whether or not anyone means to change it, so the
+	// line says what Update would do rather than assuming an edit is under way.
 	const change =
 		code === entry.code
-			? "Change the build or the note, then Update."
-			: `Update moves it from ${entry.code} to ${code}.`;
-	saveEditing.replaceChildren("Editing ", name, `. ${change}`);
+			? "Update saves changes to it; Save as new leaves it as it is."
+			: `Update moves it from ${entry.code} to ${code}; Save as new leaves it as it is.`;
+	saveEditing.replaceChildren("Loaded from ", name, `. ${change}`);
 }
 
 /** Closes the entry open for editing, and clears the box it filled. */
@@ -838,22 +837,18 @@ savedList.addEventListener("click", (event) => {
 	if (menu !== null) menu.open = false;
 
 	if (action === "load") {
-		// Loading is using an entry, not editing it, so an edit in progress
-		// closes rather than pointing Update at a build it never held.
-		if (editing !== null) stopEditing();
-		if (openSaved(code)) setStatus(saveStatus, `Loaded ${entryName(entry)}.`);
-		return;
-	}
-
-	if (action === "edit") {
+		// Loading opens the entry too: there used to be an Edit beside Load, and
+		// the two differed only in whether a later save wrote back. The box now
+		// asks that question itself — Update or Save as new — so one action
+		// serves both. Focus stays on the row: someone who only wanted the
+		// build has not asked to type.
 		editing = code;
 		if (!openSaved(code)) {
 			stopEditing();
 			return;
 		}
 		saveDescription.value = entry.description;
-		setStatus(saveStatus, "");
-		saveDescription.focus();
+		setStatus(saveStatus, `Loaded ${entryName(entry)}.`);
 		return;
 	}
 
@@ -1284,6 +1279,8 @@ resetButton.addEventListener("click", () => {
 	codeBar.editing = false;
 	codeBar.message = "";
 	codeBar.invalid = false;
+	// Starting over, so Update must not stay aimed at the entry last loaded.
+	if (editing !== null) stopEditing();
 	applyCode(DEFAULT_CODE);
 	setStatus(linkStatus, "");
 });

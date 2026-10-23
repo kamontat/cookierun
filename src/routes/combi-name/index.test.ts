@@ -834,7 +834,7 @@ function savedRows(): HTMLLIElement[] {
 
 function savedButtonFor(
 	code: string,
-	action: "load" | "edit" | "copy" | "share" | "delete",
+	action: "load" | "copy" | "share" | "delete",
 ) {
 	const button = need("saved-list").querySelector<HTMLButtonElement>(
 		`button[data-action="${action}"][data-code="${code}"]`,
@@ -869,7 +869,9 @@ test("saving the code lists it with its description, in storage too", async () =
 	expect(savedRows()[0]?.getAttribute("aria-current")).toBe("false");
 });
 
-test("loading a saved code moves the controls to it", async () => {
+// One action, not Load beside Edit: the two differed only in whether saving
+// afterwards wrote back, and that is a choice the save box already offers.
+test("loading a saved code moves the controls to it and opens it for updating", async () => {
 	expect(await codeText()).toBe("10S0000000");
 
 	savedButtonFor("10M0000000", "load").click();
@@ -877,7 +879,20 @@ test("loading a saved code moves the controls to it", async () => {
 	expect(await codeText()).toBe("10M0000000");
 	expect(isOn("goal", "money")).toBe(true);
 	expect(need("save-status").textContent).toBe("Loaded Coin farm.");
+	expect(!need("save-editing").hidden).toBe(true);
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe(
+		"Coin farm\nuse Fairy",
+	);
+	expect(need("save").textContent?.trim()).toBe("Update");
+});
+
+// Reset is starting over, so Update must not be left aimed at the entry.
+test("resetting the board closes the entry it was opened from", async () => {
 	await reset();
+
+	expect(need("save-editing").hidden).toBe(true);
+	expect(need("save").textContent?.trim()).toBe("Save code");
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
 });
 
 test("deleting a saved code takes it off the list and out of storage", async () => {
@@ -898,22 +913,20 @@ function isEditing(): boolean {
 	return !need("save-editing").hidden;
 }
 
-test("editing an entry loads it and fills the box, and Update writes the board and the note into it in place", async () => {
+test("Update writes the board and the note into the loaded entry in place", async () => {
 	await choose("goal", "money");
 	await saveCurrent("Coin farm");
 	await reset();
 	await saveCurrent("Score run");
 	expect(savedCodes()).toEqual(["10S0000000", "10M0000000"]);
 
-	savedButtonFor("10M0000000", "edit").click();
+	savedButtonFor("10M0000000", "load").click();
 	await settle();
 
 	expect(await codeText()).toBe("10M0000000");
 	expect(isEditing()).toBe(true);
 	expect(need("save-editing").textContent).toContain("Coin farm");
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("Coin farm");
-	expect(need("save").textContent?.trim()).toBe("Update");
-	expect(document.activeElement).toBe(need("save-description"));
 	expect(savedRows()[1]?.hasAttribute("data-editing")).toBe(true);
 
 	await choose("goal", "box");
@@ -934,10 +947,10 @@ test("editing an entry loads it and fills the box, and Update writes the board a
 
 test("an update onto a code saved elsewhere is refused and the edit stays open until cancelled", async () => {
 	const [, edited = ""] = savedCodes();
-	savedButtonFor(edited, "edit").click();
+	savedButtonFor(edited, "load").click();
 	await settle();
 
-	await reset();
+	await typeCode("10S0000000");
 	await saveCurrent("Box farm");
 
 	expect(need("save-status").textContent).toContain("already saved");
@@ -954,7 +967,7 @@ test("an update onto a code saved elsewhere is refused and the edit stays open u
 
 test("saving as new while editing keeps the entry being edited", async () => {
 	const [, edited = ""] = savedCodes();
-	savedButtonFor(edited, "edit").click();
+	savedButtonFor(edited, "load").click();
 	await settle();
 	await choose("goal", "money");
 
@@ -1013,7 +1026,7 @@ test("a row shows Load and a menu, and the rest of its actions sit in the menu",
 		[...menu.querySelectorAll<HTMLButtonElement>("button[data-action]")].map(
 			(button) => button.getAttribute("data-action"),
 		),
-	).toEqual(["edit", "copy", "delete"]);
+	).toEqual(["copy", "delete"]);
 	expect(menu.querySelector("summary")?.getAttribute("aria-label")).toBe(
 		"More for Coin farm",
 	);
