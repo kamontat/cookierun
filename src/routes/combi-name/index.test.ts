@@ -146,6 +146,23 @@ async function closeEditor(): Promise<void> {
 	await settle();
 }
 
+// Content blockers hide cookie-consent banners with generic cosmetic rules,
+// and EasyList Cookie, Fanboy's Cookiemonster and Annoyance lists and AdGuard's
+// cookie-notice list all carry ###panel-cookies — so a Cookies tab panel with
+// that id painted as nothing at all under uBlock Origin, AdGuard or Brave. A
+// region of the page must not be named like a consent banner.
+test("no region of the page is named for cookies, which blockers hide", () => {
+	const regions = [
+		...document.querySelectorAll<HTMLElement>(
+			"[role=tabpanel], section, dialog, form, aside, header, main",
+		),
+	];
+	expect(regions.length).toBeGreaterThan(0);
+	for (const region of regions) {
+		expect(region.id).not.toMatch(/cookie/i);
+	}
+});
+
 test("the page opens on a valid code", async () => {
 	expect(await codeText()).toBe("10S0000000");
 });

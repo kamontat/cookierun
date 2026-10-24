@@ -1323,8 +1323,21 @@ function chooseTab(tab: TabName): void {
 	rememberTab(localStorage, tab);
 }
 
+/**
+ * Each tab's panel, by id. Not `panel-${tab}`: content blockers hide
+ * `#panel-cookies` outright — EasyList Cookie and AdGuard's cookie-notice list
+ * both carry it as a generic rule for consent banners — so the Cookies tab's
+ * panel is named for the roles it picks instead.
+ */
+const PANEL_IDS: Record<TabName, string> = {
+	main: "panel-main",
+	cookies: "panel-roles",
+	treasures: "panel-treasures",
+	boosts: "panel-boosts",
+};
+
 const panels = new Map<TabName, HTMLElement>(
-	TAB_NAMES.map((tab) => [tab, need(`panel-${tab}`)]),
+	TAB_NAMES.map((tab) => [tab, need(PANEL_IDS[tab])]),
 );
 
 /**

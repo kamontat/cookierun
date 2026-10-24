@@ -205,9 +205,12 @@
           </div>
         </section>
 
+        <!-- Not "panel-cookies": content blockers hide that id as a consent
+             banner (EasyList Cookie and AdGuard both list it), which left
+             this tab painting as nothing at all. -->
         <section
           role="tabpanel"
-          id="panel-cookies"
+          id="panel-roles"
           data-tab
           aria-label="Cookies"
           hidden
