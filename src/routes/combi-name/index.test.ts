@@ -41,9 +41,18 @@ const summary = need("summary");
 const verdict = need("verdict");
 const resetButton = need<HTMLButtonElement>("reset");
 
+/** The whole code the page holds — loadout, dash and the ten characters. */
 async function codeText(): Promise<string> {
 	await settle();
-	return inside(codeBar).querySelector("code")?.textContent?.trim() ?? "";
+	return (codeBar as HTMLElement & { value: string }).value;
+}
+
+/** What the code bar draws: only the ten characters the game takes. */
+async function shownCode(): Promise<string> {
+	await settle();
+	return (
+		inside(codeBar).querySelector("code")?.textContent?.replace(/\s/g, "") ?? ""
+	);
 }
 
 /**
@@ -607,6 +616,44 @@ test("Copy link in the menu copies the page's address and says so", async () => 
 
 	expect(written).toBe(location.href);
 	expect(notice()).toEqual({ type: "info", text: "Copied the link." });
+	await reset();
+});
+
+// The game takes ten characters; the loadout before the dash is the summary's
+// to show, and still rides in the link, the saves and the editor.
+test("the code bar shows only the ten characters the game takes", async () => {
+	await typeCode("1C0O-10S0000000");
+	await closeEditor();
+
+	expect(await codeText()).toBe("1C0O-10S0000000");
+	expect(await shownCode()).toBe("10S0000000");
+
+	inside(codeBar).querySelector<HTMLButtonElement>(".edit")?.click();
+	await settle();
+	expect(inside(codeBar).querySelector<HTMLInputElement>("input")?.value).toBe(
+		"1C0O-10S0000000",
+	);
+	await closeEditor();
+	await reset();
+});
+
+test("Copy code copies the ten characters the game takes, not the loadout", async () => {
+	await typeCode("1C0O-10M0000000");
+	await closeEditor();
+	let written = "";
+	await withClipboard(
+		(text) => {
+			written = text;
+			return Promise.resolve();
+		},
+		async () => {
+			need<HTMLButtonElement>("copy-code").click();
+			await settle();
+		},
+	);
+
+	expect(written).toBe("10M0000000");
+	expect(notice()).toEqual({ type: "info", text: "Copied 10M0000000." });
 	await reset();
 });
 

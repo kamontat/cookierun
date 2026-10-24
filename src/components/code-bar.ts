@@ -279,6 +279,17 @@ export class CodeBar extends LitElement {
 	@property({ attribute: false })
 	copyable = true;
 
+	/**
+	 * When set, the display draws only what follows the last occurrence of
+	 * this marker — the combi page passes the section separator, so the bar
+	 * shows the ten characters the game takes and leaves the loadout before
+	 * them to the summary. Only the display: `value`, the editor, Copy and the
+	 * hints' alignment all stay on the whole code. A value without the marker
+	 * is drawn whole.
+	 */
+	@property({ attribute: false })
+	showAfter = "";
+
 	@state()
 	private hintList: readonly CharHint[] = [];
 
@@ -435,10 +446,17 @@ export class CodeBar extends LitElement {
 		);
 	}
 
+	/** Where the shown part of the value starts: after the last marker, or 0. */
+	#shownFrom(): number {
+		if (this.showAfter === "") return 0;
+		const at = this.value.lastIndexOf(this.showAfter);
+		return at === -1 ? 0 : at + this.showAfter.length;
+	}
+
 	/** Characters sharing a group are one run, drawn and labelled together. */
 	#runs(): CharHint[][] {
 		const runs: CharHint[][] = [];
-		for (const hint of this.hintList) {
+		for (const hint of this.hintList.slice(this.#shownFrom())) {
 			const last = runs[runs.length - 1];
 			if (last !== undefined && last[0]?.group === hint.group) last.push(hint);
 			else runs.push([hint]);
@@ -557,7 +575,7 @@ export class CodeBar extends LitElement {
 				}}
 				>${
 					runs.length === 0
-						? this.value
+						? this.value.slice(this.#shownFrom())
 						: runs.map((run) => {
 								const hint = run[0]?.hint ?? "";
 								const group = run[0]?.group ?? "";

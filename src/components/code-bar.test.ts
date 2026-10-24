@@ -493,6 +493,58 @@ test("closing the editor by any path fires code-close", async () => {
 
 // A page that offers its own Copy code elsewhere — the combi page's ⋯ menu —
 // hides the bar's, so the row does not say Copy twice. Edit stays.
+const FULL = "1C00-10S0000000";
+
+const FULL_HINTS: CharHint[] = [
+	{ char: "1", hint: "Loadout version", group: "loadoutVersion" },
+	{ char: "C", hint: "Cookie", group: "cookie" },
+	{ char: "0", hint: "Cookie", group: "cookie" },
+	{ char: "0", hint: "Cookie", group: "cookie" },
+	{ char: "-", hint: "Loadout · Combi", group: "separator" },
+	...HINTS,
+];
+
+test("showAfter draws only what follows the marker, hints and all", async () => {
+	const element = await mount(FULL);
+	element.showAfter = "-";
+	element.hints = FULL_HINTS;
+	await settle(element);
+
+	expect(
+		element.shadowRoot?.querySelector("code")?.textContent?.replace(/\s/g, ""),
+	).toBe(CODE);
+	const groups = [
+		...(element.shadowRoot?.querySelectorAll("code .run") ?? []),
+	].map((run) => run.getAttribute("data-group"));
+	expect(groups[0]).toBe("version");
+	expect(groups).not.toContain("cookie");
+	expect(groups).not.toContain("separator");
+});
+
+test("showAfter draws the whole value when the marker is absent", async () => {
+	const element = await mount(CODE);
+	element.showAfter = "-";
+	element.hints = HINTS;
+	await settle(element);
+
+	expect(
+		element.shadowRoot?.querySelector("code")?.textContent?.replace(/\s/g, ""),
+	).toBe(CODE);
+});
+
+// What is shown is a view of the code; what is edited is the code itself, or
+// opening the editor would throw away everything before the marker.
+test("the editor opens on the whole value, not the part shown", async () => {
+	const element = await mount(FULL);
+	element.showAfter = "-";
+	await settle(element);
+
+	element.shadowRoot?.querySelector<HTMLButtonElement>(".edit")?.click();
+	await settle(element);
+
+	expect(field(element)?.value).toBe(FULL);
+});
+
 test("copyable false hides the built-in Copy button and keeps Edit", async () => {
 	const element = await mount();
 	expect(element.copyable).toBe(true);

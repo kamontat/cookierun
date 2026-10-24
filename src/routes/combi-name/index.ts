@@ -34,6 +34,7 @@ import {
 	encodeFull,
 	type FullCode,
 	isSemiAutoBuild,
+	SECTION_SEPARATOR,
 } from "./full-code";
 import { hintsFor } from "./hints";
 import {
@@ -1713,10 +1714,16 @@ window.addEventListener("hashchange", () => {
 // link, so the panel shows exactly Edit, Save and the menu.
 codeBar.copyable = false;
 
+// The bar draws the ten characters the game takes and nothing before them: the
+// loadout is the summary's to show, and it still rides in the link, the saves
+// and the editor, which all keep the whole code.
+codeBar.showAfter = SECTION_SEPARATOR;
+
 // The menu has closed by the time the clipboard answers, so both copies say
 // how it went in the banner. A refusal has an instruction to give.
 copyCodeButton.addEventListener("click", () => {
-	const code = codeBar.value;
+	// What goes into the game: the ten characters, not the loadout before them.
+	const code = combiSectionOf(codeBar.value);
 	void navigator.clipboard
 		.writeText(code)
 		.then(() => {
