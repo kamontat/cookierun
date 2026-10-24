@@ -281,10 +281,11 @@ export class CodeBar extends LitElement {
 	private copied = false;
 
 	/**
-	 * Which run is the single tab stop, by index. A render never writes it back,
-	 * it only clamps a stale index against however many runs currently exist, so
-	 * the invariant — exactly one run in range, tabbable — holds even after the
-	 * code changes underneath it.
+	 * Which run button is the single tab stop, by index among the buttons — an
+	 * inert run draws as plain text and is not counted. A render never writes it
+	 * back, it only clamps a stale index against however many buttons currently
+	 * exist, so the invariant — exactly one button in range, tabbable — holds
+	 * even after the code changes underneath it.
 	 */
 	@state()
 	private activeRun = 0;

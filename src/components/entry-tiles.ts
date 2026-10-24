@@ -787,10 +787,11 @@ export class EntryTiles extends LitElement {
 	async #openPicker(): Promise<void> {
 		this.draft = new Set(this.chosen);
 		this.filter = "";
-		// Forces every pick back into view of the grid, the same reason a filter
-		// is never let narrow a current pick out of sight elsewhere on the page:
-		// a dialog that reopens still narrowed to last visit's kind leaves the
-		// footer's count with no picked cell on screen to match it.
+		// Forces every pick back into view of the grid: a dialog that reopens
+		// still narrowed to last visit's kind leaves the footer's count with no
+		// picked cell on screen to match it. (The search can still narrow a pick
+		// out of sight once someone types, as `<entry-grid>`'s does; that is a
+		// choice they made, not one left over from last time.)
 		this.kind = ANY_KIND;
 		await this.updateComplete;
 		this.#dialog()?.showModal();

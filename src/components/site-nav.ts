@@ -11,7 +11,7 @@ import "./theme-toggle";
  * The top bar every page carries, in place of the sidebar: the brand, a menu
  * naming the current tool (or "All tools" on the home pane), a default slot
  * for whatever a page wants beside them — the combi page's Saved and Help
- * buttons, in a later task — and the theme control. Navigation comes from the
+ * buttons — and the theme control. Navigation comes from the
  * registry, so nothing in any page's markup names another tool.
  *
  * The brand's icon is a named `icon` slot rather than an attribute or
@@ -20,7 +20,7 @@ import "./theme-toggle";
  * element's attribute to do the same, so a bare `icon` attribute would ship
  * the file untouched instead of the data URI every other icon on the page
  * gets. A page hands the icon over as light-DOM markup instead, the same way
- * the combi page will later hand over its own slotted buttons.
+ * the combi page hands over its Saved and Help buttons.
  */
 export class SiteNav extends LitElement {
 	static override styles = [
