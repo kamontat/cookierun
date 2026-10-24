@@ -152,11 +152,11 @@ export class CodeBar extends LitElement {
 
 			/* Shorter than the hit area the shared chunk gives every other
 			   button, and deliberately so: a full code wraps onto two lines, and
-			   two rows of 44px inside a panel already pinned to the top of a
-			   phone screen costs more than the taller target buys. The run is
-			   text first, and the controls below it are the way this page is
-			   meant to be driven. An inert run is never a tap target, so it
-			   keeps its ordinary size. */
+			   two rows of 44px inside a panel already pinned to an edge of the
+			   screen — the top on a wide one, the bottom on a phone — costs more
+			   than the taller target buys. The run is text first, and the
+			   controls below it are the way this page is meant to be driven. An
+			   inert run is never a tap target, so it keeps its ordinary size. */
 			@media (pointer: coarse) {
 				code button.run {
 					min-height: 2.25rem;
