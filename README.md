@@ -176,7 +176,7 @@ isSemiAuto(combi); // true
 
 ## Web app
 
-Every page carries a top bar in place of a sidebar: the brand, a tool menu naming the current page (or "All tools" on the home pane) that opens a list of everything in the registry, and the theme control. The site root is a short home pane; the combi builder itself lives at `/combi-name/`.
+Every page carries a top bar in place of a sidebar: the brand ("Cookie Run"), a tool menu naming the current page (or "All tools" on the home pane) that opens a list of everything in the registry, and the theme control. The site root is a short home pane; the combi builder itself lives at `/combi-name/`.
 
 The code is the whole interface. It leads the page, updating as you pick a configuration below it, and it is also where a code goes in: press **Edit** and type or paste one, and every control below follows it as you type. Pasting a code anywhere on the page loads it without opening the editor at all. A half-typed code says how far along it is rather than complaining, and a code that contradicts itself loads with a warning rather than being refused.
 

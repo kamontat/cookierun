@@ -61,6 +61,11 @@ test("renders the brand, the tool menu and the theme toggle in one bar", async (
 	// bundler rewrites an <img src> written in a page's own markup, but not one
 	// handed to a custom element as an attribute.
 	expect(root.querySelector("a.brand slot[name='icon']")).not.toBeNull();
+	// The site's name, not a description of it: the menu beside it already
+	// says which tools there are.
+	expect(root.querySelector("a.brand .brand-text")?.textContent).toBe(
+		"Cookie Run",
+	);
 	expect(root.querySelector("details.switcher")).not.toBeNull();
 	expect(root.querySelector("theme-toggle")).not.toBeNull();
 });

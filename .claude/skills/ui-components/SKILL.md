@@ -27,7 +27,7 @@ Attributes carry markup-authored configuration; properties carry structured data
 
 | Element | Attributes | Properties |
 | --- | --- | --- |
-| `<site-nav>` | `current` — tool slug, absent or empty means the home pane | an `icon` named slot for the brand's image, and a default slot for a page's own actions at the far end of the bar |
+| `<site-nav>` | `current` — tool slug, absent or empty means the home pane | an `icon` named slot for the brand's image (the brand reads "Cookie Run", the site's name; the home pane's own heading still says "Cookie Run tools"), and a default slot for a page's own actions at the far end of the bar |
 | `<site-footer>` | — | — |
 | `<theme-toggle>` | — | — |
 | `<tool-index>` | — | — |

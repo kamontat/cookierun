@@ -274,7 +274,7 @@ export class SiteNav extends LitElement {
 		return html`
 			<a class="brand" href=${home}>
 				<slot name="icon"></slot>
-				<span class="brand-text">Cookie Run tools</span>
+				<span class="brand-text">Cookie Run</span>
 			</a>
 			<details class="switcher" @keydown=${this.#onKeydown}>
 				<summary>${currentTool?.name ?? "All tools"} ▾</summary>
