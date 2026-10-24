@@ -420,6 +420,18 @@ test("an unreadable code says what is wrong with it", async () => {
 	await reset();
 });
 
+// Once the editor shuts, the bar shows the built code again, so an error
+// about the draft that never applied is about nothing on screen.
+test("closing the editor on an unreadable code takes its error down", async () => {
+	await typeCode("10Q0000000");
+	expect(notice().type).toBe("error");
+
+	await closeEditor();
+
+	expect(notice().type).toBe(null);
+	await reset();
+});
+
 test("an unreadable code leaves the controls where they were", async () => {
 	await choose("goal", "money");
 	await typeCode("10Q0000000");
@@ -1216,8 +1228,11 @@ test("Saved opens a drawer that lists the saved codes, and its count follows the
 // page keeps one banner and carries it into whichever drawer is open.
 test("the one banner moves into an open drawer, under its header, and back", async () => {
 	const bar = need<NoticeBar>("notice");
+	// Home is inside the sticky code panel, right after the code bar, so a
+	// message is in view wherever the page is scrolled to.
 	const home = () =>
-		bar.previousElementSibling?.classList.contains("codepanel");
+		bar.parentElement?.classList.contains("codepanel") === true &&
+		bar.previousElementSibling === codeBar;
 	expect(home()).toBe(true);
 
 	bar.show("warn", "Still here.");
@@ -1241,6 +1256,52 @@ test("the one banner moves into an open drawer, under its header, and back", asy
 	await settle();
 	expect(home()).toBe(true);
 	bar.clear();
+});
+
+/** Focuses the banner's ✕ and presses it, the way a keyboard user would. */
+async function dismissFromKeyboard(): Promise<void> {
+	await settle();
+	const button = inside(need("notice")).querySelector<HTMLButtonElement>(
+		"button.dismiss",
+	);
+	if (button === null) throw new Error("the banner has no ✕");
+	button.focus();
+	button.click();
+	await settle();
+}
+
+// The ✕ leaves with the message, so focus on it would fall to <body>.
+test("dismissing from the keyboard hands focus to Save, or to the drawer's Close", async () => {
+	const bar = need<NoticeBar>("notice");
+	bar.show("error", "Refused.");
+	await dismissFromKeyboard();
+	expect(bar.type).toBe(null);
+	expect(document.activeElement).toBe(need("save"));
+
+	await openSavedDrawer();
+	bar.show("error", "Refused.");
+	await dismissFromKeyboard();
+	expect(document.activeElement).toBe(closeButton(savedDrawer()));
+	closeButton(savedDrawer()).click();
+	await settle();
+});
+
+// "Skipped line 2." is about an import, not the build a Load is about to put
+// on screen: it must neither swallow "Loaded X." nor linger beside it.
+test("a stale warning from elsewhere does not swallow Loaded", async () => {
+	need<HTMLTextAreaElement>("import-text").value = "10M0000000\nnope";
+	need<HTMLButtonElement>("import").click();
+	await settle();
+	expect(notice().type).toBe("warn");
+
+	await openSavedDrawer();
+	savedButtonFor("10M0000000", "load").click();
+	await settle();
+
+	expect(notice()).toEqual({ type: "info", text: "Loaded Coin farm." });
+	// Announced from the page, not from inside the dialog that just closed.
+	expect(savedDrawer().contains(need("notice"))).toBe(false);
+	await reset();
 });
 
 // One action, not Load beside Edit: the two differed only in whether saving
@@ -1676,6 +1737,26 @@ test("a link that carries a note offers it in the save box", async () => {
 	expect(notice().text).toContain("came with a note");
 	// The page's own hash goes back to being the build alone.
 	expect(location.hash).toBe("#10B5000000");
+
+	need<HTMLTextAreaElement>("save-description").value = "";
+	await reset();
+});
+
+// A link can carry a code that reads with changes and a note. Both have to
+// be seen: the note offer joins the warning rather than replacing it.
+test("a link with a contradicting code and a note keeps its warning and mentions the note", async () => {
+	// "From a friend" as base64url.
+	location.hash = "#1AM0F00000?note=RnJvbSBhIGZyaWVuZA";
+	window.dispatchEvent(new Event("hashchange"));
+	await settle();
+
+	expect(notice().type).toBe("warn");
+	expect(notice().text).toContain("Read with changes");
+	expect(notice().text).toContain("Semi-auto");
+	expect(notice().text).toContain("came with a note");
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe(
+		"From a friend",
+	);
 
 	need<HTMLTextAreaElement>("save-description").value = "";
 	await reset();

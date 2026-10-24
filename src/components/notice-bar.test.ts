@@ -147,6 +147,30 @@ test("the dismiss button clears whatever is showing", async () => {
 	expect(dismiss(element)).toBe(null);
 });
 
+// The ✕ goes with the message, so focus on it would fall to <body>. The page
+// hears which case it is and puts focus somewhere that still exists.
+test("dismissing fires notice-dismiss, saying whether the ✕ had focus", async () => {
+	const element = await mount();
+	const seen: boolean[] = [];
+	element.addEventListener("notice-dismiss", (event) => {
+		seen.push((event as CustomEvent<{ focused: boolean }>).detail.focused);
+	});
+
+	element.show("error", "Refused.");
+	await element.updateComplete;
+	dismiss(element)?.click();
+	await element.updateComplete;
+
+	element.show("error", "Refused again.");
+	await element.updateComplete;
+	const button = dismiss(element);
+	button?.focus();
+	button?.click();
+	await element.updateComplete;
+
+	expect(seen).toEqual([false, true]);
+});
+
 test("clear empties it", async () => {
 	const element = await mount();
 	element.show("warn", "Careful.");

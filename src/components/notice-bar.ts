@@ -212,6 +212,23 @@ export class NoticeBar extends LitElement {
 		this.#timer = undefined;
 	}
 
+	/**
+	 * Empties the banner from its ✕ and says so. The ✕ goes with the message,
+	 * so if it held focus, focus would fall to <body> (or the dialog); this
+	 * element cannot know where focus belongs on the page, so it reports
+	 * whether the ✕ had it and the page decides.
+	 */
+	#dismiss(button: HTMLButtonElement): void {
+		const focused = this.shadowRoot?.activeElement === button;
+		this.clear();
+		this.dispatchEvent(
+			new CustomEvent<{ focused: boolean }>("notice-dismiss", {
+				detail: { focused },
+				bubbles: true,
+			}),
+		);
+	}
+
 	#body() {
 		if (this.lines.length === 1 && this.heading === "") {
 			return html`<p>${this.lines[0]}</p>`;
@@ -235,8 +252,8 @@ export class NoticeBar extends LitElement {
 							type="button"
 							class="dismiss"
 							aria-label="Dismiss"
-							@click=${() => {
-								this.clear();
+							@click=${(event: Event) => {
+								this.#dismiss(event.currentTarget as HTMLButtonElement);
 							}}
 						>
 							<span aria-hidden="true">✕</span>

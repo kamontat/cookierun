@@ -98,13 +98,16 @@
             </div>
           </details>
         </code-bar>
-      </section>
 
-      <!-- Every message the page has, in one place: a code read with changes,
-           a copy that worked, a store the browser refused. While a drawer is
-           open the route moves this same element into the drawer's sheet,
-           since the modal makes everything behind it inert. -->
-      <notice-bar id="notice"></notice-bar>
+        <!-- Every message the page has, in one place: a code read with
+             changes, a copy that worked, a store the browser refused. Inside
+             the sticky panel, so a message is in view however far down the
+             page you are, and on a phone it docks with the buttons that
+             caused it. While a drawer is open the route moves this same
+             element into the drawer's sheet, since the modal makes
+             everything behind it inert. -->
+        <notice-bar id="notice"></notice-bar>
+      </section>
 
       <!-- The note for the code on screen. Save and Update in the code panel
            submit it; Ctrl+Enter does too, and Escape closes an open entry. -->

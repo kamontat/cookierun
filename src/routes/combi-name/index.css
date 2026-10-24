@@ -57,6 +57,14 @@ site-nav > button {
 	padding: var(--cr-space-3);
 }
 
+/* The banner rides in the panel, under the code and its buttons, so a message
+   is in view however far down the page the controls are. Empty, it is out of
+   flow and takes no room; the ResizeObserver in index.ts picks up the panel
+   growing when one shows, so the tab strip and the scroll padding follow. */
+.codepanel notice-bar[type] {
+	margin-top: var(--cr-space-2);
+}
+
 /* The panel holds the code and its actions and nothing else, so its heading
    is for screen readers only: off the screen, not out of the tree, so the
    section keeps its name. */
@@ -110,6 +118,22 @@ tab-strip {
 		border-radius: 0;
 		padding: var(--cr-space-2) var(--cr-space-3)
 			calc(var(--cr-space-2) + env(safe-area-inset-bottom, 0px));
+	}
+
+	/* Docked at the bottom, the banner sits at the top of the dock, above the
+	   code, next to the buttons that caused it. Only its visual place moves;
+	   in the DOM it still follows the code bar. */
+	.codepanel {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.codepanel notice-bar {
+		order: -1;
+	}
+
+	.codepanel notice-bar[type] {
+		margin: 0 0 var(--cr-space-2);
 	}
 
 	/* The page's long name fits one line of a phone. */

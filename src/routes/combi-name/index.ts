@@ -953,20 +953,23 @@ saveDescription.addEventListener("keydown", (event) => {
 	}
 });
 
-/** Applies a saved code, or says it no longer reads. */
-function openSaved(code: string): boolean {
+/**
+ * Applies a saved code and hands back what it was read with, or says it no
+ * longer reads and hands back null.
+ */
+function openSaved(code: string): readonly string[] | null {
 	try {
 		const { warnings } = decodeFull(code);
 		codeBar.editing = false;
 		applyCode(code, warnings);
-		return true;
+		return warnings;
 	} catch (error) {
 		// The drawer stays open on a failed Load, and the banner is in it.
 		say(
 			"error",
 			`${code} no longer reads: ${error instanceof Error ? error.message : String(error)}`,
 		);
-		return false;
+		return null;
 	}
 }
 
@@ -1025,16 +1028,22 @@ savedList.addEventListener("click", (event) => {
 		// drawer, not to the note: someone who only wanted the build has not
 		// asked to type.
 		editing = code;
-		if (!openSaved(code)) {
+		const warnings = openSaved(code);
+		if (warnings === null) {
 			stopEditing();
 			return;
 		}
 		// Closed first, so the build it loaded and the note it filled are what
-		// is on screen. A code read with changes keeps its warning up: it says
-		// more than "loaded" does.
+		// is on screen. The banner comes home at once rather than on the close
+		// event, so what follows is announced from the page and not from the
+		// dialog on its way out.
 		savedDrawer.close();
+		bringNoticeHome();
 		saveDescription.value = entry.description;
-		if (notice.type !== "warn") say("info", `Loaded ${entryName(entry)}.`);
+		// A code read with changes keeps its warning up (render put it there):
+		// it says more than "loaded" does. Otherwise "Loaded" replaces whatever
+		// was showing, a stale warning about something else included.
+		if (warnings.length === 0) say("info", `Loaded ${entryName(entry)}.`);
 		return;
 	}
 
@@ -1076,8 +1085,9 @@ savedList.addEventListener("click", (event) => {
 let unlockPage: (() => void) | null = null;
 
 /**
- * Where the banner lives while no drawer is open: right under the code panel.
- * Looked up rather than assumed, so the markup decides.
+ * Where the banner lives while no drawer is open: inside the sticky code
+ * panel, right after the code bar. Looked up rather than assumed, so the
+ * markup decides.
  */
 const noticeHome = notice.previousElementSibling;
 
@@ -1090,11 +1100,13 @@ const noticeHome = notice.previousElementSibling;
 function openDrawer(dialog: HTMLDialogElement): void {
 	if (dialog.open) return;
 	dialog.showModal();
+	// Moving an element disconnects and reconnects it; <notice-bar> restarts an
+	// info message's timer on reconnect, so a message carried in still goes.
 	dialog.querySelector(".sheet > header")?.after(notice);
 	unlockPage ??= lockPageScroll();
 }
 
-/** Puts the banner back under the code panel. */
+/** Puts the banner back in the code panel. */
 function bringNoticeHome(): void {
 	if (noticeHome !== null && notice.previousElementSibling !== noticeHome) {
 		noticeHome.after(notice);
@@ -1159,15 +1171,29 @@ if (codePanel !== null && typeof ResizeObserver !== "undefined") {
  * goes into the box, and keeping it is one click on Save — a link that
  * filled someone's list on its own would be a link nobody dared follow.
  */
-function offerNote(code: string, note: string | null): void {
+function offerNote(
+	code: string,
+	note: string | null,
+	warnings: readonly string[] = [],
+): void {
 	if (note === null || editing !== null) return;
 	const saved = savedEntries.find((entry) => entry.code === code);
+	let sentence: string;
 	if (saved !== undefined) {
-		say("info", `This link's code is already saved as ${entryName(saved)}.`);
-		return;
+		sentence = `This link's code is already saved as ${entryName(saved)}.`;
+	} else {
+		saveDescription.value = note;
+		sentence = "This link came with a note. Save keeps it.";
 	}
-	saveDescription.value = note;
-	say("info", "This link came with a note. Save keeps it.");
+	// A code read with changes has a warning up already: the offer joins it as
+	// one more line rather than replacing it, so both are seen.
+	if (warnings.length > 0) {
+		sayAboutCode("warn", [...warnings, sentence], {
+			title: "Read with changes",
+		});
+	} else {
+		say("info", sentence);
+	}
 }
 
 function plural(count: number, word: string): string {
@@ -1601,7 +1627,24 @@ codeBar.addEventListener("code-cancel", () => {
 // Typing progress was held up while the editor was open; however it closed,
 // the line can now go on its own.
 codeBar.addEventListener("code-close", () => {
+	// The bar shows the built code again, so an error about a draft that never
+	// applied is about nothing on screen.
+	if (aboutCode && notice.type === "error") {
+		notice.clear();
+		aboutCode = false;
+		return;
+	}
 	notice.release();
+});
+
+// The ✕ leaves with the message, so focus on it would fall to <body>: it goes
+// to the drawer's Close when the banner is in a drawer, else to Save beside it.
+notice.addEventListener("notice-dismiss", (event) => {
+	if (!(event as CustomEvent<{ focused: boolean }>).detail.focused) return;
+	const drawer = notice.closest("dialog");
+	const target =
+		drawer?.querySelector<HTMLButtonElement>("[data-close]") ?? saveButton;
+	target.focus();
 });
 
 codeBar.addEventListener("slot-jump", (event) => {
@@ -1647,6 +1690,7 @@ window.addEventListener("hashchange", () => {
 	const code = codeInHash(location.hash);
 	if (code === null) return;
 	const note = noteInHash(location.hash);
+	let warnings: readonly string[] = [];
 
 	if (code === codeBar.value) {
 		// The build already stands; only a note is news, and the address goes
@@ -1655,14 +1699,14 @@ window.addEventListener("hashchange", () => {
 		publish(code);
 	} else {
 		try {
-			const { warnings } = decodeFull(code);
+			({ warnings } = decodeFull(code));
 			applyCode(code, warnings);
 		} catch {
 			// Someone else's fragment, or a typo. The build stands.
 			return;
 		}
 	}
-	offerNote(codeBar.value, note);
+	offerNote(codeBar.value, note, warnings);
 });
 
 // The panel's own Copy is turned off: Copy code lives in the ⋯ menu with Copy
