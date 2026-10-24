@@ -232,7 +232,7 @@ The exhaustive test asserts that encoding produces exactly 3,319,305 distinct co
 | `src/routes/combi-name/hints.ts` | What each character of a code means, one entry per character, for the tooltips on the built code. |
 | `src/routes/combi-name/state.ts` | The code in the address bar and in `localStorage`: what a link carries and what a return visit restores. |
 | `src/routes/combi-name/saved.ts` | The saved list: save, update and remove entries, and the plain-text form export writes and import reads. |
-| `src/components/` | Every custom element the pages declare, the sidebar and the light/dark control among them. |
+| `src/components/` | Every custom element the pages declare, the top bar and the light/dark control among them. |
 | `src/lib/` | What more than one route needs: the tool registry, and the link writer that keeps every href relative. |
 | `scripts/` | The two asset programs and their helpers: `fetch-assets.ts` scrapes, `verify-assets.ts` checks the result offline. Every other package script is the command itself, in `package.json`. |
 | `tests/` | Test configuration only; every test sits beside the code it covers. |

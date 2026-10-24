@@ -38,7 +38,7 @@ export function lockPageScroll(): () => void {
 }
 
 /**
- * The look the board's catalog grids share, whether the grid sits behind a
+ * The look the page's catalog grids share, whether the grid sits behind a
  * dialog (`<entry-tiles>`, one treasure slot's alternatives) or inline on the
  * tab itself (`<entry-grid>`, episode/cookie/relay/pet): the tile button, the
  * art frame and its fallback glyph, and the dialog's own sheet and entries
@@ -75,44 +75,6 @@ export const tileStyles = css`
 
 	button.tile:active {
 		transform: none;
-	}
-
-	/* The only pick in its section. Stacked, it was a card with nothing beside
-	   it; stretched across the board it was a banner. Laid on its side it is a
-	   row of the sheet — the face leads, the name follows, and the count sits
-	   at the far end saying what opens. The heading above it already names the
-	   field, so the role label comes off the screen rather than out of the
-	   tree: an unnamed button is a worse answer than a name said twice. */
-	button.tile.inline {
-		flex-direction: row;
-		gap: var(--cr-space-3);
-		align-items: center;
-		text-align: left;
-	}
-
-	button.tile.inline .label {
-		position: absolute;
-		clip-path: inset(50%);
-	}
-
-	button.tile.inline .pick {
-		flex: 1 1 auto;
-		flex-direction: row;
-		align-items: center;
-	}
-
-	button.tile.inline .art,
-	button.tile.inline .art img {
-		width: 2.5rem;
-		height: 2.5rem;
-	}
-
-	button.tile.inline .count {
-		flex: 0 0 auto;
-		color: var(--cr-muted);
-		font-family: var(--cr-mono);
-		font-size: 0.7rem;
-		letter-spacing: var(--cr-tracking);
 	}
 
 	/* A slot nobody has filled still has to invite a click, not just read
