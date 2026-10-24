@@ -456,3 +456,52 @@ test("the editor renders no slot, so the page's buttons go with it", async () =>
 
 	expect(element.shadowRoot?.querySelector("slot")).toBe(null);
 });
+
+// Whatever the page said about a code being typed stops being true the moment
+// the editor closes, however it closes.
+test("closing the editor by any path fires code-close", async () => {
+	const element = await mount();
+	let closed = 0;
+	element.addEventListener("code-close", () => {
+		closed += 1;
+	});
+	const input = () => element.shadowRoot?.querySelector("input");
+
+	element.editing = true;
+	await element.updateComplete;
+	input()?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+	await element.updateComplete;
+	expect(closed).toBe(1);
+
+	element.editing = true;
+	await element.updateComplete;
+	input()?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+	await element.updateComplete;
+	expect(closed).toBe(2);
+
+	element.editing = true;
+	await element.updateComplete;
+	element.shadowRoot?.querySelector<HTMLButtonElement>("button.done")?.click();
+	await element.updateComplete;
+	expect(closed).toBe(3);
+
+	// Opening it again is not a close, and neither is a render while shut.
+	element.editing = true;
+	await element.updateComplete;
+	expect(closed).toBe(3);
+});
+
+// A page that offers its own Copy code elsewhere — the combi page's ⋯ menu —
+// hides the bar's, so the row does not say Copy twice. Edit stays.
+test("copyable false hides the built-in Copy button and keeps Edit", async () => {
+	const element = await mount();
+	expect(element.copyable).toBe(true);
+	expect(element.shadowRoot?.querySelector("button.copy")).not.toBe(null);
+
+	element.copyable = false;
+	await element.updateComplete;
+
+	expect(element.shadowRoot?.querySelector("button.copy")).toBe(null);
+	expect(element.shadowRoot?.querySelector("button.edit")).not.toBe(null);
+	expect(element.shadowRoot?.querySelector(".buttons slot")).not.toBe(null);
+});

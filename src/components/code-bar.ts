@@ -1,4 +1,4 @@
-import { css, html, LitElement, type PropertyValues } from "lit";
+import { css, html, LitElement, nothing, type PropertyValues } from "lit";
 import { property, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 
@@ -260,6 +260,15 @@ export class CodeBar extends LitElement {
 	@property({ type: Boolean })
 	editing = false;
 
+	/**
+	 * Whether to draw the built-in Copy button. A page that offers its own copy
+	 * of the code elsewhere — the combi page's ⋯ menu — turns it off, so the
+	 * row does not say Copy twice. A property rather than an attribute for the
+	 * reason `resettable` is one on `<chip-group>`: the route decides it.
+	 */
+	@property({ attribute: false })
+	copyable = true;
+
 	@state()
 	private hintList: readonly CharHint[] = [];
 
@@ -350,7 +359,17 @@ export class CodeBar extends LitElement {
 	}
 
 	protected override updated(changed: PropertyValues<this>): void {
-		if (!changed.has("editing") || !this.editing) return;
+		if (!changed.has("editing")) return;
+		if (!this.editing) {
+			// Every way out — Enter, Done, Escape, a blur, the page closing it —
+			// passes through here, so the page hears one event for all of them.
+			// Escape also fires code-cancel, which says the draft is abandoned;
+			// this one says only that the editor is shut.
+			if (changed.get("editing") === true) {
+				this.dispatchEvent(new Event("code-close", { bubbles: true }));
+			}
+			return;
+		}
 		const input = this.shadowRoot?.querySelector("input");
 		input?.focus();
 		input?.select();
@@ -573,18 +592,22 @@ export class CodeBar extends LitElement {
 				>
 					Edit
 				</button>
-				<button
-					type="button"
-					class="copy"
-					@click=${() => {
-						void this.#copy();
-					}}
-				>
-					<span class=${classMap({ swap: true, done: this.copied })}>
-						<span class="rest">Copy</span>
-						<span class="said">Copied</span>
-					</span>
-				</button>
+				${
+					this.copyable
+						? html`<button
+								type="button"
+								class="copy"
+								@click=${() => {
+									void this.#copy();
+								}}
+							>
+								<span class=${classMap({ swap: true, done: this.copied })}>
+									<span class="rest">Copy</span>
+									<span class="said">Copied</span>
+								</span>
+							</button>`
+						: nothing
+				}
 				<!-- Whatever else the page does to the code it is showing. The
 					 slot sits here, and only here: the editor below renders none,
 					 so a page button vanishes while a code is being typed rather
