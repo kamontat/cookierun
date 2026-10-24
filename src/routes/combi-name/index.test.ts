@@ -1459,6 +1459,24 @@ test("a row's menu closes on a pick, on Escape, on a click elsewhere, and when a
 	await reset();
 });
 
+// Safari can leave focus outside an open row menu, so Escape reaches the
+// dialog rather than the menu: the drawer closes and the menu must go with it,
+// or the next opening shows it still hanging open.
+test("closing the drawer closes a row menu left open inside it", async () => {
+	await openSavedDrawer();
+	const menu = rowFor("10M0000000").querySelector<HTMLDetailsElement>(
+		"details.more",
+	) as HTMLDetailsElement;
+	menu.open = true;
+	menu.dispatchEvent(new Event("toggle"));
+
+	savedDrawer().close();
+	await settle();
+
+	expect(savedDrawer().open).toBe(false);
+	expect(menu.open).toBe(false);
+});
+
 // Without a share sheet, Share could only do what Copy link already does.
 test("an entry offers Share only where the browser has a share sheet", async () => {
 	expect(typeof navigator.share).not.toBe("function");

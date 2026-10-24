@@ -1079,8 +1079,11 @@ for (const drawer of [savedDrawer, helpDrawer]) {
 			drawer.close();
 		}
 	});
-	// Escape, Close and the backdrop all pass through here.
+	// Escape, Close and the backdrop all pass through here. A row menu left
+	// open goes too: Safari can keep focus outside the menu, so the Escape
+	// that closed the drawer never reached the menu's own handler.
 	drawer.addEventListener("close", () => {
+		closeMenus();
 		unlockPage?.();
 		unlockPage = null;
 	});
