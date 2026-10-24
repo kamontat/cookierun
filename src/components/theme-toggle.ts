@@ -60,18 +60,35 @@ export class ThemeToggle extends LitElement {
 		base,
 		controls,
 		css`
+			/* The label beside the select rather than over it, so the control is
+			   one line in the top bar instead of setting the bar's height. */
 			:host {
-				display: block;
+				display: flex;
+				align-items: center;
+				gap: var(--cr-space-2);
+			}
+
+			label {
+				margin: 0;
+			}
+
+			.field {
+				position: relative;
+				display: inline-grid;
 			}
 
 			select {
-				margin-top: var(--cr-space-1);
+				width: auto;
 				font-size: 0.85rem;
+			}
+
+			.icon {
+				display: none;
 			}
 
 			/* iOS Safari zooms the page in on any field it focuses whose text is
 			   under 16px, and never zooms back out. A full-size select is the
-			   whole fix; the 0.85rem above is a rail-sized detail that is not
+			   whole fix; the 0.85rem above is a bar-sized detail that is not
 			   worth a viewport for. */
 			@media (pointer: coarse) {
 				select {
@@ -79,16 +96,12 @@ export class ThemeToggle extends LitElement {
 				}
 			}
 
-			/* In the rail this control is a labelled field in a column; across
-			   the top of a phone it is the last thing in a single row, where a
-			   stacked label would set the height of the whole bar. The label
-			   stays in the accessibility tree - it is the select's name - it
+			/* Under 48rem the bar has no room for a word and a select, so the
+			   control is an icon button. The select still takes the tap - it lies
+			   over the icon, invisible, so the platform's own picker opens - and
+			   the label stays in the accessibility tree as the select's name; it
 			   just stops taking up space. */
 			@media (width < 48rem) {
-				:host {
-					position: relative;
-				}
-
 				label {
 					position: absolute;
 					width: 1px;
@@ -99,9 +112,39 @@ export class ThemeToggle extends LitElement {
 					white-space: nowrap;
 				}
 
+				.icon {
+					display: grid;
+					place-items: center;
+					min-width: 2rem;
+					min-height: 2rem;
+					border: var(--cr-border) solid var(--cr-line);
+					border-radius: var(--cr-radius);
+					background: var(--cr-surface-2);
+					box-shadow: var(--cr-block);
+					font-size: 1rem;
+					line-height: 1;
+				}
+
 				select {
-					width: auto;
-					margin-top: 0;
+					position: absolute;
+					inset: 0;
+					width: 100%;
+					height: 100%;
+					min-height: 0;
+					opacity: 0;
+					cursor: pointer;
+				}
+
+				.field:has(select:focus-visible) .icon {
+					outline: var(--cr-border) solid var(--cr-accent);
+					outline-offset: 2px;
+				}
+			}
+
+			@media (width < 48rem) and (pointer: coarse) {
+				.icon {
+					min-width: var(--cr-tap);
+					min-height: var(--cr-tap);
 				}
 			}
 		`,
@@ -152,7 +195,9 @@ export class ThemeToggle extends LitElement {
 		// existed.
 		return html`
 			<label for="theme-choice">Theme</label>
-			<select
+			<span class="field">
+				<span class="icon" aria-hidden="true">◐</span>
+				<select
 				id="theme-choice"
 				@input=${(event: Event) => {
 					this.#choose(event);
@@ -164,7 +209,8 @@ export class ThemeToggle extends LitElement {
 							${LABELS[theme]}
 						</option>`,
 				)}
-			</select>
+				</select>
+			</span>
 		`;
 	}
 }

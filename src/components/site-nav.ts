@@ -27,13 +27,39 @@ export class SiteNav extends LitElement {
 		base,
 		controls,
 		css`
+			/* Its own stacking layer, above the page's sticky code panel and tab
+			   strip (z-index 2 and 1): the tool menu hangs out of the bar over
+			   the page, and once the page has scrolled the code panel sticks
+			   right where the menu opens. Without this the panel paints over it. */
 			:host {
+				position: relative;
+				z-index: 3;
 				display: flex;
 				align-items: center;
 				gap: var(--cr-space-3);
 				border-bottom: var(--cr-border) solid var(--cr-line);
 				background: var(--cr-surface);
 				padding: var(--cr-space-2) var(--cr-space-3);
+			}
+
+			/* One line on a phone: the gaps tighten, and the tool menu's button
+			   gives way first, ending in an ellipsis rather than wrapping the
+			   bar onto four lines. */
+			@media (width < 48rem) {
+				:host {
+					gap: var(--cr-space-2);
+				}
+
+				.switcher {
+					min-width: 0;
+				}
+
+				.switcher > summary {
+					display: block;
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+				}
 			}
 
 			.brand {
@@ -166,8 +192,13 @@ export class SiteNav extends LitElement {
 			/* The slotted page actions sit at the far end of the bar with the
 			   theme control after them, pushed there by margin-left: auto on the
 			   default slot itself rather than on whatever a page puts in it - a
-			   page could slot more than one action. */
+			   page could slot more than one action. A slot is display: contents
+			   by default, where a margin does nothing, so it is a flex row of its
+			   own; gap inherits from the host's. */
 			slot:not([name]) {
+				display: flex;
+				align-items: center;
+				gap: inherit;
 				margin-left: auto;
 			}
 

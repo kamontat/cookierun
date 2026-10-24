@@ -102,6 +102,22 @@ test("the control offers the three choices and starts on the stored one", async 
 	applyTheme("system", document.documentElement);
 });
 
+// Under 48rem the control is drawn as an icon with the select laid over it,
+// so a tap still opens the native picker. The icon is decoration: the select
+// keeps its label, and nothing new reaches the accessibility tree.
+test("the phone icon is decoration and the select keeps its name", async () => {
+	const element = await mount();
+	const icon = element.shadowRoot?.querySelector(".icon");
+
+	expect(icon?.getAttribute("aria-hidden")).toBe("true");
+	expect(icon?.parentElement?.contains(select(element))).toBe(true);
+	expect(element.shadowRoot?.querySelector("label")?.htmlFor).toBe(
+		select(element).id,
+	);
+	expect(element.shadowRoot?.querySelector("label")?.textContent).toBe("Theme");
+	applyTheme("system", document.documentElement);
+});
+
 // A real pick fires two native events, `input` then `change`. Only `input` is
 // `composed: true`, so only `input` escapes the shadow root unaided - and it
 // does so before any handler on the control has run, carrying the theme that
