@@ -236,6 +236,25 @@ test("a hidden treasure still has its picture and name", () => {
 	expect(picture?.title).toContain(labelFor("treasures", hidden));
 });
 
+test("a treasure with no picture is named rather than left blank", () => {
+	const bare = Object.entries(
+		index.treasures as Record<string, { image?: string | null }>,
+	).find(([, entry]) => !entry.image)?.[0];
+	if (bare === undefined) throw new Error("every treasure has a picture");
+	const full = fullBuild(
+		{},
+		{
+			treasures: [[treasurePick(bare, levelRange(3, 9)), treasurePick(TA)]],
+		},
+	);
+	const [picture] = images(row(summaryOf(full, BASE).rows, "Treasures").items);
+
+	expect(picture?.src).toBe(null);
+	expect(picture?.text).toBe(labelFor("treasures", bare));
+	expect(picture?.badge).toBe("+1");
+	expect(picture?.note).toBe("+3–9");
+});
+
 test("empty rows are left out and the hint shows for a bare build", () => {
 	const bare = summaryOf(decodeFull("10S0000000").full, BASE);
 

@@ -13,7 +13,10 @@ export type SummaryItem =
 	| { kind: "pill"; text: string; tone?: "semi" }
 	| {
 			kind: "image";
-			/** Null draws the text alone, rather than a broken picture. */
+			/**
+			 * Null draws the text alone, rather than a broken picture — or the
+			 * title, when there is no text either, so no item is ever invisible.
+			 */
 			src: string | null;
 			text?: string;
 			/** The hover text, for what the picture alone leaves out. */
@@ -65,7 +68,7 @@ function item(entry: SummaryItem) {
 					entry.src === null && entry.badge !== undefined
 						? html`<span class="badge">${entry.badge}</span>`
 						: nothing
-				}${entry.text ?? nothing}${
+				}${entry.text ?? (entry.src === null ? (entry.title ?? nothing) : nothing)}${
 					entry.note === undefined
 						? nothing
 						: html`<span class="note">${entry.note}</span>`
@@ -95,8 +98,9 @@ function item(entry: SummaryItem) {
 /**
  * The whole build at a glance, with pictures: one row per tab, and each row a
  * way to the control behind it. It reads the build and changes nothing, so it
- * never fires `input` — it sits inside the form whose `input` re-renders the
- * build — and asks for a control with `summary-jump` instead.
+ * never fires `input` — the page re-renders the build on `input`, and the
+ * summary is a picture of that build, not a control in it — and asks for a
+ * control with `summary-jump` instead.
  *
  * On a phone it opens folded to one compact line; tapping the line shows the
  * rows, and Hide folds them again. That is this element's own state, never

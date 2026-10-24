@@ -62,9 +62,12 @@ function isPlainZero({ levels }: TreasurePick): boolean {
 function slotItem(slot: readonly TreasurePick[], base: string): SummaryItem {
 	const [first] = slot;
 	if (first === undefined) return { kind: "image", src: null };
+	const src = picture("treasures", first.id, base);
 	return {
 		kind: "image",
-		src: picture("treasures", first.id, base),
+		src,
+		// With no picture, the name stands in for it, or the slot vanishes.
+		...(src === null ? { text: labelFor("treasures", first.id) } : {}),
 		title: slot
 			.map((pick) => `${labelFor("treasures", pick.id)} ${levelText(pick)}`)
 			.join(" or "),

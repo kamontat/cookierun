@@ -100,6 +100,22 @@ test("an image item draws its picture, badge and note", async () => {
 	expect(second?.querySelector(".badge")).toBe(null);
 });
 
+test("an image item with neither picture nor text shows its title", async () => {
+	const element = await mount([
+		{
+			label: "Treasures",
+			target: "treasures",
+			items: [{ kind: "image", src: null, title: "Mystery +3" }],
+		},
+	]);
+	element.compact = [{ kind: "image", src: null, title: "Mystery" }];
+	await element.updateComplete;
+
+	const image = inside(element).querySelector("button.row .image");
+	expect(image?.textContent?.trim()).toBe("Mystery +3");
+	expect(button(element, "button.line").textContent).toContain("Mystery");
+});
+
 test("clicking a row fires summary-jump with its target", async () => {
 	const element = await mount(ROWS);
 	const targets: string[] = [];
@@ -144,7 +160,7 @@ test("draws the hint when given", async () => {
 	expect(inside(element).querySelector(".hint")).toBe(null);
 });
 
-// It sits inside the form whose `input` re-renders the build, and nothing it
+// It sits beside the form whose `input` re-renders the build, and nothing it
 // does changes a value.
 test("fires no input", async () => {
 	const element = await mount(ROWS);
