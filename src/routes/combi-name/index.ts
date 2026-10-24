@@ -366,8 +366,14 @@ rolesBox.addEventListener("click", (event) => {
 });
 
 roleClear.addEventListener("click", () => {
-	ROLE_GRIDS[shownRole(currentEpisode())].value = null;
+	const shown = shownRole(currentEpisode());
+	ROLE_GRIDS[shown].value = null;
 	render();
+	// Clear hides itself once the role is empty, and a hidden button drops
+	// focus to <body>; the card for the role just emptied is where it lands.
+	rolesBox
+		.querySelector<HTMLButtonElement>(`button[data-role="${shown}"]`)
+		?.focus();
 });
 
 const FLOOR_MAX = 100;
@@ -509,7 +515,10 @@ function render(warnings: readonly string[] = []): void {
 		...hint,
 		inert: !canJump(hint.group, episode),
 	}));
-	verdictLine.textContent = verdictText(full);
+	// A live region reads out every write, so the same words are not written
+	// twice: a click that leaves the verdict as it was says nothing.
+	const verdict = verdictText(full);
+	if (verdictLine.textContent !== verdict) verdictLine.textContent = verdict;
 	const summary = summaryOf(full, ASSET_BASE);
 	summaryCard.rows = summary.rows;
 	summaryCard.compact = summary.compact;
@@ -736,10 +745,19 @@ document.addEventListener("click", (event) => {
 });
 
 // A pick from the code panel's menu is the menu's answer; it closes behind it.
+// The pick's own handler has run by now (this listens on an ancestor), so a
+// handler that sent focus somewhere — Cancel, to the note — keeps it there;
+// otherwise focus would go down with the hidden button, to <body>, and the
+// menu's toggle takes it instead.
 codeMenu.addEventListener("click", (event) => {
-	if ((event.target as Element | null)?.closest(".menu button")) {
-		codeMenu.open = false;
-	}
+	if (!(event.target as Element | null)?.closest(".menu button")) return;
+	codeMenu.open = false;
+	const focused = document.activeElement;
+	const dropped =
+		focused === null ||
+		focused === document.body ||
+		codeMenu.querySelector(".menu")?.contains(focused) === true;
+	if (dropped) codeMenu.querySelector("summary")?.focus();
 });
 
 /**
@@ -1529,6 +1547,13 @@ buildForm.addEventListener("input", () => {
 	render();
 });
 
+// Enter in the floor box submits this form, and with no action to submit to
+// the browser would reload the page and lose the build. Every control already
+// writes the code as it changes, so a submit has nothing left to do.
+buildForm.addEventListener("submit", (event) => {
+	event.preventDefault();
+});
+
 codeBar.addEventListener("code-draft", (event) => {
 	readDraft((event as CustomEvent<string>).detail);
 });
@@ -1552,6 +1577,9 @@ codeBar.addEventListener("slot-jump", (event) => {
  */
 document.addEventListener("paste", (event) => {
 	if (isTyping()) return;
+	// An open drawer makes the page behind it inert; a code pasted there would
+	// change a board nobody can see.
+	if (document.querySelector("dialog[open]") !== null) return;
 
 	const text = (event as ClipboardEvent).clipboardData
 		?.getData("text")

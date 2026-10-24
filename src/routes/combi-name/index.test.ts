@@ -1578,3 +1578,119 @@ test("Help holds the slot reference and the page intro", async () => {
 	await settle();
 	expect(helpDrawer().open).toBe(false);
 });
+
+// A pick hides the button it was made with, and a hidden button cannot hold
+// focus: the browser would drop it to <body>, a keyboard user's start of page.
+test("a pick from the code menu hands focus back to the menu's toggle", async () => {
+	const menu = need<HTMLDetailsElement>("code-menu");
+	const toggle = menu.querySelector("summary");
+
+	menu.open = true;
+	resetButton.focus();
+	resetButton.click();
+	await settle();
+	expect(menu.open).toBe(false);
+	expect(document.activeElement === toggle).toBe(true);
+
+	// An entry to open, so Save as new and Cancel are on offer.
+	await saveCurrent("Focus check");
+	const [first = ""] = savedCodes();
+	savedButtonFor(first, "load").click();
+	await settle();
+	menu.open = true;
+	const saveNew = need<HTMLButtonElement>("save-new");
+	saveNew.focus();
+	saveNew.click();
+	await settle();
+	expect(menu.open).toBe(false);
+	expect(document.activeElement === toggle).toBe(true);
+
+	// Cancel already sends focus to the note, and keeps it there.
+	savedButtonFor(first, "load").click();
+	await settle();
+	menu.open = true;
+	const cancel = need<HTMLButtonElement>("save-cancel");
+	cancel.focus();
+	cancel.click();
+	await settle();
+	expect(document.activeElement?.id).toBe("save-description");
+
+	need<HTMLTextAreaElement>("save-description").value = "";
+	await reset();
+});
+
+test("Clear hands focus to the role card it emptied", async () => {
+	await choose("cookie", "0O");
+	const clear = need<HTMLButtonElement>("role-clear");
+	clear.focus();
+	clear.click();
+	await settle();
+
+	expect(clear.hidden).toBe(true);
+	expect(document.activeElement?.getAttribute("data-role")).toBe("cookie");
+	await reset();
+});
+
+// The verdict is a live region: rewriting it with the same words would read
+// them out again on every click.
+test("the verdict is rewritten only when its words change", async () => {
+	await choose("mode", "auto");
+	await choose("goal", "money");
+	expect(verdict.textContent).not.toBe("");
+	let writes = 0;
+	const watcher = new MutationObserver((records) => {
+		writes += records.length;
+	});
+	watcher.observe(verdict, {
+		childList: true,
+		characterData: true,
+		subtree: true,
+	});
+	await choose("goal", "box");
+	await settle();
+	watcher.disconnect();
+
+	expect(writes).toBe(0);
+	await reset();
+});
+
+test("the tab stays put when a code arrives in the address bar", async () => {
+	await pickTab("boosts");
+	location.hash = "#10M0000000";
+	window.dispatchEvent(new Event("hashchange"));
+	await settle();
+
+	expect(await codeText()).toBe("10M0000000");
+	expect(shownPanels()).toEqual(["panel-boosts"]);
+	await pickTab("main");
+	await reset();
+});
+
+// A drawer makes the page behind it inert, so a code pasted there must not
+// change a board nobody can see.
+test("pasting a code while a drawer is open is left alone", async () => {
+	await openSavedDrawer();
+	expect(savedDrawer().open).toBe(true);
+
+	const event = new Event("paste", { bubbles: true, cancelable: true });
+	Object.defineProperty(event, "clipboardData", {
+		value: { getData: () => "10M3000000" },
+	});
+	document.dispatchEvent(event);
+	await settle();
+
+	expect(event.defaultPrevented).toBe(false);
+	expect(await codeText()).toBe("10S0000000");
+	closeButton(savedDrawer()).click();
+	await settle();
+	await reset();
+});
+
+// Enter in the floor box submits the form it sits in; with nowhere to submit
+// to, the browser would reload the page and lose the build.
+test("submitting the build form goes nowhere", () => {
+	const event = new Event("submit", { bubbles: true, cancelable: true });
+
+	expect(need("build").dispatchEvent(event)).toBe(false);
+	expect(event.defaultPrevented).toBe(true);
+});
