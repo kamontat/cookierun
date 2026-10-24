@@ -281,7 +281,7 @@ export class BuildSummary extends LitElement {
 			}
 
 			/* Every picture sits in the same box, whatever its art, so a row of
-			   them lines up as a grid. Showing names widens every box alike. */
+			   them lines up as a grid. Showing a row's names widens its boxes alike. */
 			.image.cell,
 			.stack.cell {
 				flex-direction: column;
@@ -291,8 +291,8 @@ export class BuildSummary extends LitElement {
 				text-align: center;
 			}
 
-			:host([names]) .image.cell,
-			:host([names]) .stack.cell {
+			.row[data-names] .image.cell,
+			.row[data-names] .stack.cell {
 				width: 6rem;
 			}
 
@@ -533,16 +533,27 @@ export class BuildSummary extends LitElement {
 					font-size: 0.8rem;
 				}
 
-				/* The label and the way to the tab share the top line; the
-				   pictures take the whole width under them. */
+				/* The label stands over the pictures, and the way to the tab
+				   keeps the right edge for the whole height of the row:
+				   [label / data] | [›], the same column the desktop row has. */
 				.row {
 					grid-template-columns: minmax(0, 1fr) auto;
-					gap: var(--cr-space-1);
+					grid-template-areas:
+						"label open"
+						"value open";
+					gap: var(--cr-space-1) var(--cr-space-2);
+				}
+
+				.row .label {
+					grid-area: label;
 				}
 
 				.row .value {
-					grid-column: 1 / -1;
-					grid-row: 2;
+					grid-area: value;
+				}
+
+				.row .open {
+					grid-area: open;
 				}
 			}
 
@@ -571,19 +582,24 @@ export class BuildSummary extends LitElement {
 	private expanded = false;
 
 	/**
-	 * Whether the pictures' names are on show. Pictures lead and the names are
-	 * one click away — on a phone as much as anywhere, since it has no hover.
-	 * One switch for the whole summary, not one per row: someone who wants a
-	 * name usually wants the next one too.
+	 * The rows, by target, whose pictures' names are on show. Pictures lead and
+	 * a row's names are one click away — on a phone as much as anywhere, since
+	 * it has no hover. Each row has its own switch (the owner's call).
 	 */
 	@state()
-	private names = false;
+	private named: ReadonlySet<string> = new Set();
+
+	#toggleNames(target: string): void {
+		const next = new Set(this.named);
+		if (next.has(target)) next.delete(target);
+		else next.add(target);
+		this.named = next;
+	}
 
 	override updated(): void {
-		// Reflected by hand: the fold and the names are this element's own, not
-		// properties the page sets, but the stylesheet reads them off the host.
+		// Reflected by hand: the fold is this element's own, not a property the
+		// page sets, but the stylesheet reads it off the host.
 		this.toggleAttribute("expanded", this.expanded);
-		this.toggleAttribute("names", this.names);
 	}
 
 	/**
@@ -627,19 +643,23 @@ export class BuildSummary extends LitElement {
 				</button>
 				${this.rows.map(
 					(row) =>
-						html`<div class="row" data-target=${row.target}>
+						html`<div
+							class="row"
+							data-target=${row.target}
+							?data-names=${this.named.has(row.target)}
+						>
 							<span class="label">${row.label}</span>${
 								pictured(row)
 									? html`<button
 											type="button"
 											class="value names"
-											aria-pressed=${String(this.names)}
-											title=${this.names ? "Hide names" : "Show names"}
-											@click=${() => {
-												this.names = !this.names;
-											}}
+											aria-pressed=${String(this.named.has(row.target))}
+											title=${this.named.has(row.target) ? "Hide names" : "Show names"}
+											@click=${() => this.#toggleNames(row.target)}
 										>
-											${row.items.map((entry) => item(entry, this.names))}
+											${row.items.map((entry) =>
+												item(entry, this.named.has(row.target)),
+											)}
 										</button>`
 									: html`<span class="value"
 											>${row.items.map((entry) => item(entry))}</span

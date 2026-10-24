@@ -82,22 +82,27 @@ export class CodeBar extends LitElement {
 			code .run {
 				position: relative;
 				margin: 0 0.06em;
-				border-bottom: 2px dotted currentColor;
 				padding: 0 0.06em;
 				color: inherit;
 				font: inherit;
-				/* Spelled out: a button's line height is the platform's, not the
-				   code's, and a span's is inherited, so left alone the two sit
-				   their underlines at different heights on the same line. */
 				line-height: 1.25;
+				/* An underline of the text, not a border of the box: a run is a
+				   button or, when inert, a span, and WebKit sizes and aligns the
+				   two boxes differently, so a bottom border stepped up and down
+				   along a line on iOS. Text decoration is drawn from the text's
+				   own baseline, which every run on a line shares. */
+				text-decoration-line: underline;
+				text-decoration-style: dotted;
+				text-decoration-color: currentColor;
+				text-decoration-thickness: 2px;
+				text-underline-offset: 0.3em;
+				text-decoration-skip-ink: none;
 				letter-spacing: inherit;
 				text-transform: none;
 			}
 
 			code button.run {
-				border-top: none;
-				border-right: none;
-				border-left: none;
+				border: none;
 				border-radius: 0;
 				background: none;
 				box-shadow: none;
@@ -106,7 +111,6 @@ export class CodeBar extends LitElement {
 
 			code button.run:hover,
 			code button.run:focus-visible {
-				border-bottom-color: var(--cr-accent);
 				color: var(--cr-accent);
 			}
 

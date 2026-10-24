@@ -260,37 +260,48 @@ test("each row ends in a button that opens its tab", async () => {
 	element.removeEventListener("summary-jump", listen);
 });
 
-// Pictures lead; the names are one click away and the same click hides them.
-test("names stay hidden until the pictures are clicked, then show for every row", async () => {
+// Pictures lead; a row's names are one click away, and the same click hides
+// them. Each row has its own switch.
+test("clicking a row's pictures shows that row's names, and only that row's", async () => {
 	const element = await mount(PICTURES);
 	const jumps: string[] = [];
 	const listen = (event: Event) => {
 		jumps.push((event as CustomEvent<string>).detail);
 	};
 	element.addEventListener("summary-jump", listen);
+	const captions = (target: string) =>
+		[
+			...inside(element).querySelectorAll(
+				`.row[data-target=${target}] .caption`,
+			),
+		].map((each) => each.textContent);
+	const toggle = (target: string) =>
+		button(element, `.row[data-target=${target}] button.names`);
 
-	expect(inside(element).querySelectorAll(".caption").length).toBe(0);
-	expect(element.hasAttribute("names")).toBe(false);
-	const toggles =
-		inside(element).querySelectorAll<HTMLButtonElement>("button.names");
-	expect(toggles.length).toBe(2);
-	expect(toggles[0]?.getAttribute("aria-pressed")).toBe("false");
+	expect(captions("cookie")).toEqual([]);
+	expect(toggle("cookie").getAttribute("aria-pressed")).toBe("false");
 
-	toggles[0]?.click();
+	toggle("cookie").click();
 	await element.updateComplete;
-	expect(element.hasAttribute("names")).toBe(true);
+	expect(captions("cookie")).toEqual(["Fairy Cookie", "Pom"]);
+	expect(captions("cookiePowers")).toEqual([]);
+	expect(toggle("cookie").getAttribute("aria-pressed")).toBe("true");
+	expect(toggle("cookiePowers").getAttribute("aria-pressed")).toBe("false");
 	expect(
-		[...inside(element).querySelectorAll(".caption")].map(
-			(each) => each.textContent,
-		),
-	).toEqual(["Fairy Cookie", "Pom", "EXP Party"]);
-	expect(
-		inside(element).querySelector("button.names")?.getAttribute("aria-pressed"),
-	).toBe("true");
+		inside(element)
+			.querySelector(".row[data-target=cookie]")
+			?.hasAttribute("data-names"),
+	).toBe(true);
 
-	button(element, "button.names").click();
+	toggle("cookiePowers").click();
 	await element.updateComplete;
-	expect(inside(element).querySelectorAll(".caption").length).toBe(0);
+	expect(captions("cookiePowers")).toEqual(["EXP Party"]);
+	expect(captions("cookie")).toEqual(["Fairy Cookie", "Pom"]);
+
+	toggle("cookie").click();
+	await element.updateComplete;
+	expect(captions("cookie")).toEqual([]);
+	expect(captions("cookiePowers")).toEqual(["EXP Party"]);
 	expect(jumps).toEqual([]);
 	element.removeEventListener("summary-jump", listen);
 });
