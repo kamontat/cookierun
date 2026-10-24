@@ -37,9 +37,17 @@ function picture(section: CatalogSection, id: string, base: string) {
 }
 
 /** A face and its name — a cookie, a relay or a pet. */
+/**
+ * A face alone, named in its title — the owner's call, as for boosts and
+ * power+. One with no face (Any, or an entry the catalog has no picture for)
+ * says its name instead, since there is nothing else to say it with.
+ */
 function entry(section: CatalogSection, id: string, base: string): SummaryItem {
-	const text = labelFor(section, id);
-	return { kind: "image", src: picture(section, id, base), text, title: text };
+	const title = labelFor(section, id);
+	const src = picture(section, id, base);
+	return src === null
+		? { kind: "image", src, text: title, title }
+		: { kind: "image", src, title };
 }
 
 /** `+3–9`, or `+0, +2–4` for a level set with gaps. */

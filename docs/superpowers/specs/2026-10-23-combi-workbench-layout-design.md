@@ -155,7 +155,7 @@ summary walks across the tabs:
 | Row | Content | Opens |
 | --- | --- | --- |
 | **Run** | mode word as a pill: Manual / Auto / Semi-auto. When semi-auto, the reasons beside it in muted text (`describeBuild`'s `reasons`). Then · goal · episode icon and name, plus ", floor 42" / ", any floor" on the tower. Then · action, when the run is auto and the action is not none. | Main tab, mode |
-| **Cookies** | cookie face and name, then `→` relay face and name when the episode takes a relay and one is set, then · pet face and name. Any reads as its catalog label ("Any cookie"). | Cookies tab |
+| **Cookies** | cookie face, then `→` relay face when the episode takes a relay and one is set, then · pet face; names in the hover title (owner's call: faces alone). Any, which has no face, reads as its catalog label ("Any cookie"). | Cookies tab |
 | **Treasures** | one picture per slot: the slot's first pick. A small `+N` badge when the slot has N alternatives. The level text (`+3–9`) only when the first pick is not exactly +0. With exact order and two or more slots, `→` between slots and an "exact order" tag. A hover title lists the whole slot: "A +3–9 or B +5–9". | Treasures tab |
 | **Boosts** | each boost's icon, named in its hover title (owner's call: icons alone) | Boosts tab, boosts |
 | **Random boost** | its label | Boosts tab, random boost |

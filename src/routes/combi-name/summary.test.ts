@@ -152,10 +152,11 @@ test("the Run row names what Any stands for", () => {
 	expect(texts(items)).toEqual(["Auto", "Any goal", "Any episode"]);
 });
 
-test("Cookies reads cookie → relay · pet, and drops the relay where the episode takes none", () => {
+test("Cookies reads cookie → relay · pet as faces, named only in their titles", () => {
 	const { items } = row(summaryOf(fullBuild(), BASE).rows, "Cookies");
 
-	expect(texts(items)).toEqual([
+	expect(texts(items)).toEqual([]);
+	expect(images(items).map((each) => each.title)).toEqual([
 		labelFor("cookies", COOKIE),
 		labelFor("cookies", RELAY),
 		labelFor("pets", PET),
@@ -168,13 +169,13 @@ test("Cookies reads cookie → relay · pet, and drops the relay where the episo
 		"Cookies",
 	).items;
 	expect(seps(special)).toEqual(["·"]);
-	expect(texts(special)).toEqual([
+	expect(images(special).map((each) => each.title)).toEqual([
 		labelFor("cookies", COOKIE),
 		labelFor("pets", PET),
 	]);
 });
 
-test("Any reads as its catalog label", () => {
+test("Any, which has no face, reads as its catalog label", () => {
 	const full = fullBuild({}, { cookie: anyIdFor("cookies") });
 	const { items } = row(summaryOf(full, BASE).rows, "Cookies");
 
