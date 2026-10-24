@@ -2,6 +2,98 @@
 
 What changed in this project and why, newest first.
 
+## 2026-10-25: The workbench layout, with a top bar in place of the sidebar
+
+### BREAKING CHANGES
+
+- The sidebar is gone on every page. Navigation is now a tool menu in the top bar.
+- The combi page's board and its fold are gone, and so is the `combi-name:board-collapsed`
+  setting. The page no longer reads it.
+- The `<entry-tile>` element is removed. Its shared styles and helpers (`tileStyles`,
+  `glyphFor`, `lockPageScroll`) moved to `src/components/tile.ts`. Code that imports
+  `#components/entry-tile` must import from `#components/tile` instead.
+- `<build-summary>` has a new contract. It draws rows the page hands it (`rows`, `compact`,
+  `hint`) and fires `summary-jump`. The old `verdict` and `collapsed` properties and its
+  `toggle` event are gone.
+
+### Features
+
+- A top bar on every page. It holds the brand ("Cookie Run"), a tool menu that lists All
+  tools and every registered tool with its tagline, the theme control (an icon on phones),
+  and a slot for the page's own buttons. The combi page puts **Saved N** and **?** (Help)
+  there.
+- The combi page is laid out as a workbench, top to bottom: the code panel, the note, a
+  summary of the build, and four tabs. The tabs are **Main**, **Cookies**, **Treasures**
+  and **Boosts**. Each shows a count of what it holds and is disabled when the episode has
+  no room for it. The open tab is remembered under `combi-name:tab`.
+- The code panel is pinned under the top bar on desktop and docked to the bottom of the
+  screen on a phone.
+  - It shows the ten characters the game takes, with **Edit**, **Save** (or **Update**)
+    and a **⋯** menu.
+  - The menu holds **Show full code**, **Copy code**, **Copy link**, **Reset**, and
+    **Save as new** and **Cancel** while a saved code is open.
+  - Show full code swaps the panel, and Copy code with it, to the whole code with its
+    loadout, remembered under `combi-name:full-code`.
+- A summary under the note reads the build at a glance, one row per tab, in tab order.
+  - Cookies, treasures, boosts and power+ are pictures in equal-sized boxes.
+  - Clicking a row's pictures shows or hides that row's names. On the Run row the same
+    click shows why a run is semi-auto.
+  - An evolved or blessed treasure wears an **E** or **B** and a ring in its colour.
+  - The **›** at the end of each row opens its tab.
+  - On a phone the summary folds to one line until tapped.
+- One notification banner, inside the code panel, carries every message as info, warn or
+  error.
+  - Info clears itself after a few seconds; warnings and errors stay until dismissed or
+    replaced.
+  - While a drawer is open the banner moves into it.
+- Saved codes and Help open as side drawers from the top bar. Saved codes keep Load, the
+  row menu, and import and export as before. Help holds the slot reference and the page's
+  intro.
+- The episode, cookie, relay and pet pickers are grids drawn in place (`<entry-grid>`)
+  instead of dialogs. The Cookies tab has cards for cookie → relay · pet that choose which
+  grid shows. Random boost is a row of chips. Treasure slots keep their picker.
+- Letters for parts of the code with nothing behind them are plain text and not clickable:
+  the version character, the tower's reserved slots, and slots an episode doesn't use.
+
+### Improvements
+
+- The page is one centred column, and the sections keep the same spacing whichever tab is
+  open.
+- The tab bar stays one row on a phone and scrolls sideways only.
+- The code's dotted underlines are drawn as text decoration, so they line up along a
+  wrapped line on iOS.
+- A long build stays tidy on a phone: the folded summary is one line, with the boost count
+  ahead of the pictures, and nothing can widen the page.
+
+### Bug fixes
+
+- The Cookies tab no longer vanishes for anyone using a content blocker (Brave Shields,
+  uBlock Origin, AdGuard). Its panel was named `#panel-cookies`, an id that cookie-banner
+  filter lists hide on every site. It is `#panel-roles` now, and a test fails if a page
+  region is named after cookies again.
+- Pressing Enter in the tower's floor box no longer reloads the page.
+- An inline grid never scrolls inside its own box. On WebKit at 110% zoom the episode grid
+  had become a one-pixel scrolling box.
+- The theme dropdown no longer keeps a focus ring after a mouse pick.
+
+### Decisions
+
+- Mockups came first: the owner tried several layouts, then a version with real art and
+  real codes, before settling on this one. The design and plan are in
+  `docs/superpowers/specs/2026-10-23-combi-workbench-layout-design.md` and
+  `docs/superpowers/plans/2026-10-24-combi-workbench-layout.md`.
+- The panel shows only the game's ten characters by default. They are what goes into the
+  game, the loadout is in the summary, and a full code took three lines of a phone's dock.
+  Show full code is there when it is wanted.
+- A summary sits beside the controls, against the earlier "one board, no second rendering"
+  rule. It is drawn from the same decoded code in the same render, so it cannot disagree
+  with the controls.
+- The drawers are modal sheets on both widths rather than a desktop side column that
+  pushes the page over. That keeps one implementation, and Escape and the focus trap come
+  from the platform.
+- Treasures keep their picker dialog, the owner's call. Every other picker became an
+  inline grid.
+
 ## 2026-10-23: Treasure slots as rows with a one-line level strip, and saved codes you can update, share and move
 
 ### Features
