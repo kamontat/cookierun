@@ -98,6 +98,54 @@ async function reset(): Promise<void> {
 	await settle();
 }
 
+/** One of the three light-DOM role cards above the Cookies tab's grid. */
+function roleCard(role: "cookie" | "relay" | "pet"): HTMLButtonElement {
+	const card = need("roles").querySelector<HTMLButtonElement>(
+		`button[data-role="${role}"]`,
+	);
+	if (card === null) throw new Error(`no ${role} card`);
+	return card;
+}
+
+const tabs = () => need("tabs");
+
+type TabOptions = {
+	options: readonly (readonly [string, string, string, string | null])[];
+};
+
+function tabOptions(): TabOptions["options"] {
+	return (tabs() as HTMLElement & TabOptions).options;
+}
+
+async function pickTab(value: string): Promise<void> {
+	await settle();
+	const tab = [
+		...inside(tabs()).querySelectorAll<HTMLButtonElement>("button[role=tab]"),
+	].find((button) => button.value === value);
+	if (tab === undefined) throw new Error(`no ${value} tab`);
+	tab.click();
+	await settle();
+}
+
+/** The ids of the panels on screen — exactly one, when the page is right. */
+function shownPanels(): string[] {
+	return [...need("build").querySelectorAll<HTMLElement>("[role=tabpanel]")]
+		.filter((panel) => !panel.hidden)
+		.map((panel) => panel.id);
+}
+
+type Hints = { hints: readonly { group: string; inert?: boolean }[] };
+
+function hints(): Hints["hints"] {
+	return (codeBar as HTMLElement & Hints).hints;
+}
+
+/** Closes the editor `typeCode` leaves open, so the built code shows. */
+async function closeEditor(): Promise<void> {
+	(codeBar as HTMLElement & { editing: boolean }).editing = false;
+	await settle();
+}
+
 test("the page opens on a valid code", async () => {
 	expect(await codeText()).toBe("10S0000000");
 });
@@ -156,14 +204,17 @@ test("a semi-auto code re-encodes as itself", async () => {
 	await reset();
 });
 
-// The random boost's picker carries a None cell of its own, so going back to
-// none is a pick like any other rather than a second click on what is chosen.
-test("picking None puts the random boost back to none", async () => {
+// The random boost's chips lead with None, so going back to none is a pick
+// like any other — and, the row being resettable, so is clicking the chosen one.
+test("the random boost chips write slot 6 and None puts it back to 0", async () => {
 	await choose("randomBoost", "revive");
 	expect(await codeText()).toBe("10S00R0000");
 
 	await choose("randomBoost", "");
+	expect(await codeText()).toBe("10S0000000");
 
+	await choose("randomBoost", "revive");
+	await choose("randomBoost", "revive");
 	expect(await codeText()).toBe("10S0000000");
 	await reset();
 });
@@ -238,7 +289,8 @@ test("typing a code moves every control to match it", async () => {
 test("typing a code with a loadout fills the loadout controls too", async () => {
 	await typeCode("1C0O-10S0000000");
 
-	expect(shown(need("cookie"))).toContain("Fairy Cookie");
+	expect(roleCard("cookie").textContent).toContain("Fairy Cookie");
+	expect(isOn("cookie", "0O")).toBe(true);
 	await reset();
 });
 
@@ -252,8 +304,8 @@ test("picking Any on the cookie, relay and pet writes it into the code", async (
 
 	// The relay writes Semi-auto into slot 3 whichever cookie fills it.
 	expect(await codeText()).toBe("1C__R__P__-1H00000000");
-	expect(shown(need("cookie"))).toContain("Any cookie");
-	expect(shown(need("pet"))).toContain("Any pet");
+	expect(roleCard("cookie").textContent).toContain("Any cookie");
+	expect(roleCard("pet").textContent).toContain("Any pet");
 	await reset();
 });
 
@@ -335,21 +387,21 @@ test("an unreadable code leaves the controls where they were", async () => {
 
 // Hand-typed codes contradict themselves; the page shows one rather than
 // refusing it, and says what it did about it.
-test("a code that contradicts itself still loads, with a warning", async () => {
+test("a contradicting code shows the warnings banner, and it hides again", async () => {
+	const banner = need("warnings-banner");
+	expect(banner.hidden).toBe(true);
+
 	await typeCode("1AM0F00000");
 
 	expect(isOn("boosts", "fastStart")).toBe(true);
+	expect(banner.hidden).toBe(false);
+	expect(banner.textContent).toContain("Read with changes");
 	expect(warnings.textContent).toContain("Semi-auto");
-	await reset();
-});
-
-test("the warning goes away once the code stops contradicting itself", async () => {
-	await typeCode("1AM0F00000");
-	expect(warnings.textContent).not.toBe("");
 
 	await typeCode("10S0000000");
 
 	expect(warnings.textContent).toBe("");
+	expect(banner.hidden).toBe(true);
 	await reset();
 });
 
@@ -514,14 +566,7 @@ test("every character of the code carries a hint", async () => {
 	}
 });
 
-// One board: what the code says is the control that writes it, so there is no
-// second copy of the build to keep in step.
-test("the build panels are gone, replaced by the board's own bands", () => {
-	expect(need("build").querySelectorAll("details.panel").length).toBe(0);
-	expect(need("build").querySelectorAll(".band").length).toBe(3);
-});
-
-// The board runs in the order a run is set up — what run, who runs it, what it
+// The tabs run in the order a run is set up — what run, who runs it, what it
 // carries — which is not the order the code reads, since the loadout is
 // written first. The slot markers are what carry that, so every field has one.
 test("every field states the slot or group it writes", () => {
@@ -536,33 +581,8 @@ test("every field states the slot or group it writes", () => {
 	}
 });
 
-test("the loadout sits between the run and the boosts", () => {
-	const bands = [...need("build").querySelectorAll(".band h3")].map((head) =>
-		head.textContent?.trim(),
-	);
-
-	expect(bands).toEqual(["The run", "Your loadout", "Boosts and start"]);
-});
-
-test("picking a cookie in its dialog writes the loadout section", async () => {
-	const tile = need("cookie");
-	const button = inside(tile).querySelector<HTMLButtonElement>("button.tile");
-	button?.click();
-	await settle();
-
-	// The grid caps at 50 of the 94 cookies, so the pick is narrowed into view
-	// by name rather than assumed to be among the first page of cells.
-	const search = inside(tile).querySelector<HTMLInputElement>("input");
-	if (search === null) throw new Error("the cookie tile has no search box");
-	search.value = "Fairy";
-	search.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-	await settle();
-
-	const cell = [
-		...inside(tile).querySelectorAll<HTMLButtonElement>("button.entry"),
-	].find((entry) => entry.value === "0O");
-	cell?.click();
-	await settle();
+test("picking a cookie in its grid writes the loadout section", async () => {
+	await choose("cookie", "0O");
 
 	expect(await codeText()).toBe("1C0O-10S0000000");
 	await reset();
@@ -749,14 +769,16 @@ test("the tower shows a floor box, and the floor lands in slots 5-7", async () =
 // The controls keep what they hold: switching back brings the boosts back.
 test("a special episode takes boosts and the relay off the board, not out of the controls", async () => {
 	await typeCode("1C00R0O-1HM3H00000");
+	// Clicking a cell blurs the editor in a browser, but not in happy-dom.
+	await closeEditor();
 	expect(need("field-boosts").hasAttribute("data-off")).toBe(false);
-	expect(need("relay").hidden).toBe(false);
+	expect(roleCard("relay").disabled).toBe(false);
 
 	await choose("episode", "special1");
 	expect(await codeText()).toBe("1C00-1AMC000000");
 	expect(need("field-boosts").hasAttribute("data-off")).toBe(true);
 	expect(need("field-cookiePowers").hasAttribute("data-off")).toBe(true);
-	expect(need("relay").hidden).toBe(true);
+	expect(roleCard("relay").disabled).toBe(true);
 	expect(need("relay-note").hidden).toBe(false);
 
 	await choose("episode", "episode3");
@@ -766,6 +788,7 @@ test("a special episode takes boosts and the relay off the board, not out of the
 
 test("the exp episode takes the treasures off the board too", async () => {
 	await typeCode("1TU000-1AM3000000");
+	await closeEditor();
 	expect(need("field-treasures").hasAttribute("data-off")).toBe(false);
 
 	await choose("episode", "specialExp");
@@ -807,6 +830,200 @@ test("every cookie power can be on at once", async () => {
 	}
 	expect(await codeText()).toBe("10S0004110");
 	await reset();
+});
+
+test("picking a tab shows its panel and remembers it", async () => {
+	expect(shownPanels()).toEqual(["panel-main"]);
+
+	await pickTab("boosts");
+
+	expect(shownPanels()).toEqual(["panel-boosts"]);
+	expect(localStorage.getItem("combi-name:tab")).toBe("boosts");
+	await pickTab("main");
+});
+
+test("clicking a summary row opens its tab and focuses the control", async () => {
+	await typeCode("1TU0FZ-10S0000000");
+	await closeEditor();
+
+	inside(summary)
+		.querySelector<HTMLButtonElement>('button.row[data-target="treasures"]')
+		?.click();
+	await settle();
+
+	expect(shownPanels()).toEqual(["panel-treasures"]);
+	expect(document.activeElement).toBe(need("treasure1"));
+	await reset();
+	await pickTab("main");
+});
+
+test("clicking a run of the code opens the tab that holds its control", async () => {
+	codeBar.dispatchEvent(
+		new CustomEvent("slot-jump", { detail: "randomBoost", bubbles: true }),
+	);
+	await settle();
+
+	expect(shownPanels()).toEqual(["panel-boosts"]);
+	expect(document.activeElement).toBe(need("randomBoost"));
+	await pickTab("main");
+});
+
+// The stored choice outlives the episode that took it away, so switching back
+// reopens it — and the fallback never writes "main" over it.
+test("a special episode disables the boosts tab, shows Main, and reopens Boosts when the episode changes back", async () => {
+	await pickTab("boosts");
+
+	await choose("episode", "special1");
+
+	expect(shownPanels()).toEqual(["panel-main"]);
+	expect(localStorage.getItem("combi-name:tab")).toBe("boosts");
+	expect(tabOptions().find(([value]) => value === "boosts")?.[3]).toBe(
+		"Special Episode 1 takes no boosts.",
+	);
+	// A jump to a disabled tab does nothing at all.
+	codeBar.dispatchEvent(
+		new CustomEvent("slot-jump", { detail: "boosts", bubbles: true }),
+	);
+	expect(shownPanels()).toEqual(["panel-main"]);
+
+	await choose("episode", "episode3");
+
+	expect(shownPanels()).toEqual(["panel-boosts"]);
+	await reset();
+	await pickTab("main");
+});
+
+test("the Exp episode disables the treasures tab", async () => {
+	await choose("episode", "specialExp");
+
+	expect(tabOptions().find(([value]) => value === "treasures")?.[3]).toBe(
+		"Special Exp Episode takes no treasures.",
+	);
+	await reset();
+	expect(tabOptions().every(([, , , disabled]) => disabled === null)).toBe(
+		true,
+	);
+});
+
+test("a code's unused parts are not clickable", async () => {
+	await typeCode("1C00-1AMC000000");
+	const dead = ["boosts", "randomBoost", "cookiePowers", "reserved"];
+	const unused = hints().filter(
+		(hint) =>
+			dead.includes(hint.group) ||
+			hint.group === "version" ||
+			hint.group === "loadoutVersion",
+	);
+	expect(unused.map((hint) => hint.group)).toContain("reserved");
+	expect(unused.map((hint) => hint.group)).toContain("loadoutVersion");
+	for (const hint of unused) expect(hint.inert).toBe(true);
+	expect(hints().find((hint) => hint.group === "cookie")?.inert).toBe(false);
+
+	await typeCode("1C00-1AM3H00000");
+	expect(hints().find((hint) => hint.group === "boosts")?.inert).toBe(false);
+	await closeEditor();
+	await reset();
+});
+
+test("a role card picks which grid the Cookies tab shows, and a pick writes the code", async () => {
+	const grids = () =>
+		["cookie", "relay", "pet"].filter((id) => !need(id).hidden);
+	expect(grids()).toEqual(["cookie"]);
+	expect(roleCard("cookie").getAttribute("aria-pressed")).toBe("true");
+
+	roleCard("relay").click();
+	await settle();
+
+	expect(grids()).toEqual(["relay"]);
+	expect(roleCard("relay").getAttribute("aria-pressed")).toBe("true");
+	expect(roleCard("cookie").getAttribute("aria-pressed")).toBe("false");
+
+	await choose("relay", "0O");
+
+	expect(await codeText()).toBe("1R0O-10S0000000");
+	expect(roleCard("relay").textContent).toContain("Fairy Cookie");
+	await reset();
+	roleCard("cookie").click();
+	await settle();
+});
+
+test("the relay card is off where the episode takes none", async () => {
+	roleCard("relay").click();
+	await choose("episode", "special1");
+
+	expect(roleCard("relay").disabled).toBe(true);
+	expect(roleCard("relay").textContent).toContain("No relay here");
+	// The grid falls back to the cookie's while the relay has no room.
+	expect(need("relay").hidden).toBe(true);
+	expect(need("cookie").hidden).toBe(false);
+
+	roleCard("relay").click();
+	await settle();
+	expect(need("relay").hidden).toBe(true);
+	await reset();
+	roleCard("cookie").click();
+	await settle();
+});
+
+test("Clear empties the selected role", async () => {
+	const clear = need<HTMLButtonElement>("role-clear");
+	expect(clear.hidden).toBe(true);
+
+	await choose("cookie", "0O");
+	expect(await codeText()).toBe("1C0O-10S0000000");
+	expect(clear.hidden).toBe(false);
+
+	clear.click();
+	await settle();
+
+	expect(await codeText()).toBe("10S0000000");
+	expect(roleCard("cookie").textContent).toContain("None");
+	expect(clear.hidden).toBe(true);
+	await reset();
+});
+
+test("the tab badges count what is set", async () => {
+	expect(tabOptions().map(([, , badge]) => badge)).toEqual(["", "", "0/3", ""]);
+
+	await typeCode("1C0OP10TU0FZ.0RB-1HM31RFW00");
+
+	expect(tabOptions().map(([, , badge]) => badge)).toEqual([
+		"",
+		"2",
+		"2/3",
+		"5",
+	]);
+	await closeEditor();
+	await reset();
+});
+
+test("the relay is not counted where the episode takes none", async () => {
+	await typeCode("1C0OR10P10-1HM3000000");
+	await closeEditor();
+	expect(tabOptions()[1]?.[2]).toBe("3");
+
+	await choose("episode", "special1");
+
+	expect(tabOptions()[1]?.[2]).toBe("2");
+	await reset();
+});
+
+test("the summary follows the code", async () => {
+	const runRow = () =>
+		inside(summary).querySelector('button.row[data-target="mode"]')
+			?.textContent ?? "";
+	await settle();
+	expect(runRow()).toContain("Score");
+
+	await choose("goal", "money");
+
+	expect(runRow()).toContain("Money");
+	await reset();
+});
+
+test("the verdict sits under the mode chips", () => {
+	expect(need("mode").nextElementSibling).toBe(verdict);
+	expect(verdict.closest("[role=tabpanel]")?.id).toBe("panel-main");
 });
 
 function savedRows(): HTMLLIElement[] {
@@ -854,10 +1071,14 @@ test("saving the code lists it with its description, in storage too", async () =
 // afterwards wrote back, and that is a choice the save box already offers.
 test("loading a saved code moves the controls to it and opens it for updating", async () => {
 	expect(await codeText()).toBe("10S0000000");
+	await pickTab("boosts");
 
 	savedButtonFor("10M0000000", "load").click();
 
 	expect(await codeText()).toBe("10M0000000");
+	// Opening a saved code keeps the tab someone was on.
+	expect(shownPanels()).toEqual(["panel-boosts"]);
+	await pickTab("main");
 	expect(isOn("goal", "money")).toBe(true);
 	expect(need("save-status").textContent).toBe("Loaded Coin farm.");
 	expect(!need("save-editing").hidden).toBe(true);

@@ -62,8 +62,12 @@ import {
 	hashFor,
 	noteInHash,
 	rememberCode,
+	rememberTab,
 	shareHashFor,
 	startingCode,
+	storedTab,
+	TAB_NAMES,
+	type TabName,
 } from "./state";
 import { summaryOf } from "./summary";
 
@@ -71,17 +75,19 @@ import "#components/build-summary";
 import "#components/card-group";
 import "#components/chip-group";
 import "#components/code-bar";
-import "#components/entry-tile";
+import "#components/entry-grid";
 import "#components/entry-tiles";
 import "#components/site-footer";
 import "#components/site-nav";
+import "#components/tab-strip";
 
 import type { BuildSummary } from "#components/build-summary";
 import type { CardGroup } from "#components/card-group";
 import type { ChipGroup } from "#components/chip-group";
 import type { CodeBar } from "#components/code-bar";
-import type { EntryTile } from "#components/entry-tile";
+import type { EntryGrid } from "#components/entry-grid";
 import type { EntryTiles } from "#components/entry-tiles";
+import type { TabOption, TabStrip } from "#components/tab-strip";
 
 /** Exported for this route's test, which drives the page through the same lookups. */
 export function need<T extends HTMLElement>(id: string): T {
@@ -93,25 +99,29 @@ export function need<T extends HTMLElement>(id: string): T {
 const codeBar = need<CodeBar>("code");
 const summaryCard = need<BuildSummary>("summary");
 const verdictLine = need("verdict");
+const warningsBanner = need("warnings-banner");
 const warningList = need<HTMLUListElement>("warnings");
 const copyLinkButton = need<HTMLButtonElement>("copy-link");
 const resetButton = need<HTMLButtonElement>("reset");
 const linkStatus = need("link-status");
 
+const tabStrip = need<TabStrip>("tabs");
 const buildForm = need<HTMLFormElement>("build");
 const modeChips = need<ChipGroup>("mode");
 const goalChips = need<ChipGroup>("goal");
-const episodeTile = need<EntryTile>("episode");
+const episodeGrid = need<EntryGrid>("episode");
 const floorField = need("field-floor");
 const floorInput = need<HTMLInputElement>("floor");
 const boostCards = need<CardGroup>("boosts");
-const randomBoostTile = need<EntryTile>("randomBoost");
+const randomBoostChips = need<ChipGroup>("randomBoost");
 const cookiePowerCards = need<CardGroup>("cookiePowers");
 const actionChips = need<ChipGroup>("action");
 
-const cookieTile = need<EntryTile>("cookie");
-const relayTile = need<EntryTile>("relay");
-const petTile = need<EntryTile>("pet");
+const cookieGrid = need<EntryGrid>("cookie");
+const relayGrid = need<EntryGrid>("relay");
+const petGrid = need<EntryGrid>("pet");
+const rolesBox = need("roles");
+const roleClear = need<HTMLButtonElement>("role-clear");
 const treasureSlots = [
 	need<EntryTiles>("treasure1"),
 	need<EntryTiles>("treasure2"),
@@ -159,11 +169,11 @@ function pickerOptions(
 }
 
 /**
- * The same list without the kind, for the three `<entry-tile>` pickers. Nothing
+ * The same list without the kind, for the three `<entry-grid>` pickers. Nothing
  * a cookie or a pet picker holds evolves, so the kind is always null there and
  * the element has no field for one.
  *
- * Any leads the list, under the tile's own None. The two are different answers
+ * Any leads the list, under the grid's own None. The two are different answers
  * — a slot the build says anything fits, against one it never mentions — and
  * the order puts them together at the top rather than burying Any in the
  * catalog it is not part of.
@@ -190,9 +200,9 @@ const ORDER_OPTIONS = [
 
 function readLoadout(): Loadout {
 	return {
-		cookie: cookieTile.value,
-		relay: relayTile.value,
-		pet: petTile.value,
+		cookie: cookieGrid.value,
+		relay: relayGrid.value,
+		pet: petGrid.value,
 		// Empty slots are not gaps in the wire format, so they drop out.
 		treasures: treasureSlots
 			.map((slot) => {
@@ -238,9 +248,9 @@ function treasureOptions(
 }
 
 function writeLoadout(loadout: Loadout): void {
-	cookieTile.value = loadout.cookie;
-	relayTile.value = loadout.relay;
-	petTile.value = loadout.pet;
+	cookieGrid.value = loadout.cookie;
+	relayGrid.value = loadout.relay;
+	petGrid.value = loadout.pet;
 	orderChips.value = loadout.ordered ? "ordered" : "any";
 	treasureSlots.forEach((slot, index) => {
 		const carried = loadout.treasures[index] ?? [];
@@ -254,6 +264,105 @@ function writeLoadout(loadout: Loadout): void {
 		);
 	});
 }
+
+type Role = "cookie" | "relay" | "pet";
+
+const ROLES: readonly Role[] = ["cookie", "relay", "pet"];
+
+const ROLE_NAMES: Record<Role, string> = {
+	cookie: "Cookie",
+	relay: "Relay",
+	pet: "Pet",
+};
+
+const ROLE_GRIDS: Record<Role, EntryGrid> = {
+	cookie: cookieGrid,
+	relay: relayGrid,
+	pet: petGrid,
+};
+
+function isRole(group: string): group is Role {
+	return (ROLES as readonly string[]).includes(group);
+}
+
+/**
+ * Which role the Cookies tab's one visible grid writes. Held in memory only: it
+ * is where someone is looking, not part of the build.
+ */
+let role: Role = "cookie";
+
+/** The build `render` last drew, which the role cards read their faces from. */
+let shownFull: FullCode | null = null;
+
+/** The role on screen: the one picked, unless the episode has no relay. */
+function shownRole(episode: Episode): Role {
+	return role === "relay" && !limitsOf(episode).relay ? "cookie" : role;
+}
+
+/**
+ * Draws the three role cards from the code, and shows the grid of the role
+ * picked. Each card is the role's face and name, or None.
+ */
+function showRoles(): void {
+	if (shownFull === null) return;
+	const { combi, loadout } = shownFull;
+	const hasRelay = limitsOf(combi.episode).relay;
+	const shown = shownRole(combi.episode);
+
+	for (const each of ROLES) {
+		const card = rolesBox.querySelector<HTMLButtonElement>(
+			`button[data-role="${each}"]`,
+		);
+		if (card === null) continue;
+		const off = each === "relay" && !hasRelay;
+		const id = off ? null : loadout[each];
+		const section = each === "pet" ? "pets" : "cookies";
+		const image = id === null ? null : imageFor(section, id);
+
+		let face: HTMLElement;
+		if (image === null) {
+			face = document.createElement("span");
+			face.className = "placeholder";
+			face.setAttribute("aria-hidden", "true");
+		} else {
+			const img = document.createElement("img");
+			img.src = ASSET_BASE + image;
+			img.alt = "";
+			face = img;
+		}
+		const name = document.createElement("small");
+		name.textContent = ROLE_NAMES[each];
+		const label = document.createElement("span");
+		label.className = "name";
+		label.textContent = off
+			? "No relay here"
+			: id === null
+				? "None"
+				: labelFor(section, id);
+
+		card.replaceChildren(face, name, label);
+		card.disabled = off;
+		card.setAttribute("aria-pressed", String(each === shown));
+		ROLE_GRIDS[each].hidden = each !== shown;
+	}
+	roleClear.hidden = ROLE_GRIDS[shown].value === null;
+}
+
+rolesBox.addEventListener("click", (event) => {
+	const card = (event.target as Element | null)?.closest<HTMLButtonElement>(
+		"button[data-role]",
+	);
+	const picked = card?.getAttribute("data-role") ?? "";
+	if (card === null || card === undefined || card.disabled) return;
+	if (!isRole(picked)) return;
+	role = picked;
+	showRoles();
+});
+
+roleClear.addEventListener("click", () => {
+	ROLE_GRIDS[shownRole(currentEpisode())].value = null;
+	render();
+});
 
 const FLOOR_MAX = 100;
 
@@ -271,12 +380,16 @@ function readForm(): Combi {
 	return {
 		goal: goalChips.value as Goal,
 		mode: modeChips.value as Mode,
-		// The tile offers no None of its own — `any` is the episode's — so the
+		// The grid offers no None of its own — `any` is the episode's — so the
 		// fallback is a type-level one and never a value the page can produce.
-		episode: (episodeTile.value ?? "any") as Episode,
+		episode: (episodeGrid.value ?? "any") as Episode,
 		floor: readFloor(),
 		boosts: boostCards.selected as Boost[],
-		randomBoost: randomBoostTile.value as RandomBoost | null,
+		// The chips' None is "", since a chip row always holds a value.
+		randomBoost:
+			randomBoostChips.value === ""
+				? null
+				: (randomBoostChips.value as RandomBoost),
 		cookiePowers: cookiePowerCards.selected as CookiePower[],
 		action: actionChips.value as Action,
 	};
@@ -287,11 +400,9 @@ function writeForm(combi: Combi): void {
 	// make of an auto run, not a mode anyone picks, so there is no chip for it.
 	modeChips.value = combi.mode === "semiauto" ? "auto" : combi.mode;
 	goalChips.value = combi.goal;
-	episodeTile.value = combi.episode;
+	episodeGrid.value = combi.episode;
 	floorInput.value = combi.floor === null ? "" : String(combi.floor);
-	// No sentinel in either direction: the tile's own empty pick is null, which
-	// is exactly what a combi carrying no random boost holds.
-	randomBoostTile.value = combi.randomBoost;
+	randomBoostChips.value = combi.randomBoost ?? "";
 	actionChips.value = combi.action;
 	boostCards.selected = combi.boosts;
 	cookiePowerCards.selected = combi.cookiePowers;
@@ -341,6 +452,7 @@ function publish(code: string): void {
 }
 
 function showWarnings(warnings: readonly string[]): void {
+	warningsBanner.hidden = warnings.length === 0;
 	warningList.replaceChildren(
 		...warnings.map((warning) => {
 			const item = document.createElement("li");
@@ -379,13 +491,18 @@ function render(warnings: readonly string[] = []): void {
 	codeBar.message = "";
 	codeBar.invalid = false;
 	codeBar.value = code;
-	// After the value: setting it drops the old hints, which described the code
-	// before this one.
-	codeBar.hints = hintsFor(code);
 
 	// Read the code back so the verdict reflects the character actually written
 	// into slot 2, not the type the chips still show.
 	const { full } = decodeFull(code);
+	const { episode } = full.combi;
+	// After the value: setting it drops the old hints, which described the code
+	// before this one. A run with nothing to jump to — no control owns it, or
+	// its tab is off for this episode — is drawn as plain text.
+	codeBar.hints = hintsFor(code).map((hint) => ({
+		...hint,
+		inert: !canJump(hint.group, episode),
+	}));
 	verdictLine.textContent = verdictText(full);
 	const summary = summaryOf(full, ASSET_BASE);
 	summaryCard.rows = summary.rows;
@@ -397,6 +514,9 @@ function render(warnings: readonly string[] = []): void {
 	// page exists to prevent.
 	modeChips.options = modeOptions(isSemiAutoBuild(full));
 	showLimits(full.combi);
+	tabStrip.options = tabOptions(full);
+	shownFull = full;
+	showRoles();
 
 	// A numbered slot claims a position, and the code only carries one when the
 	// order is exact. Read from the decoded code, not the switch: the code's truth
@@ -410,6 +530,7 @@ function render(warnings: readonly string[] = []): void {
 	});
 
 	showWarnings(warnings);
+	showTab();
 	markCurrent(code);
 	publish(code);
 }
@@ -445,7 +566,6 @@ function showLimits(combi: Combi): void {
 		combi.mode === "manual" ? "Only an auto run starts with an action." : null,
 	);
 
-	relayTile.hidden = !limits.relay;
 	relayNote.hidden = limits.relay;
 	relayNote.textContent = limits.relay ? "" : `${episode} takes no relay.`;
 }
@@ -1011,15 +1131,15 @@ exportDownloadButton.addEventListener("click", () => {
 const OWNER: Record<string, HTMLElement> = {
 	goal: goalChips,
 	mode: modeChips,
-	episode: episodeTile,
+	episode: episodeGrid,
 	floor: floorInput,
 	boosts: boostCards,
-	randomBoost: randomBoostTile,
+	randomBoost: randomBoostChips,
 	cookiePowers: cookiePowerCards,
 	action: actionChips,
-	cookie: cookieTile,
-	relay: relayTile,
-	pet: petTile,
+	cookie: cookieGrid,
+	relay: relayGrid,
+	pet: petGrid,
 	treasures: treasureSlots[0] as HTMLElement,
 };
 
@@ -1031,9 +1151,140 @@ const OWNER: Record<string, HTMLElement> = {
  */
 for (const element of new Set(Object.values(OWNER))) element.tabIndex = -1;
 
+/** Which tab holds each control in `OWNER`. */
+const TAB_OF: Record<string, TabName> = {
+	goal: "main",
+	mode: "main",
+	episode: "main",
+	floor: "main",
+	action: "main",
+	cookie: "cookies",
+	relay: "cookies",
+	pet: "cookies",
+	treasures: "treasures",
+	boosts: "boosts",
+	randomBoost: "boosts",
+	cookiePowers: "boosts",
+};
+
+/**
+ * Why a tab is off for an episode, or null where it is not. The episode decides
+ * what a run may carry (`limitsOf`), and a tab whose every control the code
+ * would drop is a tab that hides nothing worth showing.
+ */
+function disabledReason(tab: TabName, episode: Episode): string | null {
+	const limits = limitsOf(episode);
+	const name = EPISODE_LABELS[episode];
+	if (tab === "boosts" && !limits.boosts) return `${name} takes no boosts.`;
+	if (tab === "treasures" && !limits.treasures) {
+		return `${name} takes no treasures.`;
+	}
+	return null;
+}
+
+/** The episode the controls hold, which is the one the code was written with. */
+function currentEpisode(): Episode {
+	return (episodeGrid.value ?? "any") as Episode;
+}
+
+/**
+ * Whether a group of the code leads anywhere: a control owns it, its tab is on
+ * for this episode, and — for the relay — the episode takes one at all.
+ */
+function canJump(group: string, episode: Episode): boolean {
+	const tab = TAB_OF[group];
+	if (!Object.hasOwn(OWNER, group) || tab === undefined) return false;
+	if (group === "relay" && !limitsOf(episode).relay) return false;
+	return disabledReason(tab, episode) === null;
+}
+
+/**
+ * The tab picked, as last stored. Held here as well as in storage so a browser
+ * that refuses storage still keeps the pick for the visit.
+ */
+let chosenTab: TabName = storedTab(localStorage);
+
+function chooseTab(tab: TabName): void {
+	chosenTab = tab;
+	rememberTab(localStorage, tab);
+}
+
+const panels = new Map<TabName, HTMLElement>(
+	TAB_NAMES.map((tab) => [tab, need(`panel-${tab}`)]),
+);
+
+/**
+ * Shows the tab picked, or Main while the episode has that one off. The pick
+ * itself is left alone, so an episode that has the tab again reopens it.
+ */
+function showTab(): void {
+	const tab =
+		disabledReason(chosenTab, currentEpisode()) === null ? chosenTab : "main";
+	tabStrip.value = tab;
+	for (const [name, panel] of panels) panel.hidden = name !== tab;
+}
+
+const TAB_LABELS: Record<TabName, string> = {
+	main: "Main",
+	cookies: "Cookies",
+	treasures: "Treasures",
+	boosts: "Boosts",
+};
+
+/** A count as a badge, or nothing at all for none. */
+function badge(count: number): string {
+	return count === 0 ? "" : String(count);
+}
+
+/** The tabs as the strip draws them, counted from the code itself. */
+function tabOptions(full: FullCode): readonly TabOption[] {
+	const { combi, loadout } = full;
+	const limits = limitsOf(combi.episode);
+	const people = [
+		loadout.cookie,
+		limits.relay ? loadout.relay : null,
+		loadout.pet,
+	].filter((id) => id !== null).length;
+	const boosts = limits.boosts
+		? combi.boosts.length +
+			(combi.randomBoost === null ? 0 : 1) +
+			combi.cookiePowers.length
+		: 0;
+	const badges: Record<TabName, string> = {
+		main: "",
+		cookies: badge(people),
+		treasures: limits.treasures ? `${loadout.treasures.length}/3` : "",
+		boosts: badge(boosts),
+	};
+	return TAB_NAMES.map(
+		(tab) =>
+			[
+				tab,
+				TAB_LABELS[tab],
+				badges[tab],
+				disabledReason(tab, combi.episode),
+			] as const,
+	);
+}
+
+tabStrip.addEventListener("tab-change", (event) => {
+	const tab = (event as CustomEvent<string>).detail;
+	if (!(TAB_NAMES as readonly string[]).includes(tab)) return;
+	chooseTab(tab as TabName);
+	showTab();
+});
+
 function jumpTo(group: string): void {
 	const owner = OWNER[group];
-	if (owner === undefined) return;
+	const tab = TAB_OF[group];
+	if (owner === undefined || tab === undefined) return;
+	if (!canJump(group, currentEpisode())) return;
+	if (isRole(group)) {
+		role = group;
+		showRoles();
+	}
+	chooseTab(tab);
+	showTab();
 	owner.scrollIntoView({ block: "center", behavior: "smooth" });
 	owner.focus();
 }
@@ -1107,7 +1358,7 @@ goalChips.options = goalOptions("manual");
 // Twelve landscape cards is a grid, not a row: an episode is a place, and the
 // picture is what anyone recognises it by. `any` has no icon and falls back to
 // the lettered cell the catalog pickers already use.
-episodeTile.options = ALL_EPISODES.map(
+episodeGrid.options = ALL_EPISODES.map(
 	(episode) =>
 		[
 			episode,
@@ -1115,22 +1366,21 @@ episodeTile.options = ALL_EPISODES.map(
 			episodeArt(episode, ASSET_BASE),
 		] as const,
 );
-// `any` is the episode's own none, so the tile must not offer a second one.
-episodeTile.required = true;
-randomBoostTile.options = ALL_RANDOM_BOOSTS.map(
-	(boost) => [boost, RANDOM_BOOST_LABELS[boost], null] as const,
-);
-// Twelve and eleven both fit on the screen whole; a filter over a list you can
-// already see is a box to tab past. Set here rather than in the markup for the
-// reason `resettable` is: an attribute the markup ships is invisible to the
-// property in the route's test harness.
-episodeTile.searchable = false;
-randomBoostTile.searchable = false;
-
-// The only pick in its band, under a heading that already names it. Stacked,
-// each was a card with nothing beside it.
-episodeTile.inline = true;
-randomBoostTile.inline = true;
+// `any` is the episode's own none, so the grid must not offer a second one.
+episodeGrid.required = true;
+// None first, as "": a chip row always holds a value, and this is the one the
+// code writes as 0. Resettable, so clicking the chosen chip goes back to it.
+randomBoostChips.options = [
+	["", "None"],
+	...pairs(ALL_RANDOM_BOOSTS, RANDOM_BOOST_LABELS),
+];
+randomBoostChips.resettable = true;
+randomBoostChips.labelHidden = true;
+// Twelve fit on the screen whole; a filter over a list you can already see is a
+// box to tab past. Set here rather than in the markup for the reason
+// `resettable` is: an attribute the markup ships is invisible to the property
+// in the route's test harness.
+episodeGrid.searchable = false;
 actionChips.options = pairs(ALL_ACTIONS, ACTION_LABELS);
 
 // The one row left whose first option is a none of its own: clicking the chip
@@ -1157,9 +1407,6 @@ actionChips.labelHidden = true;
 // back to its own two chips, which say "Any order" and "Exact order" and so
 // need no word above them.
 orderChips.labelHidden = true;
-// The two inline tiles need no flag of their own: laying a tile on its side is
-// what takes its role label off the screen, since the heading beside it is the
-// same word.
 cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 	(power) =>
 		[
@@ -1171,9 +1418,11 @@ cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 
 const cookieOptions = tileOptions("cookies");
 
-cookieTile.options = cookieOptions;
-relayTile.options = cookieOptions;
-petTile.options = tileOptions("pets");
+cookieGrid.options = cookieOptions;
+relayGrid.options = cookieOptions;
+petGrid.options = tileOptions("pets");
+// Ninety-odd cookies is a list to search, not to scan.
+for (const grid of [cookieGrid, relayGrid, petGrid]) grid.searchable = true;
 for (const slot of treasureSlots) slot.options = treasureCatalog;
 
 summaryCard.addEventListener("summary-jump", (event) => {

@@ -53,6 +53,10 @@
     <a class="skip-link" href="#content">Skip to content</a>
     <site-nav current="combi-name">
       <img slot="icon" src="../../../assets/cookies/ch26.png" alt="" />
+      <button id="open-saved" type="button">
+        Saved <span id="saved-count"></span>
+      </button>
+      <button id="open-help" type="button">Help</button>
     </site-nav>
 
     <header class="masthead container">
@@ -95,31 +99,35 @@
         <p id="link-status" class="status" role="status"></p>
       </section>
 
-      <div class="readout">
+      <!-- Only a code read with changes has something to say here, so the
+           banner is hidden until it does. An unreadable code stays on the code
+           bar's own message line, since that is where it is typed. -->
+      <section
+        id="warnings-banner"
+        class="banner"
+        aria-labelledby="warnings-title"
+        hidden
+      >
+        <strong id="warnings-title">Read with changes</strong>
         <ul id="warnings" class="warnings" aria-live="polite"></ul>
-        <p class="tip">
-          Click any part of the code to jump to the control that writes it, or
-          press <kbd>Edit</kbd> and type one. Pasting a code anywhere on the
-          page loads it.
-        </p>
-      </div>
+      </section>
 
-      <!-- One board: every value it shows is the control that writes it, so
-           reading a code and building one are the same surface. -->
+      <!-- The whole build at a glance, drawn from the code the page just wrote.
+           Every row is a way to the control behind it. Outside the form, so
+           nothing it does reaches the form's input listener. -->
+      <build-summary id="summary"></build-summary>
+
+      <!-- The controls, split four ways in the order a run is set up. A tab
+           is not part of the code, so the strip fires tab-change, not input. -->
+      <tab-strip id="tabs"></tab-strip>
+
+      <!-- Every value a panel shows is the control that writes it, so reading
+           a code and building one are the same surface. The panels run in the
+           order a run is set up, which is not the order the code reads — the
+           loadout is written first, before the dash — so every field states
+           the slot or group it writes. -->
       <form id="build" novalidate>
-        <build-summary id="summary"></build-summary>
-
-        <!-- Three bands, in the order a run is set up: what run, who runs it,
-             what it carries. That is not the order the code reads — the
-             loadout is written first, before the dash — so every field states
-             the slot or group it writes, and those markers are what tie the
-             board back to the code above it. -->
-        <section class="band">
-          <header class="bandhead">
-            <h3>The run</h3>
-            <span class="note">slots 2-4</span>
-          </header>
-
+        <section role="tabpanel" id="panel-main" data-tab aria-label="Main">
           <div class="field">
             <div class="fieldhead">
               <h4>Mode</h4>
@@ -142,7 +150,7 @@
               <h4>Episode</h4>
               <span class="slot">slot 4</span>
             </div>
-            <entry-tile id="episode" label="Episode"></entry-tile>
+            <entry-grid id="episode" label="Episode"></entry-grid>
           </div>
 
           <!-- Only the tower has floors, so the field is shown only there. -->
@@ -162,27 +170,69 @@
               aria-label="Floor, 1 to 100, empty for any"
             />
           </div>
+
+          <div class="field" id="field-action">
+            <div class="fieldhead">
+              <h4>Action</h4>
+              <span class="slot">slot 10</span>
+            </div>
+            <chip-group id="action" label="Action"></chip-group>
+            <p class="unavailable"></p>
+          </div>
         </section>
 
-        <section class="band">
-          <header class="bandhead">
-            <h3>Your loadout</h3>
-            <span class="note">optional, before the dash</span>
-          </header>
-
+        <section
+          role="tabpanel"
+          id="panel-cookies"
+          data-tab
+          aria-label="Cookies"
+          hidden
+        >
           <div class="field">
             <div class="fieldhead">
               <h4>Cookie, relay and pet</h4>
               <span class="slot">groups C R P</span>
             </div>
-            <p class="caveat" id="relay-note" hidden></p>
-            <div class="tiles">
-              <entry-tile id="cookie" label="Cookie"></entry-tile>
-              <entry-tile id="relay" label="Relay"></entry-tile>
-              <entry-tile id="pet" label="Pet"></entry-tile>
+            <!-- Which role the grid below writes. The route draws each card's
+                 face and name from the code, and its aria-pressed from the
+                 role picked. -->
+            <div id="roles" class="roles">
+              <button
+                type="button"
+                class="role"
+                data-role="cookie"
+                aria-pressed="true"
+              ></button>
+              <span class="arrow" aria-hidden="true">→</span>
+              <button
+                type="button"
+                class="role"
+                data-role="relay"
+                aria-pressed="false"
+              ></button>
+              <span class="arrow" aria-hidden="true">·</span>
+              <button
+                type="button"
+                class="role"
+                data-role="pet"
+                aria-pressed="false"
+              ></button>
             </div>
+            <p class="caveat" id="relay-note" hidden></p>
+            <button id="role-clear" type="button" hidden>Clear</button>
+            <entry-grid id="cookie" label="Cookie"></entry-grid>
+            <entry-grid id="relay" label="Relay" hidden></entry-grid>
+            <entry-grid id="pet" label="Pet" hidden></entry-grid>
           </div>
+        </section>
 
+        <section
+          role="tabpanel"
+          id="panel-treasures"
+          data-tab
+          aria-label="Treasures"
+          hidden
+        >
           <div class="field" id="field-treasures">
             <!-- The order switch rides on the heading, because it is what the
                  slot labels under it are saying. -->
@@ -200,15 +250,16 @@
           </div>
         </section>
 
-        <section class="band">
-          <header class="bandhead">
-            <h3>Boosts and start</h3>
-            <span class="note">slots 5-10</span>
-          </header>
-
-          <!-- A field the episode or the mode has no room for keeps its
-               heading and says why in place of its control, so the board does
-               not reflow under someone switching episodes. -->
+        <section
+          role="tabpanel"
+          id="panel-boosts"
+          data-tab
+          aria-label="Boosts"
+          hidden
+        >
+          <!-- A field the episode has no room for keeps its heading and says
+               why in place of its control. The whole tab is off on such an
+               episode, so the note is only what stays true if it is reached. -->
           <div class="field" id="field-boosts">
             <div class="fieldhead">
               <h4>Boosts</h4>
@@ -223,7 +274,7 @@
               <h4>Random boost</h4>
               <span class="slot">slot 6</span>
             </div>
-            <entry-tile id="randomBoost" label="Random boost"></entry-tile>
+            <chip-group id="randomBoost" label="Random boost"></chip-group>
             <p class="unavailable"></p>
           </div>
 
@@ -233,15 +284,6 @@
               <span class="slot">slots 7-9</span>
             </div>
             <card-group id="cookiePowers" legend="Cookie power+"></card-group>
-            <p class="unavailable"></p>
-          </div>
-
-          <div class="field" id="field-action">
-            <div class="fieldhead">
-              <h4>Action</h4>
-              <span class="slot">slot 10</span>
-            </div>
-            <chip-group id="action" label="Action"></chip-group>
             <p class="unavailable"></p>
           </div>
         </section>
@@ -313,6 +355,12 @@
            question this table used to be here to answer. -->
       <details class="panel reference">
         <summary><h2>Reading a code by eye</h2></summary>
+
+        <p class="tip">
+          Click any part of the code to jump to the control that writes it, or
+          press <kbd>Edit</kbd> and type one. Pasting a code anywhere on the
+          page loads it.
+        </p>
 
         <pre class="diagram">
 slot:  1  2  3  4  5  6  7 8 9  10

@@ -82,8 +82,18 @@ function modePill(full: FullCode): SummaryItem {
 		: { kind: "pill", text: MODE_LABELS.auto };
 }
 
+/**
+ * The goal's word, with "Any" saying what it is any of: a control sits under a
+ * heading that names it, but a summary line puts a goal and an episode side by
+ * side, and two bare "Any"s there read as nothing.
+ */
+function goalText({ combi }: FullCode): string {
+	return combi.goal === "any" ? "Any goal" : GOAL_LABELS[combi.goal];
+}
+
 function episodeText({ combi }: FullCode): string {
-	const name = EPISODE_LABELS[combi.episode];
+	const name =
+		combi.episode === "any" ? "Any episode" : EPISODE_LABELS[combi.episode];
 	if (!limitsOf(combi.episode).floor) return name;
 	return `${name}, ${floorText(combi.floor).toLowerCase()}`;
 }
@@ -111,7 +121,7 @@ function runRow(full: FullCode, base: string): SummaryRow {
 					]
 				: []),
 			DOT,
-			{ kind: "text", text: GOAL_LABELS[combi.goal] },
+			{ kind: "text", text: goalText(full) },
 			DOT,
 			{
 				kind: "image",
@@ -209,7 +219,7 @@ export function summaryOf(
 	const episodeIcon = episodeArt(combi.episode, base);
 	const compact: SummaryItem[] = [
 		modePill(full),
-		{ kind: "text", text: GOAL_LABELS[combi.goal] },
+		{ kind: "text", text: goalText(full) },
 		episodeIcon === null
 			? { kind: "text", text: episodeText(full) }
 			: { kind: "image", src: episodeIcon, title: episodeText(full) },

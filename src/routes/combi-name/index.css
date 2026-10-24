@@ -76,12 +76,6 @@ main {
 	min-height: 0;
 }
 
-/* What the code says, under the panel rather than pinned inside it. */
-.readout {
-	display: block;
-	padding: 0 var(--cr-space-4);
-}
-
 .tip {
 	margin: var(--cr-space-2) 0 0;
 	color: var(--cr-muted);
@@ -99,10 +93,6 @@ main {
 	.codepanel h2 {
 		display: none;
 	}
-
-	.readout {
-		padding: 0 var(--cr-space-3);
-	}
 }
 
 .tip kbd {
@@ -114,7 +104,7 @@ main {
 	font-size: 0.85em;
 }
 
-/* The board is one box holding three bands. */
+/* The board is one box holding the open tab's panel. */
 #build {
 	display: block;
 	min-width: 0;
@@ -123,13 +113,6 @@ main {
 	background: var(--cr-surface);
 	box-shadow: var(--cr-block);
 	padding: var(--cr-space-3) var(--cr-space-4) var(--cr-space-4);
-}
-
-/* A band is one question the board asks: what run, who runs it, what it
-   carries. Six sections under six identical hairlines gave the board no rank
-   at all; three bands under one accent bar give it the only rank it needs. */
-.band {
-	margin-top: var(--cr-space-5);
 }
 
 /* Why an auto run needs a hand, under the chips that pick auto. Empty for a
@@ -145,39 +128,12 @@ main {
 	display: none;
 }
 
-.bandhead {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: var(--cr-space-2);
-	border-left: var(--cr-border) solid var(--cr-accent);
-	padding-left: var(--cr-space-2);
-}
-
-.bandhead h3 {
-	margin: 0;
-	font-family: var(--cr-mono);
-	font-size: 0.8rem;
-	font-weight: 600;
-	letter-spacing: var(--cr-tracking);
-	text-transform: uppercase;
-}
-
-.bandhead .note {
-	color: var(--cr-muted);
-	font-family: var(--cr-mono);
-	font-size: 0.7rem;
-	letter-spacing: var(--cr-tracking);
-}
-
 .field {
 	margin-top: var(--cr-space-4);
 }
 
-/* Three levels, drawn as three: the band in tracked mono, the field's name in
-   sentence case at full contrast, and the slot it writes in muted mono at the
-   far end. Every heading used to be the same muted uppercase, which is why the
+/* Two levels, drawn as two: the field's name in sentence case at full
+   contrast, and the slot it writes in muted mono at the far end. Every heading used to be the same muted uppercase, which is why the
    board had no shape to read. */
 /* `flex-direction: row` is not the redundancy it looks like: the reset makes
    every bare `div` a flex column, so a div that wants a row has to say so even
@@ -236,6 +192,39 @@ main {
 
 #floor {
 	width: 8rem;
+}
+
+/* The three role cards in a row: a bare div is a flex column under the reset.
+   Only enough to lay them out; the look is the layout pass's. */
+.roles {
+	flex-flow: row wrap;
+	align-items: center;
+	gap: var(--cr-space-2);
+	margin-bottom: var(--cr-space-2);
+}
+
+.role {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--cr-space-1);
+}
+
+.role img,
+.role .placeholder {
+	width: 3rem;
+	height: 3rem;
+	object-fit: contain;
+}
+
+.role .placeholder {
+	border: var(--cr-border) dashed var(--cr-line);
+	border-radius: var(--cr-radius);
+}
+
+#role-clear {
+	align-self: flex-start;
+	margin-bottom: var(--cr-space-2);
 }
 
 .tiles {

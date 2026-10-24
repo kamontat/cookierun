@@ -144,6 +144,14 @@ test("the tower's Run row names the floor", () => {
 	);
 });
 
+// A bare "Any" between two dots says nothing about what it is any of.
+test("the Run row names what Any stands for", () => {
+	const { full } = decodeFull("1A00000000");
+	const { items } = row(summaryOf(full, BASE).rows, "Run");
+
+	expect(texts(items)).toEqual(["Auto", "Any goal", "Any episode"]);
+});
+
 test("Cookies reads cookie → relay · pet, and drops the relay where the episode takes none", () => {
 	const { items } = row(summaryOf(fullBuild(), BASE).rows, "Cookies");
 
