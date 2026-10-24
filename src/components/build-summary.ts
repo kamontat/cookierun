@@ -27,7 +27,7 @@ export type SummaryItem =
 			note?: string;
 	  }
 	/** At most two faces, overlapping, then a name. */
-	| { kind: "stack"; srcs: readonly string[]; text: string }
+	| { kind: "stack"; srcs: readonly string[]; text?: string; title?: string }
 	| { kind: "sep"; text: "·" | "→" }
 	| { kind: "tag"; text: string };
 
@@ -37,6 +37,20 @@ export type SummaryRow = {
 	target: string;
 	items: readonly SummaryItem[];
 };
+
+/**
+ * What a stack says in words. Its own text when it has some; otherwise its
+ * title, which is on screen only when there are no faces to say it with, and
+ * kept for a screen reader when there are — the faces themselves are unnamed,
+ * since a pair of portraits is one thing, not two.
+ */
+function stackName(entry: Extract<SummaryItem, { kind: "stack" }>) {
+	if (entry.text !== undefined) return entry.text;
+	if (entry.title === undefined) return nothing;
+	return entry.srcs.length === 0
+		? entry.title
+		: html`<span class="hidden">${entry.title}</span>`;
+}
 
 function item(entry: SummaryItem) {
 	switch (entry.kind) {
@@ -75,7 +89,7 @@ function item(entry: SummaryItem) {
 				}</span
 			>`;
 		case "stack":
-			return html`<span class="stack"
+			return html`<span class="stack" title=${entry.title ?? nothing}
 				>${
 					entry.srcs.length === 0
 						? nothing
@@ -86,7 +100,7 @@ function item(entry: SummaryItem) {
 										(src) => html`<img src=${src} alt="" loading="lazy" />`,
 									)}</span
 							>`
-				}${entry.text}</span
+				}${stackName(entry)}</span
 			>`;
 		case "sep":
 			return html`<span class="sep" aria-hidden="true">${entry.text}</span>`;
@@ -203,6 +217,16 @@ export class BuildSummary extends LitElement {
 				display: inline-flex;
 				align-items: center;
 				gap: var(--cr-space-1);
+			}
+
+			.hidden {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				margin: -1px;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
 			}
 
 			.pic {

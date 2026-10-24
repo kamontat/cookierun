@@ -286,14 +286,33 @@ test("a special episode leaves out the boost rows and an Exp episode the treasur
 	).toEqual(["Run", "Cookies"]);
 });
 
-test("Power+ shows at most two faces and drops the trailing Cookie", () => {
+test("Power+ shows at most two faces, named only in their title", () => {
 	const full = fullBuild({ cookiePowers: ["fairy", "expParty"] });
 	const { items } = row(summaryOf(full, BASE).rows, "Power+");
 	const stacks = items.flatMap((item) => (item.kind === "stack" ? [item] : []));
 
-	expect(stacks.map((each) => each.text)).toEqual(["Fairy", "EXP Party"]);
+	expect(items.every((item) => item.kind === "stack")).toBe(true);
+	expect(stacks.map((each) => each.text)).toEqual([undefined, undefined]);
+	expect(stacks.map((each) => each.title)).toEqual(["Fairy", "EXP Party"]);
 	expect(stacks[0]?.srcs).toEqual(cookiePowerArt("fairy", BASE));
 	expect(stacks[1]?.srcs.length).toBe(2);
+});
+
+test("Boosts are icons alone, named in their title", () => {
+	const { items } = row(summaryOf(fullBuild(), BASE).rows, "Boosts");
+
+	expect(items.every((item) => item.kind === "image")).toBe(true);
+	expect(items.map((item) => item.kind === "image" && item.text)).toEqual([
+		undefined,
+		undefined,
+	]);
+	expect(items.map((item) => item.kind === "image" && item.title)).toEqual([
+		"HP Extension",
+		"Power Jelly Boost",
+	]);
+	expect(
+		items.every((item) => item.kind === "image" && item.src !== null),
+	).toBe(true);
 });
 
 test("compact carries the mode pill, goal, episode icon, faces and the boost count", () => {

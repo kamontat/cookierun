@@ -116,6 +116,32 @@ test("an image item with neither picture nor text shows its title", async () => 
 	expect(button(element, "button.line").textContent).toContain("Mystery");
 });
 
+test("an icon-only item is named by its title, on screen and to a screen reader", async () => {
+	const element = await mount([
+		{
+			label: "Boosts",
+			target: "boosts",
+			items: [
+				{ kind: "image", src: "hp.png", title: "HP Extension" },
+				{ kind: "stack", srcs: ["a.png", "b.png"], title: "EXP Party" },
+				{ kind: "stack", srcs: [], title: "Fairy" },
+			],
+		},
+	]);
+
+	const [image, stack, bare] = inside(element).querySelectorAll(
+		"button.row .image, button.row .stack",
+	);
+	expect(image?.getAttribute("title")).toBe("HP Extension");
+	expect(image?.querySelector("img")?.getAttribute("alt")).toBe("HP Extension");
+	expect(stack?.getAttribute("title")).toBe("EXP Party");
+	expect(stack?.querySelectorAll("img").length).toBe(2);
+	expect(stack?.querySelector(".hidden")?.textContent).toBe("EXP Party");
+	// No faces to show: the name is the only thing left to say it with.
+	expect(bare?.textContent?.trim()).toBe("Fairy");
+	expect(bare?.querySelector(".hidden")).toBe(null);
+});
+
 test("clicking a row fires summary-jump with its target", async () => {
 	const element = await mount(ROWS);
 	const targets: string[] = [];

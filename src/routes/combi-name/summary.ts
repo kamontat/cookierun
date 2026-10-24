@@ -31,11 +31,6 @@ export const HINT =
 const DOT: SummaryItem = { kind: "sep", text: "·" };
 const ARROW: SummaryItem = { kind: "sep", text: "→" };
 
-/** Items with a `·` between each, for a row that lists several things. */
-function dotted(items: readonly SummaryItem[]): SummaryItem[] {
-	return items.flatMap((each, at) => (at === 0 ? [each] : [DOT, each]));
-}
-
 function picture(section: CatalogSection, id: string, base: string) {
 	const image = imageFor(section, id);
 	return image === null ? null : base + image;
@@ -191,13 +186,13 @@ export function summaryOf(
 	add(
 		"Boosts",
 		"boosts",
-		dotted(
-			boosts.map((boost) => ({
-				kind: "image",
-				src: boostArt(boost, base)[0] ?? null,
-				text: BOOST_LABELS[boost],
-			})),
-		),
+		// Icons alone: the picture is what the card on the Boosts tab shows, and
+		// the name rides in the title. One with no picture falls back to it.
+		boosts.map((boost) => ({
+			kind: "image",
+			src: boostArt(boost, base)[0] ?? null,
+			title: BOOST_LABELS[boost],
+		})),
 	);
 	add(
 		"Random boost",
@@ -209,13 +204,11 @@ export function summaryOf(
 	add(
 		"Power+",
 		"cookiePowers",
-		dotted(
-			powers.map((power) => ({
-				kind: "stack",
-				srcs: cookiePowerArt(power, base).slice(0, 2),
-				text: powerName(COOKIE_POWER_LABELS[power]),
-			})),
-		),
+		powers.map((power) => ({
+			kind: "stack",
+			srcs: cookiePowerArt(power, base).slice(0, 2),
+			title: powerName(COOKIE_POWER_LABELS[power]),
+		})),
 	);
 
 	const count = boosts.length + (randomBoost === null ? 0 : 1) + powers.length;
