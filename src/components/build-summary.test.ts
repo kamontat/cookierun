@@ -4,11 +4,16 @@ import { expect, test } from "bun:test";
 
 import "./build-summary";
 
-import type { BuildSummary } from "./build-summary";
+import type { BuildSummary, SummaryRow } from "./build-summary";
 
-async function mount(): Promise<BuildSummary> {
+async function mount(
+	rows: readonly SummaryRow[] = [],
+	hint: string | null = null,
+): Promise<BuildSummary> {
 	document.body.replaceChildren();
 	const element = document.createElement("build-summary") as BuildSummary;
+	element.rows = rows;
+	element.hint = hint;
 	document.body.append(element);
 	await element.updateComplete;
 	return element;
@@ -20,111 +25,143 @@ function inside(element: BuildSummary): ShadowRoot {
 	return root;
 }
 
-function text(element: BuildSummary, selector: string): string {
-	return inside(element).querySelector(selector)?.textContent?.trim() ?? "";
+function button(element: BuildSummary, selector: string): HTMLButtonElement {
+	const found = inside(element).querySelector<HTMLButtonElement>(selector);
+	if (found === null) throw new Error(`no ${selector}`);
+	return found;
 }
 
-test("a semi-auto verdict wears a badge and names what forces the work", async () => {
-	const element = await mount();
+const ROWS: readonly SummaryRow[] = [
+	{
+		label: "Run",
+		target: "mode",
+		items: [
+			{ kind: "pill", text: "Semi-auto", tone: "semi" },
+			{ kind: "text", text: "Fast Start", muted: true },
+			{ kind: "sep", text: "·" },
+			{ kind: "text", text: "Money" },
+		],
+	},
+	{
+		label: "Treasures",
+		target: "treasures",
+		items: [
+			{
+				kind: "image",
+				src: "../assets/a.png",
+				title: "A +3–9 or B +5–9",
+				badge: "+1",
+				note: "+3–9",
+			},
+			{ kind: "sep", text: "→" },
+			{ kind: "image", src: null, text: "C" },
+			{ kind: "tag", text: "exact order" },
+		],
+	},
+];
 
-	element.verdict = { semi: true, reasons: ["Fast Start", "Jump at start"] };
-	await element.updateComplete;
+test("draws a row per entry with its label and items", async () => {
+	const element = await mount(ROWS);
 
-	expect(text(element, ".badge")).toBe("Semi-auto");
-	expect(text(element, ".verdict")).toBe(
-		"Fast Start, Jump at start need manual work each run.",
+	const rows = [...inside(element).querySelectorAll("button.row")];
+	expect(rows.length).toBe(2);
+	expect(rows.map((row) => row.querySelector(".label")?.textContent)).toEqual([
+		"Run",
+		"Treasures",
+	]);
+	const run = rows[0]?.querySelector(".value");
+	expect(run?.querySelector(".pill")?.textContent?.trim()).toBe("Semi-auto");
+	expect(run?.querySelector(".pill")?.classList.contains("semi")).toBe(true);
+	expect(run?.querySelector(".muted")?.textContent?.trim()).toBe("Fast Start");
+	expect(run?.textContent).toContain("Money");
+	expect(rows[1]?.querySelector(".tag")?.textContent?.trim()).toBe(
+		"exact order",
 	);
 });
 
-test("a full-auto verdict says nothing needs manual work", async () => {
-	const element = await mount();
+test("an image item draws its picture, badge and note", async () => {
+	const element = await mount(ROWS);
 
-	element.verdict = { semi: false, reasons: [] };
-	await element.updateComplete;
-
-	expect(text(element, ".badge")).toBe("Full auto");
-	expect(text(element, ".verdict")).toBe("Nothing needs manual work each run.");
-});
-
-// The board's own heading stands with or without a verdict; only the badge and
-// the sentence are the verdict's.
-test("a cleared verdict takes the badge and the line with it", async () => {
-	const element = await mount();
-
-	element.verdict = { semi: true, reasons: ["Fast Start"] };
-	await element.updateComplete;
-	element.verdict = null;
-	await element.updateComplete;
-
-	expect(element.shadowRoot?.querySelector(".badge")).toBe(null);
-	expect(element.shadowRoot?.querySelector(".verdict")).toBe(null);
-	expect(text(element, "h2")).toBe("Your build");
-});
-
-test("the card announces itself politely", async () => {
-	const element = await mount();
-
-	expect(element.getAttribute("aria-live")).toBe("polite");
-});
-
-function toggleButton(element: BuildSummary): HTMLButtonElement {
-	const button = inside(element).querySelector<HTMLButtonElement>(
-		"h2 button[aria-expanded]",
+	const images = inside(element).querySelectorAll(
+		"button.row[data-target=treasures] .image",
 	);
-	if (button === null) throw new Error("the heading is not a toggle");
-	return button;
-}
+	const first = images[0];
+	expect(first?.querySelector("img")?.getAttribute("src")).toBe(
+		"../assets/a.png",
+	);
+	expect(first?.getAttribute("title")).toBe("A +3–9 or B +5–9");
+	expect(first?.querySelector(".badge")?.textContent?.trim()).toBe("+1");
+	expect(first?.querySelector(".note")?.textContent?.trim()).toBe("+3–9");
 
-test("the heading is a button that collapses and reopens the board, saying which", async () => {
-	const element = await mount();
-	let toggles = 0;
-	element.addEventListener("toggle", () => {
-		toggles += 1;
+	// A null src draws the text alone, with no broken picture.
+	const second = images[1];
+	expect(second?.querySelector("img")).toBe(null);
+	expect(second?.textContent?.trim()).toBe("C");
+	expect(second?.querySelector(".badge")).toBe(null);
+});
+
+test("clicking a row fires summary-jump with its target", async () => {
+	const element = await mount(ROWS);
+	const targets: string[] = [];
+	document.body.addEventListener("summary-jump", (event) => {
+		targets.push((event as CustomEvent<string>).detail);
 	});
 
-	expect(element.collapsed).toBe(false);
-	expect(toggleButton(element).getAttribute("aria-expanded")).toBe("true");
+	button(element, "button.row[data-target=treasures]").click();
+	button(element, "button.row[data-target=mode]").click();
 
-	toggleButton(element).click();
-	await element.updateComplete;
-
-	expect(element.collapsed).toBe(true);
-	expect(element.hasAttribute("collapsed")).toBe(true);
-	expect(toggleButton(element).getAttribute("aria-expanded")).toBe("false");
-	expect(toggles).toBe(1);
-
-	toggleButton(element).click();
-	await element.updateComplete;
-
-	expect(element.collapsed).toBe(false);
-	expect(toggles).toBe(2);
+	expect(targets).toEqual(["treasures", "mode"]);
 });
 
-// The page sets it from what it remembered; that is not a click to announce.
-test("setting collapsed from outside dispatches nothing", async () => {
-	const element = await mount();
-	let toggles = 0;
-	element.addEventListener("toggle", () => {
-		toggles += 1;
-	});
-
-	element.collapsed = true;
+test("the compact line expands the rows and Hide folds them", async () => {
+	const element = await mount(ROWS);
+	element.compact = [{ kind: "text", text: "5 boosts" }];
 	await element.updateComplete;
 
-	expect(toggleButton(element).getAttribute("aria-expanded")).toBe("false");
-	expect(toggles).toBe(0);
+	expect(element.hasAttribute("expanded")).toBe(false);
+	expect(button(element, "button.line").textContent).toContain("5 boosts");
+	expect(button(element, "button.line").textContent).toContain("▾");
+
+	button(element, "button.line").click();
+	await element.updateComplete;
+	expect(element.hasAttribute("expanded")).toBe(true);
+	expect(button(element, "button.hide").textContent?.trim()).toBe("Hide ▴");
+
+	button(element, "button.hide").click();
+	await element.updateComplete;
+	expect(element.hasAttribute("expanded")).toBe(false);
 });
 
-// Folded away, the badge and the sentence are what is left to read the build
-// by, so they stay.
-test("a collapsed board keeps its verdict on show", async () => {
-	const element = await mount();
-	element.verdict = { semi: true, reasons: ["Fast Start"] };
-	element.collapsed = true;
-	await element.updateComplete;
+test("draws the hint when given", async () => {
+	const element = await mount(ROWS.slice(0, 1), "Nothing else picked yet.");
 
-	expect(text(element, ".badge")).toBe("Semi-auto");
-	expect(text(element, ".verdict")).toBe(
-		"Fast Start needs manual work each run.",
+	expect(inside(element).querySelector(".hint")?.textContent?.trim()).toBe(
+		"Nothing else picked yet.",
 	);
+
+	element.hint = null;
+	await element.updateComplete;
+	expect(inside(element).querySelector(".hint")).toBe(null);
+});
+
+// It sits inside the form whose `input` re-renders the build, and nothing it
+// does changes a value.
+test("fires no input", async () => {
+	const element = await mount(ROWS);
+	element.compact = [{ kind: "text", text: "Money" }];
+	await element.updateComplete;
+	let heard = 0;
+	for (const type of ["input", "change", "toggle"]) {
+		document.body.addEventListener(type, () => {
+			heard += 1;
+		});
+	}
+
+	button(element, "button.line").click();
+	await element.updateComplete;
+	button(element, "button.hide").click();
+	await element.updateComplete;
+	button(element, "button.row").click();
+
+	expect(heard).toBe(0);
 });

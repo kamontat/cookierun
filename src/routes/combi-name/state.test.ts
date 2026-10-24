@@ -1,12 +1,9 @@
 import { expect, test } from "bun:test";
 
 import {
-	BOARD_KEY,
-	boardCollapsed,
 	codeInHash,
 	hashFor,
 	noteInHash,
-	rememberBoardCollapsed,
 	rememberCode,
 	rememberTab,
 	STORAGE_KEY,
@@ -116,24 +113,6 @@ test("a note travels as base64url, safe for any script", () => {
 test("a note that is not base64url, or not text, reads as none", () => {
 	expect(noteInHash("#10M0000000?note=***")).toBeNull();
 	expect(noteInHash("#10M0000000?note=_-_-")).toBeNull();
-});
-
-test("a folded board is remembered, and anything else reads as open", () => {
-	const held = storage(null);
-	expect(boardCollapsed(held)).toBe(false);
-
-	rememberBoardCollapsed(held, true);
-	expect(boardCollapsed(held)).toBe(true);
-
-	rememberBoardCollapsed(held, false);
-	expect(boardCollapsed(held)).toBe(false);
-	expect(boardCollapsed(storage("yes"))).toBe(false);
-});
-
-test("a browser that refuses storage leaves the board open, and swallows the write", () => {
-	expect(boardCollapsed(REFUSING)).toBe(false);
-	expect(() => rememberBoardCollapsed(REFUSING, true)).not.toThrow();
-	expect(BOARD_KEY).toBe("combi-name:board-collapsed");
 });
 
 test("a remembered tab is read back", () => {

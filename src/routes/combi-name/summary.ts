@@ -1,0 +1,240 @@
+/**
+ * The build as `<build-summary>` draws it: one row per tab, in the tabs' order,
+ * each pointing at the control behind it by its `hints.ts` group name.
+ *
+ * Nothing here decides how a build reads. The words come from `labels.ts` and
+ * `describe.ts`, the pictures from `art.ts` and `catalog.ts`; this only lays
+ * them out in the element's own item vocabulary.
+ */
+
+import type { SummaryItem, SummaryRow } from "#components/build-summary";
+
+import { boostArt, cookiePowerArt, episodeArt } from "./art";
+import { type CatalogSection, imageFor, labelFor } from "./catalog";
+import { limitsOf } from "./codec";
+import { describeBuild, floorText } from "./describe";
+import type { FullCode } from "./full-code";
+import {
+	ACTION_LABELS,
+	BOOST_LABELS,
+	COOKIE_POWER_LABELS,
+	EPISODE_LABELS,
+	GOAL_LABELS,
+	MODE_LABELS,
+	RANDOM_BOOST_LABELS,
+} from "./labels";
+import { levelRuns, type TreasurePick } from "./loadout";
+
+export const HINT =
+	"Nothing else picked yet. Choose a cookie, boosts or treasures in the tabs below.";
+
+const DOT: SummaryItem = { kind: "sep", text: "·" };
+const ARROW: SummaryItem = { kind: "sep", text: "→" };
+
+/** Items with a `·` between each, for a row that lists several things. */
+function dotted(items: readonly SummaryItem[]): SummaryItem[] {
+	return items.flatMap((each, at) => (at === 0 ? [each] : [DOT, each]));
+}
+
+function picture(section: CatalogSection, id: string, base: string) {
+	const image = imageFor(section, id);
+	return image === null ? null : base + image;
+}
+
+/** A face and its name — a cookie, a relay or a pet. */
+function entry(section: CatalogSection, id: string, base: string): SummaryItem {
+	const text = labelFor(section, id);
+	return { kind: "image", src: picture(section, id, base), text, title: text };
+}
+
+/** `+3–9`, or `+0, +2–4` for a level set with gaps. */
+function levelText({ levels }: TreasurePick): string {
+	return levelRuns(levels)
+		.map(([min, max]) => (min === max ? `+${min}` : `+${min}–${max}`))
+		.join(", ");
+}
+
+function isPlainZero({ levels }: TreasurePick): boolean {
+	return levels.length === 1 && levels[0] === 0;
+}
+
+/** One picture for a slot: its first pick, with the rest in the title. */
+function slotItem(slot: readonly TreasurePick[], base: string): SummaryItem {
+	const [first] = slot;
+	if (first === undefined) return { kind: "image", src: null };
+	return {
+		kind: "image",
+		src: picture("treasures", first.id, base),
+		title: slot
+			.map((pick) => `${labelFor("treasures", pick.id)} ${levelText(pick)}`)
+			.join(" or "),
+		...(slot.length > 1 ? { badge: `+${slot.length - 1}` } : {}),
+		...(isPlainZero(first) ? {} : { note: levelText(first) }),
+	};
+}
+
+function modePill(full: FullCode): SummaryItem {
+	if (full.combi.mode === "manual") {
+		return { kind: "pill", text: MODE_LABELS.manual };
+	}
+	return describeBuild(full)?.semi
+		? { kind: "pill", text: MODE_LABELS.semiauto, tone: "semi" }
+		: { kind: "pill", text: MODE_LABELS.auto };
+}
+
+function episodeText({ combi }: FullCode): string {
+	const name = EPISODE_LABELS[combi.episode];
+	if (!limitsOf(combi.episode).floor) return name;
+	return `${name}, ${floorText(combi.floor).toLowerCase()}`;
+}
+
+function runRow(full: FullCode, base: string): SummaryRow {
+	const { combi } = full;
+	const verdict = describeBuild(full);
+	const action =
+		combi.mode !== "manual" && combi.action !== "none"
+			? [DOT, { kind: "text", text: ACTION_LABELS[combi.action] } as const]
+			: [];
+
+	return {
+		label: "Run",
+		target: "mode",
+		items: [
+			modePill(full),
+			...(verdict?.semi
+				? [
+						{
+							kind: "text",
+							text: verdict.reasons.join(", "),
+							muted: true,
+						} as const,
+					]
+				: []),
+			DOT,
+			{ kind: "text", text: GOAL_LABELS[combi.goal] },
+			DOT,
+			{
+				kind: "image",
+				src: episodeArt(combi.episode, base),
+				text: episodeText(full),
+			},
+			...action,
+		],
+	};
+}
+
+/** Cookie, then `→` relay where the episode takes one, then `·` pet. */
+function cookieItems(full: FullCode, base: string): SummaryItem[] {
+	const { cookie, relay, pet } = full.loadout;
+	const items: SummaryItem[] = [];
+	if (cookie !== null) items.push(entry("cookies", cookie, base));
+	if (relay !== null && limitsOf(full.combi.episode).relay) {
+		if (items.length > 0) items.push(ARROW);
+		items.push(entry("cookies", relay, base));
+	}
+	if (pet !== null) {
+		if (items.length > 0) items.push(DOT);
+		items.push(entry("pets", pet, base));
+	}
+	return items;
+}
+
+function treasureItems(full: FullCode, base: string): SummaryItem[] {
+	if (!limitsOf(full.combi.episode).treasures) return [];
+	const { treasures, ordered } = full.loadout;
+	const exact = ordered && treasures.length > 1;
+	const slots = treasures.map((slot) => slotItem(slot, base));
+	if (!exact) return slots;
+	return [
+		...slots.flatMap((slot, at) => (at === 0 ? [slot] : [ARROW, slot])),
+		{ kind: "tag", text: "exact order" },
+	];
+}
+
+/** A power+'s name without the trailing " Cookie" its label carries. */
+function powerName(label: string): string {
+	return label.replace(/ Cookie$/, "");
+}
+
+export function summaryOf(
+	full: FullCode,
+	base: string,
+): { rows: SummaryRow[]; compact: SummaryItem[]; hint: string | null } {
+	const { combi } = full;
+	const limits = limitsOf(combi.episode);
+	const cookies = cookieItems(full, base);
+	const treasures = treasureItems(full, base);
+	const boosts = limits.boosts ? combi.boosts : [];
+	const randomBoost = limits.boosts ? combi.randomBoost : null;
+	const powers = limits.boosts ? combi.cookiePowers : [];
+
+	const rows: SummaryRow[] = [runRow(full, base)];
+	const add = (label: string, target: string, items: SummaryItem[]) => {
+		if (items.length > 0) rows.push({ label, target, items });
+	};
+
+	add("Cookies", "cookie", cookies);
+	add("Treasures", "treasures", treasures);
+	add(
+		"Boosts",
+		"boosts",
+		dotted(
+			boosts.map((boost) => ({
+				kind: "image",
+				src: boostArt(boost, base)[0] ?? null,
+				text: BOOST_LABELS[boost],
+			})),
+		),
+	);
+	add(
+		"Random boost",
+		"randomBoost",
+		randomBoost === null
+			? []
+			: [{ kind: "text", text: RANDOM_BOOST_LABELS[randomBoost] }],
+	);
+	add(
+		"Power+",
+		"cookiePowers",
+		dotted(
+			powers.map((power) => ({
+				kind: "stack",
+				srcs: cookiePowerArt(power, base).slice(0, 2),
+				text: powerName(COOKIE_POWER_LABELS[power]),
+			})),
+		),
+	);
+
+	const count = boosts.length + (randomBoost === null ? 0 : 1) + powers.length;
+	const episodeIcon = episodeArt(combi.episode, base);
+	const compact: SummaryItem[] = [
+		modePill(full),
+		{ kind: "text", text: GOAL_LABELS[combi.goal] },
+		episodeIcon === null
+			? { kind: "text", text: episodeText(full) }
+			: { kind: "image", src: episodeIcon, title: episodeText(full) },
+		// Faces alone: the line is one line, and the names are a tap away.
+		...cookies.flatMap((item): SummaryItem[] =>
+			item.kind === "image" && item.src !== null
+				? [{ kind: "image", src: item.src, title: item.title ?? "" }]
+				: item.kind === "image"
+					? [item]
+					: [],
+		),
+		...treasures.flatMap((item): SummaryItem[] =>
+			item.kind === "image" ? [item] : [],
+		),
+		...(count === 0
+			? []
+			: [
+					{
+						kind: "text",
+						text: `${count} ${count === 1 ? "boost" : "boosts"}`,
+					} as const,
+				]),
+	];
+
+	const hint = rows.length === 1 && full.loadout.cookie === null ? HINT : null;
+
+	return { rows, compact, hint };
+}

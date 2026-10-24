@@ -32,6 +32,7 @@ import {
 	combiSectionOf,
 	decodeFull,
 	encodeFull,
+	type FullCode,
 	isSemiAutoBuild,
 } from "./full-code";
 import { hintsFor } from "./hints";
@@ -57,15 +58,14 @@ import {
 	updateSaved,
 } from "./saved";
 import {
-	boardCollapsed,
 	codeInHash,
 	hashFor,
 	noteInHash,
-	rememberBoardCollapsed,
 	rememberCode,
 	shareHashFor,
 	startingCode,
 } from "./state";
+import { summaryOf } from "./summary";
 
 import "#components/build-summary";
 import "#components/card-group";
@@ -92,6 +92,7 @@ export function need<T extends HTMLElement>(id: string): T {
 
 const codeBar = need<CodeBar>("code");
 const summaryCard = need<BuildSummary>("summary");
+const verdictLine = need("verdict");
 const warningList = need<HTMLUListElement>("warnings");
 const copyLinkButton = need<HTMLButtonElement>("copy-link");
 const resetButton = need<HTMLButtonElement>("reset");
@@ -350,6 +351,18 @@ function showWarnings(warnings: readonly string[]): void {
 }
 
 /**
+ * The sentence under the mode chips: why an auto run needs a hand, or that it
+ * needs none. A manual run is played by hand anyway, so it says nothing.
+ */
+function verdictText(full: FullCode): string {
+	const verdict = describeBuild(full);
+	if (verdict === null) return "";
+	return verdict.semi
+		? `Plays as semi-auto because of ${verdict.reasons.join(", ")}.`
+		: "Plays itself all the way: full auto.";
+}
+
+/**
  * The one render. Everything the page shows is derived from the controls, so
  * every change — a chip, a card, a typed code already applied — comes back
  * through here.
@@ -373,7 +386,11 @@ function render(warnings: readonly string[] = []): void {
 	// Read the code back so the verdict reflects the character actually written
 	// into slot 2, not the type the chips still show.
 	const { full } = decodeFull(code);
-	summaryCard.verdict = describeBuild(full);
+	verdictLine.textContent = verdictText(full);
+	const summary = summaryOf(full, ASSET_BASE);
+	summaryCard.rows = summary.rows;
+	summaryCard.compact = summary.compact;
+	summaryCard.hint = summary.hint;
 	// The one chip that says what it is rather than what you picked: an auto run
 	// with Fast Start, a random boost, an action or a relay is a semi-auto run,
 	// and the chip reading Auto beside a code reading H is the disagreement the
@@ -1014,24 +1031,9 @@ const OWNER: Record<string, HTMLElement> = {
  */
 for (const element of new Set(Object.values(OWNER))) element.tabIndex = -1;
 
-/**
- * Folds the board away or opens it again. The header draws the handle; the
- * bands are the page's, so hiding them is too. The verdict stays in the header
- * either way, which is what makes a folded board still worth looking at.
- */
-function foldBoard(collapsed: boolean): void {
-	summaryCard.collapsed = collapsed;
-	buildForm.toggleAttribute("data-collapsed", collapsed);
-}
-
 function jumpTo(group: string): void {
 	const owner = OWNER[group];
 	if (owner === undefined) return;
-	// The control asked for is on the board, and a folded board hides it.
-	if (summaryCard.collapsed) {
-		foldBoard(false);
-		rememberBoardCollapsed(localStorage, false);
-	}
 	owner.scrollIntoView({ block: "center", behavior: "smooth" });
 	owner.focus();
 }
@@ -1174,11 +1176,8 @@ relayTile.options = cookieOptions;
 petTile.options = tileOptions("pets");
 for (const slot of treasureSlots) slot.options = treasureCatalog;
 
-foldBoard(boardCollapsed(localStorage));
-
-summaryCard.addEventListener("toggle", () => {
-	foldBoard(summaryCard.collapsed);
-	rememberBoardCollapsed(localStorage, summaryCard.collapsed);
+summaryCard.addEventListener("summary-jump", (event) => {
+	jumpTo((event as CustomEvent<string>).detail);
 });
 
 buildForm.addEventListener("input", () => {

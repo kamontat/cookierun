@@ -36,6 +36,7 @@ async function settle(): Promise<void> {
 
 const codeBar = need("code");
 const summary = need("summary");
+const verdict = need("verdict");
 const warnings = need("warnings");
 const resetButton = need<HTMLButtonElement>("reset");
 
@@ -116,8 +117,7 @@ test("a boost card writes its set and rewrites the mode slot to semi-auto", asyn
 	await choose("boosts", "fastStart");
 
 	expect(await codeText()).toBe("1H00F00000");
-	expect(shown(summary)).toContain("Semi-auto");
-	expect(shown(summary)).toContain("Fast Start");
+	expect(verdict.textContent).toBe("Plays as semi-auto because of Fast Start.");
 	await reset();
 });
 
@@ -126,7 +126,7 @@ test("Double XP is its own letter and leaves the run on full auto", async () => 
 	await choose("boosts", "doubleXp");
 
 	expect(await codeText()).toBe("1A00X00000");
-	expect(shown(summary)).toContain("Full auto");
+	expect(verdict.textContent).toBe("Plays itself all the way: full auto.");
 	expect(isOn("boosts", "doubleXp")).toBe(true);
 	await reset();
 });
@@ -143,7 +143,7 @@ test("a semi-auto code shows Auto picked, and says semi-auto in words", async ()
 	await typeCode("1HM0F00000");
 
 	expect(isOn("mode", "auto")).toBe(true);
-	expect(shown(summary)).toContain("Semi-auto");
+	expect(verdict.textContent).toContain("semi-auto");
 	await reset();
 });
 
@@ -188,51 +188,32 @@ test("clicking the chosen goal leaves it chosen", async () => {
 	await reset();
 });
 
-// The build summary is the board's header now: it is not a card off on its
-// own above the sticky code panel, and it is not part of the sticky panel
-// either.
-test("the build summary sits inside the board, as its header", () => {
-	expect(need("build").firstElementChild).toBe(summary);
-	expect(summary.closest(".codepanel")).toBe(null);
+// The summary is drawn from the code the page just wrote, and a row of it
+// asks for the control behind it the way a letter of the code does.
+test("the summary follows the build and a row leads to its control", async () => {
+	type Rows = { rows: readonly { label: string }[]; hint: string | null };
+	expect((summary as HTMLElement & Rows).rows.map((row) => row.label)).toEqual([
+		"Run",
+	]);
+	expect((summary as HTMLElement & Rows).hint).not.toBe(null);
+
+	await choose("mode", "auto");
+	await choose("boosts", "fastStart");
+	expect((summary as HTMLElement & Rows).rows.map((row) => row.label)).toEqual([
+		"Run",
+		"Boosts",
+	]);
+
+	summary.dispatchEvent(
+		new CustomEvent("summary-jump", { detail: "boosts", bubbles: true }),
+	);
+	expect(document.activeElement).toBe(need("boosts"));
+	await reset();
 });
 
-function summaryToggle(): HTMLButtonElement {
-	const button = inside(summary).querySelector<HTMLButtonElement>(
-		"button[aria-expanded]",
-	);
-	if (button === null) throw new Error("the board's heading is not a toggle");
-	return button;
-}
-
-test("the board's heading folds the board away and back, and the choice is remembered", async () => {
-	summaryToggle().click();
-	await settle();
-
-	expect(need("build").hasAttribute("data-collapsed")).toBe(true);
-	expect(localStorage.getItem("combi-name:board-collapsed")).toBe("true");
-	// Folding the board is not a change to the build.
-	expect(await codeText()).toBe("10S0000000");
-
-	summaryToggle().click();
-	await settle();
-
-	expect(need("build").hasAttribute("data-collapsed")).toBe(false);
-	expect(localStorage.getItem("combi-name:board-collapsed")).toBe("false");
-});
-
-// A click on the code asks for the control that writes it, and a folded board
-// would hide exactly that control.
-test("jumping to a slot opens a folded board first", async () => {
-	summaryToggle().click();
-	await settle();
-
-	codeBar.dispatchEvent(new CustomEvent("slot-jump", { detail: "goal" }));
-	await settle();
-
-	expect(need("build").hasAttribute("data-collapsed")).toBe(false);
-	expect((summary as HTMLElement & { collapsed: boolean }).collapsed).toBe(
-		false,
-	);
+// A manual run is played by hand anyway: auto vs semi-auto means nothing.
+test("a manual run says no verdict", async () => {
+	expect(verdict.textContent).toBe("");
 });
 
 test("a cookie power card writes its letter into the code", async () => {
@@ -591,8 +572,7 @@ test("the verdict still follows the flag slots", async () => {
 	await choose("mode", "auto");
 	await choose("boosts", "fastStart");
 
-	expect(shown(summary)).toContain("Semi-auto");
-	expect(shown(summary)).toContain("Fast Start");
+	expect(verdict.textContent).toBe("Plays as semi-auto because of Fast Start.");
 	await reset();
 });
 
@@ -664,8 +644,9 @@ test("a relay turns an auto build semi-auto, code and all", async () => {
 	expect((codeBar as HTMLElement & { value: string }).value).toBe(
 		"1R0O-1HM0000000",
 	);
-	expect(shown(summary)).toContain("Semi-auto");
-	expect(shown(summary)).toContain("Relay cookie");
+	expect(verdict.textContent).toBe(
+		"Plays as semi-auto because of Relay cookie.",
+	);
 	await reset();
 });
 

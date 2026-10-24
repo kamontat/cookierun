@@ -132,15 +132,17 @@ main {
 	margin-top: var(--cr-space-5);
 }
 
-/* Folded under its header: the bands go, and the header with its verdict is
-   the whole board. The controls still hold their values, so the code above
-   is unchanged. */
-#build[data-collapsed] > .band {
-	display: none;
+/* Why an auto run needs a hand, under the chips that pick auto. Empty for a
+   manual run, so it takes no room then. */
+.verdict {
+	margin: var(--cr-space-2) 0 0;
+	color: var(--cr-muted);
+	font-family: var(--cr-mono);
+	font-size: 0.8rem;
 }
 
-#build[data-collapsed] {
-	padding-bottom: var(--cr-space-3);
+.verdict:empty {
+	display: none;
 }
 
 .bandhead {
