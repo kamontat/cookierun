@@ -63,9 +63,11 @@ import {
 	hashFor,
 	noteInHash,
 	rememberCode,
+	rememberFullCode,
 	rememberTab,
 	shareHashFor,
 	startingCode,
+	storedFullCode,
 	storedTab,
 	TAB_NAMES,
 	type TabName,
@@ -109,6 +111,7 @@ const summaryCard = need<BuildSummary>("summary");
 const verdictLine = need("verdict");
 const notice = need<NoticeBar>("notice");
 const copyCodeButton = need<HTMLButtonElement>("copy-code");
+const fullCodeButton = need<HTMLButtonElement>("code-full");
 const copyLinkButton = need<HTMLButtonElement>("copy-link");
 const resetButton = need<HTMLButtonElement>("reset");
 const codeMenu = need<HTMLDetailsElement>("code-menu");
@@ -1716,14 +1719,29 @@ codeBar.copyable = false;
 
 // The bar draws the ten characters the game takes and nothing before them: the
 // loadout is the summary's to show, and it still rides in the link, the saves
-// and the editor, which all keep the whole code.
-codeBar.showAfter = SECTION_SEPARATOR;
+// and the editor, which all keep the whole code. The menu swaps it to the whole
+// code and back, and the choice is remembered.
+function showFullCode(full: boolean): void {
+	codeBar.showAfter = full ? "" : SECTION_SEPARATOR;
+	fullCodeButton.setAttribute("aria-pressed", String(full));
+	fullCodeButton.textContent = full ? "Show game code only" : "Show full code";
+}
+
+showFullCode(storedFullCode(localStorage));
+
+fullCodeButton.addEventListener("click", () => {
+	const full = codeBar.showAfter !== "";
+	showFullCode(full);
+	rememberFullCode(localStorage, full);
+});
 
 // The menu has closed by the time the clipboard answers, so both copies say
 // how it went in the banner. A refusal has an instruction to give.
 copyCodeButton.addEventListener("click", () => {
-	// What goes into the game: the ten characters, not the loadout before them.
-	const code = combiSectionOf(codeBar.value);
+	// What the panel shows: the ten characters the game takes, or the whole
+	// code once the menu has asked for it.
+	const code =
+		codeBar.showAfter === "" ? codeBar.value : combiSectionOf(codeBar.value);
 	void navigator.clipboard
 		.writeText(code)
 		.then(() => {

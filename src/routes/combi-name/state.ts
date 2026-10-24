@@ -129,6 +129,27 @@ export function rememberTab(storage: Storage, tab: TabName): void {
 	} catch {}
 }
 
+/**
+ * Whether the code panel shows the whole code, loadout and all, rather than
+ * the ten characters the game takes. Off by default: the loadout is the
+ * summary's to show. Stored as "1" or "0", every access wrapped.
+ */
+export const FULL_CODE_KEY = "combi-name:full-code";
+
+export function storedFullCode(storage: Storage): boolean {
+	try {
+		return storage.getItem(FULL_CODE_KEY) === "1";
+	} catch {
+		return false;
+	}
+}
+
+export function rememberFullCode(storage: Storage, full: boolean): void {
+	try {
+		storage.setItem(FULL_CODE_KEY, full ? "1" : "0");
+	} catch {}
+}
+
 export function startingCode(hash: string, storage: Storage): string | null {
 	return codeInHash(hash) ?? storedCode(storage);
 }

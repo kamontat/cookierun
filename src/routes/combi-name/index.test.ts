@@ -637,6 +637,41 @@ test("the code bar shows only the ten characters the game takes", async () => {
 	await reset();
 });
 
+// The full code is one menu pick away, and the pick is remembered.
+test("the menu shows the full code and back, and Copy code copies what is shown", async () => {
+	await typeCode("1C0O-10M0000000");
+	await closeEditor();
+	const toggle = need<HTMLButtonElement>("code-full");
+	expect(toggle.textContent?.trim()).toBe("Show full code");
+	expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+	toggle.click();
+	await settle();
+	expect(await shownCode()).toBe("1C0O-10M0000000");
+	expect(toggle.textContent?.trim()).toBe("Show game code only");
+	expect(toggle.getAttribute("aria-pressed")).toBe("true");
+	expect(localStorage.getItem("combi-name:full-code")).toBe("1");
+
+	let written = "";
+	await withClipboard(
+		(text) => {
+			written = text;
+			return Promise.resolve();
+		},
+		async () => {
+			need<HTMLButtonElement>("copy-code").click();
+			await settle();
+		},
+	);
+	expect(written).toBe("1C0O-10M0000000");
+
+	toggle.click();
+	await settle();
+	expect(await shownCode()).toBe("10M0000000");
+	expect(localStorage.getItem("combi-name:full-code")).toBe("0");
+	await reset();
+});
+
 test("Copy code copies the ten characters the game takes, not the loadout", async () => {
 	await typeCode("1C0O-10M0000000");
 	await closeEditor();
@@ -1441,7 +1476,14 @@ test("the code panel's menu holds Copy code, Copy link, Reset, Save as new and C
 		[...need("code-menu").querySelectorAll(".menu button")].map(
 			(button) => button.id,
 		),
-	).toEqual(["copy-code", "copy-link", "reset", "save-new", "save-cancel"]);
+	).toEqual([
+		"code-full",
+		"copy-code",
+		"copy-link",
+		"reset",
+		"save-new",
+		"save-cancel",
+	]);
 	expect(need("save-new").hidden).toBe(true);
 	expect(need("save-cancel").hidden).toBe(true);
 

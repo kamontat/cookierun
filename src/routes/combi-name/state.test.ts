@@ -5,11 +5,13 @@ import {
 	hashFor,
 	noteInHash,
 	rememberCode,
+	rememberFullCode,
 	rememberTab,
 	STORAGE_KEY,
 	shareHashFor,
 	startingCode,
 	storedCode,
+	storedFullCode,
 	storedTab,
 } from "./state";
 
@@ -131,4 +133,36 @@ test("an unknown or missing tab reads as main", () => {
 test("a storage that throws reads main and remembers nothing", () => {
 	expect(storedTab(REFUSING)).toBe("main");
 	expect(() => rememberTab(REFUSING, "boosts")).not.toThrow();
+});
+
+test("the full-code choice is remembered and read back, off by default", () => {
+	const store = new Map<string, string>();
+	const storage = {
+		getItem: (key: string) => store.get(key) ?? null,
+		setItem: (key: string, value: string) => store.set(key, value),
+		removeItem: (key: string) => store.delete(key),
+	} as unknown as Storage;
+
+	expect(storedFullCode(storage)).toBe(false);
+	rememberFullCode(storage, true);
+	expect(storedFullCode(storage)).toBe(true);
+	rememberFullCode(storage, false);
+	expect(storedFullCode(storage)).toBe(false);
+});
+
+test("a storage that throws reads the full code as off and remembers nothing", () => {
+	const broken = {
+		getItem: () => {
+			throw new Error("denied");
+		},
+		setItem: () => {
+			throw new Error("denied");
+		},
+		removeItem: () => {
+			throw new Error("denied");
+		},
+	} as unknown as Storage;
+
+	expect(storedFullCode(broken)).toBe(false);
+	expect(() => rememberFullCode(broken, true)).not.toThrow();
 });
