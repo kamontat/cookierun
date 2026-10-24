@@ -1,23 +1,59 @@
 @import "../base.css";
 
-/* One column, whatever the width. The page is a sequence — the code, then the
-   controls that write it, in the order the code reads — and a second track
-   would break that sequence into two things to scan instead of one. The grids
-   that do the widening are inside the sections, where the cards are. */
+/* One column, whatever the width. The page is a sequence — the code, the note,
+   the summary, then the tabs of controls — and a second track would break that
+   sequence into two things to scan instead of one. The grids that do the
+   widening are inside the panels, where the cards are. This rule comes after
+   base.css's two-track one, so it wins at every width. The column's width is
+   the container's, the one max-width the masthead shares, so every section
+   lines up on the same two edges.
+
+   align-content: start packs the rows at the top. main fills the body's 1fr
+   row, and left to stretch, a short tab shared the leftover height out between
+   the rows as gaps that changed size with every switch of tab. */
 main {
 	grid-template-columns: minmax(0, 1fr);
-	max-width: 58rem;
+	align-content: start;
 	gap: var(--cr-space-3);
+	padding-top: var(--cr-space-2);
 }
 
-@media (width >= 62rem) {
-	main {
-		grid-template-columns: minmax(0, 1fr);
-	}
+/* A grid item will not shrink below its content by default, so one section
+   holding a line that does not wrap — the docked code, the summary's one-line
+   view — would widen the whole page on a phone. Each section takes the
+   column's width instead, and its own content scrolls or clips inside it. */
+main > * {
+	min-width: 0;
+}
+
+/* The title is a label for the page, not a section of it: close above the
+   code rather than a band of its own. */
+.masthead {
+	padding-bottom: 0;
+}
+
+.masthead h1 {
+	margin-bottom: 0;
+}
+
+/* What a fragment link, keyboard focus or a jump from the code has to clear:
+   the sticky code panel and the tab strip under it. --codepanel-h is the
+   panel's measured height, written by index.ts; without it the old fixed
+   allowance stands. */
+:root {
+	scroll-padding-top: calc(var(--codepanel-h, 6rem) + 3rem);
+}
+
+/* The page's actions in the top bar keep their words on one line; the tool
+   menu beside them is what gives way on a phone. */
+site-nav > button {
+	flex: none;
+	white-space: nowrap;
 }
 
 /* The code is what the page is for, so it stays in view while you work the
-   controls under it. */
+   controls under it: a box pinned to the top, exactly as wide as the column,
+   so its edges are the note's, the summary's and the tabs' edges too. */
 .codepanel {
 	position: sticky;
 	top: 0;
@@ -25,157 +61,151 @@ main {
 	min-width: 0;
 	border: var(--cr-border) solid var(--cr-line);
 	border-radius: var(--cr-radius);
-	background: var(--cr-surface);
-	box-shadow: var(--cr-block);
-	padding: var(--cr-space-3) var(--cr-space-4);
-}
-
-/* A label rather than a title: it belongs to the code under it, so it sits
-   closer to the code than to the edge of the panel. */
-.codepanel h2 {
-	margin-bottom: var(--cr-space-1);
-	color: var(--cr-muted);
-	font-size: 0.75rem;
-	font-weight: 500;
-}
-
-/* The panel is the code and its buttons, and nothing else: what the code says
-   is drawn out in the board below, where there is room for it. The two buttons
-   here are slotted into the code bar's own row, so they are sized by it and
-   need no placement of their own. */
-
-/* Both labels share one grid cell, so a button saying its work is done is the
-   width of the wider label either way and nothing beside it moves. Hidden by
-   visibility, not display: the hidden label keeps its width and stays out of
-   the accessible name. */
-.swap {
-	display: grid;
-	place-items: center;
-}
-
-.swap > span {
-	grid-area: 1 / 1;
-}
-
-.swap > .said,
-.swap.done > .rest {
-	visibility: hidden;
-}
-
-.swap.done > .said {
-	visibility: visible;
-}
-
-/* Only a blocked clipboard writes here now — a copy that worked says so on the
-   button itself — so the line takes no room until it has something to say. */
-#link-status {
-	margin-bottom: 0;
-}
-
-#link-status:empty {
-	min-height: 0;
-}
-
-/* What the code says, under the panel rather than pinned inside it. */
-.readout {
-	display: block;
-	padding: 0 var(--cr-space-4);
-}
-
-.tip {
-	margin: var(--cr-space-2) 0 0;
-	color: var(--cr-muted);
-	font-size: 0.8rem;
-}
-
-/* A phone gives the sticky panel about half its screen at the sizes above, so
-   everything that is not the code itself comes off it: the heading the code
-   does not need, and the padding around it. */
-@media (width < 48rem) {
-	.codepanel {
-		padding: var(--cr-space-2) var(--cr-space-3);
-	}
-
-	.codepanel h2 {
-		display: none;
-	}
-
-	.readout {
-		padding: 0 var(--cr-space-3);
-	}
-}
-
-.tip kbd {
-	border: 1px solid var(--cr-line);
-	border-radius: var(--cr-radius);
 	background: var(--cr-surface-2);
-	padding: 0 0.3em;
-	font-family: var(--cr-mono);
-	font-size: 0.85em;
+	padding: var(--cr-space-3);
 }
 
-/* The board is one box holding three bands. */
-#build {
-	display: block;
+/* The banner rides in the panel, under the code and its buttons, so a message
+   is in view however far down the page the controls are. Empty, it is out of
+   flow and takes no room; the ResizeObserver in index.ts picks up the panel
+   growing when one shows, so the tab strip and the scroll padding follow. */
+.codepanel notice-bar[type] {
+	margin-top: var(--cr-space-2);
+}
+
+/* The panel holds the code and its actions and nothing else, so its heading
+   is for screen readers only: off the screen, not out of the tree, so the
+   section keeps its name. */
+.codepanel h2 {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+/* The panel is the code and its buttons, and nothing else. The page's buttons
+   and menu are slotted into the code bar's own row, so they are sized by it
+   and need no placement of their own. */
+
+/* The tabs stick under the code panel, so switching tabs never means
+   scrolling back up to them. On --cr-bg, so the panel scrolling under the
+   strip does not show through it. */
+tab-strip {
+	position: sticky;
+	top: var(--codepanel-h, 0px);
+	z-index: 1;
+	background: var(--cr-bg);
+}
+
+/* A phone gives the code the bottom of the screen instead: a dock, the way an
+   app keeps its main actions under the thumb, while the top is left to the
+   tabs. It stays early in the DOM — keyboard and screen-reader order is
+   unchanged — and only its grid position moves, to the end of main, where
+   sticky holds it to the bottom of the window until main runs out. At the end
+   of the page it is back in the flow under the last control, so it never
+   covers one. */
+@media (width < 48rem) {
+	:root {
+		scroll-padding-top: 3.5rem;
+		scroll-padding-bottom: var(--codepanel-h, 9rem);
+	}
+
+	/* A dock is a band across the screen, edge to edge, rather than a box in
+	   the column: it reaches out over the container's side padding so the page
+	   scrolling under it never shows at its sides. */
+	.codepanel {
+		order: 99;
+		top: auto;
+		bottom: 0;
+		margin-inline: calc(-1 * var(--cr-space-3));
+		border-inline: 0;
+		border-bottom: 0;
+		border-radius: 0;
+		padding: var(--cr-space-2) var(--cr-space-3)
+			calc(var(--cr-space-2) + env(safe-area-inset-bottom, 0px));
+	}
+
+	/* Docked at the bottom, the banner sits at the top of the dock, above the
+	   code, next to the buttons that caused it. Only its visual place moves;
+	   in the DOM it still follows the code bar. */
+	.codepanel {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.codepanel notice-bar {
+		order: -1;
+	}
+
+	.codepanel notice-bar[type] {
+		margin: 0 0 var(--cr-space-2);
+	}
+
+	/* The page's long name fits one line of a phone. */
+	.masthead h1 {
+		font-size: 1.25rem;
+	}
+
+	/* Edit, Save and the ⋯ menu share one row of the dock, so the page's two
+	   give up some side padding to match the bar's own; on a second row the
+	   menu would open off the screen's left edge. */
+	#code > button,
+	#code-menu .moretoggle {
+		padding-inline: var(--cr-space-2);
+	}
+
+	tab-strip {
+		top: 0;
+	}
+}
+
+/* The whole build at a glance, in a box of its own so it reads as one thing
+   between the note above and the tabs below. */
+build-summary {
 	min-width: 0;
 	border: var(--cr-border) solid var(--cr-line);
 	border-radius: var(--cr-radius);
 	background: var(--cr-surface);
 	box-shadow: var(--cr-block);
-	padding: var(--cr-space-3) var(--cr-space-4) var(--cr-space-4);
+	padding: var(--cr-space-1);
 }
 
-/* A band is one question the board asks: what run, who runs it, what it
-   carries. Six sections under six identical hairlines gave the board no rank
-   at all; three bands under one accent bar give it the only rank it needs. */
-.band {
-	margin-top: var(--cr-space-5);
+/* The open tab's controls, straight on the page under the strip. */
+#build {
+	display: block;
+	min-width: 0;
+	padding-top: var(--cr-space-1);
 }
 
-/* Folded under its header: the bands go, and the header with its verdict is
-   the whole board. The controls still hold their values, so the code above
-   is unchanged. */
-#build[data-collapsed] > .band {
+/* No transition on switching: the first paint shows Main before a stored tab
+   applies, and an animated swap would make that visible. */
+[role="tabpanel"]:not([hidden]) {
+	display: grid;
+	gap: var(--cr-space-5);
+}
+
+/* Why an auto run needs a hand, under the chips that pick auto. Empty for a
+   manual run, so it takes no room then. */
+.verdict {
+	margin: var(--cr-space-2) 0 0;
+	color: var(--cr-muted);
+	font-family: var(--cr-mono);
+	font-size: 0.8rem;
+}
+
+.verdict:empty {
 	display: none;
 }
 
-#build[data-collapsed] {
-	padding-bottom: var(--cr-space-3);
-}
-
-.bandhead {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: var(--cr-space-2);
-	border-left: var(--cr-border) solid var(--cr-accent);
-	padding-left: var(--cr-space-2);
-}
-
-.bandhead h3 {
-	margin: 0;
-	font-family: var(--cr-mono);
-	font-size: 0.8rem;
-	font-weight: 600;
-	letter-spacing: var(--cr-tracking);
-	text-transform: uppercase;
-}
-
-.bandhead .note {
-	color: var(--cr-muted);
-	font-family: var(--cr-mono);
-	font-size: 0.7rem;
-	letter-spacing: var(--cr-tracking);
-}
-
 .field {
-	margin-top: var(--cr-space-4);
+	min-width: 0;
 }
 
-/* Three levels, drawn as three: the band in tracked mono, the field's name in
-   sentence case at full contrast, and the slot it writes in muted mono at the
-   far end. Every heading used to be the same muted uppercase, which is why the
+/* Two levels, drawn as two: the field's name in sentence case at full
+   contrast, and the slot it writes in muted mono at the far end. Every heading used to be the same muted uppercase, which is why the
    board had no shape to read. */
 /* `flex-direction: row` is not the redundancy it looks like: the reset makes
    every bare `div` a flex column, so a div that wants a row has to say so even
@@ -196,7 +226,7 @@ main {
 	font-weight: 600;
 }
 
-/* Which characters of the code this field writes. The board runs in the order
+/* Which characters of the code this field writes. The panels run in the order
    a run is set up rather than the order the code reads, so this is what says
    where each field actually lands — and it is the same language the tooltips
    on the code itself speak. */
@@ -236,57 +266,185 @@ main {
 	width: 8rem;
 }
 
-.tiles {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+/* The three role cards, Cookie → Relay · Pet, in a row that wraps: a bare div
+   is a flex column under the reset, so the row is spelled out. */
+.roles {
+	flex-flow: row wrap;
+	align-items: center;
 	gap: var(--cr-space-2);
-	align-items: start;
+	margin-bottom: var(--cr-space-3);
+}
+
+.roles .arrow {
+	color: var(--cr-accent);
+	font-weight: 700;
+}
+
+/* A card is the role's face beside its name, with the role as a small label
+   over the name. Sentence case and the body font: it shows a cookie, it is
+   not a command. */
+.role {
+	display: grid;
+	flex: 1 1 9rem;
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-rows: auto auto;
+	column-gap: var(--cr-space-2);
+	align-items: center;
+	min-width: 0;
+	background: var(--cr-surface);
+	padding: var(--cr-space-1) var(--cr-space-2);
+	font-family: var(--cr-font);
+	letter-spacing: normal;
+	text-align: left;
+	text-transform: none;
+}
+
+.role > img,
+.role > .placeholder {
+	grid-row: 1 / 3;
+	width: 2.75rem;
+	height: 2.75rem;
+	object-fit: contain;
+}
+
+.role > .placeholder {
+	border: var(--cr-border) dashed var(--cr-line);
+	border-radius: var(--cr-radius);
+}
+
+.role > small {
+	align-self: end;
+	color: var(--cr-muted);
+	font-family: var(--cr-mono);
+	font-size: 0.65rem;
+	letter-spacing: var(--cr-tracking);
+	text-transform: uppercase;
+}
+
+.role > .name {
+	align-self: start;
+	overflow: hidden;
+	font-size: 0.85rem;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* The role the grid below writes, raised in the accent the way a picked card
+   is everywhere else on the page. */
+.role[aria-pressed="true"] {
+	border-color: var(--cr-accent);
+	box-shadow: 3px 3px 0 var(--cr-accent);
+}
+
+.role:disabled {
+	opacity: 0.5;
+	box-shadow: none;
+	cursor: not-allowed;
+}
+
+.role:disabled:active {
+	transform: none;
+}
+
+/* Three across on a phone only fits stacked: the face over its label. */
+@media (width < 48rem) {
+	.role {
+		flex-basis: 0;
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto;
+		justify-items: center;
+		text-align: center;
+	}
+
+	.role > img,
+	.role > .placeholder {
+		grid-row: auto;
+	}
+
+	.role > .name {
+		max-width: 100%;
+	}
+}
+
+#role-clear {
+	align-self: flex-start;
+	margin-bottom: var(--cr-space-2);
 }
 
 /* A treasure slot is a row, not a column: its picks carry full names and a
    level strip each, which three columns side by side squeeze into half-names. */
-#field-treasures .tiles {
-	grid-template-columns: 1fr;
-}
-
-.warnings {
+.tiles {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--cr-space-2);
-	margin: var(--cr-space-3) 0 0;
-	padding: 0;
-	list-style: none;
+	align-items: start;
 }
 
-.warnings:empty {
-	margin: 0;
-}
-
-.warnings li {
-	border-left: var(--cr-border) solid var(--cr-accent-2);
+kbd {
+	border: 1px solid var(--cr-line);
+	border-radius: var(--cr-radius);
 	background: var(--cr-surface-2);
-	padding: var(--cr-space-2);
-	color: var(--cr-text);
-	font-size: 0.9rem;
+	padding: 0 0.3em;
+	font-family: var(--cr-mono);
+	font-size: 0.85em;
 }
 
-/* The reference is the one `<details>` left on the page, so it keeps the
-   summary styling every panel used to share: the heading sits on the summary
-   line, and the gap its own margin used to hold belongs to the summary
-   instead, only while it is open. */
-.reference summary {
-	cursor: pointer;
-}
-
-.reference[open] summary {
-	margin-bottom: var(--cr-space-3);
-}
-
-/* A footnote to the page rather than one of its controls, so its heading is
-   the size of the prose inside it. */
-.reference > summary h2 {
-	display: inline;
+/* Saved codes and Help: modal sheets from the right edge, opened from the top
+   bar, full height. The dialog is its own scroll area and carries no padding,
+   so a click that lands on it rather than inside .sheet is a click on the
+   backdrop; the scroll stops at its ends rather than running on into the page
+   behind. */
+.drawer {
+	position: fixed;
+	inset: 0 0 0 auto;
 	margin: 0;
-	font-size: 1rem;
+	border: 0;
+	border-left: var(--cr-border) solid var(--cr-line);
+	background: var(--cr-surface);
+	padding: 0;
+	width: min(22rem, 90vw);
+	max-width: none;
+	height: 100%;
+	max-height: none;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	color: var(--cr-text);
+}
+
+.drawer::backdrop {
+	background: var(--cr-backdrop);
+}
+
+.drawer > .sheet {
+	display: block;
+	min-height: 100%;
+	padding: 0 var(--cr-space-4) var(--cr-space-4);
+}
+
+/* The title and Close stay put while the sheet scrolls under them. */
+.drawer header {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cr-space-2);
+	margin: 0 calc(-1 * var(--cr-space-4)) var(--cr-space-3);
+	border-bottom: var(--cr-border) solid var(--cr-line);
+	background: var(--cr-surface);
+	padding: var(--cr-space-3) var(--cr-space-4);
+}
+
+.drawer header h2 {
+	margin: 0;
+}
+
+/* The page's one banner, carried in under the header while a drawer is open.
+   Empty, it is out of flow and takes no room, so the margin only shows with a
+   message. */
+.drawer notice-bar {
+	margin-bottom: var(--cr-space-3);
 }
 
 .diagram {
@@ -295,24 +453,24 @@ main {
 	font-size: 0.85rem;
 }
 
-/* The saved list sits after the board: it is somewhere to keep a build once
-   it is made, not part of making one. */
+/* The note for the code on screen: a label, the box, then the lines about it.
+   Its buttons are in the code panel, so the form is one column. */
 .saveform {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--cr-space-2);
+	display: grid;
+	gap: var(--cr-space-1);
 }
 
-/* The buttons sit at the foot of the box rather than stretching to its
-   height. */
-.saveform {
-	align-items: flex-end;
+.eyebrow {
+	color: var(--cr-muted);
+	font-family: var(--cr-mono);
+	font-size: 0.75rem;
+	letter-spacing: var(--cr-tracking);
+	text-transform: uppercase;
 }
 
-/* While an entry is open, the line naming it takes a row of its own above the
-   box, in the colour that marks the entry in the list below. */
+/* While an entry is open, the line naming it sits under the box, in the colour
+   that marks the entry in the saved list. */
 .saveform .editing {
-	flex: 1 0 100%;
 	margin: 0;
 	border-left: var(--cr-border) solid var(--cr-accent-2);
 	padding-left: var(--cr-space-2);
@@ -320,7 +478,12 @@ main {
 	overflow-wrap: anywhere;
 }
 
-.saveform textarea,
+.saveform textarea {
+	width: 100%;
+	resize: vertical;
+	font: inherit;
+}
+
 .transfer textarea {
 	flex: 1 1 14rem;
 	min-width: 0;
@@ -329,15 +492,10 @@ main {
 }
 
 /* The reset makes a bare div a flex column; these are rows that wrap. */
-.savebuttons,
 .transferbuttons {
 	flex-direction: row;
 	flex-wrap: wrap;
 	gap: var(--cr-space-2);
-}
-
-#save-status:empty {
-	min-height: 0;
 }
 
 .savedlist {
@@ -419,16 +577,17 @@ main {
 	margin-left: auto;
 }
 
-/* Load on the row, everything else behind the row's own menu. The menu
+/* Load on the row, everything else behind the row's own menu; the code panel's
+   Reset, Save as new and Cancel sit behind one built the same way. The menu
    hangs from its button's right edge, over whatever is below, so opening it
    moves nothing on the page. */
-.savedlist .more {
+.more {
 	position: relative;
 }
 
 /* A summary is not a button, so it takes the button look by hand — and the
    coarse-pointer tap size base.css gives real buttons. */
-.savedlist .moretoggle {
+.moretoggle {
 	display: grid;
 	place-items: center;
 	list-style: none;
@@ -444,28 +603,28 @@ main {
 	-webkit-tap-highlight-color: transparent;
 }
 
-.savedlist .moretoggle::-webkit-details-marker {
+.moretoggle::-webkit-details-marker {
 	display: none;
 }
 
-.savedlist .moretoggle:focus-visible {
+.moretoggle:focus-visible {
 	outline: var(--cr-border) solid var(--cr-accent);
 	outline-offset: 2px;
 }
 
-.savedlist .more[open] > .moretoggle {
+.more[open] > .moretoggle {
 	transform: translate(2px, 2px);
 	box-shadow: none;
 }
 
 @media (pointer: coarse) {
-	.savedlist .moretoggle {
+	.moretoggle {
 		min-height: var(--cr-tap);
 		min-width: var(--cr-tap);
 	}
 }
 
-.savedlist .menu {
+.more .menu {
 	position: absolute;
 	top: calc(100% + var(--cr-space-1));
 	right: 0;
@@ -481,15 +640,31 @@ main {
 }
 
 /* Items read as a list, not a stack of raised buttons. */
-.savedlist .menu button {
+.more .menu button {
 	border-color: transparent;
 	background: none;
 	box-shadow: none;
 	text-align: left;
 }
 
-.savedlist .menu button:hover {
+.more .menu button:hover {
 	background: var(--cr-surface-2);
+}
+
+/* Sized like the buttons the code bar draws beside it. */
+#code > button,
+#code-menu .moretoggle,
+#code-menu .menu button {
+	font-size: 0.75rem;
+}
+
+/* Docked at the bottom of a phone, the panel's menu opens upward: below it
+   there is only the edge of the screen. */
+@media (width < 48rem) {
+	#code-menu .menu {
+		top: auto;
+		bottom: calc(100% + var(--cr-space-1));
+	}
 }
 
 /* The one item that loses something. */
@@ -505,14 +680,14 @@ main {
 	padding-top: var(--cr-space-3);
 }
 
-/* Scoped under the panel so it outranks nothing above it by order alone:
-   the reference's open summary is the other summary rule on the page. */
-.saved .transfer > summary {
+/* Scoped under the drawer so it outranks the bare summary rules by more than
+   order alone. */
+.drawer .transfer > summary {
 	cursor: pointer;
 	font-weight: 600;
 }
 
-.saved .transfer[open] > summary {
+.drawer .transfer[open] > summary {
 	margin-bottom: var(--cr-space-2);
 }
 
@@ -566,8 +741,4 @@ main {
 	.filebutton {
 		min-height: var(--cr-tap);
 	}
-}
-
-#transfer-status:empty {
-	min-height: 0;
 }

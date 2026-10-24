@@ -158,6 +158,44 @@ test("clicking a run asks the page to jump to the control that owns it", async (
 	expect(jumped).toBe("episode");
 });
 
+// A run with nothing to jump to — a version character, a reserved slot, a
+// slot an episode doesn't use — is drawn as plain text rather than a button,
+// so there is nothing to tab to or click.
+test("an inert run is drawn as text and does not jump", async () => {
+	const element = await mount("1HM3");
+	element.hints = [
+		{
+			char: "1",
+			hint: "Slot 1 · Format version",
+			group: "version",
+			inert: true,
+		},
+		{ char: "H", hint: "Slot 2 · Mode · Hard", group: "mode" },
+		{ char: "M", hint: "Slot 3 · Goal · Mission", group: "goal" },
+		{ char: "3", hint: "Slot 4 · Episode · 3", group: "episode" },
+	];
+	await element.updateComplete;
+
+	const inertRuns = [
+		...(element.shadowRoot?.querySelectorAll<HTMLSpanElement>("span.inert") ??
+			[]),
+	];
+	expect(inertRuns).toHaveLength(1);
+	expect(runs(element)).toHaveLength(3);
+	expect(inertRuns[0]?.getAttribute("data-tooltip")).toBe(
+		"Slot 1 · Format version",
+	);
+	expect(inertRuns[0]?.hasAttribute("tabindex")).toBe(false);
+
+	let jumped = "";
+	element.addEventListener("slot-jump", (event) => {
+		jumped = (event as CustomEvent<string>).detail;
+	});
+	inertRuns[0]?.click();
+
+	expect(jumped).toBe("");
+});
+
 // The hover bubble is behind a hover query, so on a phone this line is the only
 // place the run's meaning is said at all.
 test("clicking a run names it under the code", async () => {
@@ -417,4 +455,105 @@ test("the editor renders no slot, so the page's buttons go with it", async () =>
 	await element.updateComplete;
 
 	expect(element.shadowRoot?.querySelector("slot")).toBe(null);
+});
+
+// Whatever the page said about a code being typed stops being true the moment
+// the editor closes, however it closes.
+test("closing the editor by any path fires code-close", async () => {
+	const element = await mount();
+	let closed = 0;
+	element.addEventListener("code-close", () => {
+		closed += 1;
+	});
+	const input = () => element.shadowRoot?.querySelector("input");
+
+	element.editing = true;
+	await element.updateComplete;
+	input()?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+	await element.updateComplete;
+	expect(closed).toBe(1);
+
+	element.editing = true;
+	await element.updateComplete;
+	input()?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+	await element.updateComplete;
+	expect(closed).toBe(2);
+
+	element.editing = true;
+	await element.updateComplete;
+	element.shadowRoot?.querySelector<HTMLButtonElement>("button.done")?.click();
+	await element.updateComplete;
+	expect(closed).toBe(3);
+
+	// Opening it again is not a close, and neither is a render while shut.
+	element.editing = true;
+	await element.updateComplete;
+	expect(closed).toBe(3);
+});
+
+// A page that offers its own Copy code elsewhere — the combi page's ⋯ menu —
+// hides the bar's, so the row does not say Copy twice. Edit stays.
+const FULL = "1C00-10S0000000";
+
+const FULL_HINTS: CharHint[] = [
+	{ char: "1", hint: "Loadout version", group: "loadoutVersion" },
+	{ char: "C", hint: "Cookie", group: "cookie" },
+	{ char: "0", hint: "Cookie", group: "cookie" },
+	{ char: "0", hint: "Cookie", group: "cookie" },
+	{ char: "-", hint: "Loadout · Combi", group: "separator" },
+	...HINTS,
+];
+
+test("showAfter draws only what follows the marker, hints and all", async () => {
+	const element = await mount(FULL);
+	element.showAfter = "-";
+	element.hints = FULL_HINTS;
+	await settle(element);
+
+	expect(
+		element.shadowRoot?.querySelector("code")?.textContent?.replace(/\s/g, ""),
+	).toBe(CODE);
+	const groups = [
+		...(element.shadowRoot?.querySelectorAll("code .run") ?? []),
+	].map((run) => run.getAttribute("data-group"));
+	expect(groups[0]).toBe("version");
+	expect(groups).not.toContain("cookie");
+	expect(groups).not.toContain("separator");
+});
+
+test("showAfter draws the whole value when the marker is absent", async () => {
+	const element = await mount(CODE);
+	element.showAfter = "-";
+	element.hints = HINTS;
+	await settle(element);
+
+	expect(
+		element.shadowRoot?.querySelector("code")?.textContent?.replace(/\s/g, ""),
+	).toBe(CODE);
+});
+
+// What is shown is a view of the code; what is edited is the code itself, or
+// opening the editor would throw away everything before the marker.
+test("the editor opens on the whole value, not the part shown", async () => {
+	const element = await mount(FULL);
+	element.showAfter = "-";
+	await settle(element);
+
+	element.shadowRoot?.querySelector<HTMLButtonElement>(".edit")?.click();
+	await settle(element);
+
+	expect(field(element)?.value).toBe(FULL);
+});
+
+test("copyable false hides the built-in Copy button and keeps Edit", async () => {
+	const element = await mount();
+	expect(element.copyable).toBe(true);
+	expect(element.shadowRoot?.querySelector("button.copy")).not.toBe(null);
+
+	element.copyable = false;
+	await element.updateComplete;
+
+	expect(element.shadowRoot?.querySelector("button.copy")).toBe(null);
+	expect(element.shadowRoot?.querySelector("button.edit")).not.toBe(null);
+	expect(element.shadowRoot?.querySelector(".buttons slot")).not.toBe(null);
 });

@@ -1,17 +1,18 @@
 import { expect, test } from "bun:test";
 
 import {
-	BOARD_KEY,
-	boardCollapsed,
 	codeInHash,
 	hashFor,
 	noteInHash,
-	rememberBoardCollapsed,
 	rememberCode,
+	rememberFullCode,
+	rememberTab,
 	STORAGE_KEY,
 	shareHashFor,
 	startingCode,
 	storedCode,
+	storedFullCode,
+	storedTab,
 } from "./state";
 
 function storage(initial: string | null): Storage & { written: string[] } {
@@ -116,20 +117,52 @@ test("a note that is not base64url, or not text, reads as none", () => {
 	expect(noteInHash("#10M0000000?note=_-_-")).toBeNull();
 });
 
-test("a folded board is remembered, and anything else reads as open", () => {
+test("a remembered tab is read back", () => {
 	const held = storage(null);
-	expect(boardCollapsed(held)).toBe(false);
 
-	rememberBoardCollapsed(held, true);
-	expect(boardCollapsed(held)).toBe(true);
+	rememberTab(held, "treasures");
 
-	rememberBoardCollapsed(held, false);
-	expect(boardCollapsed(held)).toBe(false);
-	expect(boardCollapsed(storage("yes"))).toBe(false);
+	expect(storedTab(held)).toBe("treasures");
 });
 
-test("a browser that refuses storage leaves the board open, and swallows the write", () => {
-	expect(boardCollapsed(REFUSING)).toBe(false);
-	expect(() => rememberBoardCollapsed(REFUSING, true)).not.toThrow();
-	expect(BOARD_KEY).toBe("combi-name:board-collapsed");
+test("an unknown or missing tab reads as main", () => {
+	expect(storedTab(storage("nope"))).toBe("main");
+	expect(storedTab(storage(null))).toBe("main");
+});
+
+test("a storage that throws reads main and remembers nothing", () => {
+	expect(storedTab(REFUSING)).toBe("main");
+	expect(() => rememberTab(REFUSING, "boosts")).not.toThrow();
+});
+
+test("the full-code choice is remembered and read back, off by default", () => {
+	const store = new Map<string, string>();
+	const storage = {
+		getItem: (key: string) => store.get(key) ?? null,
+		setItem: (key: string, value: string) => store.set(key, value),
+		removeItem: (key: string) => store.delete(key),
+	} as unknown as Storage;
+
+	expect(storedFullCode(storage)).toBe(false);
+	rememberFullCode(storage, true);
+	expect(storedFullCode(storage)).toBe(true);
+	rememberFullCode(storage, false);
+	expect(storedFullCode(storage)).toBe(false);
+});
+
+test("a storage that throws reads the full code as off and remembers nothing", () => {
+	const broken = {
+		getItem: () => {
+			throw new Error("denied");
+		},
+		setItem: () => {
+			throw new Error("denied");
+		},
+		removeItem: () => {
+			throw new Error("denied");
+		},
+	} as unknown as Storage;
+
+	expect(storedFullCode(broken)).toBe(false);
+	expect(() => rememberFullCode(broken, true)).not.toThrow();
 });

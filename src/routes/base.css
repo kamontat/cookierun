@@ -13,31 +13,16 @@ html {
 
 body {
 	display: grid;
-	grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
-	grid-template-rows: auto 1fr auto;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: auto auto 1fr;
 	/* `dvh`, not `vh`: a phone browser measures `vh` against the viewport with
 	   the URL bar retracted, so a `100vh` page is taller than the screen it is
-	   on and scrolls by the height of that bar with nothing in the gap. The
-	   rail's own height has always been `100dvh`; this is the page catching
-	   up. */
+	   on and scrolls by the height of that bar with nothing in the gap. */
 	min-height: 100dvh;
 	background: var(--cr-bg);
 	color: var(--cr-text);
 	font-family: var(--cr-font);
 	line-height: 1.45;
-}
-
-/* The rows above are counted for a rail that spans all of them, leaving the
-   masthead and the page on rows 2 and 3. Under the breakpoint the rail stops
-   spanning and takes row 1 itself, so every element shifts down one and the
-   `1fr` lands on the masthead - which then stretches to fill a short page and
-   opens a screen's worth of nothing above the content. The flexible row has to
-   move with them. */
-@media (width < 48rem) {
-	body {
-		grid-template-columns: minmax(0, 1fr);
-		grid-template-rows: auto auto 1fr;
-	}
 }
 
 /* The code panel is sticky, so anything scrolled to by a fragment link, by
@@ -47,12 +32,19 @@ body {
 	scroll-padding-top: 9rem;
 }
 
+/* One column, centred: the masthead and main share it, so on a wide screen the
+   page sits in the middle rather than against the left edge with a band of
+   nothing beside it. Auto margins on a grid item shrink it to fit its content,
+   so the width is spelled out too. The top bar and the footer are bands across
+   the whole window and are not containers. */
 .container {
+	width: 100%;
 	max-width: 68rem;
+	margin-inline: auto;
 	padding: var(--cr-space-4) var(--cr-space-3);
 }
 
-/* The sidebar comes first in the DOM, so without this every page opens with a
+/* The top bar comes first in the DOM, so without this every page opens with a
    keyboard walk through the navigation. Off-screen until focused. */
 .skip-link {
 	position: absolute;
@@ -294,10 +286,3 @@ label {
 	letter-spacing: var(--cr-tracking);
 	text-transform: uppercase;
 }
-
-/* No page renders a footer any more. If one comes back it belongs in column 2
-   above the 48rem breakpoint, not spanning both: `<site-nav>`'s `:host` is
-   `position: sticky` with `height: 100dvh` over `grid-row: 1 / -1`, so its box
-   is as tall as the viewport whatever the explicit rows measure, and a footer
-   spanning both columns auto-places into an implicit row below them that the
-   rail then overhangs and paints over. */

@@ -32,7 +32,9 @@ import {
 	combiSectionOf,
 	decodeFull,
 	encodeFull,
+	type FullCode,
 	isSemiAutoBuild,
+	SECTION_SEPARATOR,
 } from "./full-code";
 import { hintsFor } from "./hints";
 import {
@@ -57,31 +59,45 @@ import {
 	updateSaved,
 } from "./saved";
 import {
-	boardCollapsed,
 	codeInHash,
 	hashFor,
 	noteInHash,
-	rememberBoardCollapsed,
 	rememberCode,
+	rememberFullCode,
+	rememberTab,
 	shareHashFor,
 	startingCode,
+	storedFullCode,
+	storedTab,
+	TAB_NAMES,
+	type TabName,
 } from "./state";
+import { summaryOf } from "./summary";
 
 import "#components/build-summary";
 import "#components/card-group";
 import "#components/chip-group";
 import "#components/code-bar";
-import "#components/entry-tile";
+import "#components/entry-grid";
 import "#components/entry-tiles";
+import "#components/notice-bar";
 import "#components/site-footer";
 import "#components/site-nav";
+import "#components/tab-strip";
 
 import type { BuildSummary } from "#components/build-summary";
 import type { CardGroup } from "#components/card-group";
 import type { ChipGroup } from "#components/chip-group";
 import type { CodeBar } from "#components/code-bar";
-import type { EntryTile } from "#components/entry-tile";
+import type { EntryGrid } from "#components/entry-grid";
 import type { EntryTiles } from "#components/entry-tiles";
+import type {
+	NoticeBar,
+	NoticeOptions,
+	NoticeType,
+} from "#components/notice-bar";
+import type { TabOption, TabStrip } from "#components/tab-strip";
+import { lockPageScroll } from "#components/tile";
 
 /** Exported for this route's test, which drives the page through the same lookups. */
 export function need<T extends HTMLElement>(id: string): T {
@@ -92,25 +108,31 @@ export function need<T extends HTMLElement>(id: string): T {
 
 const codeBar = need<CodeBar>("code");
 const summaryCard = need<BuildSummary>("summary");
-const warningList = need<HTMLUListElement>("warnings");
+const verdictLine = need("verdict");
+const notice = need<NoticeBar>("notice");
+const copyCodeButton = need<HTMLButtonElement>("copy-code");
+const fullCodeButton = need<HTMLButtonElement>("code-full");
 const copyLinkButton = need<HTMLButtonElement>("copy-link");
 const resetButton = need<HTMLButtonElement>("reset");
-const linkStatus = need("link-status");
+const codeMenu = need<HTMLDetailsElement>("code-menu");
 
+const tabStrip = need<TabStrip>("tabs");
 const buildForm = need<HTMLFormElement>("build");
 const modeChips = need<ChipGroup>("mode");
 const goalChips = need<ChipGroup>("goal");
-const episodeTile = need<EntryTile>("episode");
+const episodeGrid = need<EntryGrid>("episode");
 const floorField = need("field-floor");
 const floorInput = need<HTMLInputElement>("floor");
 const boostCards = need<CardGroup>("boosts");
-const randomBoostTile = need<EntryTile>("randomBoost");
+const randomBoostChips = need<ChipGroup>("randomBoost");
 const cookiePowerCards = need<CardGroup>("cookiePowers");
 const actionChips = need<ChipGroup>("action");
 
-const cookieTile = need<EntryTile>("cookie");
-const relayTile = need<EntryTile>("relay");
-const petTile = need<EntryTile>("pet");
+const cookieGrid = need<EntryGrid>("cookie");
+const relayGrid = need<EntryGrid>("relay");
+const petGrid = need<EntryGrid>("pet");
+const rolesBox = need("roles");
+const roleClear = need<HTMLButtonElement>("role-clear");
 const treasureSlots = [
 	need<EntryTiles>("treasure1"),
 	need<EntryTiles>("treasure2"),
@@ -122,19 +144,21 @@ const relayNote = need("relay-note");
 const saveForm = need<HTMLFormElement>("save-form");
 const saveDescription = need<HTMLTextAreaElement>("save-description");
 const saveEditing = need("save-editing");
+const noteLabel = need("note-label");
 const saveButton = need<HTMLButtonElement>("save");
 const saveNewButton = need<HTMLButtonElement>("save-new");
 const saveCancelButton = need<HTMLButtonElement>("save-cancel");
-const saveStatus = need("save-status");
 const savedEmpty = need("saved-empty");
 const savedList = need<HTMLUListElement>("saved-list");
+const savedCount = need("saved-count");
+const savedDrawer = need<HTMLDialogElement>("saved-drawer");
+const helpDrawer = need<HTMLDialogElement>("help-drawer");
 
 const exportCopyButton = need<HTMLButtonElement>("export-copy");
 const exportDownloadButton = need<HTMLButtonElement>("export-download");
 const importInput = need<HTMLTextAreaElement>("import-text");
 const importButton = need<HTMLButtonElement>("import");
 const importFile = need<HTMLInputElement>("import-file");
-const transferStatus = need("transfer-status");
 
 /** The fields an episode or a mode can take off the board. */
 const offFields = {
@@ -158,11 +182,11 @@ function pickerOptions(
 }
 
 /**
- * The same list without the kind, for the three `<entry-tile>` pickers. Nothing
+ * The same list without the kind, for the three `<entry-grid>` pickers. Nothing
  * a cookie or a pet picker holds evolves, so the kind is always null there and
  * the element has no field for one.
  *
- * Any leads the list, under the tile's own None. The two are different answers
+ * Any leads the list, under the grid's own None. The two are different answers
  * — a slot the build says anything fits, against one it never mentions — and
  * the order puts them together at the top rather than burying Any in the
  * catalog it is not part of.
@@ -189,9 +213,9 @@ const ORDER_OPTIONS = [
 
 function readLoadout(): Loadout {
 	return {
-		cookie: cookieTile.value,
-		relay: relayTile.value,
-		pet: petTile.value,
+		cookie: cookieGrid.value,
+		relay: relayGrid.value,
+		pet: petGrid.value,
 		// Empty slots are not gaps in the wire format, so they drop out.
 		treasures: treasureSlots
 			.map((slot) => {
@@ -237,9 +261,9 @@ function treasureOptions(
 }
 
 function writeLoadout(loadout: Loadout): void {
-	cookieTile.value = loadout.cookie;
-	relayTile.value = loadout.relay;
-	petTile.value = loadout.pet;
+	cookieGrid.value = loadout.cookie;
+	relayGrid.value = loadout.relay;
+	petGrid.value = loadout.pet;
 	orderChips.value = loadout.ordered ? "ordered" : "any";
 	treasureSlots.forEach((slot, index) => {
 		const carried = loadout.treasures[index] ?? [];
@@ -253,6 +277,111 @@ function writeLoadout(loadout: Loadout): void {
 		);
 	});
 }
+
+type Role = "cookie" | "relay" | "pet";
+
+const ROLES: readonly Role[] = ["cookie", "relay", "pet"];
+
+const ROLE_NAMES: Record<Role, string> = {
+	cookie: "Cookie",
+	relay: "Relay",
+	pet: "Pet",
+};
+
+const ROLE_GRIDS: Record<Role, EntryGrid> = {
+	cookie: cookieGrid,
+	relay: relayGrid,
+	pet: petGrid,
+};
+
+function isRole(group: string): group is Role {
+	return (ROLES as readonly string[]).includes(group);
+}
+
+/**
+ * Which role the Cookies tab's one visible grid writes. Held in memory only: it
+ * is where someone is looking, not part of the build.
+ */
+let role: Role = "cookie";
+
+/** The build `render` last drew, which the role cards read their faces from. */
+let shownFull: FullCode | null = null;
+
+/** The role on screen: the one picked, unless the episode has no relay. */
+function shownRole(episode: Episode): Role {
+	return role === "relay" && !limitsOf(episode).relay ? "cookie" : role;
+}
+
+/**
+ * Draws the three role cards from the code, and shows the grid of the role
+ * picked. Each card is the role's face and name, or None.
+ */
+function showRoles(): void {
+	if (shownFull === null) return;
+	const { combi, loadout } = shownFull;
+	const hasRelay = limitsOf(combi.episode).relay;
+	const shown = shownRole(combi.episode);
+
+	for (const each of ROLES) {
+		const card = rolesBox.querySelector<HTMLButtonElement>(
+			`button[data-role="${each}"]`,
+		);
+		if (card === null) continue;
+		const off = each === "relay" && !hasRelay;
+		const id = off ? null : loadout[each];
+		const section = each === "pet" ? "pets" : "cookies";
+		const image = id === null ? null : imageFor(section, id);
+
+		let face: HTMLElement;
+		if (image === null) {
+			face = document.createElement("span");
+			face.className = "placeholder";
+			face.setAttribute("aria-hidden", "true");
+		} else {
+			const img = document.createElement("img");
+			img.src = ASSET_BASE + image;
+			img.alt = "";
+			face = img;
+		}
+		const name = document.createElement("small");
+		name.textContent = ROLE_NAMES[each];
+		const label = document.createElement("span");
+		label.className = "name";
+		label.textContent = off
+			? "No relay here"
+			: id === null
+				? "None"
+				: labelFor(section, id);
+
+		card.replaceChildren(face, name, label);
+		card.disabled = off;
+		card.setAttribute("aria-pressed", String(each === shown));
+		ROLE_GRIDS[each].hidden = each !== shown;
+	}
+	roleClear.hidden = ROLE_GRIDS[shown].value === null;
+}
+
+rolesBox.addEventListener("click", (event) => {
+	const card = (event.target as Element | null)?.closest<HTMLButtonElement>(
+		"button[data-role]",
+	);
+	const picked = card?.getAttribute("data-role") ?? "";
+	if (card === null || card === undefined || card.disabled) return;
+	if (!isRole(picked)) return;
+	role = picked;
+	showRoles();
+});
+
+roleClear.addEventListener("click", () => {
+	const shown = shownRole(currentEpisode());
+	ROLE_GRIDS[shown].value = null;
+	render();
+	// Clear hides itself once the role is empty, and a hidden button drops
+	// focus to <body>; the card for the role just emptied is where it lands.
+	rolesBox
+		.querySelector<HTMLButtonElement>(`button[data-role="${shown}"]`)
+		?.focus();
+});
 
 const FLOOR_MAX = 100;
 
@@ -270,12 +399,16 @@ function readForm(): Combi {
 	return {
 		goal: goalChips.value as Goal,
 		mode: modeChips.value as Mode,
-		// The tile offers no None of its own — `any` is the episode's — so the
+		// The grid offers no None of its own — `any` is the episode's — so the
 		// fallback is a type-level one and never a value the page can produce.
-		episode: (episodeTile.value ?? "any") as Episode,
+		episode: (episodeGrid.value ?? "any") as Episode,
 		floor: readFloor(),
 		boosts: boostCards.selected as Boost[],
-		randomBoost: randomBoostTile.value as RandomBoost | null,
+		// The chips' None is "", since a chip row always holds a value.
+		randomBoost:
+			randomBoostChips.value === ""
+				? null
+				: (randomBoostChips.value as RandomBoost),
 		cookiePowers: cookiePowerCards.selected as CookiePower[],
 		action: actionChips.value as Action,
 	};
@@ -286,45 +419,46 @@ function writeForm(combi: Combi): void {
 	// make of an auto run, not a mode anyone picks, so there is no chip for it.
 	modeChips.value = combi.mode === "semiauto" ? "auto" : combi.mode;
 	goalChips.value = combi.goal;
-	episodeTile.value = combi.episode;
+	episodeGrid.value = combi.episode;
 	floorInput.value = combi.floor === null ? "" : String(combi.floor);
-	// No sentinel in either direction: the tile's own empty pick is null, which
-	// is exactly what a combi carrying no random boost holds.
-	randomBoostTile.value = combi.randomBoost;
+	randomBoostChips.value = combi.randomBoost ?? "";
 	actionChips.value = combi.action;
 	boostCards.selected = combi.boosts;
 	cookiePowerCards.selected = combi.cookiePowers;
 }
 
-function setStatus(host: HTMLElement, text: string, isError = false): void {
-	host.textContent = text;
-	host.classList.toggle("error", isError);
+/**
+ * Whether the banner is showing something about the code on screen — a decode
+ * warning or error, typing progress, a paste, a copy of the code or its link.
+ * Those answer a question about that code, so the next build change clears
+ * them; everything else (a save, a delete, an import) stays until it is
+ * dismissed, replaced, or, for info, times out.
+ */
+let aboutCode = false;
+
+/** Puts a message in the banner, the page's one place for one. */
+function say(
+	type: NoticeType,
+	text: string | readonly string[],
+	options?: NoticeOptions,
+): void {
+	notice.show(type, text, options);
+	aboutCode = false;
 }
 
-/** How long a button says it worked before going back to its own label. */
-const CONFIRM_FOR = 2000;
+/** The same, for a message about the code on screen. */
+function sayAboutCode(
+	type: NoticeType,
+	text: string | readonly string[],
+	options?: NoticeOptions,
+): void {
+	notice.show(type, text, options);
+	aboutCode = true;
+}
 
-const confirmTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
-
-/**
- * Says a button's work is done on the button itself, by swapping which of its
- * two labels is visible. The alternative is a line under it that stands open
- * for a sentence it shows two seconds at a time, and in a panel pinned to the
- * top of the screen an empty line costs the same room as a full one.
- */
-function confirmOn(button: HTMLButtonElement): void {
-	const swap = button.querySelector(".swap");
-	if (swap === null) return;
-
-	clearTimeout(confirmTimers.get(button));
-	swap.classList.add("done");
-	confirmTimers.set(
-		button,
-		setTimeout(() => {
-			swap.classList.remove("done");
-			confirmTimers.delete(button);
-		}, CONFIRM_FOR),
-	);
+/** Takes down a message that is not about the code. */
+function unsay(): void {
+	if (!aboutCode) notice.clear();
 }
 
 /**
@@ -339,14 +473,29 @@ function publish(code: string): void {
 	rememberCode(localStorage, code);
 }
 
+/**
+ * A code read with changes says what changed; a build change otherwise takes
+ * down whatever the banner said about the code before it.
+ */
 function showWarnings(warnings: readonly string[]): void {
-	warningList.replaceChildren(
-		...warnings.map((warning) => {
-			const item = document.createElement("li");
-			item.textContent = warning;
-			return item;
-		}),
-	);
+	if (warnings.length > 0) {
+		sayAboutCode("warn", warnings, { title: "Read with changes" });
+	} else if (aboutCode) {
+		notice.clear();
+		aboutCode = false;
+	}
+}
+
+/**
+ * The sentence under the mode chips: why an auto run needs a hand, or that it
+ * needs none. A manual run is played by hand anyway, so it says nothing.
+ */
+function verdictText(full: FullCode): string {
+	const verdict = describeBuild(full);
+	if (verdict === null) return "";
+	return verdict.semi
+		? `Plays as semi-auto because of ${verdict.reasons.join(", ")}.`
+		: "Plays itself all the way: full auto.";
 }
 
 /**
@@ -360,26 +509,36 @@ function render(warnings: readonly string[] = []): void {
 	// is taken.
 	goalChips.options = goalOptions(modeChips.value as Mode);
 	const code = encodeFull({ loadout: readLoadout(), combi: readForm() });
-	// The line under the code answers a question about the code in front of you,
-	// so a new code clears it. The two callers that have something to say about
-	// the code they just applied say it after this returns.
-	codeBar.message = "";
-	codeBar.invalid = false;
 	codeBar.value = code;
-	// After the value: setting it drops the old hints, which described the code
-	// before this one.
-	codeBar.hints = hintsFor(code);
 
 	// Read the code back so the verdict reflects the character actually written
 	// into slot 2, not the type the chips still show.
 	const { full } = decodeFull(code);
-	summaryCard.verdict = describeBuild(full);
+	const { episode } = full.combi;
+	// After the value: setting it drops the old hints, which described the code
+	// before this one. A run with nothing to jump to — no control owns it, or
+	// its tab is off for this episode — is drawn as plain text.
+	codeBar.hints = hintsFor(code).map((hint) => ({
+		...hint,
+		inert: !canJump(hint.group, episode),
+	}));
+	// A live region reads out every write, so the same words are not written
+	// twice: a click that leaves the verdict as it was says nothing.
+	const verdict = verdictText(full);
+	if (verdictLine.textContent !== verdict) verdictLine.textContent = verdict;
+	const summary = summaryOf(full, ASSET_BASE);
+	summaryCard.rows = summary.rows;
+	summaryCard.compact = summary.compact;
+	summaryCard.hint = summary.hint;
 	// The one chip that says what it is rather than what you picked: an auto run
 	// with Fast Start, a random boost, an action or a relay is a semi-auto run,
 	// and the chip reading Auto beside a code reading H is the disagreement the
 	// page exists to prevent.
 	modeChips.options = modeOptions(isSemiAutoBuild(full));
 	showLimits(full.combi);
+	tabStrip.options = tabOptions(full);
+	shownFull = full;
+	showRoles();
 
 	// A numbered slot claims a position, and the code only carries one when the
 	// order is exact. Read from the decoded code, not the switch: the code's truth
@@ -392,7 +551,11 @@ function render(warnings: readonly string[] = []): void {
 		);
 	});
 
+	// A message about the code in front of you does not outlive it. The callers
+	// that have something to say about the code they just applied say it after
+	// this returns.
 	showWarnings(warnings);
+	showTab();
 	markCurrent(code);
 	publish(code);
 }
@@ -428,7 +591,6 @@ function showLimits(combi: Combi): void {
 		combi.mode === "manual" ? "Only an auto run starts with an action." : null,
 	);
 
-	relayTile.hidden = !limits.relay;
 	relayNote.hidden = limits.relay;
 	relayNote.textContent = limits.relay ? "" : `${episode} takes no relay.`;
 }
@@ -449,29 +611,30 @@ function applyCode(code: string, warnings: readonly string[] = []): void {
 function readDraft(text: string): void {
 	const canonical = text.trim().toUpperCase();
 
+	// Progress is held up for as long as the editor is open — it would
+	// otherwise clear itself mid-word — and let go when it closes.
 	if (canonical === "") {
-		codeBar.message = "Type or paste a code.";
-		codeBar.invalid = false;
+		sayAboutCode("info", "Type or paste a code.", { hold: true });
 		return;
 	}
 
 	const combiPart = combiSectionOf(canonical);
 	if (combiPart.length !== CODE_LENGTH) {
-		codeBar.message = `${combiPart.length} of ${CODE_LENGTH} characters.`;
-		codeBar.invalid = false;
+		sayAboutCode("info", `${combiPart.length} of ${CODE_LENGTH} characters.`, {
+			hold: true,
+		});
 		return;
 	}
 
 	try {
 		const { warnings } = decodeFull(canonical);
+		// `render` shows the warnings, or clears the progress line.
 		applyCode(canonical, warnings);
-		// `render` has already rewritten the bar's value and cleared its status;
-		// the message has to be cleared after it, not before.
-		codeBar.message = "";
-		codeBar.invalid = false;
 	} catch (error) {
-		codeBar.message = error instanceof Error ? error.message : String(error);
-		codeBar.invalid = true;
+		sayAboutCode(
+			"error",
+			error instanceof Error ? error.message : String(error),
+		);
 	}
 }
 
@@ -528,7 +691,8 @@ function savedButton(
  * than a hand-rolled popup: it opens and closes from the keyboard and tells a
  * screen reader its state with nothing written for it. What the platform does
  * not do — close on a pick, on Escape, on a click elsewhere, or when another
- * row's opens — is wired once on the list, below.
+ * menu opens — is wired once on the document, below, for these and the code
+ * panel's menu alike.
  */
 function savedMenu(entry: SavedCode): HTMLDetailsElement {
 	const menu = document.createElement("details");
@@ -552,24 +716,30 @@ function savedMenu(entry: SavedCode): HTMLDetailsElement {
 }
 
 function closeMenus(except: Element | null = null): void {
-	for (const menu of savedList.querySelectorAll<HTMLDetailsElement>(
+	for (const menu of document.querySelectorAll<HTMLDetailsElement>(
 		"details.more[open]",
 	)) {
 		if (menu !== except) menu.open = false;
 	}
 }
 
-// `toggle` does not bubble, so the list hears it in the capture phase.
-savedList.addEventListener(
+// `toggle` does not bubble, so the document hears it in the capture phase.
+document.addEventListener(
 	"toggle",
 	(event) => {
-		const menu = event.target as HTMLDetailsElement;
-		if (menu.matches("details.more") && menu.open) closeMenus(menu);
+		const menu = event.target as Element;
+		if (
+			menu instanceof HTMLDetailsElement &&
+			menu.matches("details.more") &&
+			menu.open
+		) {
+			closeMenus(menu);
+		}
 	},
 	true,
 );
 
-savedList.addEventListener("keydown", (event) => {
+document.addEventListener("keydown", (event) => {
 	if (event.key !== "Escape") return;
 	const menu = (event.target as Element | null)?.closest<HTMLDetailsElement>(
 		"details.more[open]",
@@ -585,12 +755,29 @@ document.addEventListener("click", (event) => {
 	closeMenus(target?.closest("details.more") ?? null);
 });
 
+// A pick from the code panel's menu is the menu's answer; it closes behind it.
+// The pick's own handler has run by now (this listens on an ancestor), so a
+// handler that sent focus somewhere — Cancel, to the note — keeps it there;
+// otherwise focus would go down with the hidden button, to <body>, and the
+// menu's toggle takes it instead.
+codeMenu.addEventListener("click", (event) => {
+	if (!(event.target as Element | null)?.closest(".menu button")) return;
+	codeMenu.open = false;
+	const focused = document.activeElement;
+	const dropped =
+		focused === null ||
+		focused === document.body ||
+		codeMenu.querySelector(".menu")?.contains(focused) === true;
+	if (dropped) codeMenu.querySelector("summary")?.focus();
+});
+
 /**
  * Draws the saved list from scratch. It is short and changes only on a click,
  * so there is nothing to gain from patching it in place.
  */
 function showSaved(entries: readonly SavedCode[]): void {
 	savedEntries = entries;
+	savedCount.textContent = String(entries.length);
 	savedEmpty.hidden = entries.length > 0;
 	savedList.replaceChildren(
 		...entries.map((entry) => {
@@ -659,7 +846,9 @@ function showEditing(code: string): void {
 	saveEditing.hidden = entry === undefined;
 	saveNewButton.hidden = entry === undefined;
 	saveCancelButton.hidden = entry === undefined;
-	saveButton.textContent = entry === undefined ? "Save code" : "Update";
+	saveButton.textContent = entry === undefined ? "Save" : "Update";
+	noteLabel.textContent =
+		entry === undefined ? "Note · new code" : "Note · editing a saved code";
 	if (entry === undefined) {
 		saveEditing.textContent = "";
 		return;
@@ -697,9 +886,9 @@ function saveAsNew(): void {
 	showSaved(entries);
 	if (stored) {
 		saveDescription.value = "";
-		setStatus(saveStatus, `Saved ${code}.`);
+		say("info", `Saved ${code}.`);
 	} else {
-		setStatus(saveStatus, REFUSED_SAVE, true);
+		say("error", REFUSED_SAVE);
 	}
 }
 
@@ -715,14 +904,13 @@ function updateEntry(from: string): void {
 			// Deleted in another tab since it was opened. Nothing left to update.
 			showSaved(result.entries);
 			stopEditing();
-			setStatus(saveStatus, "That entry is gone. Save code adds it again.");
+			say("warn", "That entry is gone. Save adds it again.");
 			return;
 		}
 		const other = result.entries.find((saved) => saved.code === code);
-		setStatus(
-			saveStatus,
+		say(
+			"error",
 			`This build is already saved as ${other === undefined ? code : entryName(other)}. Change the build, or delete that entry first.`,
-			true,
 		);
 		return;
 	}
@@ -731,13 +919,14 @@ function updateEntry(from: string): void {
 	showSaved(result.entries);
 	saveDescription.value = "";
 	const updated = result.entries.find((saved) => saved.code === code);
-	setStatus(
-		saveStatus,
-		result.stored
-			? `Updated ${updated === undefined ? code : entryName(updated)}.`
-			: REFUSED_SAVE,
-		!result.stored,
-	);
+	if (result.stored) {
+		say(
+			"info",
+			`Updated ${updated === undefined ? code : entryName(updated)}.`,
+		);
+	} else {
+		say("error", REFUSED_SAVE);
+	}
 }
 
 saveForm.addEventListener("submit", (event) => {
@@ -750,7 +939,7 @@ saveNewButton.addEventListener("click", saveAsNew);
 
 saveCancelButton.addEventListener("click", () => {
 	stopEditing();
-	setStatus(saveStatus, "");
+	unsay();
 	saveDescription.focus();
 });
 
@@ -764,24 +953,27 @@ saveDescription.addEventListener("keydown", (event) => {
 	} else if (event.key === "Escape" && editing !== null) {
 		event.preventDefault();
 		stopEditing();
-		setStatus(saveStatus, "");
+		unsay();
 	}
 });
 
-/** Applies a saved code, or says it no longer reads. */
-function openSaved(code: string): boolean {
+/**
+ * Applies a saved code and hands back what it was read with, or says it no
+ * longer reads and hands back null.
+ */
+function openSaved(code: string): readonly string[] | null {
 	try {
 		const { warnings } = decodeFull(code);
 		codeBar.editing = false;
 		applyCode(code, warnings);
-		return true;
+		return warnings;
 	} catch (error) {
-		setStatus(
-			saveStatus,
+		// The drawer stays open on a failed Load, and the banner is in it.
+		say(
+			"error",
 			`${code} no longer reads: ${error instanceof Error ? error.message : String(error)}`,
-			true,
 		);
-		return false;
+		return null;
 	}
 }
 
@@ -808,17 +1000,13 @@ function copyEntryLink(entry: SavedCode): void {
 	const url = shareLink(entry);
 	void navigator.clipboard
 		.writeText(url)
-		// The menu the button sits in has closed by now, so the word cannot ride
-		// on the button the way the code bar's Copy link does.
-		.then(() =>
-			setStatus(saveStatus, `Copied the link to ${entryName(entry)}.`),
-		)
+		// The menu the button sits in has closed by now, so the word goes in
+		// the banner, which is in the drawer while it is open.
+		.then(() => {
+			say("info", `Copied the link to ${entryName(entry)}.`);
+		})
 		.catch(() => {
-			setStatus(
-				saveStatus,
-				`The browser blocked the clipboard. The link is ${url}`,
-				true,
-			);
+			say("error", `The browser blocked the clipboard. The link is ${url}`);
 		});
 }
 
@@ -840,15 +1028,26 @@ savedList.addEventListener("click", (event) => {
 		// Loading opens the entry too: there used to be an Edit beside Load, and
 		// the two differed only in whether a later save wrote back. The box now
 		// asks that question itself — Update or Save as new — so one action
-		// serves both. Focus stays on the row: someone who only wanted the
-		// build has not asked to type.
+		// serves both. Focus goes back to the Saved button with the closing
+		// drawer, not to the note: someone who only wanted the build has not
+		// asked to type.
 		editing = code;
-		if (!openSaved(code)) {
+		const warnings = openSaved(code);
+		if (warnings === null) {
 			stopEditing();
 			return;
 		}
+		// Closed first, so the build it loaded and the note it filled are what
+		// is on screen. The banner comes home at once rather than on the close
+		// event, so what follows is announced from the page and not from the
+		// dialog on its way out.
+		savedDrawer.close();
+		bringNoticeHome();
 		saveDescription.value = entry.description;
-		setStatus(saveStatus, `Loaded ${entryName(entry)}.`);
+		// A code read with changes keeps its warning up (render put it there):
+		// it says more than "loaded" does. Otherwise "Loaded" replaces whatever
+		// was showing, a stale warning about something else included.
+		if (warnings.length === 0) say("info", `Loaded ${entryName(entry)}.`);
 		return;
 	}
 
@@ -868,37 +1067,137 @@ savedList.addEventListener("click", (event) => {
 	}
 	const { entries, stored } = removeSaved(localStorage, code);
 	showSaved(entries);
-	setStatus(
-		saveStatus,
-		stored
-			? `Deleted ${code}.`
-			: "The browser refused to store the change. It is gone for this visit only.",
-		!stored,
-	);
-	// Focus takes the gone entry's place, or falls back to the box that adds one.
+	if (stored) {
+		say("info", `Deleted ${code}.`);
+	} else {
+		say(
+			"error",
+			"The browser refused to store the change. It is gone for this visit only.",
+		);
+	}
+	// Focus takes the gone entry's place, or falls back to the drawer's Close
+	// button: the note that adds one sits behind the modal.
 	const next = savedList.querySelectorAll<HTMLButtonElement>(
 		'button[data-action="load"]',
 	)[Math.min(index, entries.length - 1)];
-	(next ?? saveDescription).focus();
+	(
+		next ?? savedDrawer.querySelector<HTMLButtonElement>("[data-close]")
+	)?.focus();
 });
+
+/** Undoes `lockPageScroll` for whichever drawer is open, if one is. */
+let unlockPage: (() => void) | null = null;
+
+/**
+ * Where the banner lives while no drawer is open: inside the sticky code
+ * panel, right after the code bar. Looked up rather than assumed, so the
+ * markup decides.
+ */
+const noticeHome = notice.previousElementSibling;
+
+/**
+ * Opens a drawer as a modal sheet and holds the page still behind it. A modal
+ * makes everything behind it inert, the banner included, so the same banner
+ * goes into the drawer's sheet, under its header, and comes back on close —
+ * one notification area, always the one in view.
+ */
+function openDrawer(dialog: HTMLDialogElement): void {
+	if (dialog.open) return;
+	dialog.showModal();
+	// Moving an element disconnects and reconnects it; <notice-bar> restarts an
+	// info message's timer on reconnect, so a message carried in still goes.
+	dialog.querySelector(".sheet > header")?.after(notice);
+	unlockPage ??= lockPageScroll();
+}
+
+/** Puts the banner back in the code panel. */
+function bringNoticeHome(): void {
+	if (noticeHome !== null && notice.previousElementSibling !== noticeHome) {
+		noticeHome.after(notice);
+	}
+}
+
+for (const drawer of [savedDrawer, helpDrawer]) {
+	// Which element the press itself landed on. A click fires on the nearest
+	// common ancestor of the press and the release, so a drag that starts in
+	// the sheet and ends past its edge targets the dialog just as a backdrop
+	// click does; only a press that also started there is a dismiss.
+	let pressedBackdrop = false;
+	drawer.addEventListener("pointerdown", (event) => {
+		pressedBackdrop = event.target === drawer;
+	});
+	drawer.addEventListener("click", (event) => {
+		const target = event.target as Element | null;
+		if (target?.closest("[data-close]")) {
+			drawer.close();
+		} else if (pressedBackdrop && target === drawer) {
+			// A native dialog does not light-dismiss; this is its backdrop click.
+			drawer.close();
+		}
+	});
+	// Escape, Close and the backdrop all pass through here. A row menu left
+	// open goes too: Safari can keep focus outside the menu, so the Escape
+	// that closed the drawer never reached the menu's own handler.
+	drawer.addEventListener("close", () => {
+		closeMenus();
+		bringNoticeHome();
+		unlockPage?.();
+		unlockPage = null;
+	});
+}
+
+need("open-saved").addEventListener("click", () => {
+	openDrawer(savedDrawer);
+});
+need("open-help").addEventListener("click", () => {
+	openDrawer(helpDrawer);
+});
+
+/*
+ * The tab strip sticks under the code panel on a wide screen, and a jump has
+ * to scroll clear of both, so the stylesheet needs the panel's height. It
+ * changes as the code wraps and the buttons swap, so it is measured rather
+ * than guessed. An enhancement only: without it the strip sticks at the top
+ * and the scroll padding keeps a fixed allowance.
+ */
+const codePanel = codeBar.closest(".codepanel");
+if (codePanel !== null && typeof ResizeObserver !== "undefined") {
+	new ResizeObserver(() => {
+		document.documentElement.style.setProperty(
+			"--codepanel-h",
+			`${codePanel.getBoundingClientRect().height}px`,
+		);
+	}).observe(codePanel);
+}
 
 /**
  * A link someone sent may carry a note. It is offered, not saved: the note
- * goes into the box, and keeping it is one click on Save code — a link that
+ * goes into the box, and keeping it is one click on Save — a link that
  * filled someone's list on its own would be a link nobody dared follow.
  */
-function offerNote(code: string, note: string | null): void {
+function offerNote(
+	code: string,
+	note: string | null,
+	warnings: readonly string[] = [],
+): void {
 	if (note === null || editing !== null) return;
 	const saved = savedEntries.find((entry) => entry.code === code);
+	let sentence: string;
 	if (saved !== undefined) {
-		setStatus(
-			saveStatus,
-			`This link's code is already saved as ${entryName(saved)}.`,
-		);
-		return;
+		sentence = `This link's code is already saved as ${entryName(saved)}.`;
+	} else {
+		saveDescription.value = note;
+		sentence = "This link came with a note. Save keeps it.";
 	}
-	saveDescription.value = note;
-	setStatus(saveStatus, "This link came with a note. Save code keeps it.");
+	// A code read with changes has a warning up already: the offer joins it as
+	// one more line rather than replacing it, so both are seen.
+	if (warnings.length > 0) {
+		sayAboutCode("warn", [...warnings, sentence], {
+			title: "Read with changes",
+		});
+	} else {
+		say("info", sentence);
+	}
 }
 
 function plural(count: number, word: string): string {
@@ -915,12 +1214,11 @@ function importText(text: string): boolean {
 			: ` Skipped line${skipped.length === 1 ? "" : "s"} ${lines}.`;
 
 	if (incoming.length === 0) {
-		setStatus(
-			transferStatus,
+		say(
+			"error",
 			skipped.length === 0
 				? "Nothing to import."
 				: `No code read.${skippedNote}`,
-			true,
 		);
 		return false;
 	}
@@ -929,13 +1227,18 @@ function importText(text: string): boolean {
 	showSaved(entries);
 	const keptNote =
 		kept === 0 ? "" : ` ${kept} ${kept === 1 ? "was" : "were"} already saved.`;
-	setStatus(
-		transferStatus,
-		stored
-			? `Added ${plural(added, "code")}.${keptNote}${skippedNote}`
-			: "The browser refused to store them. They are listed for this visit only.",
-		!stored,
-	);
+	if (!stored) {
+		say(
+			"error",
+			"The browser refused to store them. They are listed for this visit only.",
+		);
+	} else {
+		// A skipped line is something to go and look at, so it is a warning.
+		say(
+			skipped.length === 0 ? "info" : "warn",
+			`Added ${plural(added, "code")}.${keptNote}${skippedNote}`,
+		);
+	}
 	return true;
 }
 
@@ -957,27 +1260,26 @@ const NOTHING_TO_EXPORT = "Nothing saved to export yet.";
 
 exportCopyButton.addEventListener("click", () => {
 	if (savedEntries.length === 0) {
-		setStatus(transferStatus, NOTHING_TO_EXPORT, true);
+		say("error", NOTHING_TO_EXPORT);
 		return;
 	}
+	const count = savedEntries.length;
 	void navigator.clipboard
 		.writeText(formatSaved(savedEntries))
 		.then(() => {
-			setStatus(transferStatus, "");
-			confirmOn(exportCopyButton);
+			say("info", `Copied ${plural(count, "code")} as text.`);
 		})
 		.catch(() => {
-			setStatus(
-				transferStatus,
+			say(
+				"error",
 				"The browser blocked the clipboard. Download the list instead.",
-				true,
 			);
 		});
 });
 
 exportDownloadButton.addEventListener("click", () => {
 	if (savedEntries.length === 0) {
-		setStatus(transferStatus, NOTHING_TO_EXPORT, true);
+		say("error", NOTHING_TO_EXPORT);
 		return;
 	}
 	const blob = new Blob([formatSaved(savedEntries)], { type: "text/plain" });
@@ -987,22 +1289,22 @@ exportDownloadButton.addEventListener("click", () => {
 	link.download = "combi-codes.txt";
 	link.click();
 	URL.revokeObjectURL(url);
-	setStatus(transferStatus, "");
+	say("info", "Downloaded combi-codes.txt.");
 });
 
 /** Which control writes each group of characters the hints mark out. */
 const OWNER: Record<string, HTMLElement> = {
 	goal: goalChips,
 	mode: modeChips,
-	episode: episodeTile,
+	episode: episodeGrid,
 	floor: floorInput,
 	boosts: boostCards,
-	randomBoost: randomBoostTile,
+	randomBoost: randomBoostChips,
 	cookiePowers: cookiePowerCards,
 	action: actionChips,
-	cookie: cookieTile,
-	relay: relayTile,
-	pet: petTile,
+	cookie: cookieGrid,
+	relay: relayGrid,
+	pet: petGrid,
 	treasures: treasureSlots[0] as HTMLElement,
 };
 
@@ -1014,24 +1316,153 @@ const OWNER: Record<string, HTMLElement> = {
  */
 for (const element of new Set(Object.values(OWNER))) element.tabIndex = -1;
 
+/** Which tab holds each control in `OWNER`. */
+const TAB_OF: Record<string, TabName> = {
+	goal: "main",
+	mode: "main",
+	episode: "main",
+	floor: "main",
+	action: "main",
+	cookie: "cookies",
+	relay: "cookies",
+	pet: "cookies",
+	treasures: "treasures",
+	boosts: "boosts",
+	randomBoost: "boosts",
+	cookiePowers: "boosts",
+};
+
 /**
- * Folds the board away or opens it again. The header draws the handle; the
- * bands are the page's, so hiding them is too. The verdict stays in the header
- * either way, which is what makes a folded board still worth looking at.
+ * Why a tab is off for an episode, or null where it is not. The episode decides
+ * what a run may carry (`limitsOf`), and a tab whose every control the code
+ * would drop is a tab that hides nothing worth showing.
  */
-function foldBoard(collapsed: boolean): void {
-	summaryCard.collapsed = collapsed;
-	buildForm.toggleAttribute("data-collapsed", collapsed);
+function disabledReason(tab: TabName, episode: Episode): string | null {
+	const limits = limitsOf(episode);
+	const name = EPISODE_LABELS[episode];
+	if (tab === "boosts" && !limits.boosts) return `${name} takes no boosts.`;
+	if (tab === "treasures" && !limits.treasures) {
+		return `${name} takes no treasures.`;
+	}
+	return null;
 }
+
+/** The episode the controls hold, which is the one the code was written with. */
+function currentEpisode(): Episode {
+	return (episodeGrid.value ?? "any") as Episode;
+}
+
+/**
+ * Whether a group of the code leads anywhere: a control owns it, its tab is on
+ * for this episode, and — for the relay — the episode takes one at all.
+ */
+function canJump(group: string, episode: Episode): boolean {
+	const tab = TAB_OF[group];
+	if (!Object.hasOwn(OWNER, group) || tab === undefined) return false;
+	if (group === "relay" && !limitsOf(episode).relay) return false;
+	return disabledReason(tab, episode) === null;
+}
+
+/**
+ * The tab picked, as last stored. Held here as well as in storage so a browser
+ * that refuses storage still keeps the pick for the visit.
+ */
+let chosenTab: TabName = storedTab(localStorage);
+
+function chooseTab(tab: TabName): void {
+	chosenTab = tab;
+	rememberTab(localStorage, tab);
+}
+
+/**
+ * Each tab's panel, by id. Not `panel-${tab}`: content blockers hide
+ * `#panel-cookies` outright — EasyList Cookie and AdGuard's cookie-notice list
+ * both carry it as a generic rule for consent banners — so the Cookies tab's
+ * panel is named for the roles it picks instead.
+ */
+const PANEL_IDS: Record<TabName, string> = {
+	main: "panel-main",
+	cookies: "panel-roles",
+	treasures: "panel-treasures",
+	boosts: "panel-boosts",
+};
+
+const panels = new Map<TabName, HTMLElement>(
+	TAB_NAMES.map((tab) => [tab, need(PANEL_IDS[tab])]),
+);
+
+/**
+ * Shows the tab picked, or Main while the episode has that one off. The pick
+ * itself is left alone, so an episode that has the tab again reopens it.
+ */
+function showTab(): void {
+	const tab =
+		disabledReason(chosenTab, currentEpisode()) === null ? chosenTab : "main";
+	tabStrip.value = tab;
+	for (const [name, panel] of panels) panel.hidden = name !== tab;
+}
+
+const TAB_LABELS: Record<TabName, string> = {
+	main: "Main",
+	cookies: "Cookies",
+	treasures: "Treasures",
+	boosts: "Boosts",
+};
+
+/** A count as a badge, or nothing at all for none. */
+function badge(count: number): string {
+	return count === 0 ? "" : String(count);
+}
+
+/** The tabs as the strip draws them, counted from the code itself. */
+function tabOptions(full: FullCode): readonly TabOption[] {
+	const { combi, loadout } = full;
+	const limits = limitsOf(combi.episode);
+	const people = [
+		loadout.cookie,
+		limits.relay ? loadout.relay : null,
+		loadout.pet,
+	].filter((id) => id !== null).length;
+	const boosts = limits.boosts
+		? combi.boosts.length +
+			(combi.randomBoost === null ? 0 : 1) +
+			combi.cookiePowers.length
+		: 0;
+	const badges: Record<TabName, string> = {
+		main: "",
+		cookies: badge(people),
+		treasures: limits.treasures ? `${loadout.treasures.length}/3` : "",
+		boosts: badge(boosts),
+	};
+	return TAB_NAMES.map(
+		(tab) =>
+			[
+				tab,
+				TAB_LABELS[tab],
+				badges[tab],
+				disabledReason(tab, combi.episode),
+			] as const,
+	);
+}
+
+tabStrip.addEventListener("tab-change", (event) => {
+	const tab = (event as CustomEvent<string>).detail;
+	if (!(TAB_NAMES as readonly string[]).includes(tab)) return;
+	chooseTab(tab as TabName);
+	showTab();
+});
 
 function jumpTo(group: string): void {
 	const owner = OWNER[group];
-	if (owner === undefined) return;
-	// The control asked for is on the board, and a folded board hides it.
-	if (summaryCard.collapsed) {
-		foldBoard(false);
-		rememberBoardCollapsed(localStorage, false);
+	const tab = TAB_OF[group];
+	if (owner === undefined || tab === undefined) return;
+	if (!canJump(group, currentEpisode())) return;
+	if (isRole(group)) {
+		role = group;
+		showRoles();
 	}
+	chooseTab(tab);
+	showTab();
 	owner.scrollIntoView({ block: "center", behavior: "smooth" });
 	owner.focus();
 }
@@ -1105,7 +1536,7 @@ goalChips.options = goalOptions("manual");
 // Twelve landscape cards is a grid, not a row: an episode is a place, and the
 // picture is what anyone recognises it by. `any` has no icon and falls back to
 // the lettered cell the catalog pickers already use.
-episodeTile.options = ALL_EPISODES.map(
+episodeGrid.options = ALL_EPISODES.map(
 	(episode) =>
 		[
 			episode,
@@ -1113,22 +1544,21 @@ episodeTile.options = ALL_EPISODES.map(
 			episodeArt(episode, ASSET_BASE),
 		] as const,
 );
-// `any` is the episode's own none, so the tile must not offer a second one.
-episodeTile.required = true;
-randomBoostTile.options = ALL_RANDOM_BOOSTS.map(
-	(boost) => [boost, RANDOM_BOOST_LABELS[boost], null] as const,
-);
-// Twelve and eleven both fit on the screen whole; a filter over a list you can
-// already see is a box to tab past. Set here rather than in the markup for the
-// reason `resettable` is: an attribute the markup ships is invisible to the
-// property in the route's test harness.
-episodeTile.searchable = false;
-randomBoostTile.searchable = false;
-
-// The only pick in its band, under a heading that already names it. Stacked,
-// each was a card with nothing beside it.
-episodeTile.inline = true;
-randomBoostTile.inline = true;
+// `any` is the episode's own none, so the grid must not offer a second one.
+episodeGrid.required = true;
+// None first, as "": a chip row always holds a value, and this is the one the
+// code writes as 0. Resettable, so clicking the chosen chip goes back to it.
+randomBoostChips.options = [
+	["", "None"],
+	...pairs(ALL_RANDOM_BOOSTS, RANDOM_BOOST_LABELS),
+];
+randomBoostChips.resettable = true;
+randomBoostChips.labelHidden = true;
+// Twelve fit on the screen whole; a filter over a list you can already see is a
+// box to tab past. Set here rather than in the markup for the reason
+// `resettable` is: an attribute the markup ships is invisible to the property
+// in the route's test harness.
+episodeGrid.searchable = false;
 actionChips.options = pairs(ALL_ACTIONS, ACTION_LABELS);
 
 // The one row left whose first option is a none of its own: clicking the chip
@@ -1155,9 +1585,6 @@ actionChips.labelHidden = true;
 // back to its own two chips, which say "Any order" and "Exact order" and so
 // need no word above them.
 orderChips.labelHidden = true;
-// The two inline tiles need no flag of their own: laying a tile on its side is
-// what takes its role label off the screen, since the heading beside it is the
-// same word.
 cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 	(power) =>
 		[
@@ -1169,20 +1596,26 @@ cookiePowerCards.options = ALL_COOKIE_POWERS.map(
 
 const cookieOptions = tileOptions("cookies");
 
-cookieTile.options = cookieOptions;
-relayTile.options = cookieOptions;
-petTile.options = tileOptions("pets");
+cookieGrid.options = cookieOptions;
+relayGrid.options = cookieOptions;
+petGrid.options = tileOptions("pets");
+// Ninety-odd cookies is a list to search, not to scan.
+for (const grid of [cookieGrid, relayGrid, petGrid]) grid.searchable = true;
 for (const slot of treasureSlots) slot.options = treasureCatalog;
 
-foldBoard(boardCollapsed(localStorage));
-
-summaryCard.addEventListener("toggle", () => {
-	foldBoard(summaryCard.collapsed);
-	rememberBoardCollapsed(localStorage, summaryCard.collapsed);
+summaryCard.addEventListener("summary-jump", (event) => {
+	jumpTo((event as CustomEvent<string>).detail);
 });
 
 buildForm.addEventListener("input", () => {
 	render();
+});
+
+// Enter in the floor box submits this form, and with no action to submit to
+// the browser would reload the page and lose the build. Every control already
+// writes the code as it changes, so a submit has nothing left to do.
+buildForm.addEventListener("submit", (event) => {
+	event.preventDefault();
 });
 
 codeBar.addEventListener("code-draft", (event) => {
@@ -1192,9 +1625,30 @@ codeBar.addEventListener("code-draft", (event) => {
 // Leaving the editor without a usable code puts the built one back, since that
 // is the code the controls still describe.
 codeBar.addEventListener("code-cancel", () => {
-	codeBar.message = "";
-	codeBar.invalid = false;
 	render();
+});
+
+// Typing progress was held up while the editor was open; however it closed,
+// the line can now go on its own.
+codeBar.addEventListener("code-close", () => {
+	// The bar shows the built code again, so an error about a draft that never
+	// applied is about nothing on screen.
+	if (aboutCode && notice.type === "error") {
+		notice.clear();
+		aboutCode = false;
+		return;
+	}
+	notice.release();
+});
+
+// The ✕ leaves with the message, so focus on it would fall to <body>: it goes
+// to the drawer's Close when the banner is in a drawer, else to Save beside it.
+notice.addEventListener("notice-dismiss", (event) => {
+	if (!(event as CustomEvent<{ focused: boolean }>).detail.focused) return;
+	const drawer = notice.closest("dialog");
+	const target =
+		drawer?.querySelector<HTMLButtonElement>("[data-close]") ?? saveButton;
+	target.focus();
 });
 
 codeBar.addEventListener("slot-jump", (event) => {
@@ -1208,6 +1662,9 @@ codeBar.addEventListener("slot-jump", (event) => {
  */
 document.addEventListener("paste", (event) => {
 	if (isTyping()) return;
+	// An open drawer makes the page behind it inert; a code pasted there would
+	// change a board nobody can see.
+	if (document.querySelector("dialog[open]") !== null) return;
 
 	const text = (event as ClipboardEvent).clipboardData
 		?.getData("text")
@@ -1218,8 +1675,8 @@ document.addEventListener("paste", (event) => {
 	try {
 		const { warnings } = decodeFull(text);
 		applyCode(text, warnings);
-		codeBar.message = "Code pasted.";
-		codeBar.invalid = false;
+		// A code read with changes keeps its warning up: it says more.
+		if (warnings.length === 0) sayAboutCode("info", "Code pasted.");
 		event.preventDefault();
 	} catch {
 		// Not a code. The browser can have it.
@@ -1237,6 +1694,7 @@ window.addEventListener("hashchange", () => {
 	const code = codeInHash(location.hash);
 	if (code === null) return;
 	const note = noteInHash(location.hash);
+	let warnings: readonly string[] = [];
 
 	if (code === codeBar.value) {
 		// The build already stands; only a note is news, and the address goes
@@ -1245,28 +1703,68 @@ window.addEventListener("hashchange", () => {
 		publish(code);
 	} else {
 		try {
-			const { warnings } = decodeFull(code);
+			({ warnings } = decodeFull(code));
 			applyCode(code, warnings);
 		} catch {
 			// Someone else's fragment, or a typo. The build stands.
 			return;
 		}
 	}
-	offerNote(codeBar.value, note);
+	offerNote(codeBar.value, note, warnings);
+});
+
+// The panel's own Copy is turned off: Copy code lives in the ⋯ menu with Copy
+// link, so the panel shows exactly Edit, Save and the menu.
+codeBar.copyable = false;
+
+// The bar draws the ten characters the game takes and nothing before them: the
+// loadout is the summary's to show, and it still rides in the link, the saves
+// and the editor, which all keep the whole code. The menu swaps it to the whole
+// code and back, and the choice is remembered.
+function showFullCode(full: boolean): void {
+	codeBar.showAfter = full ? "" : SECTION_SEPARATOR;
+	fullCodeButton.setAttribute("aria-pressed", String(full));
+	fullCodeButton.textContent = full ? "Show game code only" : "Show full code";
+}
+
+showFullCode(storedFullCode(localStorage));
+
+fullCodeButton.addEventListener("click", () => {
+	const full = codeBar.showAfter !== "";
+	showFullCode(full);
+	rememberFullCode(localStorage, full);
+});
+
+// The menu has closed by the time the clipboard answers, so both copies say
+// how it went in the banner. A refusal has an instruction to give.
+copyCodeButton.addEventListener("click", () => {
+	// What the panel shows: the ten characters the game takes, or the whole
+	// code once the menu has asked for it.
+	const code =
+		codeBar.showAfter === "" ? codeBar.value : combiSectionOf(codeBar.value);
+	void navigator.clipboard
+		.writeText(code)
+		.then(() => {
+			sayAboutCode("info", `Copied ${code}.`);
+		})
+		.catch(() => {
+			sayAboutCode(
+				"error",
+				"The browser blocked the clipboard. Select the code and copy it by hand.",
+			);
+		});
 });
 
 copyLinkButton.addEventListener("click", () => {
 	void navigator.clipboard
 		.writeText(location.href)
 		.then(() => {
-			setStatus(linkStatus, "");
-			confirmOn(copyLinkButton);
+			sayAboutCode("info", "Copied the link.");
 		})
 		.catch(() => {
-			setStatus(
-				linkStatus,
+			sayAboutCode(
+				"error",
 				"The browser blocked the clipboard. Copy the address bar by hand.",
-				true,
 			);
 		});
 });
@@ -1277,12 +1775,9 @@ const DEFAULT_CODE = encodeFull({ loadout: readLoadout(), combi: readForm() });
 
 resetButton.addEventListener("click", () => {
 	codeBar.editing = false;
-	codeBar.message = "";
-	codeBar.invalid = false;
 	// Starting over, so Update must not stay aimed at the entry last loaded.
 	if (editing !== null) stopEditing();
 	applyCode(DEFAULT_CODE);
-	setStatus(linkStatus, "");
 });
 
 showSaved(savedEntries);

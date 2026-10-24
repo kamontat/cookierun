@@ -95,25 +95,58 @@ export function rememberCode(storage: Storage, code: string): void {
 }
 
 /**
- * Whether the board was left folded. A view preference rather than part of the
- * build, so it is kept apart from the code and never travels in a link.
+ * Which tab was open in the workbench below the summary. A view preference
+ * rather than part of the build, so it is kept apart from the code and never
+ * travels in a link.
  */
-export const BOARD_KEY = "combi-name:board-collapsed";
+export const TAB_KEY = "combi-name:tab";
 
-export function boardCollapsed(storage: Storage): boolean {
+export type TabName = "main" | "cookies" | "treasures" | "boosts";
+
+export const TAB_NAMES: readonly TabName[] = [
+	"main",
+	"cookies",
+	"treasures",
+	"boosts",
+];
+
+function isTabName(value: string | null): value is TabName {
+	return (TAB_NAMES as readonly string[]).includes(value ?? "");
+}
+
+export function storedTab(storage: Storage): TabName {
 	try {
-		return storage.getItem(BOARD_KEY) === "true";
+		const value = storage.getItem(TAB_KEY);
+		return isTabName(value) ? value : "main";
+	} catch {
+		return "main";
+	}
+}
+
+export function rememberTab(storage: Storage, tab: TabName): void {
+	try {
+		storage.setItem(TAB_KEY, tab);
+	} catch {}
+}
+
+/**
+ * Whether the code panel shows the whole code, loadout and all, rather than
+ * the ten characters the game takes. Off by default: the loadout is the
+ * summary's to show. Stored as "1" or "0", every access wrapped.
+ */
+export const FULL_CODE_KEY = "combi-name:full-code";
+
+export function storedFullCode(storage: Storage): boolean {
+	try {
+		return storage.getItem(FULL_CODE_KEY) === "1";
 	} catch {
 		return false;
 	}
 }
 
-export function rememberBoardCollapsed(
-	storage: Storage,
-	collapsed: boolean,
-): void {
+export function rememberFullCode(storage: Storage, full: boolean): void {
 	try {
-		storage.setItem(BOARD_KEY, String(collapsed));
+		storage.setItem(FULL_CODE_KEY, full ? "1" : "0");
 	} catch {}
 }
 

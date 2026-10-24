@@ -4,11 +4,16 @@ import { expect, test } from "bun:test";
 
 import "./build-summary";
 
-import type { BuildSummary } from "./build-summary";
+import type { BuildSummary, SummaryRow } from "./build-summary";
 
-async function mount(): Promise<BuildSummary> {
+async function mount(
+	rows: readonly SummaryRow[] = [],
+	hint: string | null = null,
+): Promise<BuildSummary> {
 	document.body.replaceChildren();
 	const element = document.createElement("build-summary") as BuildSummary;
+	element.rows = rows;
+	element.hint = hint;
 	document.body.append(element);
 	await element.updateComplete;
 	return element;
@@ -20,111 +25,401 @@ function inside(element: BuildSummary): ShadowRoot {
 	return root;
 }
 
-function text(element: BuildSummary, selector: string): string {
-	return inside(element).querySelector(selector)?.textContent?.trim() ?? "";
+function button(element: BuildSummary, selector: string): HTMLButtonElement {
+	const found = inside(element).querySelector<HTMLButtonElement>(selector);
+	if (found === null) throw new Error(`no ${selector}`);
+	return found;
 }
 
-test("a semi-auto verdict wears a badge and names what forces the work", async () => {
-	const element = await mount();
+const ROWS: readonly SummaryRow[] = [
+	{
+		label: "Run",
+		target: "mode",
+		items: [
+			{ kind: "pill", text: "Semi-auto", tone: "semi" },
+			{ kind: "text", text: "Fast Start", muted: true },
+			{ kind: "sep", text: "·" },
+			{ kind: "text", text: "Money" },
+		],
+	},
+	{
+		label: "Treasures",
+		target: "treasures",
+		items: [
+			{
+				kind: "image",
+				src: "../assets/a.png",
+				title: "A +3–9 or B +5–9",
+				badge: "+1",
+				note: "+3–9",
+			},
+			{ kind: "sep", text: "→" },
+			{ kind: "image", src: null, text: "C" },
+			{ kind: "tag", text: "exact order" },
+		],
+	},
+];
 
-	element.verdict = { semi: true, reasons: ["Fast Start", "Jump at start"] };
-	await element.updateComplete;
+test("draws a row per entry with its label and items", async () => {
+	const element = await mount(ROWS);
 
-	expect(text(element, ".badge")).toBe("Semi-auto");
-	expect(text(element, ".verdict")).toBe(
-		"Fast Start, Jump at start need manual work each run.",
+	const rows = [...inside(element).querySelectorAll(".row")];
+	expect(rows.length).toBe(2);
+	expect(rows.map((row) => row.querySelector(".label")?.textContent)).toEqual([
+		"Run",
+		"Treasures",
+	]);
+	const run = rows[0]?.querySelector(".value");
+	expect(run?.querySelector(".pill")?.textContent?.trim()).toBe("Semi-auto");
+	expect(run?.querySelector(".pill")?.classList.contains("semi")).toBe(true);
+	expect(run?.querySelector(".muted")?.textContent?.trim()).toBe("Fast Start");
+	expect(run?.textContent).toContain("Money");
+	expect(rows[1]?.querySelector(".tag")?.textContent?.trim()).toBe(
+		"exact order",
 	);
 });
 
-test("a full-auto verdict says nothing needs manual work", async () => {
-	const element = await mount();
+test("an image item draws its picture, badge and note", async () => {
+	const element = await mount(ROWS);
 
-	element.verdict = { semi: false, reasons: [] };
-	await element.updateComplete;
-
-	expect(text(element, ".badge")).toBe("Full auto");
-	expect(text(element, ".verdict")).toBe("Nothing needs manual work each run.");
-});
-
-// The board's own heading stands with or without a verdict; only the badge and
-// the sentence are the verdict's.
-test("a cleared verdict takes the badge and the line with it", async () => {
-	const element = await mount();
-
-	element.verdict = { semi: true, reasons: ["Fast Start"] };
-	await element.updateComplete;
-	element.verdict = null;
-	await element.updateComplete;
-
-	expect(element.shadowRoot?.querySelector(".badge")).toBe(null);
-	expect(element.shadowRoot?.querySelector(".verdict")).toBe(null);
-	expect(text(element, "h2")).toBe("Your build");
-});
-
-test("the card announces itself politely", async () => {
-	const element = await mount();
-
-	expect(element.getAttribute("aria-live")).toBe("polite");
-});
-
-function toggleButton(element: BuildSummary): HTMLButtonElement {
-	const button = inside(element).querySelector<HTMLButtonElement>(
-		"h2 button[aria-expanded]",
+	const images = inside(element).querySelectorAll(
+		".row[data-target=treasures] .image",
 	);
-	if (button === null) throw new Error("the heading is not a toggle");
-	return button;
-}
-
-test("the heading is a button that collapses and reopens the board, saying which", async () => {
-	const element = await mount();
-	let toggles = 0;
-	element.addEventListener("toggle", () => {
-		toggles += 1;
-	});
-
-	expect(element.collapsed).toBe(false);
-	expect(toggleButton(element).getAttribute("aria-expanded")).toBe("true");
-
-	toggleButton(element).click();
-	await element.updateComplete;
-
-	expect(element.collapsed).toBe(true);
-	expect(element.hasAttribute("collapsed")).toBe(true);
-	expect(toggleButton(element).getAttribute("aria-expanded")).toBe("false");
-	expect(toggles).toBe(1);
-
-	toggleButton(element).click();
-	await element.updateComplete;
-
-	expect(element.collapsed).toBe(false);
-	expect(toggles).toBe(2);
-});
-
-// The page sets it from what it remembered; that is not a click to announce.
-test("setting collapsed from outside dispatches nothing", async () => {
-	const element = await mount();
-	let toggles = 0;
-	element.addEventListener("toggle", () => {
-		toggles += 1;
-	});
-
-	element.collapsed = true;
-	await element.updateComplete;
-
-	expect(toggleButton(element).getAttribute("aria-expanded")).toBe("false");
-	expect(toggles).toBe(0);
-});
-
-// Folded away, the badge and the sentence are what is left to read the build
-// by, so they stay.
-test("a collapsed board keeps its verdict on show", async () => {
-	const element = await mount();
-	element.verdict = { semi: true, reasons: ["Fast Start"] };
-	element.collapsed = true;
-	await element.updateComplete;
-
-	expect(text(element, ".badge")).toBe("Semi-auto");
-	expect(text(element, ".verdict")).toBe(
-		"Fast Start needs manual work each run.",
+	const first = images[0];
+	expect(first?.querySelector("img")?.getAttribute("src")).toBe(
+		"../assets/a.png",
 	);
+	expect(first?.getAttribute("title")).toBe("A +3–9 or B +5–9");
+	expect(first?.querySelector(".badge")?.textContent?.trim()).toBe("+1");
+	expect(first?.querySelector(".note")?.textContent?.trim()).toBe("+3–9");
+
+	// A null src draws the text alone, with no broken picture.
+	const second = images[1];
+	expect(second?.querySelector("img")).toBe(null);
+	expect(second?.textContent?.trim()).toBe("C");
+	expect(second?.querySelector(".badge")).toBe(null);
+});
+
+test("an image item with neither picture nor text shows its title", async () => {
+	const element = await mount([
+		{
+			label: "Treasures",
+			target: "treasures",
+			items: [{ kind: "image", src: null, title: "Mystery +3" }],
+		},
+	]);
+	element.compact = [{ kind: "image", src: null, title: "Mystery" }];
+	await element.updateComplete;
+
+	const image = inside(element).querySelector(".row .image");
+	expect(image?.textContent?.trim()).toBe("Mystery +3");
+	expect(button(element, "button.line").textContent).toContain("Mystery");
+});
+
+test("an icon-only item is named by its title, on screen and to a screen reader", async () => {
+	const element = await mount([
+		{
+			label: "Boosts",
+			target: "boosts",
+			items: [
+				{ kind: "image", src: "hp.png", title: "HP Extension" },
+				{ kind: "stack", srcs: ["a.png", "b.png"], title: "EXP Party" },
+				{ kind: "stack", srcs: [], title: "Fairy" },
+			],
+		},
+	]);
+
+	const [image, stack, bare] = inside(element).querySelectorAll(
+		".row .image, .row .stack",
+	);
+	expect(image?.getAttribute("title")).toBe("HP Extension");
+	expect(image?.querySelector("img")?.getAttribute("alt")).toBe("HP Extension");
+	expect(stack?.getAttribute("title")).toBe("EXP Party");
+	expect(stack?.querySelectorAll("img").length).toBe(2);
+	expect(stack?.querySelector(".hidden")?.textContent).toBe("EXP Party");
+	// No faces to show: the name is the only thing left to say it with.
+	expect(bare?.textContent?.trim()).toBe("Fairy");
+	expect(bare?.querySelector(".hidden")).toBe(null);
+});
+
+test("an image's mark draws the kind's letter and names it", async () => {
+	const element = await mount([
+		{
+			label: "Treasures",
+			target: "treasures",
+			items: [
+				{ kind: "image", src: "a.png", title: "Cheese Ball", mark: "evolved" },
+				{
+					kind: "image",
+					src: "a.png",
+					title: "Blessed Cheese Ball",
+					mark: "blessed",
+				},
+				{ kind: "image", src: "b.png", title: "Acorn" },
+			],
+		},
+	]);
+
+	const [evolved, blessed, plain] =
+		inside(element).querySelectorAll(".row .pic");
+	expect(evolved?.getAttribute("data-mark")).toBe("evolved");
+	expect(evolved?.querySelector(".mark")?.textContent).toBe("E");
+	expect(evolved?.querySelector("img")?.getAttribute("alt")).toBe(
+		"Cheese Ball, Evolved",
+	);
+	expect(blessed?.querySelector(".mark")?.textContent).toBe("B");
+	expect(plain?.hasAttribute("data-mark")).toBe(false);
+	expect(plain?.querySelector(".mark")).toBe(null);
+});
+
+test("a caption names a picture under it, once, for every reader", async () => {
+	const element = await mount([
+		{
+			label: "Treasures",
+			target: "treasures",
+			items: [
+				{
+					kind: "image",
+					src: "a.png",
+					title: "Cheese Ball +3 or Acorn",
+					caption: "Cheese Ball",
+					mark: "evolved",
+				},
+				{
+					kind: "stack",
+					srcs: ["a.png", "b.png"],
+					title: "EXP Party",
+					caption: "EXP Party",
+				},
+			],
+		},
+	]);
+
+	button(element, "button.names").click();
+	await element.updateComplete;
+
+	const [image, stack] = inside(element).querySelectorAll(
+		".row .image, .row .stack",
+	);
+	expect(image?.querySelector(".caption")?.textContent).toContain(
+		"Cheese Ball",
+	);
+	// The caption says the name, so the picture says nothing more; the kind
+	// still reaches a screen reader beside the caption.
+	expect(image?.querySelector("img")?.getAttribute("alt")).toBe("");
+	expect(image?.querySelector(".caption .hidden")?.textContent).toBe(
+		", Evolved",
+	);
+	expect(stack?.querySelector(".caption")?.textContent).toBe("EXP Party");
+	expect(stack?.querySelector(":scope > .hidden")).toBe(null);
+});
+
+const PICTURES: readonly SummaryRow[] = [
+	{
+		label: "Cookies",
+		target: "cookie",
+		items: [
+			{
+				kind: "image",
+				src: "a.png",
+				title: "Fairy Cookie",
+				caption: "Fairy Cookie",
+			},
+			{ kind: "sep", text: "·" },
+			{ kind: "image", src: "b.png", title: "Pom", caption: "Pom" },
+		],
+	},
+	{
+		label: "Power+",
+		target: "cookiePowers",
+		items: [
+			{
+				kind: "stack",
+				srcs: ["c.png", "d.png"],
+				title: "EXP Party",
+				caption: "EXP Party",
+			},
+		],
+	},
+];
+
+test("each row ends in a button that opens its tab", async () => {
+	const element = await mount(ROWS);
+	const targets: string[] = [];
+	const listen = (event: Event) => {
+		targets.push((event as CustomEvent<string>).detail);
+	};
+	element.addEventListener("summary-jump", listen);
+
+	const open = button(element, ".row[data-target=treasures] button.open");
+	expect(open.getAttribute("aria-label")).toBe("Open Treasures");
+	open.click();
+	button(element, ".row[data-target=mode] button.open").click();
+
+	expect(targets).toEqual(["treasures", "mode"]);
+	element.removeEventListener("summary-jump", listen);
+});
+
+// Pictures lead; a row's names are one click away, and the same click hides
+// them. Each row has its own switch.
+test("clicking a row's pictures shows that row's names, and only that row's", async () => {
+	const element = await mount(PICTURES);
+	const jumps: string[] = [];
+	const listen = (event: Event) => {
+		jumps.push((event as CustomEvent<string>).detail);
+	};
+	element.addEventListener("summary-jump", listen);
+	const captions = (target: string) =>
+		[
+			...inside(element).querySelectorAll(
+				`.row[data-target=${target}] .caption`,
+			),
+		].map((each) => each.textContent);
+	const toggle = (target: string) =>
+		button(element, `.row[data-target=${target}] button.names`);
+
+	expect(captions("cookie")).toEqual([]);
+	expect(toggle("cookie").getAttribute("aria-pressed")).toBe("false");
+
+	toggle("cookie").click();
+	await element.updateComplete;
+	expect(captions("cookie")).toEqual(["Fairy Cookie", "Pom"]);
+	expect(captions("cookiePowers")).toEqual([]);
+	expect(toggle("cookie").getAttribute("aria-pressed")).toBe("true");
+	expect(toggle("cookiePowers").getAttribute("aria-pressed")).toBe("false");
+	expect(
+		inside(element)
+			.querySelector(".row[data-target=cookie]")
+			?.hasAttribute("data-names"),
+	).toBe(true);
+
+	toggle("cookiePowers").click();
+	await element.updateComplete;
+	expect(captions("cookiePowers")).toEqual(["EXP Party"]);
+	expect(captions("cookie")).toEqual(["Fairy Cookie", "Pom"]);
+
+	toggle("cookie").click();
+	await element.updateComplete;
+	expect(captions("cookie")).toEqual([]);
+	expect(captions("cookiePowers")).toEqual(["EXP Party"]);
+	expect(jumps).toEqual([]);
+	element.removeEventListener("summary-jump", listen);
+});
+
+test("with names hidden, a picture still names itself to a screen reader", async () => {
+	const element = await mount([
+		{
+			label: "Treasures",
+			target: "treasures",
+			items: [
+				{
+					kind: "image",
+					src: "a.png",
+					title: "Cheese Ball +3 or Acorn",
+					caption: "Cheese Ball",
+					mark: "evolved",
+				},
+			],
+		},
+		...PICTURES,
+	]);
+
+	const pictures = inside(element).querySelectorAll(".row .pic img");
+	expect(pictures[0]?.getAttribute("alt")).toBe("Cheese Ball, Evolved");
+	expect(pictures[1]?.getAttribute("alt")).toBe("Fairy Cookie");
+	const stack = inside(element).querySelector(".row .stack");
+	expect(stack?.querySelector(".hidden")?.textContent).toBe("EXP Party");
+});
+
+test("a detail stays hidden until its row is toggled", async () => {
+	const element = await mount([
+		{
+			label: "Run",
+			target: "mode",
+			items: [
+				{ kind: "pill", text: "Semi-auto", tone: "semi" },
+				{ kind: "text", text: "Fast Start", muted: true, detail: true },
+				{ kind: "sep", text: "·" },
+				{ kind: "text", text: "Money" },
+			],
+		},
+	]);
+	const value = () =>
+		inside(element).querySelector(".row[data-target=mode] .value");
+
+	expect(value()?.textContent).not.toContain("Fast Start");
+	expect(value()?.textContent).toContain("Money");
+
+	button(element, ".row[data-target=mode] button.names").click();
+	await element.updateComplete;
+	expect(value()?.textContent).toContain("Fast Start");
+	expect(
+		button(element, ".row[data-target=mode] button.names").getAttribute(
+			"aria-pressed",
+		),
+	).toBe("true");
+});
+
+test("a row of words has no names toggle", async () => {
+	const element = await mount(ROWS);
+
+	expect(
+		inside(element).querySelector(".row[data-target=mode] button.names"),
+	).toBe(null);
+});
+
+test("the compact line expands the rows and Hide folds them", async () => {
+	const element = await mount(ROWS);
+	element.compact = [{ kind: "text", text: "5 boosts" }];
+	await element.updateComplete;
+
+	expect(element.hasAttribute("expanded")).toBe(false);
+	expect(button(element, "button.line").textContent).toContain("5 boosts");
+	expect(button(element, "button.line").textContent).toContain("▾");
+
+	button(element, "button.line").click();
+	await element.updateComplete;
+	expect(element.hasAttribute("expanded")).toBe(true);
+	expect(button(element, "button.hide").textContent?.trim()).toBe("Hide ▴");
+
+	button(element, "button.hide").click();
+	await element.updateComplete;
+	expect(element.hasAttribute("expanded")).toBe(false);
+});
+
+test("draws the hint when given", async () => {
+	const element = await mount(ROWS.slice(0, 1), "Nothing else picked yet.");
+
+	expect(inside(element).querySelector(".hint")?.textContent?.trim()).toBe(
+		"Nothing else picked yet.",
+	);
+
+	element.hint = null;
+	await element.updateComplete;
+	expect(inside(element).querySelector(".hint")).toBe(null);
+});
+
+// It sits beside the form whose `input` re-renders the build, and nothing it
+// does changes a value.
+test("fires no input", async () => {
+	const element = await mount(ROWS);
+	element.compact = [{ kind: "text", text: "Money" }];
+	await element.updateComplete;
+	let heard = 0;
+	for (const type of ["input", "change", "toggle"]) {
+		document.body.addEventListener(type, () => {
+			heard += 1;
+		});
+	}
+
+	button(element, "button.line").click();
+	await element.updateComplete;
+	button(element, "button.hide").click();
+	await element.updateComplete;
+	button(element, "button.open").click();
+	element.rows = PICTURES;
+	await element.updateComplete;
+	button(element, "button.names").click();
+
+	expect(heard).toBe(0);
 });

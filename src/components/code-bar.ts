@@ -1,4 +1,4 @@
-import { css, html, LitElement, type PropertyValues } from "lit";
+import { css, html, LitElement, nothing, type PropertyValues } from "lit";
 import { property, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 
@@ -13,6 +13,13 @@ export type CharHint = {
 	hint: string;
 	/** Characters sharing a group are drawn, and labelled, as one run. */
 	group: string;
+	/**
+	 * Set on a run with nothing to jump to — a version character, a reserved
+	 * slot, a slot an episode doesn't use. The run still carries its hint as a
+	 * tooltip, but is drawn as plain text: no tab stop, no click, no
+	 * `slot-jump`. Read from the run's first hint only, same as `group`.
+	 */
+	inert?: boolean;
 };
 
 /** How long the copy button says it worked before going back to its label. */
@@ -66,31 +73,48 @@ export class CodeBar extends LitElement {
 				letter-spacing: 0.1em;
 			}
 
-			/* One button per field of the code. The gap is what makes the fields
-			   read as fields rather than as ten loose characters. */
-			code button {
+			/* One run per field of the code. The gap is what makes the fields
+			   read as fields rather than as ten loose characters. A run is a
+			   button when it owns a control and jumps to it; one with nothing
+			   to jump to (\`.inert\`) shares this same look, minus the parts
+			   that promise a click: no pointer cursor, no hover or focus
+			   colour, no pressed state. */
+			code .run {
 				position: relative;
 				margin: 0 0.06em;
-				border: none;
-				border-bottom: 2px dotted currentColor;
-				border-radius: 0;
-				background: none;
-				box-shadow: none;
 				padding: 0 0.06em;
 				color: inherit;
 				font: inherit;
+				line-height: 1.25;
+				/* An underline of the text, not a border of the box: a run is a
+				   button or, when inert, a span, and WebKit sizes and aligns the
+				   two boxes differently, so a bottom border stepped up and down
+				   along a line on iOS. Text decoration is drawn from the text's
+				   own baseline, which every run on a line shares. */
+				text-decoration-line: underline;
+				text-decoration-style: dotted;
+				text-decoration-color: currentColor;
+				text-decoration-thickness: 2px;
+				text-underline-offset: 0.3em;
+				text-decoration-skip-ink: none;
 				letter-spacing: inherit;
 				text-transform: none;
+			}
+
+			code button.run {
+				border: none;
+				border-radius: 0;
+				background: none;
+				box-shadow: none;
 				cursor: pointer;
 			}
 
-			code button:hover,
-			code button:focus-visible {
-				border-bottom-color: var(--cr-accent);
+			code button.run:hover,
+			code button.run:focus-visible {
 				color: var(--cr-accent);
 			}
 
-			code button:active {
+			code button.run:active {
 				transform: none;
 			}
 
@@ -104,7 +128,7 @@ export class CodeBar extends LitElement {
 			   It opens below the code on purpose: the bar sits at the top of a
 			   sticky panel, so one above it would open off the window. */
 			@media (hover: hover) {
-				code button::after {
+				code .run::after {
 					content: attr(data-tooltip);
 					position: absolute;
 					top: calc(100% + var(--cr-space-1));
@@ -128,20 +152,23 @@ export class CodeBar extends LitElement {
 					pointer-events: none;
 				}
 
-				code button:hover::after,
-				code button:focus-visible::after {
+				code .run:hover::after,
+				code button.run:focus-visible::after {
 					opacity: 1;
 				}
 			}
 
 			/* Shorter than the hit area the shared chunk gives every other
 			   button, and deliberately so: a full code wraps onto two lines, and
-			   two rows of 44px inside a panel already pinned to the top of a
-			   phone screen costs more than the taller target buys. The run is
-			   text first, and the controls below it are the way this page is
-			   meant to be driven. */
+			   two rows of 44px inside a panel already pinned to an edge of the
+			   screen — the top on a wide one, the bottom on a phone — costs more
+			   than the taller target buys. The run is text first, and the
+			   controls below it are the way this page is meant to be driven. An
+			   inert run is never a tap target, but it takes the same box all the
+			   same: every run on a line has to end at the same height, or the
+			   underlines step up and down along it. */
 			@media (pointer: coarse) {
-				code button {
+				code .run {
 					min-height: 2.25rem;
 					padding: var(--cr-space-1) 0.12em;
 				}
@@ -243,6 +270,26 @@ export class CodeBar extends LitElement {
 	@property({ type: Boolean })
 	editing = false;
 
+	/**
+	 * Whether to draw the built-in Copy button. A page that offers its own copy
+	 * of the code elsewhere — the combi page's ⋯ menu — turns it off, so the
+	 * row does not say Copy twice. A property rather than an attribute for the
+	 * reason `resettable` is one on `<chip-group>`: the route decides it.
+	 */
+	@property({ attribute: false })
+	copyable = true;
+
+	/**
+	 * When set, the display draws only what follows the last occurrence of
+	 * this marker — the combi page passes the section separator, so the bar
+	 * shows the ten characters the game takes and leaves the loadout before
+	 * them to the summary. Only the display: `value`, the editor, Copy and the
+	 * hints' alignment all stay on the whole code. A value without the marker
+	 * is drawn whole.
+	 */
+	@property({ attribute: false })
+	showAfter = "";
+
 	@state()
 	private hintList: readonly CharHint[] = [];
 
@@ -264,10 +311,11 @@ export class CodeBar extends LitElement {
 	private copied = false;
 
 	/**
-	 * Which run is the single tab stop, by index. A render never writes it back,
-	 * it only clamps a stale index against however many runs currently exist, so
-	 * the invariant — exactly one run in range, tabbable — holds even after the
-	 * code changes underneath it.
+	 * Which run button is the single tab stop, by index among the buttons — an
+	 * inert run draws as plain text and is not counted. A render never writes it
+	 * back, it only clamps a stale index against however many buttons currently
+	 * exist, so the invariant — exactly one button in range, tabbable — holds
+	 * even after the code changes underneath it.
 	 */
 	@state()
 	private activeRun = 0;
@@ -332,7 +380,17 @@ export class CodeBar extends LitElement {
 	}
 
 	protected override updated(changed: PropertyValues<this>): void {
-		if (!changed.has("editing") || !this.editing) return;
+		if (!changed.has("editing")) return;
+		if (!this.editing) {
+			// Every way out — Enter, Done, Escape, a blur, the page closing it —
+			// passes through here, so the page hears one event for all of them.
+			// Escape also fires code-cancel, which says the draft is abandoned;
+			// this one says only that the editor is shut.
+			if (changed.get("editing") === true) {
+				this.dispatchEvent(new Event("code-close", { bubbles: true }));
+			}
+			return;
+		}
 		const input = this.shadowRoot?.querySelector("input");
 		input?.focus();
 		input?.select();
@@ -388,10 +446,17 @@ export class CodeBar extends LitElement {
 		);
 	}
 
+	/** Where the shown part of the value starts: after the last marker, or 0. */
+	#shownFrom(): number {
+		if (this.showAfter === "") return 0;
+		const at = this.value.lastIndexOf(this.showAfter);
+		return at === -1 ? 0 : at + this.showAfter.length;
+	}
+
 	/** Characters sharing a group are one run, drawn and labelled together. */
 	#runs(): CharHint[][] {
 		const runs: CharHint[][] = [];
-		for (const hint of this.hintList) {
+		for (const hint of this.hintList.slice(this.#shownFrom())) {
 			const last = runs[runs.length - 1];
 			if (last !== undefined && last[0]?.group === hint.group) last.push(hint);
 			else runs.push([hint]);
@@ -488,13 +553,20 @@ export class CodeBar extends LitElement {
 
 	#display() {
 		const runs = this.#runs();
-		// Clamped against the current run count, not stored back: a render must
-		// never mutate reactive state mid-render, and the code changing out from
-		// under a stale index is exactly the case this guards.
+		// An inert run — nothing owns its group, or its tab is disabled for the
+		// episode — is plain text, never the tab stop. The invariant this clamps
+		// against is "exactly one *button* in range, tabbable", counted over the
+		// buttons among the runs rather than the runs themselves.
+		const buttonCount = runs.filter((run) => !run[0]?.inert).length;
+		// Clamped against the current button count, not stored back: a render
+		// must never mutate reactive state mid-render, and the code changing out
+		// from under a stale index is exactly the case this guards.
 		const activeIndex =
-			runs.length === 0
+			buttonCount === 0
 				? -1
-				: Math.min(Math.max(this.activeRun, 0), runs.length - 1);
+				: Math.min(Math.max(this.activeRun, 0), buttonCount - 1);
+
+		let buttonIndex = -1;
 
 		return html`<code
 				class=${classMap({ plain: runs.length === 0 })}
@@ -503,26 +575,39 @@ export class CodeBar extends LitElement {
 				}}
 				>${
 					runs.length === 0
-						? this.value
-						: runs.map(
-								(run, index) => html`<button
-								type="button"
-								tabindex=${index === activeIndex ? 0 : -1}
-								data-tooltip=${run[0]?.hint ?? ""}
-								data-group=${run[0]?.group ?? ""}
-								aria-label=${`${run[0]?.hint ?? ""} — go to this control`}
-								@click=${() => {
-									this.#name(run[0]?.hint ?? "");
-									this.dispatchEvent(
-										new CustomEvent<string>("slot-jump", {
-											detail: run[0]?.group ?? "",
-											bubbles: true,
-										}),
-									);
-								}}
-								>${this.#chars(run)}</button
-							>`,
-							)
+						? this.value.slice(this.#shownFrom())
+						: runs.map((run) => {
+								const hint = run[0]?.hint ?? "";
+								const group = run[0]?.group ?? "";
+								if (run[0]?.inert) {
+									return html`<span
+										class="run inert"
+										data-tooltip=${hint}
+										data-group=${group}
+										>${this.#chars(run)}</span
+									>`;
+								}
+								buttonIndex += 1;
+								const tabbable = buttonIndex === activeIndex;
+								return html`<button
+										type="button"
+										class="run"
+										tabindex=${tabbable ? 0 : -1}
+										data-tooltip=${hint}
+										data-group=${group}
+										aria-label=${`${hint} — go to this control`}
+										@click=${() => {
+											this.#name(hint);
+											this.dispatchEvent(
+												new CustomEvent<string>("slot-jump", {
+													detail: group,
+													bubbles: true,
+												}),
+											);
+										}}
+										>${this.#chars(run)}</button
+									>`;
+							})
 				}</code
 			>
 			<span class="buttons">
@@ -535,18 +620,22 @@ export class CodeBar extends LitElement {
 				>
 					Edit
 				</button>
-				<button
-					type="button"
-					class="copy"
-					@click=${() => {
-						void this.#copy();
-					}}
-				>
-					<span class=${classMap({ swap: true, done: this.copied })}>
-						<span class="rest">Copy</span>
-						<span class="said">Copied</span>
-					</span>
-				</button>
+				${
+					this.copyable
+						? html`<button
+								type="button"
+								class="copy"
+								@click=${() => {
+									void this.#copy();
+								}}
+							>
+								<span class=${classMap({ swap: true, done: this.copied })}>
+									<span class="rest">Copy</span>
+									<span class="said">Copied</span>
+								</span>
+							</button>`
+						: nothing
+				}
 				<!-- Whatever else the page does to the code it is showing. The
 					 slot sits here, and only here: the editor below renders none,
 					 so a page button vanishes while a code is being typed rather
