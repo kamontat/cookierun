@@ -32,8 +32,15 @@ body {
 	scroll-padding-top: 9rem;
 }
 
+/* One column, centred: the masthead and main share it, so on a wide screen the
+   page sits in the middle rather than against the left edge with a band of
+   nothing beside it. Auto margins on a grid item shrink it to fit its content,
+   so the width is spelled out too. The top bar and the footer are bands across
+   the whole window and are not containers. */
 .container {
+	width: 100%;
 	max-width: 68rem;
+	margin-inline: auto;
 	padding: var(--cr-space-4) var(--cr-space-3);
 }
 

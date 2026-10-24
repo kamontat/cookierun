@@ -4,11 +4,28 @@
    the summary, then the tabs of controls — and a second track would break that
    sequence into two things to scan instead of one. The grids that do the
    widening are inside the panels, where the cards are. This rule comes after
-   base.css's two-track one, so it wins at every width. */
+   base.css's two-track one, so it wins at every width. The column's width is
+   the container's, the one max-width the masthead shares, so every section
+   lines up on the same two edges.
+
+   align-content: start packs the rows at the top. main fills the body's 1fr
+   row, and left to stretch, a short tab shared the leftover height out between
+   the rows as gaps that changed size with every switch of tab. */
 main {
 	grid-template-columns: minmax(0, 1fr);
-	max-width: 58rem;
+	align-content: start;
 	gap: var(--cr-space-3);
+	padding-top: var(--cr-space-2);
+}
+
+/* The title is a label for the page, not a section of it: close above the
+   code rather than a band of its own. */
+.masthead {
+	padding-bottom: 0;
+}
+
+.masthead h1 {
+	margin-bottom: 0;
 }
 
 /* What a fragment link, keyboard focus or a jump from the code has to clear:
@@ -27,16 +44,15 @@ site-nav > button {
 }
 
 /* The code is what the page is for, so it stays in view while you work the
-   controls under it: a band across the column, pinned to the top. The band
-   reaches out over the container's side padding so the page scrolling under
-   it never shows at its edges. */
+   controls under it: a box pinned to the top, exactly as wide as the column,
+   so its edges are the note's, the summary's and the tabs' edges too. */
 .codepanel {
 	position: sticky;
 	top: 0;
 	z-index: 2;
 	min-width: 0;
-	margin-inline: calc(-1 * var(--cr-space-3));
-	border-block: var(--cr-border) solid var(--cr-line);
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: var(--cr-radius);
 	background: var(--cr-surface-2);
 	padding: var(--cr-space-3);
 }
@@ -103,11 +119,17 @@ tab-strip {
 		scroll-padding-bottom: var(--codepanel-h, 9rem);
 	}
 
+	/* A dock is a band across the screen, edge to edge, rather than a box in
+	   the column: it reaches out over the container's side padding so the page
+	   scrolling under it never shows at its sides. */
 	.codepanel {
 		order: 99;
 		top: auto;
 		bottom: 0;
+		margin-inline: calc(-1 * var(--cr-space-3));
+		border-inline: 0;
 		border-bottom: 0;
+		border-radius: 0;
 		padding: var(--cr-space-2) var(--cr-space-3)
 			calc(var(--cr-space-2) + env(safe-area-inset-bottom, 0px));
 	}
