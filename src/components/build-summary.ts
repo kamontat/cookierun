@@ -219,7 +219,6 @@ export class BuildSummary extends LitElement {
 
 			.rows {
 				display: grid;
-				gap: var(--cr-space-1);
 			}
 
 			.row {
@@ -227,8 +226,13 @@ export class BuildSummary extends LitElement {
 				grid-template-columns: 7rem 1fr;
 				align-items: center;
 				gap: var(--cr-space-3);
-				border-radius: var(--cr-radius);
-				padding: var(--cr-space-1) var(--cr-space-2);
+				padding: var(--cr-space-2);
+			}
+
+			/* A hairline between sections, so each row reads as its own tab's
+			   line rather than one block of pictures. */
+			.row + .row {
+				border-top: 1px solid var(--cr-line);
 			}
 
 			.row:hover {
