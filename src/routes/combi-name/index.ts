@@ -76,6 +76,7 @@ import "#components/card-group";
 import "#components/chip-group";
 import "#components/code-bar";
 import "#components/entry-grid";
+import { lockPageScroll } from "#components/entry-tile";
 import "#components/entry-tiles";
 import "#components/site-footer";
 import "#components/site-nav";
@@ -140,6 +141,10 @@ const saveCancelButton = need<HTMLButtonElement>("save-cancel");
 const saveStatus = need("save-status");
 const savedEmpty = need("saved-empty");
 const savedList = need<HTMLUListElement>("saved-list");
+const savedStatus = need("saved-status");
+const savedCount = need("saved-count");
+const savedDrawer = need<HTMLDialogElement>("saved-drawer");
+const helpDrawer = need<HTMLDialogElement>("help-drawer");
 
 const exportCopyButton = need<HTMLButtonElement>("export-copy");
 const exportDownloadButton = need<HTMLButtonElement>("export-download");
@@ -743,6 +748,7 @@ codeMenu.addEventListener("click", (event) => {
  */
 function showSaved(entries: readonly SavedCode[]): void {
 	savedEntries = entries;
+	savedCount.textContent = String(entries.length);
 	savedEmpty.hidden = entries.length > 0;
 	savedList.replaceChildren(
 		...entries.map((entry) => {
@@ -930,8 +936,10 @@ function openSaved(code: string): boolean {
 		applyCode(code, warnings);
 		return true;
 	} catch (error) {
+		// The drawer stays open on a failed Load, and the modal leaves the note's
+		// line behind it, so the drawer's own line says so.
 		setStatus(
-			saveStatus,
+			savedStatus,
 			`${code} no longer reads: ${error instanceof Error ? error.message : String(error)}`,
 			true,
 		);
@@ -965,11 +973,11 @@ function copyEntryLink(entry: SavedCode): void {
 		// The menu the button sits in has closed by now, so the word cannot ride
 		// on the button the way the code bar's Copy link does.
 		.then(() =>
-			setStatus(saveStatus, `Copied the link to ${entryName(entry)}.`),
+			setStatus(savedStatus, `Copied the link to ${entryName(entry)}.`),
 		)
 		.catch(() => {
 			setStatus(
-				saveStatus,
+				savedStatus,
 				`The browser blocked the clipboard. The link is ${url}`,
 				true,
 			);
@@ -994,13 +1002,17 @@ savedList.addEventListener("click", (event) => {
 		// Loading opens the entry too: there used to be an Edit beside Load, and
 		// the two differed only in whether a later save wrote back. The box now
 		// asks that question itself — Update or Save as new — so one action
-		// serves both. Focus stays on the row: someone who only wanted the
-		// build has not asked to type.
+		// serves both. Focus goes back to the Saved button with the closing
+		// drawer, not to the note: someone who only wanted the build has not
+		// asked to type.
 		editing = code;
 		if (!openSaved(code)) {
 			stopEditing();
 			return;
 		}
+		// Closed first, so the build it loaded and the note it filled are what
+		// is on screen, and the line by the note is no longer behind a modal.
+		savedDrawer.close();
 		saveDescription.value = entry.description;
 		setStatus(saveStatus, `Loaded ${entryName(entry)}.`);
 		return;
@@ -1023,17 +1035,64 @@ savedList.addEventListener("click", (event) => {
 	const { entries, stored } = removeSaved(localStorage, code);
 	showSaved(entries);
 	setStatus(
-		saveStatus,
+		savedStatus,
 		stored
 			? `Deleted ${code}.`
 			: "The browser refused to store the change. It is gone for this visit only.",
 		!stored,
 	);
-	// Focus takes the gone entry's place, or falls back to the box that adds one.
+	// Focus takes the gone entry's place, or falls back to the drawer's Close
+	// button: the note that adds one sits behind the modal.
 	const next = savedList.querySelectorAll<HTMLButtonElement>(
 		'button[data-action="load"]',
 	)[Math.min(index, entries.length - 1)];
-	(next ?? saveDescription).focus();
+	(
+		next ?? savedDrawer.querySelector<HTMLButtonElement>("[data-close]")
+	)?.focus();
+});
+
+/** Undoes `lockPageScroll` for whichever drawer is open, if one is. */
+let unlockPage: (() => void) | null = null;
+
+/** Opens a drawer as a modal sheet and holds the page still behind it. */
+function openDrawer(dialog: HTMLDialogElement): void {
+	if (dialog.open) return;
+	dialog.showModal();
+	unlockPage ??= lockPageScroll();
+}
+
+for (const drawer of [savedDrawer, helpDrawer]) {
+	// Which element the press itself landed on. A click fires on the nearest
+	// common ancestor of the press and the release, so a drag that starts in
+	// the sheet and ends past its edge targets the dialog just as a backdrop
+	// click does; only a press that also started there is a dismiss.
+	let pressedBackdrop = false;
+	drawer.addEventListener("pointerdown", (event) => {
+		pressedBackdrop = event.target === drawer;
+	});
+	drawer.addEventListener("click", (event) => {
+		const target = event.target as Element | null;
+		if (target?.closest("[data-close]")) {
+			drawer.close();
+		} else if (pressedBackdrop && target === drawer) {
+			// A native dialog does not light-dismiss; this is its backdrop click.
+			drawer.close();
+		}
+	});
+	// Escape, Close and the backdrop all pass through here.
+	drawer.addEventListener("close", () => {
+		unlockPage?.();
+		unlockPage = null;
+	});
+}
+
+need("open-saved").addEventListener("click", () => {
+	// A line left from the last visit to the drawer says nothing about this one.
+	setStatus(savedStatus, "");
+	openDrawer(savedDrawer);
+});
+need("open-help").addEventListener("click", () => {
+	openDrawer(helpDrawer);
 });
 
 /**

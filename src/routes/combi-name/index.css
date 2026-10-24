@@ -250,24 +250,40 @@ main {
 	font-size: 0.9rem;
 }
 
-/* The reference is the one `<details>` left on the page, so it keeps the
-   summary styling every panel used to share: the heading sits on the summary
-   line, and the gap its own margin used to hold belongs to the summary
-   instead, only while it is open. */
-.reference summary {
-	cursor: pointer;
+/* Saved codes and Help: modal sheets from the right edge, opened from the top
+   bar. The dialog carries no padding of its own, so a click that lands on it
+   rather than inside .sheet is a click on the backdrop. */
+.drawer {
+	margin: 0 0 0 auto;
+	border: 0;
+	border-left: var(--cr-border) solid var(--cr-line);
+	background: var(--cr-surface);
+	padding: 0;
+	width: min(22rem, 90vw);
+	max-width: none;
+	height: 100%;
+	max-height: none;
+	color: var(--cr-text);
 }
 
-.reference[open] summary {
-	margin-bottom: var(--cr-space-3);
+.drawer::backdrop {
+	background: var(--cr-backdrop);
 }
 
-/* A footnote to the page rather than one of its controls, so its heading is
-   the size of the prose inside it. */
-.reference > summary h2 {
-	display: inline;
+.drawer > .sheet {
+	overscroll-behavior: contain;
+	padding: var(--cr-space-4);
+}
+
+.drawer header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cr-space-2);
+}
+
+.drawer header h2 {
 	margin: 0;
-	font-size: 1rem;
 }
 
 .diagram {
@@ -501,14 +517,14 @@ main {
 	padding-top: var(--cr-space-3);
 }
 
-/* Scoped under the panel so it outranks nothing above it by order alone:
-   the reference's open summary is the other summary rule on the page. */
-.saved .transfer > summary {
+/* Scoped under the drawer so it outranks the bare summary rules by more than
+   order alone. */
+.drawer .transfer > summary {
 	cursor: pointer;
 	font-weight: 600;
 }
 
-.saved .transfer[open] > summary {
+.drawer .transfer[open] > summary {
 	margin-bottom: var(--cr-space-2);
 }
 

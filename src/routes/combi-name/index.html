@@ -61,13 +61,6 @@
 
     <header class="masthead container">
       <h1>Cookie Run combi codes</h1>
-      <p>
-        A combi name holds 10 characters - enough to carry the run's goal,
-        whether it plays itself, the episode, boosts, random boost, cookie
-        power+ selections, and starting action. Put a loadout section in front and the same code carries your
-        cookie, relay, pet, and treasures too. Build one below, or edit the
-        code itself and watch the controls follow.
-      </p>
     </header>
 
     <main id="content" class="container" tabindex="-1">
@@ -322,236 +315,254 @@
 
       <!-- Codes kept on purpose, each with a note. They live in this browser
            until someone sends them: Share hands over one as a link carrying
-           its note, and Export the whole list as text Import reads back. -->
-      <section class="panel saved" aria-labelledby="saved-heading">
-        <h2 id="saved-heading">Saved codes</h2>
-        <p id="saved-empty" class="caveat">
-          Nothing saved yet. Saved codes stay in this browser until you share
-          or export them.
-        </p>
-        <ul id="saved-list" class="savedlist"></ul>
+           its note, and Export the whole list as text Import reads back. A
+           modal sheet from the top bar's Saved button; .sheet is the panel,
+           so a click on the dialog itself is a click on the backdrop. -->
+      <dialog id="saved-drawer" class="drawer" aria-labelledby="saved-heading">
+        <div class="sheet">
+          <header>
+            <h2 id="saved-heading">Saved codes</h2>
+            <button type="button" class="close" data-close>Close</button>
+          </header>
+          <p id="saved-status" class="status" role="status"></p>
+            <p id="saved-empty" class="caveat">
+              Nothing saved yet. Saved codes stay in this browser until you share
+              or export them.
+            </p>
+            <ul id="saved-list" class="savedlist"></ul>
 
-        <details class="transfer">
-          <summary>Import and export</summary>
-          <p class="caveat">
-            One code per line, with its note on the lines under it, each
-            starting with <code>&gt;</code>. A shared link works as a line too.
+            <details class="transfer">
+              <summary>Import and export</summary>
+              <p class="caveat">
+                One code per line, with its note on the lines under it, each
+                starting with <code>&gt;</code>. A shared link works as a line too.
+              </p>
+              <div class="transferbuttons">
+                <button id="export-copy" type="button">
+                  <span class="swap">
+                    <span class="rest">Copy all as text</span>
+                    <span class="said">Copied</span>
+                  </span>
+                </button>
+                <button id="export-download" type="button">Download .txt</button>
+              </div>
+              <textarea
+                id="import-text"
+                rows="5"
+                placeholder="Paste codes, an exported list, or shared links."
+                aria-label="Codes to import"
+              ></textarea>
+              <div class="transferbuttons">
+                <button id="import" type="button">Import</button>
+                <label class="filebutton">
+                  Import a file
+                  <input id="import-file" type="file" accept=".txt,text/plain" />
+                </label>
+              </div>
+              <p id="transfer-status" class="status" role="status"></p>
+            </details>
+        </div>
+      </dialog>
+
+      <!-- The tooltips on the code answer "which one is the episode?" for the
+           code in front of you; this is the whole format, for reading one by
+           eye. Opened from the top bar's Help button. -->
+      <dialog id="help-drawer" class="drawer" aria-labelledby="help-heading">
+        <div class="sheet">
+          <header>
+            <h2 id="help-heading">How codes read</h2>
+            <button type="button" class="close" data-close>Close</button>
+          </header>
+          <p class="intro">
+            A combi name holds 10 characters - enough to carry the run's goal,
+            whether it plays itself, the episode, boosts, random boost, cookie
+            power+ selections, and starting action. Put a loadout section in front and the same code carries your
+            cookie, relay, pet, and treasures too. Build one below, or edit the
+            code itself and watch the controls follow.
           </p>
-          <div class="transferbuttons">
-            <button id="export-copy" type="button">
-              <span class="swap">
-                <span class="rest">Copy all as text</span>
-                <span class="said">Copied</span>
-              </span>
-            </button>
-            <button id="export-download" type="button">Download .txt</button>
-          </div>
-          <textarea
-            id="import-text"
-            rows="5"
-            placeholder="Paste codes, an exported list, or shared links."
-            aria-label="Codes to import"
-          ></textarea>
-          <div class="transferbuttons">
-            <button id="import" type="button">Import</button>
-            <label class="filebutton">
-              Import a file
-              <input id="import-file" type="file" accept=".txt,text/plain" />
-            </label>
-          </div>
-          <p id="transfer-status" class="status" role="status"></p>
-        </details>
-      </section>
-
-      <!-- Folded away: the tooltips on the code above answer "which one is the
-           episode?" for the code actually in front of you, which is the
-           question this table used to be here to answer. -->
-      <details class="panel reference">
-        <summary><h2>Reading a code by eye</h2></summary>
-
-        <p class="tip">
-          Click any part of the code to jump to the control that writes it, or
-          press <kbd>Edit</kbd> and type one. Pasting a code anywhere on the
-          page loads it.
-        </p>
-
-        <pre class="diagram">
+          <p class="tip">
+            Click any part of the code to jump to the control that writes it, or
+            press <kbd>Edit</kbd> and type one. Pasting a code anywhere on the
+            page loads it.
+          </p>
+          <pre class="diagram">
 slot:  1  2  3  4  5  6  7 8 9  10
        V  M  G  E  B  R  P P P  A
 ex:    1  H  M  3  2  R  F W 0  J
 SE2:   1  A  E  T  0  4  2 0 0  0</pre
-        >
+          >
 
-        <div class="scroll-x">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Slot</th>
-                <th scope="col">Field</th>
-                <th scope="col">Characters</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>1</td>
-                <td>Format version</td>
-                <td><code>1</code></td>
-              </tr>
-              <tr>
-                <td>2</td>
-                <td>Mode</td>
-                <td>
-                  <code>0</code> Manual, <code>A</code> Auto, <code>H</code>
-                  Semi-auto
-                </td>
-              </tr>
-              <tr>
-                <td>3</td>
-                <td>Goal</td>
-                <td>
-                  <code>S</code> Score, <code>M</code> Money, <code>E</code>
-                  Exp, <code>B</code> Box, <code>0</code> Any. An auto run aims
-                  for Any, Money, Exp or Box; Any is auto only
-                </td>
-              </tr>
-              <tr>
-                <td>4</td>
-                <td>Episode</td>
-                <td>
-                  <code>0</code> Any, <code>1</code>-<code>7</code> Episode 1-7,
-                  <code>C</code> Special Episode 1 (Island of Coins),
-                  <code>T</code> Special Episode 2 (Tower of Frozen Waves),
-                  <code>R</code> Special Episode 3 (Rabbit Hole),
-                  <code>X</code> Special Exp Episode
-                </td>
-              </tr>
-              <tr>
-                <td>5</td>
-                <td>Boosts</td>
-                <td>
-                  One character for the whole set: <code>0</code> none,
-                  <code>H</code> HP Extension, <code>P</code> Power Jelly Boost,
-                  <code>F</code> Fast Start, <code>X</code> Double XP,
-                  <code>A</code> all four. Pairs and triples run in order:
-                  <code>1</code> HP, <code>2</code> HF, <code>3</code> HX,
-                  <code>4</code> PF, <code>5</code> PX, <code>6</code> FX,
-                  <code>7</code> HPF, <code>8</code> HPX, <code>9</code> HFX,
-                  <code>B</code> PFX
-                </td>
-              </tr>
-              <tr>
-                <td>6</td>
-                <td>Random boost</td>
-                <td>
-                  <code>0</code> none, otherwise a letter from the boost's
-                  name: <code>D</code> Double Coins, <code>S</code> Score,
-                  <code>H</code> HP Drain, <code>R</code> Revive,
-                  <code>C</code> Crush, <code>B</code> Base Speed,
-                  <code>G</code> Gold Coin Magic, <code>X</code> Collision
-                  Damage, <code>P</code> Potions, <code>M</code> Magnetic Aura,
-                  <code>L</code> Pit Lifts
-                </td>
-              </tr>
-              <tr>
-                <td>7-9</td>
-                <td>Cookie power+</td>
-                <td>
-                  One slot per group, <code>0</code> for none of it. Slot 7:
-                  <code>C</code> Cheerleader, <code>S</code> Special Force,
-                  <code>F</code> Fairy, <code>1</code> CS, <code>2</code> CF,
-                  <code>3</code> SF, <code>4</code> all three. Slot 8:
-                  <code>K</code> Cheesecake, <code>W</code> Sea Fairy,
-                  <code>1</code> both. Slot 9: <code>L</code> Serenade of
-                  Love, <code>E</code> EXP Party, <code>1</code> both
-                </td>
-              </tr>
-              <tr>
-                <td>10</td>
-                <td>Action</td>
-                <td>
-                  <code>0</code> none, <code>J</code> jump at start. Auto runs
-                  only
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="scroll-x">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Slot</th>
+                  <th scope="col">Field</th>
+                  <th scope="col">Characters</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td>Format version</td>
+                  <td><code>1</code></td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>Mode</td>
+                  <td>
+                    <code>0</code> Manual, <code>A</code> Auto, <code>H</code>
+                    Semi-auto
+                  </td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>Goal</td>
+                  <td>
+                    <code>S</code> Score, <code>M</code> Money, <code>E</code>
+                    Exp, <code>B</code> Box, <code>0</code> Any. An auto run aims
+                    for Any, Money, Exp or Box; Any is auto only
+                  </td>
+                </tr>
+                <tr>
+                  <td>4</td>
+                  <td>Episode</td>
+                  <td>
+                    <code>0</code> Any, <code>1</code>-<code>7</code> Episode 1-7,
+                    <code>C</code> Special Episode 1 (Island of Coins),
+                    <code>T</code> Special Episode 2 (Tower of Frozen Waves),
+                    <code>R</code> Special Episode 3 (Rabbit Hole),
+                    <code>X</code> Special Exp Episode
+                  </td>
+                </tr>
+                <tr>
+                  <td>5</td>
+                  <td>Boosts</td>
+                  <td>
+                    One character for the whole set: <code>0</code> none,
+                    <code>H</code> HP Extension, <code>P</code> Power Jelly Boost,
+                    <code>F</code> Fast Start, <code>X</code> Double XP,
+                    <code>A</code> all four. Pairs and triples run in order:
+                    <code>1</code> HP, <code>2</code> HF, <code>3</code> HX,
+                    <code>4</code> PF, <code>5</code> PX, <code>6</code> FX,
+                    <code>7</code> HPF, <code>8</code> HPX, <code>9</code> HFX,
+                    <code>B</code> PFX
+                  </td>
+                </tr>
+                <tr>
+                  <td>6</td>
+                  <td>Random boost</td>
+                  <td>
+                    <code>0</code> none, otherwise a letter from the boost's
+                    name: <code>D</code> Double Coins, <code>S</code> Score,
+                    <code>H</code> HP Drain, <code>R</code> Revive,
+                    <code>C</code> Crush, <code>B</code> Base Speed,
+                    <code>G</code> Gold Coin Magic, <code>X</code> Collision
+                    Damage, <code>P</code> Potions, <code>M</code> Magnetic Aura,
+                    <code>L</code> Pit Lifts
+                  </td>
+                </tr>
+                <tr>
+                  <td>7-9</td>
+                  <td>Cookie power+</td>
+                  <td>
+                    One slot per group, <code>0</code> for none of it. Slot 7:
+                    <code>C</code> Cheerleader, <code>S</code> Special Force,
+                    <code>F</code> Fairy, <code>1</code> CS, <code>2</code> CF,
+                    <code>3</code> SF, <code>4</code> all three. Slot 8:
+                    <code>K</code> Cheesecake, <code>W</code> Sea Fairy,
+                    <code>1</code> both. Slot 9: <code>L</code> Serenade of
+                    Love, <code>E</code> EXP Party, <code>1</code> both
+                  </td>
+                </tr>
+                <tr>
+                  <td>10</td>
+                  <td>Action</td>
+                  <td>
+                    <code>0</code> none, <code>J</code> jump at start. Auto runs
+                    only
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Special episodes</h3>
+          <p>
+            Special Episodes 1 and 2 take a cookie, a pet and treasures - no
+            relay, boosts, random boost or cookie power+, so slots 5-9 read
+            <code>0</code>. Special Episode 2 spends slots 5-7 on the tower
+            floor instead: <code>001</code>-<code>100</code>, or
+            <code>000</code> for any floor. The Special Exp Episode takes a
+            cookie and a pet only.
+          </p>
+
+          <h3>The loadout section</h3>
+          <p>
+            Everything left of the dash. Groups always read in the order
+            <code>C</code> <code>R</code> <code>P</code> <code>T</code>, and a
+            group you did not pick is simply absent.
+          </p>
+
+          <div class="scroll-x">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Group</th>
+                  <th scope="col">Field</th>
+                  <th scope="col">Characters</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>1</code></td>
+                  <td>Loadout version</td>
+                  <td>
+                    Always <code>1</code>, and separate from the name's version
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>C</code></td>
+                  <td>Cookie</td>
+                  <td>2 characters</td>
+                </tr>
+                <tr>
+                  <td><code>R</code></td>
+                  <td>Relay</td>
+                  <td>2 characters, from the same list as the cookie</td>
+                </tr>
+                <tr>
+                  <td><code>P</code></td>
+                  <td>Pet</td>
+                  <td>2 characters</td>
+                </tr>
+                <tr>
+                  <td><code>T</code></td>
+                  <td>Treasures</td>
+                  <td>
+                    <code>U</code> any order or <code>O</code> exact order, then
+                    up to 3 slots of 3 characters each, separated by
+                    <code>.</code>. Alternatives within a slot are joined by
+                    <code>_</code>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Auto vs semi-auto</h3>
+          <p>
+            An auto build is semi-auto when <strong>any</strong> of these is
+            true: Fast Start is on (slot 5), a random boost is selected (slot 6),
+            there is a jump action (slot 10), or the loadout carries a relay
+            cookie (the <code>R</code> group). A relay is swapped in by hand, so
+            a run carrying one never plays itself through. Slot 2 stores
+            <code>A</code> or <code>H</code> so the name reads plainly, but those
+            four are the authority - building a code always rewrites slot 2 to
+            match them.
+          </p>
         </div>
-
-        <h3>Special episodes</h3>
-        <p>
-          Special Episodes 1 and 2 take a cookie, a pet and treasures - no
-          relay, boosts, random boost or cookie power+, so slots 5-9 read
-          <code>0</code>. Special Episode 2 spends slots 5-7 on the tower
-          floor instead: <code>001</code>-<code>100</code>, or
-          <code>000</code> for any floor. The Special Exp Episode takes a
-          cookie and a pet only.
-        </p>
-
-        <h3>The loadout section</h3>
-        <p>
-          Everything left of the dash. Groups always read in the order
-          <code>C</code> <code>R</code> <code>P</code> <code>T</code>, and a
-          group you did not pick is simply absent.
-        </p>
-
-        <div class="scroll-x">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Group</th>
-                <th scope="col">Field</th>
-                <th scope="col">Characters</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>1</code></td>
-                <td>Loadout version</td>
-                <td>
-                  Always <code>1</code>, and separate from the name's version
-                </td>
-              </tr>
-              <tr>
-                <td><code>C</code></td>
-                <td>Cookie</td>
-                <td>2 characters</td>
-              </tr>
-              <tr>
-                <td><code>R</code></td>
-                <td>Relay</td>
-                <td>2 characters, from the same list as the cookie</td>
-              </tr>
-              <tr>
-                <td><code>P</code></td>
-                <td>Pet</td>
-                <td>2 characters</td>
-              </tr>
-              <tr>
-                <td><code>T</code></td>
-                <td>Treasures</td>
-                <td>
-                  <code>U</code> any order or <code>O</code> exact order, then
-                  up to 3 slots of 3 characters each, separated by
-                  <code>.</code>. Alternatives within a slot are joined by
-                  <code>_</code>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>Auto vs semi-auto</h3>
-        <p>
-          An auto build is semi-auto when <strong>any</strong> of these is
-          true: Fast Start is on (slot 5), a random boost is selected (slot 6),
-          there is a jump action (slot 10), or the loadout carries a relay
-          cookie (the <code>R</code> group). A relay is swapped in by hand, so
-          a run carrying one never plays itself through. Slot 2 stores
-          <code>A</code> or <code>H</code> so the name reads plainly, but those
-          four are the authority - building a code always rewrites slot 2 to
-          match them.
-        </p>
-      </details>
+      </dialog>
     </main>
 
     <site-footer></site-footer>

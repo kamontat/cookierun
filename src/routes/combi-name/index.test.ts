@@ -1082,13 +1082,65 @@ test("the save button in the code panel submits the note", async () => {
 	expect(savedRows()[0]?.getAttribute("aria-current")).toBe("false");
 });
 
+const savedDrawer = () => need<HTMLDialogElement>("saved-drawer");
+const helpDrawer = () => need<HTMLDialogElement>("help-drawer");
+
+function closeButton(drawer: HTMLDialogElement): HTMLButtonElement {
+	const button = drawer.querySelector<HTMLButtonElement>("button[data-close]");
+	if (button === null) throw new Error(`#${drawer.id} has no Close button`);
+	return button;
+}
+
+async function openSavedDrawer(): Promise<void> {
+	need<HTMLButtonElement>("open-saved").click();
+	await settle();
+}
+
+test("Saved opens a drawer that lists the saved codes, and its count follows the list", async () => {
+	expect(savedDrawer().open).toBe(false);
+	expect(helpDrawer().open).toBe(false);
+	expect(need("saved-count").textContent).toBe("1");
+	expect(savedDrawer().contains(need("saved-list"))).toBe(true);
+	expect(savedDrawer().contains(need("saved-empty"))).toBe(true);
+	expect(savedDrawer().contains(need("transfer-status"))).toBe(true);
+	expect(savedDrawer().contains(need("saved-status"))).toBe(true);
+
+	await openSavedDrawer();
+	expect(savedDrawer().open).toBe(true);
+	closeButton(savedDrawer()).click();
+	await settle();
+	expect(savedDrawer().open).toBe(false);
+
+	// A press that starts inside the sheet and ends on the backdrop is a drag,
+	// not a dismiss; one that starts and ends on the backdrop closes it.
+	await openSavedDrawer();
+	need("saved-heading").dispatchEvent(
+		new Event("pointerdown", { bubbles: true }),
+	);
+	savedDrawer().dispatchEvent(new MouseEvent("click", { bubbles: true }));
+	expect(savedDrawer().open).toBe(true);
+	savedDrawer().dispatchEvent(new Event("pointerdown", { bubbles: true }));
+	savedDrawer().dispatchEvent(new MouseEvent("click", { bubbles: true }));
+	expect(savedDrawer().open).toBe(false);
+
+	await reset();
+	await saveCurrent("Score run");
+	expect(need("saved-count").textContent).toBe("2");
+	savedButtonFor("10S0000000", "delete").click();
+	await settle();
+	expect(need("saved-count").textContent).toBe("1");
+});
+
 // One action, not Load beside Edit: the two differed only in whether saving
 // afterwards wrote back, and that is a choice the save box already offers.
-test("loading a saved code moves the controls to it and opens it for updating", async () => {
+test("loading from the drawer closes it and says so by the note", async () => {
 	expect(await codeText()).toBe("10S0000000");
 	await pickTab("boosts");
+	await openSavedDrawer();
 
 	savedButtonFor("10M0000000", "load").click();
+
+	expect(savedDrawer().open).toBe(false);
 
 	expect(await codeText()).toBe("10M0000000");
 	// Opening a saved code keeps the tab someone was on.
@@ -1110,6 +1162,43 @@ test("resetting the board closes the entry it was opened from", async () => {
 	expect(need("save-editing").hidden).toBe(true);
 	expect(need("save").textContent?.trim()).toBe("Save");
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
+});
+
+// A saved code a later format cannot read. Behind a modal the note's line
+// would go unseen, so the drawer stays up and says so itself.
+test("a saved code that no longer reads keeps the drawer open and says so inside it", async () => {
+	const stored = JSON.parse(
+		localStorage.getItem("combi-name:saved") ?? "[]",
+	) as unknown[];
+	localStorage.setItem(
+		"combi-name:saved",
+		JSON.stringify([
+			{ code: "1ZZZZZZZZZ", description: "", savedAt: Date.now() },
+			...stored,
+		]),
+	);
+	// Re-importing a saved code adds nothing but redraws the list.
+	need<HTMLTextAreaElement>("import-text").value = "10M0000000";
+	need<HTMLButtonElement>("import").click();
+	await settle();
+	need("save-status").textContent = "";
+
+	await openSavedDrawer();
+	savedButtonFor("1ZZZZZZZZZ", "load").click();
+	await settle();
+
+	expect(savedDrawer().open).toBe(true);
+	expect(need("saved-status").textContent).toContain(
+		"1ZZZZZZZZZ no longer reads",
+	);
+	expect(need("save-status").textContent).toBe("");
+	expect(isEditing()).toBe(false);
+	expect(await codeText()).toBe("10S0000000");
+
+	savedButtonFor("1ZZZZZZZZZ", "delete").click();
+	await settle();
+	closeButton(savedDrawer()).click();
+	await settle();
 });
 
 test("the note's label says when a saved entry is open", async () => {
@@ -1178,13 +1267,24 @@ test("picking from the code menu closes it", async () => {
 });
 
 test("deleting a saved code takes it off the list and out of storage", async () => {
+	await openSavedDrawer();
 	savedButtonFor("10M0000000", "delete").click();
 	await settle();
 
 	expect(savedRows()).toHaveLength(0);
 	expect(need("saved-empty").hidden).toBe(false);
 	expect(localStorage.getItem("combi-name:saved")).toBe("[]");
-	expect(document.activeElement).toBe(need("save-description"));
+	expect(need("saved-status").textContent).toBe("Deleted 10M0000000.");
+	expect(need("saved-count").textContent).toBe("0");
+});
+
+// The note sits behind the modal, so focus cannot go back to it.
+test("deleting the last entry moves focus to the drawer's Close button", async () => {
+	expect(savedRows()).toHaveLength(0);
+	expect(savedDrawer().open).toBe(true);
+	expect(document.activeElement).toBe(closeButton(savedDrawer()));
+	closeButton(savedDrawer()).click();
+	await settle();
 });
 
 function savedCodes(): string[] {
@@ -1265,7 +1365,7 @@ test("saving as new while editing keeps the entry being edited", async () => {
 // "Coin farm" as base64url.
 const COIN_FARM_LINK = `${location.href.split("#")[0]}#10M0000000?note=Q29pbiBmYXJt`;
 
-test("copying an entry's link copies a link that carries its note", async () => {
+test("copying an entry's link reports inside the drawer", async () => {
 	let written = "";
 	await withClipboard(
 		(text) => {
@@ -1280,7 +1380,9 @@ test("copying an entry's link copies a link that carries its note", async () => 
 
 	expect(written).toBe(COIN_FARM_LINK);
 	// The menu it sits in closes on the click, so the word goes in the line.
-	expect(need("save-status").textContent).toBe("Copied the link to Coin farm.");
+	expect(need("saved-status").textContent).toBe(
+		"Copied the link to Coin farm.",
+	);
 });
 
 function rowFor(code: string): HTMLLIElement {
@@ -1441,4 +1543,20 @@ test("a link that carries a note offers it in the save box", async () => {
 
 	need<HTMLTextAreaElement>("save-description").value = "";
 	await reset();
+});
+
+test("Help holds the slot reference and the page intro", async () => {
+	need<HTMLButtonElement>("open-help").click();
+	await settle();
+	expect(helpDrawer().open).toBe(true);
+	expect(helpDrawer().querySelector("pre.diagram")).not.toBe(null);
+	expect(helpDrawer().textContent).toContain(
+		"A combi name holds 10 characters",
+	);
+	expect(helpDrawer().querySelector(".tip")).not.toBe(null);
+	expect(document.querySelector(".masthead p")).toBe(null);
+	expect(document.querySelector("details.reference")).toBe(null);
+	closeButton(helpDrawer()).click();
+	await settle();
+	expect(helpDrawer().open).toBe(false);
 });
