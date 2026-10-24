@@ -954,7 +954,9 @@ test("clicking a summary row opens its tab and focuses the control", async () =>
 	await closeEditor();
 
 	inside(summary)
-		.querySelector<HTMLButtonElement>('button.row[data-target="treasures"]')
+		.querySelector<HTMLButtonElement>(
+			'.row[data-target="treasures"] button.open',
+		)
 		?.click();
 	await settle();
 
@@ -1117,8 +1119,8 @@ test("the relay is not counted where the episode takes none", async () => {
 
 test("the summary follows the code", async () => {
 	const runRow = () =>
-		inside(summary).querySelector('button.row[data-target="mode"]')
-			?.textContent ?? "";
+		inside(summary).querySelector('.row[data-target="mode"]')?.textContent ??
+		"";
 	await settle();
 	expect(runRow()).toContain("Score");
 

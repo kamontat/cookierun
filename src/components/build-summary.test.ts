@@ -63,7 +63,7 @@ const ROWS: readonly SummaryRow[] = [
 test("draws a row per entry with its label and items", async () => {
 	const element = await mount(ROWS);
 
-	const rows = [...inside(element).querySelectorAll("button.row")];
+	const rows = [...inside(element).querySelectorAll(".row")];
 	expect(rows.length).toBe(2);
 	expect(rows.map((row) => row.querySelector(".label")?.textContent)).toEqual([
 		"Run",
@@ -83,7 +83,7 @@ test("an image item draws its picture, badge and note", async () => {
 	const element = await mount(ROWS);
 
 	const images = inside(element).querySelectorAll(
-		"button.row[data-target=treasures] .image",
+		".row[data-target=treasures] .image",
 	);
 	const first = images[0];
 	expect(first?.querySelector("img")?.getAttribute("src")).toBe(
@@ -111,7 +111,7 @@ test("an image item with neither picture nor text shows its title", async () => 
 	element.compact = [{ kind: "image", src: null, title: "Mystery" }];
 	await element.updateComplete;
 
-	const image = inside(element).querySelector("button.row .image");
+	const image = inside(element).querySelector(".row .image");
 	expect(image?.textContent?.trim()).toBe("Mystery +3");
 	expect(button(element, "button.line").textContent).toContain("Mystery");
 });
@@ -130,7 +130,7 @@ test("an icon-only item is named by its title, on screen and to a screen reader"
 	]);
 
 	const [image, stack, bare] = inside(element).querySelectorAll(
-		"button.row .image, button.row .stack",
+		".row .image, .row .stack",
 	);
 	expect(image?.getAttribute("title")).toBe("HP Extension");
 	expect(image?.querySelector("img")?.getAttribute("alt")).toBe("HP Extension");
@@ -161,7 +161,7 @@ test("an image's mark draws the kind's letter and names it", async () => {
 	]);
 
 	const [evolved, blessed, plain] =
-		inside(element).querySelectorAll("button.row .pic");
+		inside(element).querySelectorAll(".row .pic");
 	expect(evolved?.getAttribute("data-mark")).toBe("evolved");
 	expect(evolved?.querySelector(".mark")?.textContent).toBe("E");
 	expect(evolved?.querySelector("img")?.getAttribute("alt")).toBe(
@@ -195,8 +195,11 @@ test("a caption names a picture under it, once, for every reader", async () => {
 		},
 	]);
 
+	button(element, "button.names").click();
+	await element.updateComplete;
+
 	const [image, stack] = inside(element).querySelectorAll(
-		"button.row .image, button.row .stack",
+		".row .image, .row .stack",
 	);
 	expect(image?.querySelector(".caption")?.textContent).toContain(
 		"Cheese Ball",
@@ -211,17 +214,118 @@ test("a caption names a picture under it, once, for every reader", async () => {
 	expect(stack?.querySelector(":scope > .hidden")).toBe(null);
 });
 
-test("clicking a row fires summary-jump with its target", async () => {
+const PICTURES: readonly SummaryRow[] = [
+	{
+		label: "Cookies",
+		target: "cookie",
+		items: [
+			{
+				kind: "image",
+				src: "a.png",
+				title: "Fairy Cookie",
+				caption: "Fairy Cookie",
+			},
+			{ kind: "sep", text: "·" },
+			{ kind: "image", src: "b.png", title: "Pom", caption: "Pom" },
+		],
+	},
+	{
+		label: "Power+",
+		target: "cookiePowers",
+		items: [
+			{
+				kind: "stack",
+				srcs: ["c.png", "d.png"],
+				title: "EXP Party",
+				caption: "EXP Party",
+			},
+		],
+	},
+];
+
+test("each row ends in a button that opens its tab", async () => {
 	const element = await mount(ROWS);
 	const targets: string[] = [];
-	document.body.addEventListener("summary-jump", (event) => {
+	const listen = (event: Event) => {
 		targets.push((event as CustomEvent<string>).detail);
-	});
+	};
+	element.addEventListener("summary-jump", listen);
 
-	button(element, "button.row[data-target=treasures]").click();
-	button(element, "button.row[data-target=mode]").click();
+	const open = button(element, ".row[data-target=treasures] button.open");
+	expect(open.getAttribute("aria-label")).toBe("Open Treasures");
+	open.click();
+	button(element, ".row[data-target=mode] button.open").click();
 
 	expect(targets).toEqual(["treasures", "mode"]);
+	element.removeEventListener("summary-jump", listen);
+});
+
+// Pictures lead; the names are one click away and the same click hides them.
+test("names stay hidden until the pictures are clicked, then show for every row", async () => {
+	const element = await mount(PICTURES);
+	const jumps: string[] = [];
+	const listen = (event: Event) => {
+		jumps.push((event as CustomEvent<string>).detail);
+	};
+	element.addEventListener("summary-jump", listen);
+
+	expect(inside(element).querySelectorAll(".caption").length).toBe(0);
+	expect(element.hasAttribute("names")).toBe(false);
+	const toggles =
+		inside(element).querySelectorAll<HTMLButtonElement>("button.names");
+	expect(toggles.length).toBe(2);
+	expect(toggles[0]?.getAttribute("aria-pressed")).toBe("false");
+
+	toggles[0]?.click();
+	await element.updateComplete;
+	expect(element.hasAttribute("names")).toBe(true);
+	expect(
+		[...inside(element).querySelectorAll(".caption")].map(
+			(each) => each.textContent,
+		),
+	).toEqual(["Fairy Cookie", "Pom", "EXP Party"]);
+	expect(
+		inside(element).querySelector("button.names")?.getAttribute("aria-pressed"),
+	).toBe("true");
+
+	button(element, "button.names").click();
+	await element.updateComplete;
+	expect(inside(element).querySelectorAll(".caption").length).toBe(0);
+	expect(jumps).toEqual([]);
+	element.removeEventListener("summary-jump", listen);
+});
+
+test("with names hidden, a picture still names itself to a screen reader", async () => {
+	const element = await mount([
+		{
+			label: "Treasures",
+			target: "treasures",
+			items: [
+				{
+					kind: "image",
+					src: "a.png",
+					title: "Cheese Ball +3 or Acorn",
+					caption: "Cheese Ball",
+					mark: "evolved",
+				},
+			],
+		},
+		...PICTURES,
+	]);
+
+	const pictures = inside(element).querySelectorAll(".row .pic img");
+	expect(pictures[0]?.getAttribute("alt")).toBe("Cheese Ball, Evolved");
+	expect(pictures[1]?.getAttribute("alt")).toBe("Fairy Cookie");
+	const stack = inside(element).querySelector(".row .stack");
+	expect(stack?.querySelector(".hidden")?.textContent).toBe("EXP Party");
+});
+
+test("a row of words has no names toggle", async () => {
+	const element = await mount(ROWS);
+
+	expect(
+		inside(element).querySelector(".row[data-target=mode] button.names"),
+	).toBe(null);
 });
 
 test("the compact line expands the rows and Hide folds them", async () => {
@@ -272,7 +376,10 @@ test("fires no input", async () => {
 	await element.updateComplete;
 	button(element, "button.hide").click();
 	await element.updateComplete;
-	button(element, "button.row").click();
+	button(element, "button.open").click();
+	element.rows = PICTURES;
+	await element.updateComplete;
+	button(element, "button.names").click();
 
 	expect(heard).toBe(0);
 });

@@ -59,6 +59,15 @@ const MARKS: Record<Mark, { letter: string; name: string }> = {
 	blessed: { letter: "B", name: "Blessed" },
 };
 
+/** Whether a row is pictures that have names to show. */
+function pictured(row: SummaryRow): boolean {
+	return row.items.some(
+		(entry) =>
+			(entry.kind === "image" || entry.kind === "stack") &&
+			entry.caption !== undefined,
+	);
+}
+
 export type SummaryRow = {
 	label: string;
 	/** Opaque to this element: the route maps it to a tab and a control. */
@@ -72,10 +81,16 @@ export type SummaryRow = {
  * kept for a screen reader when there are — the faces themselves are unnamed,
  * since a pair of portraits is one thing, not two.
  */
-function stackName(entry: Extract<SummaryItem, { kind: "stack" }>) {
+function stackName(
+	entry: Extract<SummaryItem, { kind: "stack" }>,
+	names: boolean,
+) {
 	if (entry.text !== undefined) return entry.text;
-	if (entry.caption !== undefined) {
+	if (entry.caption !== undefined && names) {
 		return html`<span class="caption">${entry.caption}</span>`;
+	}
+	if (entry.caption !== undefined && entry.srcs.length > 0) {
+		return html`<span class="hidden">${entry.caption}</span>`;
 	}
 	if (entry.title === undefined) return nothing;
 	return entry.srcs.length === 0
@@ -87,9 +102,15 @@ function stackName(entry: Extract<SummaryItem, { kind: "stack" }>) {
  * An image's words for a screen reader: none when its text already says it,
  * otherwise its title, with the kind's name when it carries one.
  */
-function pictureAlt(entry: Extract<SummaryItem, { kind: "image" }>): string {
-	if (entry.text !== undefined || entry.caption !== undefined) return "";
-	const title = entry.title ?? "";
+function pictureAlt(
+	entry: Extract<SummaryItem, { kind: "image" }>,
+	names: boolean,
+): string {
+	if (entry.text !== undefined) return "";
+	if (entry.caption !== undefined && names) return "";
+	// Hidden, the caption is still the picture's name: shorter than a title
+	// that lists a treasure slot's alternatives.
+	const title = entry.caption ?? entry.title ?? "";
 	return entry.mark === undefined
 		? title
 		: `${title}, ${MARKS[entry.mark].name}`;
@@ -114,7 +135,7 @@ function caption(entry: Extract<SummaryItem, { kind: "image" }>) {
 	>`;
 }
 
-function item(entry: SummaryItem) {
+function item(entry: SummaryItem, names = false) {
 	switch (entry.kind) {
 		case "text":
 			return html`<span class=${entry.muted ? "text muted" : "text"}
@@ -126,7 +147,7 @@ function item(entry: SummaryItem) {
 			>`;
 		case "image":
 			return html`<span
-				class=${entry.caption === undefined ? "image" : "image captioned"}
+				class=${entry.caption === undefined ? "image" : "image cell"}
 				title=${entry.title ?? nothing}
 				>${
 					entry.src === null
@@ -134,7 +155,7 @@ function item(entry: SummaryItem) {
 						: html`<span class="pic" data-mark=${entry.mark ?? nothing}
 								><img
 									src=${entry.src}
-									alt=${pictureAlt(entry)}
+									alt=${pictureAlt(entry, names)}
 									loading="lazy"
 								/>${
 									entry.mark === undefined
@@ -159,11 +180,15 @@ function item(entry: SummaryItem) {
 									? nothing
 									: html`<span class="note">${entry.note}</span>`
 							}`
-						: caption(entry)
+						: names
+							? caption(entry)
+							: nothing
 				}</span
 			>`;
 		case "stack":
-			return html`<span class="stack" title=${entry.title ?? nothing}
+			return html`<span
+				class=${entry.caption === undefined ? "stack" : "stack cell"}
+				title=${entry.title ?? nothing}
 				>${
 					entry.srcs.length === 0
 						? nothing
@@ -174,7 +199,7 @@ function item(entry: SummaryItem) {
 										(src) => html`<img src=${src} alt="" loading="lazy" />`,
 									)}</span
 							>`
-				}${stackName(entry)}</span
+				}${stackName(entry, names)}</span
 			>`;
 		case "sep":
 			return html`<span class="sep" aria-hidden="true">${entry.text}</span>`;
@@ -223,20 +248,88 @@ export class BuildSummary extends LitElement {
 
 			.row {
 				display: grid;
-				grid-template-columns: 7rem 1fr;
+				grid-template-columns: 7rem minmax(0, 1fr) auto;
 				align-items: center;
 				gap: var(--cr-space-3);
 				padding: var(--cr-space-2);
+			}
+
+			/* The way to the tab, at the end of the row: the pictures themselves
+			   now show and hide names, so opening the tab needs its own place. */
+			.open {
+				align-self: stretch;
+				min-width: 2rem;
+				border-radius: var(--cr-radius);
+				color: var(--cr-muted);
+				font-family: var(--cr-mono);
+				font-size: 1.25rem;
+				text-align: center;
+			}
+
+			.open:hover {
+				background: var(--cr-surface-2);
+				color: var(--cr-accent);
+			}
+
+			.names {
+				border-radius: var(--cr-radius);
+				padding: var(--cr-space-1);
+			}
+
+			.names:hover {
+				background: var(--cr-surface-2);
+			}
+
+			/* Every picture sits in the same box, whatever its art, so a row of
+			   them lines up as a grid. Showing names widens every box alike. */
+			.image.cell,
+			.stack.cell {
+				flex-direction: column;
+				/* Room for the +N badge, which hangs below the picture's corner. */
+				gap: 0.35rem;
+				width: 2.75rem;
+				text-align: center;
+			}
+
+			:host([names]) .image.cell,
+			:host([names]) .stack.cell {
+				width: 6rem;
+			}
+
+			.cell .pic,
+			.cell .faces {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				width: 2.75rem;
+				height: 2.75rem;
+			}
+
+			.cell .pic img {
+				width: 2.5rem;
+				height: 2.5rem;
+			}
+
+			.cell .faces img {
+				width: 2.1rem;
+				height: 2.1rem;
+			}
+
+			.cell .faces img + img {
+				margin-left: -1.45rem;
+			}
+
+			/* A separator between pictures lines up with the pictures, not with
+			   the names under them. */
+			.names .sep {
+				align-self: flex-start;
+				line-height: 2.75rem;
 			}
 
 			/* A hairline between sections, so each row reads as its own tab's
 			   line rather than one block of pictures. */
 			.row + .row {
 				border-top: 1px solid var(--cr-line);
-			}
-
-			.row:hover {
-				background: var(--cr-surface-2);
 			}
 
 			.label {
@@ -297,18 +390,8 @@ export class BuildSummary extends LitElement {
 				gap: var(--cr-space-1);
 			}
 
-			/* A captioned picture stands over its name, and the name wraps
-			   rather than widening the row: two lines at most, then an ellipsis,
-			   with the whole name still in the title. */
-			.captioned,
-			.stack:has(> .caption) {
-				flex-direction: column;
-				/* Room for the +N badge, which hangs below the picture's corner. */
-				gap: 0.35rem;
-				max-width: 6.5rem;
-				text-align: center;
-			}
-
+			/* A name under its picture wraps rather than widening the box: two
+			   lines at most, then an ellipsis, with the whole name in the title. */
 			.caption {
 				display: -webkit-box;
 				overflow: hidden;
@@ -450,9 +533,16 @@ export class BuildSummary extends LitElement {
 					font-size: 0.8rem;
 				}
 
+				/* The label and the way to the tab share the top line; the
+				   pictures take the whole width under them. */
 				.row {
-					grid-template-columns: 1fr;
+					grid-template-columns: minmax(0, 1fr) auto;
 					gap: var(--cr-space-1);
+				}
+
+				.row .value {
+					grid-column: 1 / -1;
+					grid-row: 2;
 				}
 			}
 
@@ -480,10 +570,20 @@ export class BuildSummary extends LitElement {
 	@state()
 	private expanded = false;
 
+	/**
+	 * Whether the pictures' names are on show. Pictures lead and the names are
+	 * one click away — on a phone as much as anywhere, since it has no hover.
+	 * One switch for the whole summary, not one per row: someone who wants a
+	 * name usually wants the next one too.
+	 */
+	@state()
+	private names = false;
+
 	override updated(): void {
-		// Reflected by hand: the fold is this element's own, not a property the
-		// page sets, but the stylesheet reads it off the host.
+		// Reflected by hand: the fold and the names are this element's own, not
+		// properties the page sets, but the stylesheet reads them off the host.
 		this.toggleAttribute("expanded", this.expanded);
+		this.toggleAttribute("names", this.names);
 	}
 
 	/**
@@ -514,7 +614,7 @@ export class BuildSummary extends LitElement {
 				aria-expanded="false"
 				@click=${() => this.#fold(true)}
 			>
-				<span class="lineitems">${this.compact.map(item)}</span
+				<span class="lineitems">${this.compact.map((entry) => item(entry))}</span
 				><span class="sep" aria-hidden="true">▾</span>
 			</button>
 			<div class="rows">
@@ -527,15 +627,33 @@ export class BuildSummary extends LitElement {
 				</button>
 				${this.rows.map(
 					(row) =>
-						html`<button
-							type="button"
-							class="row"
-							data-target=${row.target}
-							@click=${() => this.#jump(row.target)}
-						>
-							<span class="label">${row.label}</span
-							><span class="value">${row.items.map(item)}</span>
-						</button>`,
+						html`<div class="row" data-target=${row.target}>
+							<span class="label">${row.label}</span>${
+								pictured(row)
+									? html`<button
+											type="button"
+											class="value names"
+											aria-pressed=${String(this.names)}
+											title=${this.names ? "Hide names" : "Show names"}
+											@click=${() => {
+												this.names = !this.names;
+											}}
+										>
+											${row.items.map((entry) => item(entry, this.names))}
+										</button>`
+									: html`<span class="value"
+											>${row.items.map((entry) => item(entry))}</span
+										>`
+							}<button
+								type="button"
+								class="open"
+								aria-label=${`Open ${row.label}`}
+								title=${`Open ${row.label}`}
+								@click=${() => this.#jump(row.target)}
+							>
+								<span aria-hidden="true">›</span>
+							</button>
+						</div>`,
 				)}
 				${this.hint === null ? nothing : html`<p class="hint">${this.hint}</p>`}
 			</div>`;
