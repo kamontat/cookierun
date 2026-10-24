@@ -115,7 +115,7 @@ test("a value its options lack reads as null", async () => {
 	expect(element.value).toBeNull();
 });
 
-// Copied from entry-tile.test.ts's roving-tabindex coverage, minus the dialog:
+// The same roving-tabindex coverage every catalog grid on the page carries:
 // one tab stop for the whole grid, arrows inside it, clamped at the ends.
 test("only the picked entry is tabbable", async () => {
 	const element = await mount();

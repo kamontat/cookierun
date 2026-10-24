@@ -1,8 +1,8 @@
 import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 
-import { glyphFor, tileStyles } from "./entry-tile";
 import { base, controls } from "./theme";
+import { glyphFor, tileStyles } from "./tile";
 
 export type Option = readonly [
 	value: string,
@@ -14,13 +14,13 @@ const NONE = "None";
 
 /**
  * An inline, single-pick grid for a catalog small enough to show whole on the
- * board itself rather than behind a dialog — `<entry-tile>`'s own doc comment
- * is why six open grids over the biggest catalogs is a wall of scrolling, but
- * episode, cookie, relay and pet are not that: showing the grid in place is
- * what the board wants for them instead. Cells borrow `<entry-tile>`'s grid
- * look (`tileStyles`, imported rather than copied) — art, then name, the
- * picked cell wearing the accent border — so a picker that is sometimes a
- * dialog and sometimes inline still reads as one visual language.
+ * tab itself rather than behind a dialog: a dozen episodes, or a catalog of
+ * cookies or pets behind a filter box, is not the wall of scrolling a
+ * thousand-entry treasure list would be, which is why `<entry-tiles>` keeps
+ * its dialog and this one does not. Cells borrow its grid look (`tileStyles`,
+ * imported rather than copied) — art, then name, the picked cell wearing the
+ * accent border — so a picker that is sometimes a dialog and sometimes inline
+ * still reads as one visual language.
  *
  * Selection follows the roving-tabindex rule the catalog dialogs already use:
  * one tab stop for the whole grid, arrows inside it, Home and End at the ends,
@@ -66,10 +66,9 @@ export class EntryGrid extends LitElement {
 	options: readonly Option[] = [];
 
 	/**
-	 * Whether the list already carries its own "none", the same question
-	 * `<entry-tile>`'s own `required` answers and for the same reason: a second
-	 * None cell above a list that already has one would be a second answer to
-	 * the same question.
+	 * Whether the list already carries its own "none" — the episode's is `any`,
+	 * the random boost's is this grid's own empty pick. A second None cell above
+	 * a list that already has one would be a second answer to the same question.
 	 */
 	@property({ type: Boolean })
 	required = false;
@@ -111,8 +110,9 @@ export class EntryGrid extends LitElement {
 
 	/**
 	 * The None cell (when not `required`) followed by whatever the filter
-	 * leaves of `options`. The None cell is exempt from the filter the same way
-	 * `<entry-tile>`'s is — it is not one of the entries being searched.
+	 * leaves of `options`. The None cell is exempt from the filter, the same
+	 * rule every catalog picker on the page follows — it is not one of the
+	 * entries being searched.
 	 */
 	#cellsFor(): readonly Option[] {
 		const shown = this.#matches();
@@ -128,10 +128,10 @@ export class EntryGrid extends LitElement {
 	}
 
 	/**
-	 * Linear and clamped in every direction, the same walk `<entry-tile>` uses:
-	 * how many cells sit on a row is a layout answer this element would have to
-	 * measure, and a walk that guesses wrong is worse than one that is simply
-	 * consistent.
+	 * Linear and clamped in every direction, the same walk every catalog grid on
+	 * the page uses: how many cells sit on a row is a layout answer this element
+	 * would have to measure, and a walk that guesses wrong is worse than one
+	 * that is simply consistent.
 	 */
 	#walk(event: KeyboardEvent): void {
 		const cells = this.#cells();

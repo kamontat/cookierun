@@ -76,7 +76,6 @@ import "#components/card-group";
 import "#components/chip-group";
 import "#components/code-bar";
 import "#components/entry-grid";
-import { lockPageScroll } from "#components/entry-tile";
 import "#components/entry-tiles";
 import "#components/site-footer";
 import "#components/site-nav";
@@ -89,6 +88,7 @@ import type { CodeBar } from "#components/code-bar";
 import type { EntryGrid } from "#components/entry-grid";
 import type { EntryTiles } from "#components/entry-tiles";
 import type { TabOption, TabStrip } from "#components/tab-strip";
+import { lockPageScroll } from "#components/tile";
 
 /** Exported for this route's test, which drives the page through the same lookups. */
 export function need<T extends HTMLElement>(id: string): T {

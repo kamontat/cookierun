@@ -2,8 +2,8 @@ import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 
-import { glyphFor, lockPageScroll, tileStyles } from "./entry-tile";
 import { base, controls } from "./theme";
+import { glyphFor, lockPageScroll, tileStyles } from "./tile";
 
 export type Option = readonly [
 	value: string,
@@ -82,9 +82,10 @@ function kindOf(option: Option): string | undefined {
 const ANY_KIND = "all";
 
 /**
- * One treasure slot: the same filtered grid as `<entry-tile>`, holding any
- * number of picks rather than one. Several picks in a slot are alternatives —
- * the code says "this or that" — so the closed line says it that way too.
+ * One treasure slot: a filtered grid behind a dialog, same as the tile button
+ * and sheet described in `tile.ts`, holding any number of picks rather than
+ * one. Several picks in a slot are alternatives — the code says "this or
+ * that" — so the closed line says it that way too.
  */
 export class EntryTiles extends LitElement {
 	static override styles = [
@@ -786,9 +787,9 @@ export class EntryTiles extends LitElement {
 	async #openPicker(): Promise<void> {
 		this.draft = new Set(this.chosen);
 		this.filter = "";
-		// Forces every pick back into view of the grid, the same reason
-		// <entry-tile> inserts a filter-excluded pick rather than losing it: a
-		// dialog that reopens still narrowed to last visit's kind leaves the
+		// Forces every pick back into view of the grid, the same reason a filter
+		// is never let narrow a current pick out of sight elsewhere on the page:
+		// a dialog that reopens still narrowed to last visit's kind leaves the
 		// footer's count with no picked cell on screen to match it.
 		this.kind = ANY_KIND;
 		await this.updateComplete;
