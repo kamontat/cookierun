@@ -41,13 +41,17 @@ site-nav > button {
 	padding: var(--cr-space-3);
 }
 
-/* A label rather than a title: it belongs to the code under it, so it sits
-   closer to the code than to the edge of the panel. */
+/* The panel holds the code and its actions and nothing else, so its heading
+   is for screen readers only: off the screen, not out of the tree, so the
+   section keeps its name. */
 .codepanel h2 {
-	margin-bottom: var(--cr-space-1);
-	color: var(--cr-muted);
-	font-size: 0.75rem;
-	font-weight: 500;
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 
 /* The panel is the code and its buttons, and nothing else. The page's buttons
@@ -113,11 +117,6 @@ tab-strip {
 		font-size: 1.25rem;
 	}
 
-	/* The heading the code does not need comes off the dock. */
-	.codepanel h2 {
-		display: none;
-	}
-
 	/* Five buttons share one row of the dock, so the page's three give up
 	   some side padding; on a second row the ⋯ menu would open off the
 	   screen's left edge. */
@@ -143,8 +142,10 @@ tab-strip {
 	font-size: 0.9rem;
 }
 
+/* Body text rather than the amber: the amber is the box's edge and wash, and
+   on paper it does not clear 4.5:1 as text. */
 .banner strong {
-	color: var(--cr-blessed);
+	color: var(--cr-text);
 	font-family: var(--cr-mono);
 	font-size: 0.8rem;
 	letter-spacing: var(--cr-tracking);

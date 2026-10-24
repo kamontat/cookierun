@@ -257,3 +257,42 @@ test("the tablist carries its role and part", async () => {
 	expect(list?.getAttribute("part")).toBe("list");
 	expect(tab(element, "main")?.getAttribute("role")).toBe("tab");
 });
+
+function rect(left: number, right: number): DOMRect {
+	return {
+		left,
+		right,
+		top: 0,
+		bottom: 0,
+		x: left,
+		y: 0,
+		width: right - left,
+		height: 0,
+		toJSON: () => ({}),
+	} as DOMRect;
+}
+
+// On a phone the strip is one row that scrolls sideways, so the open tab is
+// scrolled into view inside it — sideways only, by the strip's own
+// scrollLeft, never by scrollIntoView, which would move the page as well.
+test("a new value scrolls the open tab into view inside the strip", async () => {
+	const element = await mount();
+	const list = element.shadowRoot?.querySelector<HTMLElement>(".list");
+	if (list === null || list === undefined) throw new Error("no list");
+	list.getBoundingClientRect = () => rect(0, 200);
+	const boosts = tab(element, "boosts");
+	if (boosts === undefined) throw new Error("no boosts tab");
+	boosts.getBoundingClientRect = () => rect(260, 340);
+	list.scrollLeft = 0;
+
+	element.value = "boosts";
+	await element.updateComplete;
+	expect(list.scrollLeft).toBe(140);
+
+	const main = tab(element, "main");
+	if (main === undefined) throw new Error("no main tab");
+	main.getBoundingClientRect = () => rect(-140, -60);
+	element.value = "main";
+	await element.updateComplete;
+	expect(list.scrollLeft).toBe(0);
+});

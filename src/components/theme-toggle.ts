@@ -198,17 +198,17 @@ export class ThemeToggle extends LitElement {
 			<span class="field">
 				<span class="icon" aria-hidden="true">◐</span>
 				<select
-				id="theme-choice"
-				@input=${(event: Event) => {
-					this.#choose(event);
-				}}
-			>
-				${THEMES.map(
-					(theme) =>
-						html`<option value=${theme} .selected=${theme === this.choice}>
-							${LABELS[theme]}
-						</option>`,
-				)}
+					id="theme-choice"
+					@input=${(event: Event) => {
+						this.#choose(event);
+					}}
+				>
+					${THEMES.map(
+						(theme) =>
+							html`<option value=${theme} .selected=${theme === this.choice}>
+								${LABELS[theme]}
+							</option>`,
+					)}
 				</select>
 			</span>
 		`;

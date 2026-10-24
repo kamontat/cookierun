@@ -1,4 +1,4 @@
-import { css, html, LitElement, nothing } from "lit";
+import { css, html, LitElement, nothing, type PropertyValues } from "lit";
 import { property } from "lit/decorators.js";
 
 import { base, controls } from "./theme";
@@ -34,16 +34,28 @@ export class TabStrip extends LitElement {
 				display: block;
 			}
 
+			/* One row at every width: on a phone it scrolls sideways rather than
+			   wrapping, since a sticky strip two rows tall costs the page a row
+			   of its own. The scrollbar is hidden; the open tab is scrolled into
+			   view whenever it changes, and the rest are a swipe away. */
 			.list {
 				display: flex;
-				flex-wrap: wrap;
+				flex-wrap: nowrap;
+				overflow-x: auto;
+				scrollbar-width: none;
 				border-bottom: var(--cr-border) solid var(--cr-line);
+			}
+
+			.list::-webkit-scrollbar {
+				display: none;
 			}
 
 			/* Flat rather than the arcade button block: a tab reads as part of
 			   the bar it sits in, not as a control raised off it. */
 			.tab {
 				display: inline-flex;
+				flex: none;
+				white-space: nowrap;
 				align-items: center;
 				gap: var(--cr-space-2);
 				border: none;
@@ -196,6 +208,22 @@ export class TabStrip extends LitElement {
 		this.#tabs()
 			.find((tab) => tab.value === landing.value)
 			?.focus();
+	}
+
+	/**
+	 * Keeps the open tab inside the strip's own scroll box once the strip is
+	 * narrower than its tabs. By hand, sideways only: `scrollIntoView` would
+	 * scroll the page to the strip as well, and the strip is sticky.
+	 */
+	override updated(changed: PropertyValues<this>): void {
+		if (!changed.has("value") && !changed.has("options")) return;
+		const list = this.shadowRoot?.querySelector<HTMLElement>(".list");
+		const open = this.#tabs().find((tab) => tab.value === this.value);
+		if (list === null || list === undefined || open === undefined) return;
+		const box = list.getBoundingClientRect();
+		const at = open.getBoundingClientRect();
+		if (at.left < box.left) list.scrollLeft -= box.left - at.left;
+		else if (at.right > box.right) list.scrollLeft += at.right - box.right;
 	}
 
 	override render() {
