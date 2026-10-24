@@ -10,7 +10,7 @@
 import type { SummaryItem, SummaryRow } from "#components/build-summary";
 
 import { boostArt, cookiePowerArt, episodeArt } from "./art";
-import { type CatalogSection, imageFor, labelFor } from "./catalog";
+import { type CatalogSection, imageFor, kindFor, labelFor } from "./catalog";
 import { limitsOf } from "./codec";
 import { describeBuild, floorText } from "./describe";
 import type { FullCode } from "./full-code";
@@ -36,7 +36,6 @@ function picture(section: CatalogSection, id: string, base: string) {
 	return image === null ? null : base + image;
 }
 
-/** A face and its name — a cookie, a relay or a pet. */
 /**
  * A face alone, named in its title — the owner's call, as for boosts and
  * power+. One with no face (Any, or an entry the catalog has no picture for)
@@ -61,6 +60,16 @@ function isPlainZero({ levels }: TreasurePick): boolean {
 	return levels.length === 1 && levels[0] === 0;
 }
 
+/**
+ * A treasure's form, for the picture: an evolved one and the blessed one beside
+ * it share a picture, so the kind is what tells them apart. A base form, the
+ * common case, carries nothing.
+ */
+function markOf(id: string): { mark?: "evolved" | "blessed" } {
+	const kind = kindFor("treasures", id);
+	return kind === "evolved" || kind === "blessed" ? { mark: kind } : {};
+}
+
 /** One picture for a slot: its first pick, with the rest in the title. */
 function slotItem(slot: readonly TreasurePick[], base: string): SummaryItem {
 	const [first] = slot;
@@ -76,6 +85,7 @@ function slotItem(slot: readonly TreasurePick[], base: string): SummaryItem {
 			.join(" or "),
 		...(slot.length > 1 ? { badge: `+${slot.length - 1}` } : {}),
 		...(isPlainZero(first) ? {} : { note: levelText(first) }),
+		...markOf(first.id),
 	};
 }
 

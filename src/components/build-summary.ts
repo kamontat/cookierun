@@ -25,11 +25,27 @@ export type SummaryItem =
 			badge?: string;
 			/** The small level text beside the picture. */
 			note?: string;
+			/**
+			 * Which form of a treasure the picture is. An evolved one and the
+			 * blessed one beside it wear the same picture, so this is drawn on it:
+			 * the kind's letter in the top corner and a ring in its colour, the
+			 * same cues the treasure picker uses, and its name in the picture's
+			 * alt text. A base form carries none.
+			 */
+			mark?: Mark;
 	  }
 	/** At most two faces, overlapping, then a name. */
 	| { kind: "stack"; srcs: readonly string[]; text?: string; title?: string }
 	| { kind: "sep"; text: "·" | "→" }
 	| { kind: "tag"; text: string };
+
+/** Declared here, not imported: components never import from routes. */
+export type Mark = "evolved" | "blessed";
+
+const MARKS: Record<Mark, { letter: string; name: string }> = {
+	evolved: { letter: "E", name: "Evolved" },
+	blessed: { letter: "B", name: "Blessed" },
+};
 
 export type SummaryRow = {
 	label: string;
@@ -52,6 +68,18 @@ function stackName(entry: Extract<SummaryItem, { kind: "stack" }>) {
 		: html`<span class="hidden">${entry.title}</span>`;
 }
 
+/**
+ * An image's words for a screen reader: none when its text already says it,
+ * otherwise its title, with the kind's name when it carries one.
+ */
+function pictureAlt(entry: Extract<SummaryItem, { kind: "image" }>): string {
+	if (entry.text !== undefined) return "";
+	const title = entry.title ?? "";
+	return entry.mark === undefined
+		? title
+		: `${title}, ${MARKS[entry.mark].name}`;
+}
+
 function item(entry: SummaryItem) {
 	switch (entry.kind) {
 		case "text":
@@ -67,12 +95,18 @@ function item(entry: SummaryItem) {
 				>${
 					entry.src === null
 						? nothing
-						: html`<span class="pic"
+						: html`<span class="pic" data-mark=${entry.mark ?? nothing}
 								><img
 									src=${entry.src}
-									alt=${entry.text === undefined ? (entry.title ?? "") : ""}
+									alt=${pictureAlt(entry)}
 									loading="lazy"
 								/>${
+									entry.mark === undefined
+										? nothing
+										: html`<span class="mark" aria-hidden="true"
+												>${MARKS[entry.mark].letter}</span
+											>`
+								}${
 									entry.badge === undefined
 										? nothing
 										: html`<span class="badge">${entry.badge}</span>`
@@ -250,6 +284,33 @@ export class BuildSummary extends LitElement {
 				color: var(--cr-bg);
 				font-family: var(--cr-mono);
 				font-size: 0.6rem;
+				line-height: 1.2;
+			}
+
+			.pic[data-mark="evolved"] {
+				--mark: var(--cr-evolved);
+			}
+
+			.pic[data-mark="blessed"] {
+				--mark: var(--cr-blessed);
+			}
+
+			.pic[data-mark] img {
+				border-radius: 50%;
+				box-shadow: 0 0 0 var(--cr-border) var(--mark);
+			}
+
+			.mark {
+				position: absolute;
+				top: -0.35rem;
+				left: -0.4rem;
+				border-radius: var(--cr-radius);
+				background: var(--mark);
+				padding: 0 0.2rem;
+				color: var(--cr-bg);
+				font-family: var(--cr-mono);
+				font-size: 0.6rem;
+				font-weight: 700;
 				line-height: 1.2;
 			}
 

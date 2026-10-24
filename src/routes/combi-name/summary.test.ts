@@ -211,6 +211,31 @@ test("a treasure slot shows its first pick, +N for alternatives, and levels only
 	expect(second?.note).toBeUndefined();
 });
 
+// An evolved treasure and the blessed one beside it wear one picture, so the
+// kind is the only thing on screen that tells them apart.
+test("a treasure's kind rides on its picture, and a base one carries none", () => {
+	const kinds = index.treasures as Record<string, { type?: string }>;
+	const of = (type: string) =>
+		Object.keys(kinds).find((id) => kinds[id]?.type === type) ?? "";
+	const full = fullBuild(
+		{},
+		{
+			treasures: [
+				[treasurePick(of("E"))],
+				[treasurePick(of("B"))],
+				[treasurePick(of("N"))],
+			],
+		},
+	);
+	const pictures = images(row(summaryOf(full, BASE).rows, "Treasures").items);
+
+	expect(pictures.map((each) => each.mark)).toEqual([
+		"evolved",
+		"blessed",
+		undefined,
+	]);
+});
+
 test("exact order puts → between slots and an exact order tag", () => {
 	const full = fullBuild({}, { ordered: true });
 	const { items } = row(summaryOf(full, BASE).rows, "Treasures");

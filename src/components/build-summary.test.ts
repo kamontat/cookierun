@@ -142,6 +142,36 @@ test("an icon-only item is named by its title, on screen and to a screen reader"
 	expect(bare?.querySelector(".hidden")).toBe(null);
 });
 
+test("an image's mark draws the kind's letter and names it", async () => {
+	const element = await mount([
+		{
+			label: "Treasures",
+			target: "treasures",
+			items: [
+				{ kind: "image", src: "a.png", title: "Cheese Ball", mark: "evolved" },
+				{
+					kind: "image",
+					src: "a.png",
+					title: "Blessed Cheese Ball",
+					mark: "blessed",
+				},
+				{ kind: "image", src: "b.png", title: "Acorn" },
+			],
+		},
+	]);
+
+	const [evolved, blessed, plain] =
+		inside(element).querySelectorAll("button.row .pic");
+	expect(evolved?.getAttribute("data-mark")).toBe("evolved");
+	expect(evolved?.querySelector(".mark")?.textContent).toBe("E");
+	expect(evolved?.querySelector("img")?.getAttribute("alt")).toBe(
+		"Cheese Ball, Evolved",
+	);
+	expect(blessed?.querySelector(".mark")?.textContent).toBe("B");
+	expect(plain?.hasAttribute("data-mark")).toBe(false);
+	expect(plain?.querySelector(".mark")).toBe(null);
+});
+
 test("clicking a row fires summary-jump with its target", async () => {
 	const element = await mount(ROWS);
 	const targets: string[] = [];
