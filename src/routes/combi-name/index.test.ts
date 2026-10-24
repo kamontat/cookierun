@@ -523,9 +523,9 @@ async function withClipboard(
 	}
 }
 
-// The confirmation rides on the button, so the line under it stays closed
-// unless the clipboard actually refused.
-test("copying the link says so on the button, not in the status line", async () => {
+// The confirmation rides on the button, so the line under the code stays
+// quiet unless the clipboard actually refused.
+test("copying the link says so on the button, not under the code", async () => {
 	await withClipboard(
 		() => Promise.resolve(),
 		async () => {
@@ -535,23 +535,31 @@ test("copying the link says so on the button, not in the status line", async () 
 			expect(
 				need("copy-link").querySelector(".swap")?.classList.contains("done"),
 			).toBe(true);
-			expect(shown(need("link-status")).trim()).toBe("");
+			expect((codeBar as HTMLElement & { message: string }).message).toBe("");
 		},
 	);
 });
 
 // A blocked clipboard has an instruction to give, and an instruction does not
-// fit on a button.
-test("a blocked clipboard writes the instruction into the status line", async () => {
+// fit on a button. The code bar's own line, under the code, is where it goes.
+test("a blocked clipboard says so on the code bar", async () => {
 	await withClipboard(
 		() => Promise.reject(new Error("blocked")),
 		async () => {
 			need<HTMLButtonElement>("copy-link").click();
 			await settle();
 
-			expect(shown(need("link-status"))).toContain("blocked the clipboard");
+			const bar = codeBar as HTMLElement & {
+				message: string;
+				invalid: boolean;
+			};
+			expect(bar.message).toBe(
+				"The browser blocked the clipboard. Copy the address bar by hand.",
+			);
+			expect(bar.invalid).toBe(true);
 		},
 	);
+	await reset();
 });
 
 test("every character of the code carries a hint", async () => {
@@ -630,11 +638,15 @@ test("a single filled treasure slot shows Any slot even with Exact order", async
 	await reset();
 });
 
-// Copy link and Reset live in the code bar's own button row, so they share the
-// line under the code with Edit and Copy rather than taking a row of their own.
+// Copy link, Save and the menu live in the code bar's own button row, so they
+// share the line under the code with Edit and Copy rather than taking a row of
+// their own.
 test("the page's buttons ride in the code bar's row", () => {
-	expect(need("copy-link").closest("code-bar")?.id).toBe("code");
-	expect(need("reset").closest("code-bar")?.id).toBe("code");
+	expect([...codeBar.children].map((child) => child.id)).toEqual([
+		"copy-link",
+		"save",
+		"code-menu",
+	]);
 });
 
 // A code mid-edit is not the code those buttons act on: copying a link to it,
@@ -1041,13 +1053,16 @@ function savedButtonFor(
 	return button;
 }
 
+/** Writes the note and presses Save (or Update) in the code panel. */
 async function saveCurrent(description: string): Promise<void> {
 	need<HTMLTextAreaElement>("save-description").value = description;
-	need<HTMLFormElement>("save-form").requestSubmit();
+	need<HTMLButtonElement>("save").click();
 	await settle();
 }
 
-test("saving the code lists it with its description, in storage too", async () => {
+// Save sits in the code panel, outside the form it submits, so it reaches the
+// note through its form attribute.
+test("the save button in the code panel submits the note", async () => {
 	expect(need("saved-empty").hidden).toBe(false);
 	await choose("goal", "money");
 
@@ -1093,8 +1108,73 @@ test("resetting the board closes the entry it was opened from", async () => {
 	await reset();
 
 	expect(need("save-editing").hidden).toBe(true);
-	expect(need("save").textContent?.trim()).toBe("Save code");
+	expect(need("save").textContent?.trim()).toBe("Save");
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
+});
+
+test("the note's label says when a saved entry is open", async () => {
+	expect(need("note-label").textContent?.trim()).toBe("Note · new code");
+
+	savedButtonFor("10M0000000", "load").click();
+	await settle();
+	expect(need("note-label").textContent?.trim()).toBe(
+		"Note · editing a saved code",
+	);
+
+	await reset();
+	expect(need("note-label").textContent?.trim()).toBe("Note · new code");
+});
+
+test("Reset, Save as new and Cancel sit in the code panel's menu", async () => {
+	for (const id of ["reset", "save-new", "save-cancel"]) {
+		expect(need(id).closest("#code-menu")).not.toBe(null);
+	}
+	expect(need("save-new").hidden).toBe(true);
+	expect(need("save-cancel").hidden).toBe(true);
+
+	savedButtonFor("10M0000000", "load").click();
+	await settle();
+	expect(need("save-new").hidden).toBe(false);
+	expect(need("save-cancel").hidden).toBe(false);
+
+	await reset();
+	expect(need("save-new").hidden).toBe(true);
+	expect(need("save-cancel").hidden).toBe(true);
+});
+
+// Built and closed like a saved row's menu: a pick, Escape (focus back to its
+// summary) and a click elsewhere each close it.
+test("picking from the code menu closes it", async () => {
+	const menu = need<HTMLDetailsElement>("code-menu");
+	const open = () => {
+		menu.open = true;
+		menu.dispatchEvent(new Event("toggle"));
+	};
+
+	open();
+	await reset();
+	expect(menu.open).toBe(false);
+
+	savedButtonFor("10M0000000", "load").click();
+	await settle();
+	open();
+	need<HTMLButtonElement>("save-cancel").click();
+	await settle();
+	expect(menu.open).toBe(false);
+	expect(isEditing()).toBe(false);
+
+	open();
+	menu
+		.querySelector("summary")
+		?.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+		);
+	expect(menu.open).toBe(false);
+	expect(document.activeElement).toBe(menu.querySelector("summary"));
+
+	open();
+	need("saved-heading").click();
+	expect(menu.open).toBe(false);
 });
 
 test("deleting a saved code takes it off the list and out of storage", async () => {
@@ -1141,7 +1221,7 @@ test("Update writes the board and the note into the loaded entry in place", asyn
 		"Box farm",
 	);
 	expect(isEditing()).toBe(false);
-	expect(need("save").textContent?.trim()).toBe("Save code");
+	expect(need("save").textContent?.trim()).toBe("Save");
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
 	expect(need("save-status").textContent).toBe("Updated Box farm.");
 	await reset();

@@ -76,27 +76,40 @@
       <section class="codepanel" aria-labelledby="code-heading">
         <h2 id="code-heading">Your code</h2>
 
-        <!-- The two page buttons are slotted into the code bar's own button
+        <!-- The page's buttons are slotted into the code bar's own button
              row, so the code keeps a line to itself and everything that acts
              on it shares the line below. The bar drops them while its editor
-             is open: copying or resetting a code mid-edit means acting on a
-             code that is not the one on screen. -->
+             is open: copying, saving or resetting a code mid-edit means acting
+             on a code that is not the one on screen. -->
         <code-bar
           id="code"
           value="10S0000000"
           placeholder="1C00TU000-10S070FW00"
         >
           <!-- Two labels in one cell: the button says the copy worked without
-               changing width, so Reset does not shuffle sideways for it. -->
+               changing width, so Save does not shuffle sideways for it. -->
           <button id="copy-link" type="button">
             <span class="swap">
               <span class="rest">Copy link</span>
               <span class="said">Copied</span>
             </span>
           </button>
-          <button id="reset" type="button">Reset</button>
+          <!-- Outside the form it submits, so it names it. It reads Update
+               while a saved entry is open. -->
+          <button id="save" type="submit" form="save-form">Save</button>
+          <!-- Built and closed the same way as a saved row's menu. Save as new
+               and Cancel only mean something while an entry is open. -->
+          <details id="code-menu" class="more">
+            <summary class="moretoggle" aria-label="More actions">
+              <span aria-hidden="true">⋯</span>
+            </summary>
+            <div class="menu">
+              <button id="reset" type="button">Reset</button>
+              <button id="save-new" type="button" hidden>Save as new</button>
+              <button id="save-cancel" type="button" hidden>Cancel</button>
+            </div>
+          </details>
         </code-bar>
-        <p id="link-status" class="status" role="status"></p>
       </section>
 
       <!-- Only a code read with changes has something to say here, so the
@@ -111,6 +124,24 @@
         <strong id="warnings-title">Read with changes</strong>
         <ul id="warnings" class="warnings" aria-live="polite"></ul>
       </section>
+
+      <!-- The note for the code on screen. Save and Update in the code panel
+           submit it; Ctrl+Enter does too, and Escape closes an open entry. -->
+      <form id="save-form" class="saveform" novalidate>
+        <label for="save-description" id="note-label" class="eyebrow"
+          >Note · new code</label
+        >
+        <textarea
+          id="save-description"
+          rows="3"
+          maxlength="500"
+          placeholder="What is this build for? Ctrl+Enter saves."
+        ></textarea>
+        <!-- Shown only while an entry is open for editing: the one form
+             either adds the build on screen or rewrites that entry. -->
+        <p id="save-editing" class="editing" hidden></p>
+        <p id="save-status" class="status" role="status"></p>
+      </form>
 
       <!-- The whole build at a glance, drawn from the code the page just wrote.
            Every row is a way to the control behind it. Outside the form, so
@@ -294,24 +325,6 @@
            its note, and Export the whole list as text Import reads back. -->
       <section class="panel saved" aria-labelledby="saved-heading">
         <h2 id="saved-heading">Saved codes</h2>
-        <form id="save-form" class="saveform" novalidate>
-          <!-- Shown only while an entry is open for editing: the one form
-               either adds the build on screen or rewrites that entry. -->
-          <p id="save-editing" class="editing" hidden></p>
-          <textarea
-            id="save-description"
-            rows="3"
-            maxlength="500"
-            placeholder="What is this build for? Ctrl+Enter saves."
-            aria-label="Description for the current code"
-          ></textarea>
-          <div class="savebuttons">
-            <button id="save" type="submit">Save code</button>
-            <button id="save-new" type="button" hidden>Save as new</button>
-            <button id="save-cancel" type="button" hidden>Cancel</button>
-          </div>
-        </form>
-        <p id="save-status" class="status" role="status"></p>
         <p id="saved-empty" class="caveat">
           Nothing saved yet. Saved codes stay in this browser until you share
           or export them.

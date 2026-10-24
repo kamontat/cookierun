@@ -40,8 +40,8 @@ main {
 }
 
 /* The panel is the code and its buttons, and nothing else: what the code says
-   is drawn out in the board below, where there is room for it. The two buttons
-   here are slotted into the code bar's own row, so they are sized by it and
+   is drawn out in the board below, where there is room for it. The page's buttons
+   and menu are slotted into the code bar's own row, so they are sized by it and
    need no placement of their own. */
 
 /* Both labels share one grid cell, so a button saying its work is done is the
@@ -64,16 +64,6 @@ main {
 
 .swap.done > .said {
 	visibility: visible;
-}
-
-/* Only a blocked clipboard writes here now — a copy that worked says so on the
-   button itself — so the line takes no room until it has something to say. */
-#link-status {
-	margin-bottom: 0;
-}
-
-#link-status:empty {
-	min-height: 0;
 }
 
 .tip {
@@ -286,24 +276,24 @@ main {
 	font-size: 0.85rem;
 }
 
-/* The saved list sits after the board: it is somewhere to keep a build once
-   it is made, not part of making one. */
+/* The note for the code on screen: a label, the box, then the lines about it.
+   Its buttons are in the code panel, so the form is one column. */
 .saveform {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--cr-space-2);
+	display: grid;
+	gap: var(--cr-space-1);
 }
 
-/* The buttons sit at the foot of the box rather than stretching to its
-   height. */
-.saveform {
-	align-items: flex-end;
+.eyebrow {
+	color: var(--cr-muted);
+	font-family: var(--cr-mono);
+	font-size: 0.75rem;
+	letter-spacing: var(--cr-tracking);
+	text-transform: uppercase;
 }
 
-/* While an entry is open, the line naming it takes a row of its own above the
-   box, in the colour that marks the entry in the list below. */
+/* While an entry is open, the line naming it sits under the box, in the colour
+   that marks the entry in the saved list. */
 .saveform .editing {
-	flex: 1 0 100%;
 	margin: 0;
 	border-left: var(--cr-border) solid var(--cr-accent-2);
 	padding-left: var(--cr-space-2);
@@ -311,7 +301,12 @@ main {
 	overflow-wrap: anywhere;
 }
 
-.saveform textarea,
+.saveform textarea {
+	width: 100%;
+	resize: vertical;
+	font: inherit;
+}
+
 .transfer textarea {
 	flex: 1 1 14rem;
 	min-width: 0;
@@ -320,11 +315,14 @@ main {
 }
 
 /* The reset makes a bare div a flex column; these are rows that wrap. */
-.savebuttons,
 .transferbuttons {
 	flex-direction: row;
 	flex-wrap: wrap;
 	gap: var(--cr-space-2);
+}
+
+#save-status {
+	margin: 0;
 }
 
 #save-status:empty {
@@ -410,16 +408,17 @@ main {
 	margin-left: auto;
 }
 
-/* Load on the row, everything else behind the row's own menu. The menu
+/* Load on the row, everything else behind the row's own menu; the code panel's
+   Reset, Save as new and Cancel sit behind one built the same way. The menu
    hangs from its button's right edge, over whatever is below, so opening it
    moves nothing on the page. */
-.savedlist .more {
+.more {
 	position: relative;
 }
 
 /* A summary is not a button, so it takes the button look by hand — and the
    coarse-pointer tap size base.css gives real buttons. */
-.savedlist .moretoggle {
+.moretoggle {
 	display: grid;
 	place-items: center;
 	list-style: none;
@@ -435,28 +434,28 @@ main {
 	-webkit-tap-highlight-color: transparent;
 }
 
-.savedlist .moretoggle::-webkit-details-marker {
+.moretoggle::-webkit-details-marker {
 	display: none;
 }
 
-.savedlist .moretoggle:focus-visible {
+.moretoggle:focus-visible {
 	outline: var(--cr-border) solid var(--cr-accent);
 	outline-offset: 2px;
 }
 
-.savedlist .more[open] > .moretoggle {
+.more[open] > .moretoggle {
 	transform: translate(2px, 2px);
 	box-shadow: none;
 }
 
 @media (pointer: coarse) {
-	.savedlist .moretoggle {
+	.moretoggle {
 		min-height: var(--cr-tap);
 		min-width: var(--cr-tap);
 	}
 }
 
-.savedlist .menu {
+.more .menu {
 	position: absolute;
 	top: calc(100% + var(--cr-space-1));
 	right: 0;
@@ -472,15 +471,21 @@ main {
 }
 
 /* Items read as a list, not a stack of raised buttons. */
-.savedlist .menu button {
+.more .menu button {
 	border-color: transparent;
 	background: none;
 	box-shadow: none;
 	text-align: left;
 }
 
-.savedlist .menu button:hover {
+.more .menu button:hover {
 	background: var(--cr-surface-2);
+}
+
+/* Sized like the buttons the code bar draws beside it. */
+#code-menu .moretoggle,
+#code-menu .menu button {
+	font-size: 0.75rem;
 }
 
 /* The one item that loses something. */

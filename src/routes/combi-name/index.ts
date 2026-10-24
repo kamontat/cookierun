@@ -103,7 +103,7 @@ const warningsBanner = need("warnings-banner");
 const warningList = need<HTMLUListElement>("warnings");
 const copyLinkButton = need<HTMLButtonElement>("copy-link");
 const resetButton = need<HTMLButtonElement>("reset");
-const linkStatus = need("link-status");
+const codeMenu = need<HTMLDetailsElement>("code-menu");
 
 const tabStrip = need<TabStrip>("tabs");
 const buildForm = need<HTMLFormElement>("build");
@@ -133,6 +133,7 @@ const relayNote = need("relay-note");
 const saveForm = need<HTMLFormElement>("save-form");
 const saveDescription = need<HTMLTextAreaElement>("save-description");
 const saveEditing = need("save-editing");
+const noteLabel = need("note-label");
 const saveButton = need<HTMLButtonElement>("save");
 const saveNewButton = need<HTMLButtonElement>("save-new");
 const saveCancelButton = need<HTMLButtonElement>("save-cancel");
@@ -665,7 +666,8 @@ function savedButton(
  * than a hand-rolled popup: it opens and closes from the keyboard and tells a
  * screen reader its state with nothing written for it. What the platform does
  * not do — close on a pick, on Escape, on a click elsewhere, or when another
- * row's opens — is wired once on the list, below.
+ * menu opens — is wired once on the document, below, for these and the code
+ * panel's menu alike.
  */
 function savedMenu(entry: SavedCode): HTMLDetailsElement {
 	const menu = document.createElement("details");
@@ -689,24 +691,30 @@ function savedMenu(entry: SavedCode): HTMLDetailsElement {
 }
 
 function closeMenus(except: Element | null = null): void {
-	for (const menu of savedList.querySelectorAll<HTMLDetailsElement>(
+	for (const menu of document.querySelectorAll<HTMLDetailsElement>(
 		"details.more[open]",
 	)) {
 		if (menu !== except) menu.open = false;
 	}
 }
 
-// `toggle` does not bubble, so the list hears it in the capture phase.
-savedList.addEventListener(
+// `toggle` does not bubble, so the document hears it in the capture phase.
+document.addEventListener(
 	"toggle",
 	(event) => {
-		const menu = event.target as HTMLDetailsElement;
-		if (menu.matches("details.more") && menu.open) closeMenus(menu);
+		const menu = event.target as Element;
+		if (
+			menu instanceof HTMLDetailsElement &&
+			menu.matches("details.more") &&
+			menu.open
+		) {
+			closeMenus(menu);
+		}
 	},
 	true,
 );
 
-savedList.addEventListener("keydown", (event) => {
+document.addEventListener("keydown", (event) => {
 	if (event.key !== "Escape") return;
 	const menu = (event.target as Element | null)?.closest<HTMLDetailsElement>(
 		"details.more[open]",
@@ -720,6 +728,13 @@ savedList.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
 	const target = event.target as Element | null;
 	closeMenus(target?.closest("details.more") ?? null);
+});
+
+// A pick from the code panel's menu is the menu's answer; it closes behind it.
+codeMenu.addEventListener("click", (event) => {
+	if ((event.target as Element | null)?.closest(".menu button")) {
+		codeMenu.open = false;
+	}
 });
 
 /**
@@ -796,7 +811,9 @@ function showEditing(code: string): void {
 	saveEditing.hidden = entry === undefined;
 	saveNewButton.hidden = entry === undefined;
 	saveCancelButton.hidden = entry === undefined;
-	saveButton.textContent = entry === undefined ? "Save code" : "Update";
+	saveButton.textContent = entry === undefined ? "Save" : "Update";
+	noteLabel.textContent =
+		entry === undefined ? "Note · new code" : "Note · editing a saved code";
 	if (entry === undefined) {
 		saveEditing.textContent = "";
 		return;
@@ -852,7 +869,7 @@ function updateEntry(from: string): void {
 			// Deleted in another tab since it was opened. Nothing left to update.
 			showSaved(result.entries);
 			stopEditing();
-			setStatus(saveStatus, "That entry is gone. Save code adds it again.");
+			setStatus(saveStatus, "That entry is gone. Save adds it again.");
 			return;
 		}
 		const other = result.entries.find((saved) => saved.code === code);
@@ -1021,7 +1038,7 @@ savedList.addEventListener("click", (event) => {
 
 /**
  * A link someone sent may carry a note. It is offered, not saved: the note
- * goes into the box, and keeping it is one click on Save code — a link that
+ * goes into the box, and keeping it is one click on Save — a link that
  * filled someone's list on its own would be a link nobody dared follow.
  */
 function offerNote(code: string, note: string | null): void {
@@ -1035,7 +1052,7 @@ function offerNote(code: string, note: string | null): void {
 		return;
 	}
 	saveDescription.value = note;
-	setStatus(saveStatus, "This link came with a note. Save code keeps it.");
+	setStatus(saveStatus, "This link came with a note. Save keeps it.");
 }
 
 function plural(count: number, word: string): string {
@@ -1503,19 +1520,24 @@ window.addEventListener("hashchange", () => {
 	offerNote(codeBar.value, note);
 });
 
+const CLIPBOARD_BLOCKED =
+	"The browser blocked the clipboard. Copy the address bar by hand.";
+
+// A copy that worked says so on the button; one the browser refused has an
+// instruction to give, and that goes on the line under the code.
 copyLinkButton.addEventListener("click", () => {
 	void navigator.clipboard
 		.writeText(location.href)
 		.then(() => {
-			setStatus(linkStatus, "");
+			if (codeBar.message === CLIPBOARD_BLOCKED) {
+				codeBar.message = "";
+				codeBar.invalid = false;
+			}
 			confirmOn(copyLinkButton);
 		})
 		.catch(() => {
-			setStatus(
-				linkStatus,
-				"The browser blocked the clipboard. Copy the address bar by hand.",
-				true,
-			);
+			codeBar.message = CLIPBOARD_BLOCKED;
+			codeBar.invalid = true;
 		});
 });
 
@@ -1530,7 +1552,6 @@ resetButton.addEventListener("click", () => {
 	// Starting over, so Update must not stay aimed at the entry last loaded.
 	if (editing !== null) stopEditing();
 	applyCode(DEFAULT_CODE);
-	setStatus(linkStatus, "");
 });
 
 showSaved(savedEntries);
