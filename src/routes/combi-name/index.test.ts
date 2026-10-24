@@ -2,6 +2,8 @@
 
 import { expect, test } from "bun:test";
 
+import type { NoticeBar } from "#components/notice-bar";
+
 const page = await Bun.file(new URL("./index.html", import.meta.url)).text();
 const body = page.slice(
 	page.indexOf("<body>") + "<body>".length,
@@ -37,7 +39,6 @@ async function settle(): Promise<void> {
 const codeBar = need("code");
 const summary = need("summary");
 const verdict = need("verdict");
-const warnings = need("warnings");
 const resetButton = need<HTMLButtonElement>("reset");
 
 async function codeText(): Promise<string> {
@@ -89,8 +90,10 @@ async function typeCode(text: string): Promise<void> {
 	await settle();
 }
 
-function message(): string {
-	return inside(codeBar).querySelector(".message")?.textContent?.trim() ?? "";
+/** What the page's one notification banner is showing, if anything. */
+function notice(): { type: string | null; text: string } {
+	const bar = need<NoticeBar>("notice");
+	return { type: bar.type, text: bar.text };
 }
 
 async function reset(): Promise<void> {
@@ -375,7 +378,27 @@ test("a treasure the picker hides still says which kind it is", async () => {
 test("an unfinished code reports how many characters are in it", async () => {
 	await typeCode("1M3H");
 
-	expect(message()).toBe("4 of 10 characters.");
+	expect(notice()).toEqual({ type: "info", text: "4 of 10 characters." });
+	await reset();
+});
+
+// Progress stays up for as long as someone is typing — an info message would
+// otherwise clear itself mid-word — and is let go once the editor shuts.
+test("typing progress is held while the editor is open and let go when it closes", async () => {
+	const bar = need<NoticeBar>("notice");
+	const was = bar.infoFor;
+	bar.infoFor = 10;
+	try {
+		await typeCode("1M3");
+		await Bun.sleep(30);
+		expect(notice()).toEqual({ type: "info", text: "3 of 10 characters." });
+
+		await closeEditor();
+		await Bun.sleep(30);
+		expect(notice().type).toBe(null);
+	} finally {
+		bar.infoFor = was;
+	}
 	await reset();
 });
 
@@ -390,7 +413,10 @@ test("an unfinished code leaves the controls where they were", async () => {
 test("an unreadable code says what is wrong with it", async () => {
 	await typeCode("10Q0000000");
 
-	expect(message()).toContain("Q");
+	expect(notice().type).toBe("error");
+	expect(notice().text).toContain("Q");
+	// The bar's own line is left to the bar: the page says nothing there.
+	expect((codeBar as HTMLElement & { message: string }).message).toBe("");
 	await reset();
 });
 
@@ -404,21 +430,32 @@ test("an unreadable code leaves the controls where they were", async () => {
 
 // Hand-typed codes contradict themselves; the page shows one rather than
 // refusing it, and says what it did about it.
-test("a contradicting code shows the warnings banner, and it hides again", async () => {
-	const banner = need("warnings-banner");
-	expect(banner.hidden).toBe(true);
+test("a contradicting code shows its warnings in the banner, and they go again", async () => {
+	expect(notice().type).toBe(null);
 
 	await typeCode("1AM0F00000");
 
 	expect(isOn("boosts", "fastStart")).toBe(true);
-	expect(banner.hidden).toBe(false);
-	expect(banner.textContent).toContain("Read with changes");
-	expect(warnings.textContent).toContain("Semi-auto");
+	expect(notice().type).toBe("warn");
+	expect(notice().text).toContain("Read with changes");
+	expect(notice().text).toContain("Semi-auto");
 
 	await typeCode("10S0000000");
 
-	expect(warnings.textContent).toBe("");
-	expect(banner.hidden).toBe(true);
+	expect(notice().type).toBe(null);
+	await reset();
+});
+
+// Warnings are about the code that produced them: the next build change
+// clears them, just as typing a clean code does.
+test("a decode warning clears on the next build change", async () => {
+	await typeCode("1AM0F00000");
+	await closeEditor();
+	expect(notice().type).toBe("warn");
+
+	await choose("goal", "exp");
+
+	expect(notice().type).toBe(null);
 	await reset();
 });
 
@@ -432,10 +469,11 @@ test("pasting a code anywhere on the page loads it", async () => {
 
 	expect(isOn("goal", "money")).toBe(true);
 	expect(await codeText()).toBe("10M3000000");
+	expect(notice()).toEqual({ type: "info", text: "Code pasted." });
 	await reset();
 });
 
-// The line under the code answers a question about the code in front of you,
+// A message about a code answers a question about the code in front of you,
 // so it cannot outlive the code it was about.
 test("a message from the last code goes away once a control moves", async () => {
 	const event = new Event("paste", { bubbles: true, cancelable: true });
@@ -444,11 +482,11 @@ test("a message from the last code goes away once a control moves", async () => 
 	});
 	document.dispatchEvent(event);
 	await settle();
-	expect(message()).not.toBe("");
+	expect(notice().type).not.toBe(null);
 
 	await choose("goal", "exp");
 
-	expect(message()).toBe("");
+	expect(notice().type).toBe(null);
 	await reset();
 });
 
@@ -540,40 +578,63 @@ async function withClipboard(
 	}
 }
 
-// The confirmation rides on the button, so the line under the code stays
-// quiet unless the clipboard actually refused.
-test("copying the link says so on the button, not under the code", async () => {
+// The menu has closed by the time the clipboard answers, so the word goes in
+// the banner rather than on the button.
+test("Copy link in the menu copies the page's address and says so", async () => {
+	let written = "";
 	await withClipboard(
-		() => Promise.resolve(),
+		(text) => {
+			written = text;
+			return Promise.resolve();
+		},
 		async () => {
 			need<HTMLButtonElement>("copy-link").click();
 			await settle();
-
-			expect(
-				need("copy-link").querySelector(".swap")?.classList.contains("done"),
-			).toBe(true);
-			expect((codeBar as HTMLElement & { message: string }).message).toBe("");
 		},
 	);
+
+	expect(written).toBe(location.href);
+	expect(notice()).toEqual({ type: "info", text: "Copied the link." });
+	await reset();
 });
 
-// A blocked clipboard has an instruction to give, and an instruction does not
-// fit on a button. The code bar's own line, under the code, is where it goes.
-test("a blocked clipboard says so on the code bar", async () => {
+test("Copy code in the menu copies the code itself and says so", async () => {
+	await choose("goal", "money");
+	let written = "";
+	await withClipboard(
+		(text) => {
+			written = text;
+			return Promise.resolve();
+		},
+		async () => {
+			need<HTMLButtonElement>("copy-code").click();
+			await settle();
+		},
+	);
+
+	expect(written).toBe("10M0000000");
+	expect(notice()).toEqual({ type: "info", text: "Copied 10M0000000." });
+	await reset();
+});
+
+// A blocked clipboard has an instruction to give, so it stays up as an error.
+test("a blocked clipboard says so in the banner", async () => {
 	await withClipboard(
 		() => Promise.reject(new Error("blocked")),
 		async () => {
 			need<HTMLButtonElement>("copy-link").click();
 			await settle();
+			expect(notice()).toEqual({
+				type: "error",
+				text: "The browser blocked the clipboard. Copy the address bar by hand.",
+			});
 
-			const bar = codeBar as HTMLElement & {
-				message: string;
-				invalid: boolean;
-			};
-			expect(bar.message).toBe(
-				"The browser blocked the clipboard. Copy the address bar by hand.",
-			);
-			expect(bar.invalid).toBe(true);
+			need<HTMLButtonElement>("copy-code").click();
+			await settle();
+			expect(notice()).toEqual({
+				type: "error",
+				text: "The browser blocked the clipboard. Select the code and copy it by hand.",
+			});
 		},
 	);
 	await reset();
@@ -655,15 +716,20 @@ test("a single filled treasure slot shows Any slot even with Exact order", async
 	await reset();
 });
 
-// Copy link, Save and the menu live in the code bar's own button row, so they
-// share the line under the code with Edit and Copy rather than taking a row of
-// their own.
-test("the page's buttons ride in the code bar's row", () => {
+// Three buttons on the panel and nothing else: the bar's own Edit, then Save
+// and the menu slotted into the same row. The bar's own Copy is off, since
+// Copy code is in the menu.
+test("the code panel shows Edit, Save and the menu, and nothing else", async () => {
+	await settle();
 	expect([...codeBar.children].map((child) => child.id)).toEqual([
-		"copy-link",
 		"save",
 		"code-menu",
 	]);
+	expect((codeBar as HTMLElement & { copyable: boolean }).copyable).toBe(false);
+	const own = [
+		...inside(codeBar).querySelectorAll<HTMLButtonElement>(".buttons button"),
+	].map((button) => button.textContent?.trim());
+	expect(own).toEqual(["Edit"]);
 });
 
 // A code mid-edit is not the code those buttons act on: copying a link to it,
@@ -1119,8 +1185,6 @@ test("Saved opens a drawer that lists the saved codes, and its count follows the
 	expect(need("saved-count").textContent).toBe("1");
 	expect(savedDrawer().contains(need("saved-list"))).toBe(true);
 	expect(savedDrawer().contains(need("saved-empty"))).toBe(true);
-	expect(savedDrawer().contains(need("transfer-status"))).toBe(true);
-	expect(savedDrawer().contains(need("saved-status"))).toBe(true);
 
 	await openSavedDrawer();
 	expect(savedDrawer().open).toBe(true);
@@ -1148,6 +1212,37 @@ test("Saved opens a drawer that lists the saved codes, and its count follows the
 	expect(need("saved-count").textContent).toBe("1");
 });
 
+// A drawer is modal, so everything behind it is inert and half hidden. The
+// page keeps one banner and carries it into whichever drawer is open.
+test("the one banner moves into an open drawer, under its header, and back", async () => {
+	const bar = need<NoticeBar>("notice");
+	const home = () =>
+		bar.previousElementSibling?.classList.contains("codepanel");
+	expect(home()).toBe(true);
+
+	bar.show("warn", "Still here.");
+	await openSavedDrawer();
+	expect(savedDrawer().contains(bar)).toBe(true);
+	expect(bar.previousElementSibling?.tagName).toBe("HEADER");
+	expect(notice()).toEqual({ type: "warn", text: "Still here." });
+
+	closeButton(savedDrawer()).click();
+	await settle();
+	expect(home()).toBe(true);
+	expect(notice()).toEqual({ type: "warn", text: "Still here." });
+
+	need<HTMLButtonElement>("open-help").click();
+	await settle();
+	expect(helpDrawer().contains(bar)).toBe(true);
+	expect(bar.previousElementSibling?.tagName).toBe("HEADER");
+	// Escape closes a native dialog without a click; the close event is what
+	// every way out shares.
+	helpDrawer().close();
+	await settle();
+	expect(home()).toBe(true);
+	bar.clear();
+});
+
 // One action, not Load beside Edit: the two differed only in whether saving
 // afterwards wrote back, and that is a choice the save box already offers.
 test("loading from the drawer closes it and says so by the note", async () => {
@@ -1164,7 +1259,7 @@ test("loading from the drawer closes it and says so by the note", async () => {
 	expect(shownPanels()).toEqual(["panel-boosts"]);
 	await pickTab("main");
 	expect(isOn("goal", "money")).toBe(true);
-	expect(need("save-status").textContent).toBe("Loaded Coin farm.");
+	expect(notice()).toEqual({ type: "info", text: "Loaded Coin farm." });
 	expect(!need("save-editing").hidden).toBe(true);
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe(
 		"Coin farm\nuse Fairy",
@@ -1198,17 +1293,17 @@ test("a saved code that no longer reads keeps the drawer open and says so inside
 	need<HTMLTextAreaElement>("import-text").value = "10M0000000";
 	need<HTMLButtonElement>("import").click();
 	await settle();
-	need("save-status").textContent = "";
+	need<NoticeBar>("notice").clear();
 
 	await openSavedDrawer();
 	savedButtonFor("1ZZZZZZZZZ", "load").click();
 	await settle();
 
 	expect(savedDrawer().open).toBe(true);
-	expect(need("saved-status").textContent).toContain(
-		"1ZZZZZZZZZ no longer reads",
-	);
-	expect(need("save-status").textContent).toBe("");
+	expect(notice().type).toBe("error");
+	expect(notice().text).toContain("1ZZZZZZZZZ no longer reads");
+	// The one banner went into the drawer with it, so the message is seen.
+	expect(savedDrawer().contains(need("notice"))).toBe(true);
 	expect(isEditing()).toBe(false);
 	expect(await codeText()).toBe("10S0000000");
 
@@ -1231,10 +1326,12 @@ test("the note's label says when a saved entry is open", async () => {
 	expect(need("note-label").textContent?.trim()).toBe("Note · new code");
 });
 
-test("Reset, Save as new and Cancel sit in the code panel's menu", async () => {
-	for (const id of ["reset", "save-new", "save-cancel"]) {
-		expect(need(id).closest("#code-menu")).not.toBe(null);
-	}
+test("the code panel's menu holds Copy code, Copy link, Reset, Save as new and Cancel, in that order", async () => {
+	expect(
+		[...need("code-menu").querySelectorAll(".menu button")].map(
+			(button) => button.id,
+		),
+	).toEqual(["copy-code", "copy-link", "reset", "save-new", "save-cancel"]);
 	expect(need("save-new").hidden).toBe(true);
 	expect(need("save-cancel").hidden).toBe(true);
 
@@ -1291,7 +1388,7 @@ test("deleting a saved code takes it off the list and out of storage", async () 
 	expect(savedRows()).toHaveLength(0);
 	expect(need("saved-empty").hidden).toBe(false);
 	expect(localStorage.getItem("combi-name:saved")).toBe("[]");
-	expect(need("saved-status").textContent).toBe("Deleted 10M0000000.");
+	expect(notice()).toEqual({ type: "info", text: "Deleted 10M0000000." });
 	expect(need("saved-count").textContent).toBe("0");
 });
 
@@ -1340,7 +1437,7 @@ test("Update writes the board and the note into the loaded entry in place", asyn
 	expect(isEditing()).toBe(false);
 	expect(need("save").textContent?.trim()).toBe("Save");
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
-	expect(need("save-status").textContent).toBe("Updated Box farm.");
+	expect(notice()).toEqual({ type: "info", text: "Updated Box farm." });
 	await reset();
 });
 
@@ -1352,8 +1449,8 @@ test("an update onto a code saved elsewhere is refused and the edit stays open u
 	await typeCode("10S0000000");
 	await saveCurrent("Box farm");
 
-	expect(need("save-status").textContent).toContain("already saved");
-	expect(need("save-status").classList.contains("error")).toBe(true);
+	expect(notice().text).toContain("already saved");
+	expect(notice().type).toBe("error");
 	expect(savedCodes()).toEqual(["10S0000000", edited]);
 	expect(isEditing()).toBe(true);
 
@@ -1397,9 +1494,10 @@ test("copying an entry's link reports inside the drawer", async () => {
 
 	expect(written).toBe(COIN_FARM_LINK);
 	// The menu it sits in closes on the click, so the word goes in the line.
-	expect(need("saved-status").textContent).toBe(
-		"Copied the link to Coin farm.",
-	);
+	expect(notice()).toEqual({
+		type: "info",
+		text: "Copied the link to Coin farm.",
+	});
 });
 
 function rowFor(code: string): HTMLLIElement {
@@ -1556,9 +1654,11 @@ test("importing text adds the new codes on top, keeps saved notes, and names the
 	expect(savedRows()[1]?.querySelector(".description")?.textContent).toBe(
 		"Coin farm",
 	);
-	expect(need("transfer-status").textContent).toBe(
-		"Added 1 code. 1 was already saved. Skipped line 5.",
-	);
+	// A skipped line is something to look at, so it is a warning, not news.
+	expect(notice()).toEqual({
+		type: "warn",
+		text: "Added 1 code. 1 was already saved. Skipped line 5.",
+	});
 	expect(need<HTMLTextAreaElement>("import-text").value).toBe("");
 });
 
@@ -1572,7 +1672,8 @@ test("a link that carries a note offers it in the save box", async () => {
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe(
 		"From a friend",
 	);
-	expect(need("save-status").textContent).toContain("came with a note");
+	expect(notice().type).toBe("info");
+	expect(notice().text).toContain("came with a note");
 	// The page's own hash goes back to being the build alone.
 	expect(location.hash).toBe("#10B5000000");
 

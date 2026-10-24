@@ -77,6 +77,7 @@ import "#components/chip-group";
 import "#components/code-bar";
 import "#components/entry-grid";
 import "#components/entry-tiles";
+import "#components/notice-bar";
 import "#components/site-footer";
 import "#components/site-nav";
 import "#components/tab-strip";
@@ -87,6 +88,11 @@ import type { ChipGroup } from "#components/chip-group";
 import type { CodeBar } from "#components/code-bar";
 import type { EntryGrid } from "#components/entry-grid";
 import type { EntryTiles } from "#components/entry-tiles";
+import type {
+	NoticeBar,
+	NoticeOptions,
+	NoticeType,
+} from "#components/notice-bar";
 import type { TabOption, TabStrip } from "#components/tab-strip";
 import { lockPageScroll } from "#components/tile";
 
@@ -100,8 +106,8 @@ export function need<T extends HTMLElement>(id: string): T {
 const codeBar = need<CodeBar>("code");
 const summaryCard = need<BuildSummary>("summary");
 const verdictLine = need("verdict");
-const warningsBanner = need("warnings-banner");
-const warningList = need<HTMLUListElement>("warnings");
+const notice = need<NoticeBar>("notice");
+const copyCodeButton = need<HTMLButtonElement>("copy-code");
 const copyLinkButton = need<HTMLButtonElement>("copy-link");
 const resetButton = need<HTMLButtonElement>("reset");
 const codeMenu = need<HTMLDetailsElement>("code-menu");
@@ -138,10 +144,8 @@ const noteLabel = need("note-label");
 const saveButton = need<HTMLButtonElement>("save");
 const saveNewButton = need<HTMLButtonElement>("save-new");
 const saveCancelButton = need<HTMLButtonElement>("save-cancel");
-const saveStatus = need("save-status");
 const savedEmpty = need("saved-empty");
 const savedList = need<HTMLUListElement>("saved-list");
-const savedStatus = need("saved-status");
 const savedCount = need("saved-count");
 const savedDrawer = need<HTMLDialogElement>("saved-drawer");
 const helpDrawer = need<HTMLDialogElement>("help-drawer");
@@ -151,7 +155,6 @@ const exportDownloadButton = need<HTMLButtonElement>("export-download");
 const importInput = need<HTMLTextAreaElement>("import-text");
 const importButton = need<HTMLButtonElement>("import");
 const importFile = need<HTMLInputElement>("import-file");
-const transferStatus = need("transfer-status");
 
 /** The fields an episode or a mode can take off the board. */
 const offFields = {
@@ -420,35 +423,38 @@ function writeForm(combi: Combi): void {
 	cookiePowerCards.selected = combi.cookiePowers;
 }
 
-function setStatus(host: HTMLElement, text: string, isError = false): void {
-	host.textContent = text;
-	host.classList.toggle("error", isError);
+/**
+ * Whether the banner is showing something about the code on screen — a decode
+ * warning or error, typing progress, a paste, a copy of the code or its link.
+ * Those answer a question about that code, so the next build change clears
+ * them; everything else (a save, a delete, an import) stays until it is
+ * dismissed, replaced, or, for info, times out.
+ */
+let aboutCode = false;
+
+/** Puts a message in the banner, the page's one place for one. */
+function say(
+	type: NoticeType,
+	text: string | readonly string[],
+	options?: NoticeOptions,
+): void {
+	notice.show(type, text, options);
+	aboutCode = false;
 }
 
-/** How long a button says it worked before going back to its own label. */
-const CONFIRM_FOR = 2000;
+/** The same, for a message about the code on screen. */
+function sayAboutCode(
+	type: NoticeType,
+	text: string | readonly string[],
+	options?: NoticeOptions,
+): void {
+	notice.show(type, text, options);
+	aboutCode = true;
+}
 
-const confirmTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
-
-/**
- * Says a button's work is done on the button itself, by swapping which of its
- * two labels is visible. The alternative is a line under it that stands open
- * for a sentence it shows two seconds at a time, and in a panel pinned to the
- * top of the screen an empty line costs the same room as a full one.
- */
-function confirmOn(button: HTMLButtonElement): void {
-	const swap = button.querySelector(".swap");
-	if (swap === null) return;
-
-	clearTimeout(confirmTimers.get(button));
-	swap.classList.add("done");
-	confirmTimers.set(
-		button,
-		setTimeout(() => {
-			swap.classList.remove("done");
-			confirmTimers.delete(button);
-		}, CONFIRM_FOR),
-	);
+/** Takes down a message that is not about the code. */
+function unsay(): void {
+	if (!aboutCode) notice.clear();
 }
 
 /**
@@ -463,15 +469,17 @@ function publish(code: string): void {
 	rememberCode(localStorage, code);
 }
 
+/**
+ * A code read with changes says what changed; a build change otherwise takes
+ * down whatever the banner said about the code before it.
+ */
 function showWarnings(warnings: readonly string[]): void {
-	warningsBanner.hidden = warnings.length === 0;
-	warningList.replaceChildren(
-		...warnings.map((warning) => {
-			const item = document.createElement("li");
-			item.textContent = warning;
-			return item;
-		}),
-	);
+	if (warnings.length > 0) {
+		sayAboutCode("warn", warnings, { title: "Read with changes" });
+	} else if (aboutCode) {
+		notice.clear();
+		aboutCode = false;
+	}
 }
 
 /**
@@ -497,11 +505,6 @@ function render(warnings: readonly string[] = []): void {
 	// is taken.
 	goalChips.options = goalOptions(modeChips.value as Mode);
 	const code = encodeFull({ loadout: readLoadout(), combi: readForm() });
-	// The line under the code answers a question about the code in front of you,
-	// so a new code clears it. The two callers that have something to say about
-	// the code they just applied say it after this returns.
-	codeBar.message = "";
-	codeBar.invalid = false;
 	codeBar.value = code;
 
 	// Read the code back so the verdict reflects the character actually written
@@ -544,6 +547,9 @@ function render(warnings: readonly string[] = []): void {
 		);
 	});
 
+	// A message about the code in front of you does not outlive it. The callers
+	// that have something to say about the code they just applied say it after
+	// this returns.
 	showWarnings(warnings);
 	showTab();
 	markCurrent(code);
@@ -601,29 +607,30 @@ function applyCode(code: string, warnings: readonly string[] = []): void {
 function readDraft(text: string): void {
 	const canonical = text.trim().toUpperCase();
 
+	// Progress is held up for as long as the editor is open — it would
+	// otherwise clear itself mid-word — and let go when it closes.
 	if (canonical === "") {
-		codeBar.message = "Type or paste a code.";
-		codeBar.invalid = false;
+		sayAboutCode("info", "Type or paste a code.", { hold: true });
 		return;
 	}
 
 	const combiPart = combiSectionOf(canonical);
 	if (combiPart.length !== CODE_LENGTH) {
-		codeBar.message = `${combiPart.length} of ${CODE_LENGTH} characters.`;
-		codeBar.invalid = false;
+		sayAboutCode("info", `${combiPart.length} of ${CODE_LENGTH} characters.`, {
+			hold: true,
+		});
 		return;
 	}
 
 	try {
 		const { warnings } = decodeFull(canonical);
+		// `render` shows the warnings, or clears the progress line.
 		applyCode(canonical, warnings);
-		// `render` has already rewritten the bar's value and cleared its status;
-		// the message has to be cleared after it, not before.
-		codeBar.message = "";
-		codeBar.invalid = false;
 	} catch (error) {
-		codeBar.message = error instanceof Error ? error.message : String(error);
-		codeBar.invalid = true;
+		sayAboutCode(
+			"error",
+			error instanceof Error ? error.message : String(error),
+		);
 	}
 }
 
@@ -875,9 +882,9 @@ function saveAsNew(): void {
 	showSaved(entries);
 	if (stored) {
 		saveDescription.value = "";
-		setStatus(saveStatus, `Saved ${code}.`);
+		say("info", `Saved ${code}.`);
 	} else {
-		setStatus(saveStatus, REFUSED_SAVE, true);
+		say("error", REFUSED_SAVE);
 	}
 }
 
@@ -893,14 +900,13 @@ function updateEntry(from: string): void {
 			// Deleted in another tab since it was opened. Nothing left to update.
 			showSaved(result.entries);
 			stopEditing();
-			setStatus(saveStatus, "That entry is gone. Save adds it again.");
+			say("warn", "That entry is gone. Save adds it again.");
 			return;
 		}
 		const other = result.entries.find((saved) => saved.code === code);
-		setStatus(
-			saveStatus,
+		say(
+			"error",
 			`This build is already saved as ${other === undefined ? code : entryName(other)}. Change the build, or delete that entry first.`,
-			true,
 		);
 		return;
 	}
@@ -909,13 +915,14 @@ function updateEntry(from: string): void {
 	showSaved(result.entries);
 	saveDescription.value = "";
 	const updated = result.entries.find((saved) => saved.code === code);
-	setStatus(
-		saveStatus,
-		result.stored
-			? `Updated ${updated === undefined ? code : entryName(updated)}.`
-			: REFUSED_SAVE,
-		!result.stored,
-	);
+	if (result.stored) {
+		say(
+			"info",
+			`Updated ${updated === undefined ? code : entryName(updated)}.`,
+		);
+	} else {
+		say("error", REFUSED_SAVE);
+	}
 }
 
 saveForm.addEventListener("submit", (event) => {
@@ -928,7 +935,7 @@ saveNewButton.addEventListener("click", saveAsNew);
 
 saveCancelButton.addEventListener("click", () => {
 	stopEditing();
-	setStatus(saveStatus, "");
+	unsay();
 	saveDescription.focus();
 });
 
@@ -942,7 +949,7 @@ saveDescription.addEventListener("keydown", (event) => {
 	} else if (event.key === "Escape" && editing !== null) {
 		event.preventDefault();
 		stopEditing();
-		setStatus(saveStatus, "");
+		unsay();
 	}
 });
 
@@ -954,12 +961,10 @@ function openSaved(code: string): boolean {
 		applyCode(code, warnings);
 		return true;
 	} catch (error) {
-		// The drawer stays open on a failed Load, and the modal leaves the note's
-		// line behind it, so the drawer's own line says so.
-		setStatus(
-			savedStatus,
+		// The drawer stays open on a failed Load, and the banner is in it.
+		say(
+			"error",
 			`${code} no longer reads: ${error instanceof Error ? error.message : String(error)}`,
-			true,
 		);
 		return false;
 	}
@@ -988,17 +993,13 @@ function copyEntryLink(entry: SavedCode): void {
 	const url = shareLink(entry);
 	void navigator.clipboard
 		.writeText(url)
-		// The menu the button sits in has closed by now, so the word cannot ride
-		// on the button the way the code bar's Copy link does.
-		.then(() =>
-			setStatus(savedStatus, `Copied the link to ${entryName(entry)}.`),
-		)
+		// The menu the button sits in has closed by now, so the word goes in
+		// the banner, which is in the drawer while it is open.
+		.then(() => {
+			say("info", `Copied the link to ${entryName(entry)}.`);
+		})
 		.catch(() => {
-			setStatus(
-				savedStatus,
-				`The browser blocked the clipboard. The link is ${url}`,
-				true,
-			);
+			say("error", `The browser blocked the clipboard. The link is ${url}`);
 		});
 }
 
@@ -1029,10 +1030,11 @@ savedList.addEventListener("click", (event) => {
 			return;
 		}
 		// Closed first, so the build it loaded and the note it filled are what
-		// is on screen, and the line by the note is no longer behind a modal.
+		// is on screen. A code read with changes keeps its warning up: it says
+		// more than "loaded" does.
 		savedDrawer.close();
 		saveDescription.value = entry.description;
-		setStatus(saveStatus, `Loaded ${entryName(entry)}.`);
+		if (notice.type !== "warn") say("info", `Loaded ${entryName(entry)}.`);
 		return;
 	}
 
@@ -1052,13 +1054,14 @@ savedList.addEventListener("click", (event) => {
 	}
 	const { entries, stored } = removeSaved(localStorage, code);
 	showSaved(entries);
-	setStatus(
-		savedStatus,
-		stored
-			? `Deleted ${code}.`
-			: "The browser refused to store the change. It is gone for this visit only.",
-		!stored,
-	);
+	if (stored) {
+		say("info", `Deleted ${code}.`);
+	} else {
+		say(
+			"error",
+			"The browser refused to store the change. It is gone for this visit only.",
+		);
+	}
 	// Focus takes the gone entry's place, or falls back to the drawer's Close
 	// button: the note that adds one sits behind the modal.
 	const next = savedList.querySelectorAll<HTMLButtonElement>(
@@ -1072,11 +1075,30 @@ savedList.addEventListener("click", (event) => {
 /** Undoes `lockPageScroll` for whichever drawer is open, if one is. */
 let unlockPage: (() => void) | null = null;
 
-/** Opens a drawer as a modal sheet and holds the page still behind it. */
+/**
+ * Where the banner lives while no drawer is open: right under the code panel.
+ * Looked up rather than assumed, so the markup decides.
+ */
+const noticeHome = notice.previousElementSibling;
+
+/**
+ * Opens a drawer as a modal sheet and holds the page still behind it. A modal
+ * makes everything behind it inert, the banner included, so the same banner
+ * goes into the drawer's sheet, under its header, and comes back on close —
+ * one notification area, always the one in view.
+ */
 function openDrawer(dialog: HTMLDialogElement): void {
 	if (dialog.open) return;
 	dialog.showModal();
+	dialog.querySelector(".sheet > header")?.after(notice);
 	unlockPage ??= lockPageScroll();
+}
+
+/** Puts the banner back under the code panel. */
+function bringNoticeHome(): void {
+	if (noticeHome !== null && notice.previousElementSibling !== noticeHome) {
+		noticeHome.after(notice);
+	}
 }
 
 for (const drawer of [savedDrawer, helpDrawer]) {
@@ -1102,14 +1124,13 @@ for (const drawer of [savedDrawer, helpDrawer]) {
 	// that closed the drawer never reached the menu's own handler.
 	drawer.addEventListener("close", () => {
 		closeMenus();
+		bringNoticeHome();
 		unlockPage?.();
 		unlockPage = null;
 	});
 }
 
 need("open-saved").addEventListener("click", () => {
-	// A line left from the last visit to the drawer says nothing about this one.
-	setStatus(savedStatus, "");
 	openDrawer(savedDrawer);
 });
 need("open-help").addEventListener("click", () => {
@@ -1142,14 +1163,11 @@ function offerNote(code: string, note: string | null): void {
 	if (note === null || editing !== null) return;
 	const saved = savedEntries.find((entry) => entry.code === code);
 	if (saved !== undefined) {
-		setStatus(
-			saveStatus,
-			`This link's code is already saved as ${entryName(saved)}.`,
-		);
+		say("info", `This link's code is already saved as ${entryName(saved)}.`);
 		return;
 	}
 	saveDescription.value = note;
-	setStatus(saveStatus, "This link came with a note. Save keeps it.");
+	say("info", "This link came with a note. Save keeps it.");
 }
 
 function plural(count: number, word: string): string {
@@ -1166,12 +1184,11 @@ function importText(text: string): boolean {
 			: ` Skipped line${skipped.length === 1 ? "" : "s"} ${lines}.`;
 
 	if (incoming.length === 0) {
-		setStatus(
-			transferStatus,
+		say(
+			"error",
 			skipped.length === 0
 				? "Nothing to import."
 				: `No code read.${skippedNote}`,
-			true,
 		);
 		return false;
 	}
@@ -1180,13 +1197,18 @@ function importText(text: string): boolean {
 	showSaved(entries);
 	const keptNote =
 		kept === 0 ? "" : ` ${kept} ${kept === 1 ? "was" : "were"} already saved.`;
-	setStatus(
-		transferStatus,
-		stored
-			? `Added ${plural(added, "code")}.${keptNote}${skippedNote}`
-			: "The browser refused to store them. They are listed for this visit only.",
-		!stored,
-	);
+	if (!stored) {
+		say(
+			"error",
+			"The browser refused to store them. They are listed for this visit only.",
+		);
+	} else {
+		// A skipped line is something to go and look at, so it is a warning.
+		say(
+			skipped.length === 0 ? "info" : "warn",
+			`Added ${plural(added, "code")}.${keptNote}${skippedNote}`,
+		);
+	}
 	return true;
 }
 
@@ -1208,27 +1230,26 @@ const NOTHING_TO_EXPORT = "Nothing saved to export yet.";
 
 exportCopyButton.addEventListener("click", () => {
 	if (savedEntries.length === 0) {
-		setStatus(transferStatus, NOTHING_TO_EXPORT, true);
+		say("error", NOTHING_TO_EXPORT);
 		return;
 	}
+	const count = savedEntries.length;
 	void navigator.clipboard
 		.writeText(formatSaved(savedEntries))
 		.then(() => {
-			setStatus(transferStatus, "");
-			confirmOn(exportCopyButton);
+			say("info", `Copied ${plural(count, "code")} as text.`);
 		})
 		.catch(() => {
-			setStatus(
-				transferStatus,
+			say(
+				"error",
 				"The browser blocked the clipboard. Download the list instead.",
-				true,
 			);
 		});
 });
 
 exportDownloadButton.addEventListener("click", () => {
 	if (savedEntries.length === 0) {
-		setStatus(transferStatus, NOTHING_TO_EXPORT, true);
+		say("error", NOTHING_TO_EXPORT);
 		return;
 	}
 	const blob = new Blob([formatSaved(savedEntries)], { type: "text/plain" });
@@ -1238,7 +1259,7 @@ exportDownloadButton.addEventListener("click", () => {
 	link.download = "combi-codes.txt";
 	link.click();
 	URL.revokeObjectURL(url);
-	setStatus(transferStatus, "");
+	say("info", "Downloaded combi-codes.txt.");
 });
 
 /** Which control writes each group of characters the hints mark out. */
@@ -1574,9 +1595,13 @@ codeBar.addEventListener("code-draft", (event) => {
 // Leaving the editor without a usable code puts the built one back, since that
 // is the code the controls still describe.
 codeBar.addEventListener("code-cancel", () => {
-	codeBar.message = "";
-	codeBar.invalid = false;
 	render();
+});
+
+// Typing progress was held up while the editor was open; however it closed,
+// the line can now go on its own.
+codeBar.addEventListener("code-close", () => {
+	notice.release();
 });
 
 codeBar.addEventListener("slot-jump", (event) => {
@@ -1603,8 +1628,8 @@ document.addEventListener("paste", (event) => {
 	try {
 		const { warnings } = decodeFull(text);
 		applyCode(text, warnings);
-		codeBar.message = "Code pasted.";
-		codeBar.invalid = false;
+		// A code read with changes keeps its warning up: it says more.
+		if (warnings.length === 0) sayAboutCode("info", "Code pasted.");
 		event.preventDefault();
 	} catch {
 		// Not a code. The browser can have it.
@@ -1640,24 +1665,38 @@ window.addEventListener("hashchange", () => {
 	offerNote(codeBar.value, note);
 });
 
-const CLIPBOARD_BLOCKED =
-	"The browser blocked the clipboard. Copy the address bar by hand.";
+// The panel's own Copy is turned off: Copy code lives in the ⋯ menu with Copy
+// link, so the panel shows exactly Edit, Save and the menu.
+codeBar.copyable = false;
 
-// A copy that worked says so on the button; one the browser refused has an
-// instruction to give, and that goes on the line under the code.
+// The menu has closed by the time the clipboard answers, so both copies say
+// how it went in the banner. A refusal has an instruction to give.
+copyCodeButton.addEventListener("click", () => {
+	const code = codeBar.value;
+	void navigator.clipboard
+		.writeText(code)
+		.then(() => {
+			sayAboutCode("info", `Copied ${code}.`);
+		})
+		.catch(() => {
+			sayAboutCode(
+				"error",
+				"The browser blocked the clipboard. Select the code and copy it by hand.",
+			);
+		});
+});
+
 copyLinkButton.addEventListener("click", () => {
 	void navigator.clipboard
 		.writeText(location.href)
 		.then(() => {
-			if (codeBar.message === CLIPBOARD_BLOCKED) {
-				codeBar.message = "";
-				codeBar.invalid = false;
-			}
-			confirmOn(copyLinkButton);
+			sayAboutCode("info", "Copied the link.");
 		})
 		.catch(() => {
-			codeBar.message = CLIPBOARD_BLOCKED;
-			codeBar.invalid = true;
+			sayAboutCode(
+				"error",
+				"The browser blocked the clipboard. Copy the address bar by hand.",
+			);
 		});
 });
 
@@ -1667,8 +1706,6 @@ const DEFAULT_CODE = encodeFull({ loadout: readLoadout(), combi: readForm() });
 
 resetButton.addEventListener("click", () => {
 	codeBar.editing = false;
-	codeBar.message = "";
-	codeBar.invalid = false;
 	// Starting over, so Update must not stay aimed at the entry last loaded.
 	if (editing !== null) stopEditing();
 	applyCode(DEFAULT_CODE);

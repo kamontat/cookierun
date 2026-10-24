@@ -74,28 +74,6 @@ site-nav > button {
    and menu are slotted into the code bar's own row, so they are sized by it
    and need no placement of their own. */
 
-/* Both labels share one grid cell, so a button saying its work is done is the
-   width of the wider label either way and nothing beside it moves. Hidden by
-   visibility, not display: the hidden label keeps its width and stays out of
-   the accessible name. */
-.swap {
-	display: grid;
-	place-items: center;
-}
-
-.swap > span {
-	grid-area: 1 / 1;
-}
-
-.swap > .said,
-.swap.done > .rest {
-	visibility: hidden;
-}
-
-.swap.done > .said {
-	visibility: visible;
-}
-
 /* The tabs stick under the code panel, so switching tabs never means
    scrolling back up to them. On --cr-bg, so the panel scrolling under the
    strip does not show through it. */
@@ -139,9 +117,9 @@ tab-strip {
 		font-size: 1.25rem;
 	}
 
-	/* Five buttons share one row of the dock, so the page's three give up
-	   some side padding; on a second row the ⋯ menu would open off the
-	   screen's left edge. */
+	/* Edit, Save and the ⋯ menu share one row of the dock, so the page's two
+	   give up some side padding to match the bar's own; on a second row the
+	   menu would open off the screen's left edge. */
 	#code > button,
 	#code-menu .moretoggle {
 		padding-inline: var(--cr-space-2);
@@ -150,36 +128,6 @@ tab-strip {
 	tab-strip {
 		top: 0;
 	}
-}
-
-/* A code read with changes: an amber box above the note listing what was
-   changed. Hidden until there is something to say. */
-.banner:not([hidden]) {
-	display: grid;
-	gap: var(--cr-space-1);
-	border: var(--cr-border) solid var(--cr-blessed);
-	border-radius: var(--cr-radius);
-	background: color-mix(in srgb, var(--cr-blessed) 12%, var(--cr-surface));
-	padding: var(--cr-space-2) var(--cr-space-3);
-	font-size: 0.9rem;
-}
-
-/* Body text rather than the amber: the amber is the box's edge and wash, and
-   on paper it does not clear 4.5:1 as text. */
-.banner strong {
-	color: var(--cr-text);
-	font-family: var(--cr-mono);
-	font-size: 0.8rem;
-	letter-spacing: var(--cr-tracking);
-	text-transform: uppercase;
-}
-
-.warnings {
-	display: grid;
-	gap: var(--cr-space-1);
-	margin: 0;
-	padding-left: 1.1rem;
-	list-style: disc;
 }
 
 /* The whole build at a glance, in a box of its own so it reads as one thing
@@ -460,9 +408,11 @@ kbd {
 	margin: 0;
 }
 
-#saved-status:empty {
-	min-height: 0;
-	margin: 0;
+/* The page's one banner, carried in under the header while a drawer is open.
+   Empty, it is out of flow and takes no room, so the margin only shows with a
+   message. */
+.drawer notice-bar {
+	margin-bottom: var(--cr-space-3);
 }
 
 .diagram {
@@ -514,14 +464,6 @@ kbd {
 	flex-direction: row;
 	flex-wrap: wrap;
 	gap: var(--cr-space-2);
-}
-
-#save-status {
-	margin: 0;
-}
-
-#save-status:empty {
-	min-height: 0;
 }
 
 .savedlist {
@@ -767,8 +709,4 @@ kbd {
 	.filebutton {
 		min-height: var(--cr-tap);
 	}
-}
-
-#transfer-status:empty {
-	min-height: 0;
 }

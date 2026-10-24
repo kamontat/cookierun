@@ -69,24 +69,17 @@
       <section class="codepanel" aria-labelledby="code-heading">
         <h2 id="code-heading">Your code</h2>
 
-        <!-- The page's buttons are slotted into the code bar's own button
-             row, so the code keeps a line to itself and everything that acts
-             on it shares the line below. The bar drops them while its editor
-             is open: copying, saving or resetting a code mid-edit means acting
-             on a code that is not the one on screen. -->
+        <!-- Three buttons in the code bar's own row: its Edit, then Save and
+             the ⋯ menu slotted in after it, so the code keeps a line to
+             itself. The bar's own Copy is turned off by the route; Copy code
+             lives in the menu with everything else. The bar drops the slotted
+             buttons while its editor is open: saving or resetting a code
+             mid-edit means acting on a code that is not the one on screen. -->
         <code-bar
           id="code"
           value="10S0000000"
           placeholder="1C00TU000-10S070FW00"
         >
-          <!-- Two labels in one cell: the button says the copy worked without
-               changing width, so Save does not shuffle sideways for it. -->
-          <button id="copy-link" type="button">
-            <span class="swap">
-              <span class="rest">Copy link</span>
-              <span class="said">Copied</span>
-            </span>
-          </button>
           <!-- Outside the form it submits, so it names it. It reads Update
                while a saved entry is open. -->
           <button id="save" type="submit" form="save-form">Save</button>
@@ -97,6 +90,8 @@
               <span aria-hidden="true">⋯</span>
             </summary>
             <div class="menu">
+              <button id="copy-code" type="button">Copy code</button>
+              <button id="copy-link" type="button">Copy link</button>
               <button id="reset" type="button">Reset</button>
               <button id="save-new" type="button" hidden>Save as new</button>
               <button id="save-cancel" type="button" hidden>Cancel</button>
@@ -105,18 +100,11 @@
         </code-bar>
       </section>
 
-      <!-- Only a code read with changes has something to say here, so the
-           banner is hidden until it does. An unreadable code stays on the code
-           bar's own message line, since that is where it is typed. -->
-      <section
-        id="warnings-banner"
-        class="banner"
-        aria-labelledby="warnings-title"
-        hidden
-      >
-        <strong id="warnings-title">Read with changes</strong>
-        <ul id="warnings" class="warnings" aria-live="polite"></ul>
-      </section>
+      <!-- Every message the page has, in one place: a code read with changes,
+           a copy that worked, a store the browser refused. While a drawer is
+           open the route moves this same element into the drawer's sheet,
+           since the modal makes everything behind it inert. -->
+      <notice-bar id="notice"></notice-bar>
 
       <!-- The note for the code on screen. Save and Update in the code panel
            submit it; Ctrl+Enter does too, and Escape closes an open entry. -->
@@ -133,7 +121,6 @@
         <!-- Shown only while an entry is open for editing: the one form
              either adds the build on screen or rewrites that entry. -->
         <p id="save-editing" class="editing" hidden></p>
-        <p id="save-status" class="status" role="status"></p>
       </form>
 
       <!-- The whole build at a glance, drawn from the code the page just wrote.
@@ -327,7 +314,6 @@
             <h2 id="saved-heading">Saved codes</h2>
             <button type="button" class="close" data-close>Close</button>
           </header>
-          <p id="saved-status" class="status" role="status"></p>
           <p id="saved-empty" class="caveat">
             Nothing saved yet. Saved codes stay in this browser until you share
             or export them.
@@ -341,12 +327,7 @@
               starting with <code>&gt;</code>. A shared link works as a line too.
             </p>
             <div class="transferbuttons">
-              <button id="export-copy" type="button">
-                <span class="swap">
-                  <span class="rest">Copy all as text</span>
-                  <span class="said">Copied</span>
-                </span>
-              </button>
+              <button id="export-copy" type="button">Copy all as text</button>
               <button id="export-download" type="button">Download .txt</button>
             </div>
             <textarea
@@ -362,7 +343,6 @@
                 <input id="import-file" type="file" accept=".txt,text/plain" />
               </label>
             </div>
-            <p id="transfer-status" class="status" role="status"></p>
           </details>
         </div>
       </dialog>
