@@ -82,6 +82,14 @@ export class ThemeToggle extends LitElement {
 				font-size: 0.85rem;
 			}
 
+			/* A select matches :focus-visible on a mouse click too, so the
+			   shared accent ring stayed on the top bar after every theme pick.
+			   The owner asked for it gone; the select's own border still marks
+			   the control. */
+			select:focus-visible {
+				outline: none;
+			}
+
 			.icon {
 				display: none;
 			}
@@ -133,11 +141,6 @@ export class ThemeToggle extends LitElement {
 					min-height: 0;
 					opacity: 0;
 					cursor: pointer;
-				}
-
-				.field:has(select:focus-visible) .icon {
-					outline: var(--cr-border) solid var(--cr-accent);
-					outline-offset: 2px;
 				}
 			}
 
