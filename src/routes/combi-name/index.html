@@ -325,42 +325,42 @@
             <button type="button" class="close" data-close>Close</button>
           </header>
           <p id="saved-status" class="status" role="status"></p>
-            <p id="saved-empty" class="caveat">
-              Nothing saved yet. Saved codes stay in this browser until you share
-              or export them.
-            </p>
-            <ul id="saved-list" class="savedlist"></ul>
+          <p id="saved-empty" class="caveat">
+            Nothing saved yet. Saved codes stay in this browser until you share
+            or export them.
+          </p>
+          <ul id="saved-list" class="savedlist"></ul>
 
-            <details class="transfer">
-              <summary>Import and export</summary>
-              <p class="caveat">
-                One code per line, with its note on the lines under it, each
-                starting with <code>&gt;</code>. A shared link works as a line too.
-              </p>
-              <div class="transferbuttons">
-                <button id="export-copy" type="button">
-                  <span class="swap">
-                    <span class="rest">Copy all as text</span>
-                    <span class="said">Copied</span>
-                  </span>
-                </button>
-                <button id="export-download" type="button">Download .txt</button>
-              </div>
-              <textarea
-                id="import-text"
-                rows="5"
-                placeholder="Paste codes, an exported list, or shared links."
-                aria-label="Codes to import"
-              ></textarea>
-              <div class="transferbuttons">
-                <button id="import" type="button">Import</button>
-                <label class="filebutton">
-                  Import a file
-                  <input id="import-file" type="file" accept=".txt,text/plain" />
-                </label>
-              </div>
-              <p id="transfer-status" class="status" role="status"></p>
-            </details>
+          <details class="transfer">
+            <summary>Import and export</summary>
+            <p class="caveat">
+              One code per line, with its note on the lines under it, each
+              starting with <code>&gt;</code>. A shared link works as a line too.
+            </p>
+            <div class="transferbuttons">
+              <button id="export-copy" type="button">
+                <span class="swap">
+                  <span class="rest">Copy all as text</span>
+                  <span class="said">Copied</span>
+                </span>
+              </button>
+              <button id="export-download" type="button">Download .txt</button>
+            </div>
+            <textarea
+              id="import-text"
+              rows="5"
+              placeholder="Paste codes, an exported list, or shared links."
+              aria-label="Codes to import"
+            ></textarea>
+            <div class="transferbuttons">
+              <button id="import" type="button">Import</button>
+              <label class="filebutton">
+                Import a file
+                <input id="import-file" type="file" accept=".txt,text/plain" />
+              </label>
+            </div>
+            <p id="transfer-status" class="status" role="status"></p>
+          </details>
         </div>
       </dialog>
 

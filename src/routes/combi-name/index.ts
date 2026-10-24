@@ -1098,6 +1098,23 @@ need("open-help").addEventListener("click", () => {
 	openDrawer(helpDrawer);
 });
 
+/*
+ * The tab strip sticks under the code panel on a wide screen, and a jump has
+ * to scroll clear of both, so the stylesheet needs the panel's height. It
+ * changes as the code wraps and the buttons swap, so it is measured rather
+ * than guessed. An enhancement only: without it the strip sticks at the top
+ * and the scroll padding keeps a fixed allowance.
+ */
+const codePanel = codeBar.closest(".codepanel");
+if (codePanel !== null && typeof ResizeObserver !== "undefined") {
+	new ResizeObserver(() => {
+		document.documentElement.style.setProperty(
+			"--codepanel-h",
+			`${codePanel.getBoundingClientRect().height}px`,
+		);
+	}).observe(codePanel);
+}
+
 /**
  * A link someone sent may carry a note. It is offered, not saved: the note
  * goes into the box, and keeping it is one click on Save — a link that
