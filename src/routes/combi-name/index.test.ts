@@ -1853,6 +1853,13 @@ test("a link with a contradicting code and a note keeps its warning and mentions
 	await reset();
 });
 
+test("the top bar's Help button reads ? and keeps its name", () => {
+	const help = need<HTMLButtonElement>("open-help");
+	expect(help.textContent?.trim()).toBe("?");
+	expect(help.getAttribute("aria-label")).toBe("Help");
+	expect(help.getAttribute("title")).toBe("Help");
+});
+
 test("Help holds the slot reference and the page intro", async () => {
 	need<HTMLButtonElement>("open-help").click();
 	await settle();
