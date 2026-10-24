@@ -415,8 +415,32 @@ export class BuildSummary extends LitElement {
 
 				:host(:not([expanded])) .line {
 					display: flex;
+					flex-wrap: nowrap;
 					width: 100%;
 					padding: var(--cr-space-1) var(--cr-space-2);
+				}
+
+				/* One line whatever the build: what does not fit fades out at the
+				   end instead of wrapping, and the arrow stays on show. The full
+				   picture is one tap away. */
+				.lineitems {
+					display: flex;
+					flex: 1 1 auto;
+					flex-wrap: nowrap;
+					align-items: center;
+					gap: var(--cr-space-1) var(--cr-space-2);
+					min-width: 0;
+					overflow: hidden;
+					white-space: nowrap;
+					mask-image: linear-gradient(
+						to right,
+						black calc(100% - 1.5rem),
+						transparent
+					);
+				}
+
+				.lineitems > * {
+					flex: none;
 				}
 
 				:host([expanded]) .hide {
@@ -490,7 +514,8 @@ export class BuildSummary extends LitElement {
 				aria-expanded="false"
 				@click=${() => this.#fold(true)}
 			>
-				${this.compact.map(item)}<span class="sep" aria-hidden="true">▾</span>
+				<span class="lineitems">${this.compact.map(item)}</span
+				><span class="sep" aria-hidden="true">▾</span>
 			</button>
 			<div class="rows">
 				<button

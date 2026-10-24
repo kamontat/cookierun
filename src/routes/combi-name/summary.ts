@@ -242,6 +242,16 @@ export function summaryOf(
 		episodeIcon === null
 			? { kind: "text", text: episodeText(full) }
 			: { kind: "image", src: episodeIcon, title: episodeText(full) },
+		// Before the pictures: a long build overflows a phone's line, which
+		// clips at its end, and a picture is the thing to lose, not the count.
+		...(count === 0
+			? []
+			: [
+					{
+						kind: "text",
+						text: `${count} ${count === 1 ? "boost" : "boosts"}`,
+					} as const,
+				]),
 		// Faces alone: the line is one line, and the names are a tap away.
 		...cookies.flatMap((item): SummaryItem[] =>
 			item.kind === "image" && item.src !== null
@@ -252,17 +262,10 @@ export function summaryOf(
 		),
 		...treasures.flatMap((item): SummaryItem[] => {
 			if (item.kind !== "image") return [];
-			const { caption: _caption, ...picture } = item;
+			// No caption and no level note: one line has room for the picture.
+			const { caption: _caption, note: _note, ...picture } = item;
 			return [picture];
 		}),
-		...(count === 0
-			? []
-			: [
-					{
-						kind: "text",
-						text: `${count} ${count === 1 ? "boost" : "boosts"}`,
-					} as const,
-				]),
 	];
 
 	const hint = rows.length === 1 && full.loadout.cookie === null ? HINT : null;

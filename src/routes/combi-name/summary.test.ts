@@ -386,5 +386,34 @@ test("compact carries the mode pill, goal, episode icon, faces and the boost cou
 	expect(srcs).toContain(BASE + imageFor("cookies", RELAY));
 	expect(srcs).toContain(BASE + imageFor("pets", PET));
 	expect(srcs).toContain(BASE + imageFor("treasures", TA));
-	expect(texts(compact).at(-1)).toBe("5 boosts");
+	// The count comes before the pictures: on a narrow phone the line clips
+	// at its end, and a picture is the thing to lose, not the count.
+	const words = texts(compact);
+	expect(words.indexOf("5 boosts")).toBeGreaterThan(words.indexOf("Money"));
+	expect(
+		compact.findIndex(
+			(each) => each.kind === "text" && each.text === "5 boosts",
+		),
+	).toBeLessThan(
+		compact.findIndex(
+			(each) =>
+				each.kind === "image" &&
+				each.src === BASE + imageFor("cookies", COOKIE),
+		),
+	);
+});
+
+test("the one-line view drops a treasure's level note", () => {
+	const full = fullBuild(
+		{},
+		{ treasures: [[treasurePick(TA, levelRange(3, 9)), treasurePick(TB)]] },
+	);
+	const { compact } = summaryOf(full, BASE);
+	const treasure = images(compact).find(
+		(each) => each.src === BASE + imageFor("treasures", TA),
+	);
+
+	expect(treasure).toBeDefined();
+	expect(treasure?.note).toBeUndefined();
+	expect(treasure?.badge).toBe("+1");
 });

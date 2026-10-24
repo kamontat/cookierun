@@ -18,6 +18,14 @@ main {
 	padding-top: var(--cr-space-2);
 }
 
+/* A grid item will not shrink below its content by default, so one section
+   holding a line that does not wrap — the docked code, the summary's one-line
+   view — would widen the whole page on a phone. Each section takes the
+   column's width instead, and its own content scrolls or clips inside it. */
+main > * {
+	min-width: 0;
+}
+
 /* The title is a label for the page, not a section of it: close above the
    code rather than a band of its own. */
 .masthead {

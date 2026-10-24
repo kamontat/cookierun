@@ -73,6 +73,38 @@ export class CodeBar extends LitElement {
 				letter-spacing: 0.1em;
 			}
 
+			/* A long full code on a phone is three lines in a dock that sits over
+			   the page, so there it stays on one line and scrolls sideways. The
+			   wrapping reason above does not hold there: a phone shows no hint
+			   bubble (it is behind a hover query), and a tap writes the hint to
+			   the message line instead. Every box from the host down has to be
+			   allowed to be narrower than the code, or the code widens the page. */
+			@media (width < 48rem) {
+				:host,
+				.bar {
+					min-width: 0;
+					max-width: 100%;
+				}
+
+				code {
+					flex: 1 1 auto;
+					flex-wrap: nowrap;
+					max-width: 100%;
+					overflow-x: auto;
+					scrollbar-width: none;
+					white-space: nowrap;
+				}
+
+				code .run {
+					flex: none;
+					white-space: nowrap;
+				}
+
+				code::-webkit-scrollbar {
+					display: none;
+				}
+			}
+
 			/* One run per field of the code. The gap is what makes the fields
 			   read as fields rather than as ten loose characters. A run is a
 			   button when it owns a control and jumps to it; one with nothing
