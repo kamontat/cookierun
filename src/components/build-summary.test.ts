@@ -172,6 +172,45 @@ test("an image's mark draws the kind's letter and names it", async () => {
 	expect(plain?.querySelector(".mark")).toBe(null);
 });
 
+test("a caption names a picture under it, once, for every reader", async () => {
+	const element = await mount([
+		{
+			label: "Treasures",
+			target: "treasures",
+			items: [
+				{
+					kind: "image",
+					src: "a.png",
+					title: "Cheese Ball +3 or Acorn",
+					caption: "Cheese Ball",
+					mark: "evolved",
+				},
+				{
+					kind: "stack",
+					srcs: ["a.png", "b.png"],
+					title: "EXP Party",
+					caption: "EXP Party",
+				},
+			],
+		},
+	]);
+
+	const [image, stack] = inside(element).querySelectorAll(
+		"button.row .image, button.row .stack",
+	);
+	expect(image?.querySelector(".caption")?.textContent).toContain(
+		"Cheese Ball",
+	);
+	// The caption says the name, so the picture says nothing more; the kind
+	// still reaches a screen reader beside the caption.
+	expect(image?.querySelector("img")?.getAttribute("alt")).toBe("");
+	expect(image?.querySelector(".caption .hidden")?.textContent).toBe(
+		", Evolved",
+	);
+	expect(stack?.querySelector(".caption")?.textContent).toBe("EXP Party");
+	expect(stack?.querySelector(":scope > .hidden")).toBe(null);
+});
+
 test("clicking a row fires summary-jump with its target", async () => {
 	const element = await mount(ROWS);
 	const targets: string[] = [];

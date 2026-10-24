@@ -37,16 +37,17 @@ function picture(section: CatalogSection, id: string, base: string) {
 }
 
 /**
- * A face alone, named in its title — the owner's call, as for boosts and
- * power+. One with no face (Any, or an entry the catalog has no picture for)
- * says its name instead, since there is nothing else to say it with.
+ * A face with its name as a small caption under it, as for boosts, power+ and
+ * treasures — the owner's call: the picture leads, and the name is there on a
+ * phone too, which has no hover. One with no face (Any, or an entry the
+ * catalog has no picture for) says its name in line instead.
  */
 function entry(section: CatalogSection, id: string, base: string): SummaryItem {
 	const title = labelFor(section, id);
 	const src = picture(section, id, base);
 	return src === null
 		? { kind: "image", src, text: title, title }
-		: { kind: "image", src, title };
+		: { kind: "image", src, title, caption: title };
 }
 
 /** `+3–9`, or `+0, +2–4` for a level set with gaps. */
@@ -79,7 +80,9 @@ function slotItem(slot: readonly TreasurePick[], base: string): SummaryItem {
 		kind: "image",
 		src,
 		// With no picture, the name stands in for it, or the slot vanishes.
-		...(src === null ? { text: labelFor("treasures", first.id) } : {}),
+		...(src === null
+			? { text: labelFor("treasures", first.id) }
+			: { caption: labelFor("treasures", first.id) }),
 		title: slot
 			.map((pick) => `${labelFor("treasures", pick.id)} ${levelText(pick)}`)
 			.join(" or "),
@@ -204,12 +207,13 @@ export function summaryOf(
 	add(
 		"Boosts",
 		"boosts",
-		// Icons alone: the picture is what the card on the Boosts tab shows, and
-		// the name rides in the title. One with no picture falls back to it.
+		// The icon, with its name captioned under it. One with no picture falls
+		// back to the name in line.
 		boosts.map((boost) => ({
 			kind: "image",
 			src: boostArt(boost, base)[0] ?? null,
 			title: BOOST_LABELS[boost],
+			caption: BOOST_LABELS[boost],
 		})),
 	);
 	add(
@@ -226,6 +230,7 @@ export function summaryOf(
 			kind: "stack",
 			srcs: cookiePowerArt(power, base).slice(0, 2),
 			title: powerName(COOKIE_POWER_LABELS[power]),
+			caption: powerName(COOKIE_POWER_LABELS[power]),
 		})),
 	);
 
@@ -245,9 +250,11 @@ export function summaryOf(
 					? [item]
 					: [],
 		),
-		...treasures.flatMap((item): SummaryItem[] =>
-			item.kind === "image" ? [item] : [],
-		),
+		...treasures.flatMap((item): SummaryItem[] => {
+			if (item.kind !== "image") return [];
+			const { caption: _caption, ...picture } = item;
+			return [picture];
+		}),
 		...(count === 0
 			? []
 			: [

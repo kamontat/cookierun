@@ -33,9 +33,21 @@ export type SummaryItem =
 			 * alt text. A base form carries none.
 			 */
 			mark?: Mark;
+			/**
+			 * The name, drawn small under the picture. A phone has no hover, so a
+			 * title alone hides the name there; the caption says it everywhere.
+			 */
+			caption?: string;
 	  }
 	/** At most two faces, overlapping, then a name. */
-	| { kind: "stack"; srcs: readonly string[]; text?: string; title?: string }
+	| {
+			kind: "stack";
+			srcs: readonly string[];
+			text?: string;
+			title?: string;
+			/** The name under the faces, as for an image. */
+			caption?: string;
+	  }
 	| { kind: "sep"; text: "·" | "→" }
 	| { kind: "tag"; text: string };
 
@@ -62,6 +74,9 @@ export type SummaryRow = {
  */
 function stackName(entry: Extract<SummaryItem, { kind: "stack" }>) {
 	if (entry.text !== undefined) return entry.text;
+	if (entry.caption !== undefined) {
+		return html`<span class="caption">${entry.caption}</span>`;
+	}
 	if (entry.title === undefined) return nothing;
 	return entry.srcs.length === 0
 		? entry.title
@@ -73,11 +88,30 @@ function stackName(entry: Extract<SummaryItem, { kind: "stack" }>) {
  * otherwise its title, with the kind's name when it carries one.
  */
 function pictureAlt(entry: Extract<SummaryItem, { kind: "image" }>): string {
-	if (entry.text !== undefined) return "";
+	if (entry.text !== undefined || entry.caption !== undefined) return "";
 	const title = entry.title ?? "";
 	return entry.mark === undefined
 		? title
 		: `${title}, ${MARKS[entry.mark].name}`;
+}
+
+/**
+ * An image's name line under its picture: the name, the level note beside it,
+ * and the kind's name for a screen reader, since the letter on the picture is
+ * hidden from one.
+ */
+function caption(entry: Extract<SummaryItem, { kind: "image" }>) {
+	return html`<span class="caption"
+		>${entry.caption}${
+			entry.note === undefined
+				? nothing
+				: html` <span class="note">${entry.note}</span>`
+		}${
+			entry.mark === undefined
+				? nothing
+				: html`<span class="hidden">, ${MARKS[entry.mark].name}</span>`
+		}</span
+	>`;
 }
 
 function item(entry: SummaryItem) {
@@ -91,7 +125,9 @@ function item(entry: SummaryItem) {
 				>${entry.text}</span
 			>`;
 		case "image":
-			return html`<span class="image" title=${entry.title ?? nothing}
+			return html`<span
+				class=${entry.caption === undefined ? "image" : "image captioned"}
+				title=${entry.title ?? nothing}
 				>${
 					entry.src === null
 						? nothing
@@ -116,10 +152,14 @@ function item(entry: SummaryItem) {
 					entry.src === null && entry.badge !== undefined
 						? html`<span class="badge">${entry.badge}</span>`
 						: nothing
-				}${entry.text ?? (entry.src === null ? (entry.title ?? nothing) : nothing)}${
-					entry.note === undefined
-						? nothing
-						: html`<span class="note">${entry.note}</span>`
+				}${
+					entry.caption === undefined
+						? html`${entry.text ?? (entry.src === null ? (entry.title ?? nothing) : nothing)}${
+								entry.note === undefined
+									? nothing
+									: html`<span class="note">${entry.note}</span>`
+							}`
+						: caption(entry)
 				}</span
 			>`;
 		case "stack":
@@ -251,6 +291,27 @@ export class BuildSummary extends LitElement {
 				display: inline-flex;
 				align-items: center;
 				gap: var(--cr-space-1);
+			}
+
+			/* A captioned picture stands over its name, and the name wraps
+			   rather than widening the row: two lines at most, then an ellipsis,
+			   with the whole name still in the title. */
+			.captioned,
+			.stack:has(> .caption) {
+				flex-direction: column;
+				/* Room for the +N badge, which hangs below the picture's corner. */
+				gap: 0.35rem;
+				max-width: 6.5rem;
+				text-align: center;
+			}
+
+			.caption {
+				display: -webkit-box;
+				overflow: hidden;
+				-webkit-box-orient: vertical;
+				-webkit-line-clamp: 2;
+				font-size: 0.7rem;
+				line-height: 1.25;
 			}
 
 			.hidden {

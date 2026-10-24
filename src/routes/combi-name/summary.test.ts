@@ -341,6 +341,39 @@ test("Boosts are icons alone, named in their title", () => {
 	).toBe(true);
 });
 
+// A phone has no hover, so a title alone would hide every name from it.
+test("each picture in the rows has its name as a caption", () => {
+	const { rows } = summaryOf(fullBuild(), BASE);
+	const captions = (label: string) =>
+		row(rows, label).items.flatMap((item) =>
+			item.kind === "image" || item.kind === "stack" ? [item.caption] : [],
+		);
+
+	expect(captions("Cookies")).toEqual([
+		labelFor("cookies", COOKIE),
+		labelFor("cookies", RELAY),
+		labelFor("pets", PET),
+	]);
+	expect(captions("Treasures")).toEqual([
+		labelFor("treasures", TA),
+		labelFor("treasures", TB),
+	]);
+	expect(captions("Boosts")).toEqual(["HP Extension", "Power Jelly Boost"]);
+	expect(captions("Power+")).toEqual(["Fairy", "Sea Fairy"]);
+});
+
+test("the one-line compact view carries no captions", () => {
+	const { compact } = summaryOf(fullBuild(), BASE);
+
+	expect(
+		compact.some(
+			(item) =>
+				(item.kind === "image" || item.kind === "stack") &&
+				item.caption !== undefined,
+		),
+	).toBe(false);
+});
+
 test("compact carries the mode pill, goal, episode icon, faces and the boost count", () => {
 	const full = fullBuild();
 	const { compact } = summaryOf(full, BASE);
