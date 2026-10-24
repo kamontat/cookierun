@@ -105,6 +105,9 @@ test("Run says semi-auto and why, then goal, episode and action", () => {
 		kind: "text",
 		text: describeBuild(full)?.reasons.join(", ") ?? "",
 		muted: true,
+		// Behind the row's toggle, like the pictures' names: the pill says
+		// semi-auto, and why is one click away.
+		detail: true,
 	});
 	expect(texts(items)).toContain("Money");
 	expect(texts(items)).toContain("Episode 3");

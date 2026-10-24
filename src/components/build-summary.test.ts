@@ -331,6 +331,35 @@ test("with names hidden, a picture still names itself to a screen reader", async
 	expect(stack?.querySelector(".hidden")?.textContent).toBe("EXP Party");
 });
 
+test("a detail stays hidden until its row is toggled", async () => {
+	const element = await mount([
+		{
+			label: "Run",
+			target: "mode",
+			items: [
+				{ kind: "pill", text: "Semi-auto", tone: "semi" },
+				{ kind: "text", text: "Fast Start", muted: true, detail: true },
+				{ kind: "sep", text: "·" },
+				{ kind: "text", text: "Money" },
+			],
+		},
+	]);
+	const value = () =>
+		inside(element).querySelector(".row[data-target=mode] .value");
+
+	expect(value()?.textContent).not.toContain("Fast Start");
+	expect(value()?.textContent).toContain("Money");
+
+	button(element, ".row[data-target=mode] button.names").click();
+	await element.updateComplete;
+	expect(value()?.textContent).toContain("Fast Start");
+	expect(
+		button(element, ".row[data-target=mode] button.names").getAttribute(
+			"aria-pressed",
+		),
+	).toBe("true");
+});
+
 test("a row of words has no names toggle", async () => {
 	const element = await mount(ROWS);
 

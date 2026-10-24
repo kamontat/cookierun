@@ -136,6 +136,9 @@ function runRow(full: FullCode, base: string): SummaryRow {
 							kind: "text",
 							text: verdict.reasons.join(", "),
 							muted: true,
+							// Behind the row's toggle: the pill says semi-auto,
+							// and why is one click away.
+							detail: true,
 						} as const,
 					]
 				: []),

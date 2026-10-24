@@ -9,7 +9,17 @@ import { base } from "./theme";
  * these from its own words and pictures.
  */
 export type SummaryItem =
-	| { kind: "text"; text: string; muted?: boolean }
+	| {
+			kind: "text";
+			text: string;
+			muted?: boolean;
+			/**
+			 * Drawn only once its row is toggled, like the pictures' names: a
+			 * detail the row can do without at a glance — why a run is
+			 * semi-auto, say.
+			 */
+			detail?: boolean;
+	  }
 	| { kind: "pill"; text: string; tone?: "semi" }
 	| {
 			kind: "image";
@@ -59,12 +69,16 @@ const MARKS: Record<Mark, { letter: string; name: string }> = {
 	blessed: { letter: "B", name: "Blessed" },
 };
 
-/** Whether a row is pictures that have names to show. */
+/**
+ * Whether a row has something its toggle shows: pictures with names, or a
+ * detail line.
+ */
 function pictured(row: SummaryRow): boolean {
 	return row.items.some(
 		(entry) =>
-			(entry.kind === "image" || entry.kind === "stack") &&
-			entry.caption !== undefined,
+			((entry.kind === "image" || entry.kind === "stack") &&
+				entry.caption !== undefined) ||
+			(entry.kind === "text" && entry.detail === true),
 	);
 }
 
@@ -138,6 +152,7 @@ function caption(entry: Extract<SummaryItem, { kind: "image" }>) {
 function item(entry: SummaryItem, names = false) {
 	switch (entry.kind) {
 		case "text":
+			if (entry.detail && !names) return nothing;
 			return html`<span class=${entry.muted ? "text muted" : "text"}
 				>${entry.text}</span
 			>`;

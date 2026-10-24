@@ -42,6 +42,11 @@ export class TabStrip extends LitElement {
 				display: flex;
 				flex-wrap: nowrap;
 				overflow-x: auto;
+				/* Spelled out: overflow-x alone turns overflow-y to auto as well,
+				   and a tab's bottom edge (it overlaps the strip's border by its
+				   own) then lets a finger on iOS scroll the strip up and down. */
+				overflow-y: hidden;
+				overscroll-behavior-x: contain;
 				scrollbar-width: none;
 				border-bottom: var(--cr-border) solid var(--cr-line);
 			}
