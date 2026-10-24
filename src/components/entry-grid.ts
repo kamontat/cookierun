@@ -42,19 +42,35 @@ export class EntryGrid extends LitElement {
 			/*
 			 * Declared again here, after tileStyles, rather than relied on from
 			 * tileStyles' own .entries: that one also carries the open dialog's
-			 * sheet-scrolling rules (overflow-y, flex-basis, min-height), which
-			 * answer a question this inline grid does not have — there is no
-			 * dialog sheet capping its height. grid-auto-rows: max-content keeps
-			 * the WebKit bug tileStyles documents from reaching here too: WebKit
-			 * sizes an auto row of buttons in a shrunken grid to the buttons'
-			 * min-height, which under a coarse pointer is the tap size, and every
-			 * name then spills into the row below its picture.
+			 * sheet-scrolling rules (overflow-y, flex-basis, min-height,
+			 * overscroll-behavior), which answer a question this inline grid
+			 * does not have — there is no dialog sheet capping its height. A
+			 * rule declared here does not undo one tileStyles set unless it
+			 * names the same property, so each of those is put back by name.
+			 * overflow above all: left on auto, a one-pixel rounding (WebKit at
+			 * 110% zoom) made the episode grid a box that scrolled by itself.
+			 * Every cell shows at full height and the grid grows the page. Two
+			 * longhands rather than the shorthand: happy-dom does not let a
+			 * shorthand here override tileStyles' overflow-y, so the test
+			 * guarding this would read auto.
+			 *
+			 * grid-auto-rows: max-content keeps the WebKit bug tileStyles
+			 * documents from reaching here too: WebKit sizes an auto row of
+			 * buttons in a shrunken grid to the buttons' min-height, which under
+			 * a coarse pointer is the tap size, and every name then spills into
+			 * the row below its picture.
 			 */
 			.entries {
 				display: grid;
 				grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
 				grid-auto-rows: max-content;
 				gap: var(--cr-space-1);
+				flex: none;
+				min-height: auto;
+				max-height: none;
+				overflow-x: visible;
+				overflow-y: visible;
+				overscroll-behavior: auto;
 			}
 		`,
 	];

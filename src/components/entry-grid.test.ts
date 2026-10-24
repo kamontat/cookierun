@@ -227,3 +227,18 @@ test("a required control with nothing picked makes the first cell tabbable", asy
 
 	expect(cells(element).map((cell) => cell.tabIndex)).toEqual([0, -1, -1]);
 });
+
+// Inline means inline: the grid grows the page rather than scrolling inside a
+// box of its own. tileStyles' .entries carries the dialog's scroll rules, and
+// an overflow left on auto turns a one-pixel rounding (WebKit at 110% zoom)
+// into a grid that scrolls by itself.
+test("the grid never scrolls inside its own box", async () => {
+	const element = await mount();
+	const entries = element.shadowRoot?.querySelector<HTMLElement>(".entries");
+	if (entries === null || entries === undefined) throw new Error("no grid");
+	const style = getComputedStyle(entries);
+
+	expect(style.overflowY).toBe("visible");
+	expect(style.overflowX).toBe("visible");
+	expect(style.maxHeight).toBe("none");
+});
