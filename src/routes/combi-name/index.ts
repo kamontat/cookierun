@@ -143,7 +143,6 @@ const relayNote = need("relay-note");
 
 const saveForm = need<HTMLFormElement>("save-form");
 const saveDescription = need<HTMLTextAreaElement>("save-description");
-const saveEditing = need("save-editing");
 const noteLabel = need("note-label");
 const saveButton = need<HTMLButtonElement>("save");
 const saveNewButton = need<HTMLButtonElement>("save-new");
@@ -827,42 +826,25 @@ function markCurrent(code: string): void {
 			item.getAttribute("data-code") === editing,
 		);
 	}
-	showEditing(code);
+	showEditing();
 }
 
 /**
  * Puts the form in step with `editing`: one form, two jobs. While an entry is
- * open the submit button rewrites it, and the line above the box says what
- * Update is about to do — including a code change, since the board may have
- * moved since the entry was opened.
+ * open the submit button rewrites it and the label over the box says so; the
+ * banner has already named the entry, so nothing under the box repeats it.
  */
-function showEditing(code: string): void {
-	const entry =
-		editing === null
-			? undefined
-			: savedEntries.find((saved) => saved.code === editing);
-	if (entry === undefined) editing = null;
+function showEditing(): void {
+	const open =
+		editing !== null && savedEntries.some((saved) => saved.code === editing);
+	if (!open) editing = null;
 
-	saveEditing.hidden = entry === undefined;
-	saveNewButton.hidden = entry === undefined;
-	saveCancelButton.hidden = entry === undefined;
-	saveButton.textContent = entry === undefined ? "Save" : "Update";
-	noteLabel.textContent =
-		entry === undefined ? "Note · new code" : "Note · editing a saved code";
-	if (entry === undefined) {
-		saveEditing.textContent = "";
-		return;
-	}
-
-	const name = document.createElement("strong");
-	name.textContent = entryName(entry);
-	// Loading opens an entry whether or not anyone means to change it, so the
-	// line says what Update would do rather than assuming an edit is under way.
-	const change =
-		code === entry.code
-			? "Update saves changes to it; Save as new leaves it as it is."
-			: `Update moves it from ${entry.code} to ${code}; Save as new leaves it as it is.`;
-	saveEditing.replaceChildren("Loaded from ", name, `. ${change}`);
+	saveNewButton.hidden = !open;
+	saveCancelButton.hidden = !open;
+	saveButton.textContent = open ? "Update" : "Save";
+	noteLabel.textContent = open
+		? "Note · editing a saved code"
+		: "Note · new code";
 }
 
 /** Closes the entry open for editing, and clears the box it filled. */
@@ -1214,12 +1196,8 @@ function importText(text: string): boolean {
 			: ` Skipped line${skipped.length === 1 ? "" : "s"} ${lines}.`;
 
 	if (incoming.length === 0) {
-		say(
-			"error",
-			skipped.length === 0
-				? "Nothing to import."
-				: `No code read.${skippedNote}`,
-		);
+		if (skipped.length === 0) say("warn", "Nothing to import.");
+		else say("error", `No code read.${skippedNote}`);
 		return false;
 	}
 
@@ -1256,11 +1234,13 @@ importFile.addEventListener("change", () => {
 	});
 });
 
+// Nothing failed when there is nothing to move, so these are warnings: error
+// is kept for what the browser or a code refused.
 const NOTHING_TO_EXPORT = "Nothing saved to export yet.";
 
 exportCopyButton.addEventListener("click", () => {
 	if (savedEntries.length === 0) {
-		say("error", NOTHING_TO_EXPORT);
+		say("warn", NOTHING_TO_EXPORT);
 		return;
 	}
 	const count = savedEntries.length;
@@ -1279,7 +1259,7 @@ exportCopyButton.addEventListener("click", () => {
 
 exportDownloadButton.addEventListener("click", () => {
 	if (savedEntries.length === 0) {
-		say("error", NOTHING_TO_EXPORT);
+		say("warn", NOTHING_TO_EXPORT);
 		return;
 	}
 	const blob = new Blob([formatSaved(savedEntries)], { type: "text/plain" });

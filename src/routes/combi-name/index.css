@@ -19,7 +19,7 @@ main {
 }
 
 /* A grid item will not shrink below its content by default, so one section
-   holding a line that does not wrap — the docked code, the summary's one-line
+   holding a line that does not wrap — the code, the summary's one-line
    view — would widen the whole page on a phone. Each section takes the
    column's width instead, and its own content scrolls or clips inside it. */
 main > * {
@@ -65,12 +65,19 @@ site-nav > button {
 	padding: var(--cr-space-3);
 }
 
-/* The banner rides in the panel, under the code and its buttons, so a message
-   is in view however far down the page the controls are. Empty, it is out of
-   flow and takes no room; the ResizeObserver in index.ts picks up the panel
-   growing when one shows, so the tab strip and the scroll padding follow. */
+/* The banner is a snackbar: a card floated at the bottom centre of the
+   window, over the page rather than in it, so a message coming or going never
+   moves anything. It stays in the code panel in the DOM, next to the code it
+   is mostly about, for keyboard and screen-reader order; fixed positioning
+   takes it out of the panel's box, since sticky makes no containing block. */
 .codepanel notice-bar[type] {
-	margin-top: var(--cr-space-2);
+	position: fixed;
+	bottom: calc(var(--cr-space-4) + env(safe-area-inset-bottom, 0px));
+	left: 50%;
+	z-index: 3;
+	width: max-content;
+	max-width: min(36rem, calc(100vw - 2 * var(--cr-space-3)));
+	transform: translateX(-50%);
 }
 
 /* The panel holds the code and its actions and nothing else, so its heading
@@ -100,65 +107,20 @@ tab-strip {
 	background: var(--cr-bg);
 }
 
-/* A phone gives the code the bottom of the screen instead: a dock, the way an
-   app keeps its main actions under the thumb, while the top is left to the
-   tabs. It stays early in the DOM — keyboard and screen-reader order is
-   unchanged — and only its grid position moves, to the end of main, where
-   sticky holds it to the bottom of the window until main runs out. At the end
-   of the page it is back in the flow under the last control, so it never
-   covers one. */
+/* A phone keeps the code at the top too, the same sticky panel as a wide
+   screen. */
 @media (width < 48rem) {
-	:root {
-		scroll-padding-top: 3.5rem;
-		scroll-padding-bottom: var(--codepanel-h, 9rem);
-	}
-
-	/* A dock is a band across the screen, edge to edge, rather than a box in
-	   the column: it reaches out over the container's side padding so the page
-	   scrolling under it never shows at its sides. */
-	.codepanel {
-		order: 99;
-		top: auto;
-		bottom: 0;
-		margin-inline: calc(-1 * var(--cr-space-3));
-		border-inline: 0;
-		border-bottom: 0;
-		border-radius: 0;
-		padding: var(--cr-space-2) var(--cr-space-3)
-			calc(var(--cr-space-2) + env(safe-area-inset-bottom, 0px));
-	}
-
-	/* Docked at the bottom, the banner sits at the top of the dock, above the
-	   code, next to the buttons that caused it. Only its visual place moves;
-	   in the DOM it still follows the code bar. */
-	.codepanel {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.codepanel notice-bar {
-		order: -1;
-	}
-
-	.codepanel notice-bar[type] {
-		margin: 0 0 var(--cr-space-2);
-	}
-
 	/* The page's long name fits one line of a phone. */
 	.masthead h1 {
 		font-size: 1.25rem;
 	}
 
-	/* Edit, Save and the ⋯ menu share one row of the dock, so the page's two
-	   give up some side padding to match the bar's own; on a second row the
-	   menu would open off the screen's left edge. */
+	/* Edit, Save and the ⋯ menu share one row of a phone's panel, so the
+	   page's two give up some side padding to match the bar's own; on a second
+	   row the menu would open off the screen's left edge. */
 	#code > button,
 	#code-menu .moretoggle {
 		padding-inline: var(--cr-space-2);
-	}
-
-	tab-strip {
-		top: 0;
 	}
 }
 
@@ -441,8 +403,9 @@ kbd {
 }
 
 /* The page's one banner, carried in under the header while a drawer is open.
-   Empty, it is out of flow and takes no room, so the margin only shows with a
-   message. */
+   There it sits in line rather than floating: the drawer is a column of its
+   own, with room under its header. Empty, it is out of flow and takes no room,
+   so the margin only shows with a message. */
 .drawer notice-bar {
 	margin-bottom: var(--cr-space-3);
 }
@@ -466,16 +429,6 @@ kbd {
 	font-size: 0.75rem;
 	letter-spacing: var(--cr-tracking);
 	text-transform: uppercase;
-}
-
-/* While an entry is open, the line naming it sits under the box, in the colour
-   that marks the entry in the saved list. */
-.saveform .editing {
-	margin: 0;
-	border-left: var(--cr-border) solid var(--cr-accent-2);
-	padding-left: var(--cr-space-2);
-	font-size: 0.9rem;
-	overflow-wrap: anywhere;
 }
 
 .saveform textarea {
@@ -559,9 +512,9 @@ kbd {
 	font-size: 0.75rem;
 }
 
-/* The entry open for editing: a dashed ring in the colour of the line above
-   the box that names it, apart from the accent edge, which follows the code
-   on screen and may since have moved to another entry or to none. */
+/* The entry open for editing: a dashed ring, apart from the accent edge,
+   which follows the code on screen and may since have moved to another entry
+   or to none. */
 .savedlist li[data-editing] {
 	outline: var(--cr-border) dashed var(--cr-accent-2);
 	outline-offset: 2px;
@@ -656,15 +609,6 @@ kbd {
 #code-menu .moretoggle,
 #code-menu .menu button {
 	font-size: 0.75rem;
-}
-
-/* Docked at the bottom of a phone, the panel's menu opens upward: below it
-   there is only the edge of the screen. */
-@media (width < 48rem) {
-	#code-menu .menu {
-		top: auto;
-		bottom: calc(100% + var(--cr-space-1));
-	}
 }
 
 /* The one item that loses something. */

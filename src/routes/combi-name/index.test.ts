@@ -100,6 +100,11 @@ async function typeCode(text: string): Promise<void> {
 }
 
 /** What the page's one notification banner is showing, if anything. */
+/** Whether the note is open on a saved entry: its label says so. */
+function isEditing(): boolean {
+	return need("note-label").textContent === "Note · editing a saved code";
+}
+
 function notice(): { type: string | null; text: string } {
 	const bar = need<NoticeBar>("notice");
 	return { type: bar.type, text: bar.text };
@@ -1239,6 +1244,25 @@ async function saveCurrent(description: string): Promise<void> {
 	await settle();
 }
 
+// Nothing failed when there is nothing to move: a warning says what to do
+// instead, and error is kept for what the browser or a code refused.
+test("exporting or importing nothing is a warning, not an error", async () => {
+	expect(need("saved-empty").hidden).toBe(false);
+
+	need<HTMLButtonElement>("export-copy").click();
+	await settle();
+	expect(notice()).toEqual({
+		type: "warn",
+		text: "Nothing saved to export yet.",
+	});
+
+	need<HTMLTextAreaElement>("import-text").value = "";
+	need<HTMLButtonElement>("import").click();
+	await settle();
+	expect(notice()).toEqual({ type: "warn", text: "Nothing to import." });
+	need<NoticeBar>("notice").clear();
+});
+
 // Save sits in the code panel, outside the form it submits, so it reaches the
 // note through its form attribute.
 test("the save button in the code panel submits the note", async () => {
@@ -1390,7 +1414,7 @@ test("a stale warning from elsewhere does not swallow Loaded", async () => {
 
 // One action, not Load beside Edit: the two differed only in whether saving
 // afterwards wrote back, and that is a choice the save box already offers.
-test("loading from the drawer closes it and says so by the note", async () => {
+test("loading from the drawer closes it and opens the entry in the note", async () => {
 	expect(await codeText()).toBe("10S0000000");
 	await pickTab("boosts");
 	await openSavedDrawer();
@@ -1405,7 +1429,10 @@ test("loading from the drawer closes it and says so by the note", async () => {
 	await pickTab("main");
 	expect(isOn("goal", "money")).toBe(true);
 	expect(notice()).toEqual({ type: "info", text: "Loaded Coin farm." });
-	expect(!need("save-editing").hidden).toBe(true);
+	// The banner already says what was loaded, and the label and Update say
+	// an entry is open: no second message under the note repeats them.
+	expect(isEditing()).toBe(true);
+	expect(document.querySelectorAll("#save-editing")).toHaveLength(0);
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe(
 		"Coin farm\nuse Fairy",
 	);
@@ -1416,7 +1443,7 @@ test("loading from the drawer closes it and says so by the note", async () => {
 test("resetting the board closes the entry it was opened from", async () => {
 	await reset();
 
-	expect(need("save-editing").hidden).toBe(true);
+	expect(isEditing()).toBe(false);
 	expect(need("save").textContent?.trim()).toBe("Save");
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
 });
@@ -1557,10 +1584,6 @@ function savedCodes(): string[] {
 	return savedRows().map((row) => row.getAttribute("data-code") ?? "");
 }
 
-function isEditing(): boolean {
-	return !need("save-editing").hidden;
-}
-
 test("Update writes the board and the note into the loaded entry in place", async () => {
 	await choose("goal", "money");
 	await saveCurrent("Coin farm");
@@ -1573,13 +1596,11 @@ test("Update writes the board and the note into the loaded entry in place", asyn
 
 	expect(await codeText()).toBe("10M0000000");
 	expect(isEditing()).toBe(true);
-	expect(need("save-editing").textContent).toContain("Coin farm");
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("Coin farm");
 	expect(savedRows()[1]?.hasAttribute("data-editing")).toBe(true);
 
 	await choose("goal", "box");
 	const edited = await codeText();
-	expect(need("save-editing").textContent).toContain(edited);
 	await saveCurrent("Box farm");
 
 	expect(savedCodes()).toEqual(["10S0000000", edited]);
