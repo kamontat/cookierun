@@ -335,8 +335,10 @@
            until someone sends them: Share hands over one as a link carrying
            its note, and Export the whole list as text Import reads back. A
            modal sheet from the top bar's Saved button; .sheet is the panel,
-           so a click on the dialog itself is a click on the backdrop. -->
+           so a click on the dialog itself is a click on the backdrop.
+           .resize is its left edge, a handle drawer-width.ts wires up. -->
       <dialog id="saved-drawer" class="drawer" aria-labelledby="saved-heading">
+        <div class="resize"></div>
         <div class="sheet">
           <header>
             <h2 id="saved-heading">Saved codes</h2>
@@ -381,6 +383,7 @@
            code in front of you; this is the whole format, for reading one by
            eye. Opened from the top bar's Help button. -->
       <dialog id="help-drawer" class="drawer" aria-labelledby="help-heading">
+        <div class="resize"></div>
         <div class="sheet">
           <header>
             <h2 id="help-heading">How codes read</h2>

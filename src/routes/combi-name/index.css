@@ -427,6 +427,45 @@ kbd {
 	color: var(--cr-text);
 }
 
+/* The drawer's left edge, for resizing it: only with a mouse on a wide screen,
+   where a long saved list or the help table wants more room. drawer-width.ts
+   sets --drawer-width on the dialog. The handle is fixed rather than in the
+   sheet, so it spans the window however far the dialog has scrolled; a
+   modal dialog carries no transform, so fixed is the viewport. */
+.drawer > .resize {
+	display: none;
+}
+
+@media (width >= 48rem) and (pointer: fine) {
+	.drawer {
+		width: min(var(--drawer-width, 22rem), 90vw);
+	}
+
+	.drawer > .resize {
+		position: fixed;
+		top: 0;
+		right: calc(min(var(--drawer-width, 22rem), 90vw) - 0.25rem);
+		bottom: 0;
+		z-index: 2;
+		display: block;
+		width: 0.5rem;
+		cursor: col-resize;
+		touch-action: none;
+	}
+
+	.drawer > .resize:hover,
+	.drawer > .resize:focus-visible {
+		outline: none;
+		background: linear-gradient(
+			to right,
+			transparent calc(50% - 1px),
+			var(--cr-accent) calc(50% - 1px),
+			var(--cr-accent) calc(50% + 1px),
+			transparent calc(50% + 1px)
+		);
+	}
+}
+
 .drawer::backdrop {
 	background: var(--cr-backdrop);
 }

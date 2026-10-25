@@ -1368,6 +1368,26 @@ test("Saved opens a drawer that lists the saved codes, and its count follows the
 	expect(need("saved-count").textContent).toBe("1");
 });
 
+// The drawers' left edge is a handle that resizes them; dragging it must not
+// read as a backdrop click.
+test("each drawer has a resize handle, and pressing it leaves the drawer open", async () => {
+	for (const drawer of [savedDrawer(), helpDrawer()]) {
+		const handle = drawer.querySelector<HTMLElement>(":scope > .resize");
+		expect(handle?.getAttribute("role")).toBe("separator");
+		expect(handle?.getAttribute("aria-label")).toBe("Resize panel");
+	}
+	await openSavedDrawer();
+	const handle = savedDrawer().querySelector<HTMLElement>(".resize");
+	handle?.dispatchEvent(
+		new PointerEvent("pointerdown", { bubbles: true, button: 0 }),
+	);
+	handle?.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+	handle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+	expect(savedDrawer().open).toBe(true);
+	closeButton(savedDrawer()).click();
+	await settle();
+});
+
 // A drawer is modal, so everything behind it is inert and half hidden. The
 // page keeps one banner and carries it into whichever drawer is open.
 test("the one banner moves into an open drawer, under its header, and back", async () => {
