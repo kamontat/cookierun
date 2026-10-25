@@ -20,7 +20,7 @@ test("every cookie power has an art entry", () => {
 
 test("a cookie power that names one cookie resolves to that cookie's portrait", () => {
 	expect(cookiePowerArt("fairy", "../assets/")).toEqual([
-		"../assets/cookies/ch26.png",
+		"../assets/cookies/fairy_cookie.png",
 	]);
 });
 
@@ -28,18 +28,18 @@ test("a cookie power that names one cookie resolves to that cookie's portrait", 
 // both of their faces.
 test("a cookie power that names a pair of pets resolves to both", () => {
 	expect(cookiePowerArt("serenadeOfLove", "../assets/")).toEqual([
-		"../assets/pets/pet57.png",
-		"../assets/pets/pet58.png",
+		"../assets/pets/miss_doremi.png",
+		"../assets/pets/mr_fasollasi.png",
 	]);
 });
 
 // EXP Party is the four cookies that bring it.
 test("a cookie power that names four cookies resolves to all four", () => {
 	expect(cookiePowerArt("expParty", "../assets/")).toEqual([
-		"../assets/cookies/ch95.png",
-		"../assets/cookies/ch93.png",
-		"../assets/cookies/ch91.png",
-		"../assets/cookies/ch92.png",
+		"../assets/cookies/game_item_4e320abcaf.png",
+		"../assets/cookies/cookie.png",
+		"../assets/cookies/Kaymak_Cookie.png",
+		"../assets/cookies/geumgang_beopsa_taste_cookie.png",
 	]);
 });
 
@@ -48,7 +48,7 @@ test("every entry every power names resolves to a real file", () => {
 		const art = cookiePowerArt(power, "");
 		expect(art).toHaveLength(COOKIE_POWER_ART[power].length);
 		for (const image of art) {
-			expect(image).toMatch(/^(cookies|pets)\/.+\.png$/);
+			expect(image).toMatch(/^(cookies|pets)\/.+\.(png|webp)$/);
 		}
 	}
 });

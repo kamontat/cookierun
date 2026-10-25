@@ -76,8 +76,8 @@ test("options come back in id order, which is what the wire format sorts by", ()
 });
 
 test("known ids resolve and unknown ones do not", () => {
-	expect(hasId("cookies", "00")).toBe(true);
-	expect(hasId("treasures", "000")).toBe(true);
+	expect(hasId("cookies", "01")).toBe(true);
+	expect(hasId("treasures", "001")).toBe(true);
 	expect(hasId("cookies", "ZZ")).toBe(false);
 	expect(hasId("treasures", "00")).toBe(false);
 });
@@ -89,8 +89,8 @@ test("a prototype key is not an id, even though property access would resolve it
 });
 
 test("the first cookie reads as its display name", () => {
-	expect(nameFor("cookies", "00")).toBe("GingerBrave");
-	expect(imageFor("cookies", "00")).toBe("cookies/ch01.png");
+	expect(nameFor("cookies", "01")).toBe("GingerBrave");
+	expect(imageFor("cookies", "01")).toBe("cookies/brave_cookie.webp");
 });
 
 test("an unknown id names itself rather than throwing", () => {
@@ -98,21 +98,24 @@ test("an unknown id names itself rather than throwing", () => {
 	expect(imageFor("cookies", "ZZ")).toBe(null);
 });
 
-// Two live entries can share a display name — 5 treasure names and 1 pet name
-// do today. The id disambiguates the code; the label has to disambiguate the
-// picker, and it disambiguates with the id, since a shared name yields a shared
-// key and so the key would add nothing.
+// Two live entries can share a display name — none do on cookierunhub.com
+// today, but the site is edited by hand. The id disambiguates the code; the
+// label has to disambiguate the picker, and it disambiguates with the id, since
+// a shared name yields a shared key and so the key would add nothing.
 test("a display name shared by two entries is labelled with its id", () => {
-	const labels = optionsFor("treasures").map(([, label]) => label);
-	expect(new Set(labels).size).toBe(labels.length);
-
-	const sotdae = optionsFor("pets").filter(([, label]) =>
-		label.startsWith("Sotdae Flock"),
-	);
-	expect(sotdae).toHaveLength(3);
-	for (const [id, label] of sotdae) {
-		expect(label).toBe(`Sotdae Flock [${id}]`);
+	for (const section of SECTIONS) {
+		const labels = optionsFor(section).map(([, label]) => label);
+		expect(new Set(labels).size).toBe(labels.length);
 	}
+
+	const options = optionsFrom({
+		"01": { key: "SotdaeFlock", name: "Sotdae Flock", image: null },
+		"02": { key: "SotdaeFlock", name: "Sotdae Flock", image: null },
+	});
+	expect(options.map(([, label]) => label)).toEqual([
+		"Sotdae Flock [01]",
+		"Sotdae Flock [02]",
+	]);
 });
 
 test("nothing in the catalog is retired yet, and retired entries stay out of the options", () => {
@@ -191,7 +194,9 @@ test("every targets/source reference resolves to a treasure id", () => {
 // looks them up by key rather than by id: an id is the wire format's business,
 // while a key names the entry the way the scraper found it.
 test("an entry's art is reachable by its key", () => {
-	expect(imageForKey("cookies", "FairyCookie")).toBe("cookies/ch26.png");
+	expect(imageForKey("cookies", "FairyCookie")).toBe(
+		"cookies/fairy_cookie.png",
+	);
 });
 
 test("a key no section carries has no art rather than a broken link", () => {
@@ -204,29 +209,17 @@ test("every cookie key resolves to the same entry its id does", () => {
 	}
 });
 
-// The picker offers what a run can equip. Consumables are not, and they are 13
-// of the 1,144 entries someone would otherwise scroll past.
-test("the treasure picker leaves out the families a run cannot equip", () => {
+// The site's categories leave no family a run cannot equip at all, so the
+// picker offers every live treasure.
+test("the treasure picker leaves out exactly the hidden families", () => {
 	const offered = new Set(optionsFor("treasures").map(([id]) => id));
 
+	expect(HIDDEN_TREASURE_FAMILIES).toEqual([]);
 	for (const [id, entry] of Object.entries(index.treasures)) {
 		expect(offered.has(id)).toBe(
-			!(HIDDEN_TREASURE_FAMILIES as readonly string[]).includes(entry.family),
+			!HIDDEN_TREASURE_FAMILIES.includes(entry.family),
 		);
 	}
-});
-
-// A code that already carries a hidden treasure has to keep reading. The
-// picker decides what can be chosen, never what can be named.
-test("a treasure the picker hides is still named", () => {
-	const hidden = Object.entries(index.treasures).find(([, entry]) =>
-		(HIDDEN_TREASURE_FAMILIES as readonly string[]).includes(entry.family),
-	);
-	if (hidden === undefined) throw new Error("no hidden treasure in the index");
-	const [id, entry] = hidden;
-
-	expect(hasId("treasures", id)).toBe(true);
-	expect(labelFor("treasures", id)).toContain(entry.name);
 });
 
 test("every hidden family is one the index actually uses", () => {
@@ -239,8 +232,8 @@ test("every hidden family is one the index actually uses", () => {
 	}
 });
 
-// An evolved treasure and the blessed form beside it share one picture — 267
-// of the 1,144 entries are half of such a pair — and their names differ only
+// An evolved treasure and the blessed form beside it share one picture — 265
+// of the 1,179 entries are half of such a pair — and their names differ only
 // by a prefix. The picker cannot tell them apart on art alone, so the option
 // carries which of the three it is and the control draws it.
 test("a treasure option carries its kind", () => {
@@ -274,9 +267,9 @@ test("every offered treasure knows which of the three it is", () => {
 });
 
 test("the blessed forms in the catalog read as blessed", () => {
-	expect(kindFor("treasures", "002")).toBe("blessed");
-	expect(kindFor("treasures", "009")).toBe("evolved");
-	expect(kindFor("treasures", "000")).toBe("base");
+	expect(kindFor("treasures", "I98")).toBe("blessed");
+	expect(kindFor("treasures", "098")).toBe("evolved");
+	expect(kindFor("treasures", "001")).toBe("base");
 });
 
 // The same promise `nameFor` makes: an id the catalog does not carry is

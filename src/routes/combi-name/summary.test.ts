@@ -251,20 +251,6 @@ test("exact order puts → between slots and an exact order tag", () => {
 	expect(loose.some((item) => item.kind === "tag")).toBe(false);
 });
 
-test("a hidden treasure still has its picture and name", () => {
-	const hidden = Object.entries(
-		index.treasures as Record<string, { family?: string }>,
-	).find(([, entry]) => entry.family === "consumable")?.[0];
-	if (hidden === undefined) throw new Error("no consumable treasure");
-	const full = fullBuild({}, { treasures: [[treasurePick(hidden)]] });
-	const [picture] = images(row(summaryOf(full, BASE).rows, "Treasures").items);
-
-	expect(picture?.src?.endsWith(imageFor("treasures", hidden) ?? "-")).toBe(
-		true,
-	);
-	expect(picture?.title).toContain(labelFor("treasures", hidden));
-});
-
 test("a treasure with no picture is named rather than left blank", () => {
 	const bare = Object.entries(
 		index.treasures as Record<string, { image?: string | null }>,

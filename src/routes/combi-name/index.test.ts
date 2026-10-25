@@ -26,10 +26,6 @@ function inside(host: HTMLElement): ParentNode {
 	return (host as { shadowRoot?: ShadowRoot | null }).shadowRoot ?? host;
 }
 
-function shown(host: HTMLElement): string {
-	return inside(host).textContent ?? "";
-}
-
 /** Lit renders on a microtask; the route's own handlers are synchronous. */
 async function settle(): Promise<void> {
 	await Bun.sleep(0);
@@ -321,10 +317,10 @@ test("typing a code moves every control to match it", async () => {
 });
 
 test("typing a code with a loadout fills the loadout controls too", async () => {
-	await typeCode("1C0O-10S0000000");
+	await typeCode("1C0P-10S0000000");
 
 	expect(roleCard("cookie").textContent).toContain("Fairy Cookie");
-	expect(isOn("cookie", "0O")).toBe(true);
+	expect(isOn("cookie", "0P")).toBe(true);
 	await reset();
 });
 
@@ -343,21 +339,6 @@ test("picking Any on the cookie, relay and pet writes it into the code", async (
 	await reset();
 });
 
-// The picker does not offer the consumable family, but a code written before
-// that — or by hand — can still carry one, and dropping it would rewrite
-// someone's saved build behind their back.
-test("a code carrying a treasure the picker hides keeps it", async () => {
-	await typeCode("1TU00Z-10S0000000");
-
-	// The built code, read off the bar rather than off its rendering: the
-	// editor is still open, so the rendered code is the field, not the runs.
-	expect((codeBar as HTMLElement & { value: string }).value).toBe(
-		"1TU00Z-10S0000000",
-	);
-	expect(shown(need("treasure1"))).toContain("XP-Elixir");
-	await reset();
-});
-
 // An evolved treasure and its blessed form share a picture and all but a
 // prefix of a name, so every cell says which of the three it is.
 test("every treasure cell carries its kind", async () => {
@@ -372,19 +353,6 @@ test("every treasure cell carries its kind", async () => {
 			cell.textContent?.trim(),
 		]);
 	}
-});
-
-// The kind travels with a carried id the same way its name does — the picker
-// appends this one itself, so it is a second place the kind has to be written.
-test("a treasure the picker hides still says which kind it is", async () => {
-	await typeCode("1TU00Z-10S0000000");
-
-	expect(
-		inside(need("treasure1")).querySelector<HTMLElement>(".chip")?.dataset[
-			"kind"
-		],
-	).toBe("base");
-	await reset();
 });
 
 // A half-typed code is not an error, so it says how far along it is rather
@@ -627,16 +595,16 @@ test("Copy link in the menu copies the page's address and says so", async () => 
 // The game takes ten characters; the loadout before the dash is the summary's
 // to show, and still rides in the link, the saves and the editor.
 test("the code bar shows only the ten characters the game takes", async () => {
-	await typeCode("1C0O-10S0000000");
+	await typeCode("1C0P-10S0000000");
 	await closeEditor();
 
-	expect(await codeText()).toBe("1C0O-10S0000000");
+	expect(await codeText()).toBe("1C0P-10S0000000");
 	expect(await shownCode()).toBe("10S0000000");
 
 	inside(codeBar).querySelector<HTMLButtonElement>(".edit")?.click();
 	await settle();
 	expect(inside(codeBar).querySelector<HTMLInputElement>("input")?.value).toBe(
-		"1C0O-10S0000000",
+		"1C0P-10S0000000",
 	);
 	await closeEditor();
 	await reset();
@@ -644,7 +612,7 @@ test("the code bar shows only the ten characters the game takes", async () => {
 
 // The full code is one menu pick away, and the pick is remembered.
 test("the menu shows the full code and back, and Copy code copies what is shown", async () => {
-	await typeCode("1C0O-10M0000000");
+	await typeCode("1C0P-10M0000000");
 	await closeEditor();
 	const toggle = need<HTMLButtonElement>("code-full");
 	expect(toggle.textContent?.trim()).toBe("Show full code");
@@ -652,7 +620,7 @@ test("the menu shows the full code and back, and Copy code copies what is shown"
 
 	toggle.click();
 	await settle();
-	expect(await shownCode()).toBe("1C0O-10M0000000");
+	expect(await shownCode()).toBe("1C0P-10M0000000");
 	expect(toggle.textContent?.trim()).toBe("Show game code only");
 	expect(toggle.getAttribute("aria-pressed")).toBe("true");
 	expect(localStorage.getItem("combi-name:full-code")).toBe("1");
@@ -668,7 +636,7 @@ test("the menu shows the full code and back, and Copy code copies what is shown"
 			await settle();
 		},
 	);
-	expect(written).toBe("1C0O-10M0000000");
+	expect(written).toBe("1C0P-10M0000000");
 
 	toggle.click();
 	await settle();
@@ -678,7 +646,7 @@ test("the menu shows the full code and back, and Copy code copies what is shown"
 });
 
 test("Copy code copies the ten characters the game takes, not the loadout", async () => {
-	await typeCode("1C0O-10M0000000");
+	await typeCode("1C0P-10M0000000");
 	await closeEditor();
 	let written = "";
 	await withClipboard(
@@ -768,9 +736,9 @@ test("every field states the slot or group it writes", () => {
 });
 
 test("picking a cookie in its grid writes the loadout section", async () => {
-	await choose("cookie", "0O");
+	await choose("cookie", "0P");
 
-	expect(await codeText()).toBe("1C0O-10S0000000");
+	expect(await codeText()).toBe("1C0P-10S0000000");
 	await reset();
 });
 
@@ -786,7 +754,7 @@ test("the verdict still follows the flag slots", async () => {
 // slot claims a position the code only carries when the order is exact.
 // With two or more slots filled, the code carries the order; with fewer, it does not.
 test("the order switch relabels the treasure slots when two are filled", async () => {
-	await typeCode("1TU0FZ.00Z-10S0000000");
+	await typeCode("1TU098.00Z-10S0000000");
 
 	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
 	expect(need("treasure2").getAttribute("legend")).toBe("Any slot");
@@ -806,7 +774,7 @@ test("the order switch relabels the treasure slots when two are filled", async (
 // With only one slot filled, the code cannot carry an order, even when the
 // switch says "Exact order", because order requires at least two treasures to matter.
 test("a single filled treasure slot shows Any slot even with Exact order", async () => {
-	await typeCode("1TU0FZ-10S0000000");
+	await typeCode("1TU098-10S0000000");
 
 	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
 
@@ -854,10 +822,10 @@ test("a relay turns an auto build semi-auto, code and all", async () => {
 	await choose("mode", "auto");
 	expect(await codeText()).toBe("1A00000000");
 
-	await typeCode("1R0O-1AM0000000");
+	await typeCode("1R0P-1AM0000000");
 
 	expect((codeBar as HTMLElement & { value: string }).value).toBe(
-		"1R0O-1HM0000000",
+		"1R0P-1HM0000000",
 	);
 	expect(verdict.textContent).toBe(
 		"Plays as semi-auto because of Relay cookie.",
@@ -891,9 +859,9 @@ function levelsOf(slotId: string, treasure: string): string[] {
 }
 
 test("a code's treasure levels land on the level buttons", async () => {
-	await typeCode("1TU0FZ02_0FZ59_0RB58.0QQ9-10S0000000");
+	await typeCode("1TU09802_09859_0G258.0G19-10S0000000");
 
-	expect(levelsOf("treasure1", "0FZ")).toEqual([
+	expect(levelsOf("treasure1", "098")).toEqual([
 		"0",
 		"1",
 		"2",
@@ -903,25 +871,25 @@ test("a code's treasure levels land on the level buttons", async () => {
 		"8",
 		"9",
 	]);
-	expect(levelsOf("treasure1", "0RB")).toEqual(["5", "6", "7", "8"]);
-	expect(levelsOf("treasure2", "0QQ")).toEqual(["9"]);
+	expect(levelsOf("treasure1", "0G2")).toEqual(["5", "6", "7", "8"]);
+	expect(levelsOf("treasure2", "0G1")).toEqual(["9"]);
 	await reset();
 });
 
 test("toggling a level rewrites the code", async () => {
-	await typeCode("1TU0FZ-10S0000000");
+	await typeCode("1TU098-10S0000000");
 	(codeBar as HTMLElement & { editing: boolean }).editing = false;
 	await settle();
 
 	inside(need("treasure1"))
 		.querySelector<HTMLButtonElement>(
-			'.chip[data-value="0FZ"] button.level[data-level="9"]',
+			'.chip[data-value="098"] button.level[data-level="9"]',
 		)
 		?.click();
 	await settle();
 
 	expect((codeBar as HTMLElement & { value: string }).value).toBe(
-		"1TU0FZ_0FZ9-10S0000000",
+		"1TU098_0989-10S0000000",
 	);
 	await reset();
 });
@@ -929,10 +897,10 @@ test("toggling a level rewrites the code", async () => {
 // A reversed copy does not decode, and a code that does not decode leaves the
 // controls exactly where they were.
 test("a code with a backwards level range changes nothing", async () => {
-	await typeCode("1TU0FZ9-10S0000000");
-	await typeCode("1TU0FZ95-10S0000000");
+	await typeCode("1TU0989-10S0000000");
+	await typeCode("1TU09895-10S0000000");
 
-	expect(levelsOf("treasure1", "0FZ")).toEqual(["9"]);
+	expect(levelsOf("treasure1", "098")).toEqual(["9"]);
 	await reset();
 });
 
@@ -963,26 +931,26 @@ test("the tower shows a floor box, and the floor lands in slots 5-7", async () =
 
 // The controls keep what they hold: switching back brings the boosts back.
 test("a special episode takes boosts and the relay off the board, not out of the controls", async () => {
-	await typeCode("1C00R0O-1HM3H00000");
+	await typeCode("1C01R0P-1HM3H00000");
 	// Clicking a cell blurs the editor in a browser, but not in happy-dom.
 	await closeEditor();
 	expect(need("field-boosts").hasAttribute("data-off")).toBe(false);
 	expect(roleCard("relay").disabled).toBe(false);
 
 	await choose("episode", "special1");
-	expect(await codeText()).toBe("1C00-1AMC000000");
+	expect(await codeText()).toBe("1C01-1AMC000000");
 	expect(need("field-boosts").hasAttribute("data-off")).toBe(true);
 	expect(need("field-cookiePowers").hasAttribute("data-off")).toBe(true);
 	expect(roleCard("relay").disabled).toBe(true);
 	expect(need("relay-note").hidden).toBe(false);
 
 	await choose("episode", "episode3");
-	expect(await codeText()).toBe("1C00R0O-1HM3H00000");
+	expect(await codeText()).toBe("1C01R0P-1HM3H00000");
 	await reset();
 });
 
 test("the exp episode takes the treasures off the board too", async () => {
-	await typeCode("1TU000-1AM3000000");
+	await typeCode("1TU001-1AM3000000");
 	await closeEditor();
 	expect(need("field-treasures").hasAttribute("data-off")).toBe(false);
 
@@ -1038,7 +1006,7 @@ test("picking a tab shows its panel and remembers it", async () => {
 });
 
 test("clicking a summary row opens its tab and focuses the control", async () => {
-	await typeCode("1TU0FZ-10S0000000");
+	await typeCode("1TU098-10S0000000");
 	await closeEditor();
 
 	inside(summary)
@@ -1055,7 +1023,7 @@ test("clicking a summary row opens its tab and focuses the control", async () =>
 });
 
 test("a treasure slot's run jumps to that slot, the order run to the order switch", async () => {
-	await typeCode("1TU0FZ.0RB-10S0000000");
+	await typeCode("1TU098.0G2-10S0000000");
 	await closeEditor();
 
 	codeBar.dispatchEvent(
@@ -1138,7 +1106,7 @@ test("the Exp episode disables the treasures tab", async () => {
 });
 
 test("a code's unused parts are not clickable", async () => {
-	await typeCode("1C00-1AMC000000");
+	await typeCode("1C01-1AMC000000");
 	const dead = ["boosts", "randomBoost", "cookiePowers", "reserved"];
 	const unused = hints().filter(
 		(hint) =>
@@ -1151,7 +1119,7 @@ test("a code's unused parts are not clickable", async () => {
 	for (const hint of unused) expect(hint.inert).toBe(true);
 	expect(hints().find((hint) => hint.group === "cookie")?.inert).toBe(false);
 
-	await typeCode("1C00-1AM3H00000");
+	await typeCode("1C01-1AM3H00000");
 	expect(hints().find((hint) => hint.group === "boosts")?.inert).toBe(false);
 	await closeEditor();
 	await reset();
@@ -1170,9 +1138,9 @@ test("a role card picks which grid the Cookies tab shows, and a pick writes the 
 	expect(roleCard("relay").getAttribute("aria-pressed")).toBe("true");
 	expect(roleCard("cookie").getAttribute("aria-pressed")).toBe("false");
 
-	await choose("relay", "0O");
+	await choose("relay", "0P");
 
-	expect(await codeText()).toBe("1R0O-10S0000000");
+	expect(await codeText()).toBe("1R0P-10S0000000");
 	expect(roleCard("relay").textContent).toContain("Fairy Cookie");
 	await reset();
 	roleCard("cookie").click();
@@ -1201,8 +1169,8 @@ test("Clear empties the selected role", async () => {
 	const clear = need<HTMLButtonElement>("role-clear");
 	expect(clear.hidden).toBe(true);
 
-	await choose("cookie", "0O");
-	expect(await codeText()).toBe("1C0O-10S0000000");
+	await choose("cookie", "0P");
+	expect(await codeText()).toBe("1C0P-10S0000000");
 	expect(clear.hidden).toBe(false);
 
 	clear.click();
@@ -1217,7 +1185,7 @@ test("Clear empties the selected role", async () => {
 test("the tab badges count what is set", async () => {
 	expect(tabOptions().map(([, , badge]) => badge)).toEqual(["", "", "0/3", ""]);
 
-	await typeCode("1C0OP10TU0FZ.0RB-1HM31RFW00");
+	await typeCode("1C0PP10TU098.0G2-1HM31RFW00");
 
 	expect(tabOptions().map(([, , badge]) => badge)).toEqual([
 		"",
@@ -1230,7 +1198,7 @@ test("the tab badges count what is set", async () => {
 });
 
 test("the relay is not counted where the episode takes none", async () => {
-	await typeCode("1C0OR10P10-1HM3000000");
+	await typeCode("1C0PR10P10-1HM3000000");
 	await closeEditor();
 	expect(tabOptions()[1]?.[2]).toBe("3");
 
@@ -1974,7 +1942,7 @@ test("a pick from the code menu hands focus back to the menu's toggle", async ()
 });
 
 test("Clear hands focus to the role card it emptied", async () => {
-	await choose("cookie", "0O");
+	await choose("cookie", "0P");
 	const clear = need<HTMLButtonElement>("role-clear");
 	clear.focus();
 	clear.click();

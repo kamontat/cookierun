@@ -1,23 +1,25 @@
 /**
- * Wire ids for `assets/index.json`, and the one-way migration that turns the
- * old name-derived keys into them.
+ * Wire ids for `assets/index.json`: what they are, how the file is written,
+ * and what makes a written file intact.
  *
- * The old keys were PascalCase display names numbered on collision, so
- * inserting an entry upstream renumbered the ones after it. An id that moves is
- * a code that changes meaning, which a wire format cannot tolerate. Ids are
- * therefore assigned once, in file order, and never reassigned — see
- * `reconcile` for how a rescrape keeps that promise.
+ * An id is the entry's own number on cookierunhub.com in fixed-width base 36,
+ * so it is never assigned here — the site assigned it, and its page URL carries
+ * it. That is what keeps an id from moving: a rescrape cannot hand a published
+ * id to a different entry without the site renumbering its own pages, and
+ * `verifyStructure` checks every id against the url it sits beside.
  */
+
+import { pageUrl } from "./cookierunhub";
 
 export type Section = "cookies" | "pets" | "treasures";
 
 export const SECTIONS: Section[] = ["cookies", "pets", "treasures"];
 
 /**
- * Sections the scraper does not own. Boosts have no page on cookierundb.com at
- * all, and episodes have one this project deliberately does not scrape: both
- * describe a fixed part of the game rather than a catalog that grows, so they
- * are written by hand and left alone by `fetch:assets` and `verify:assets`.
+ * Sections the scraper does not own. Boosts have no page on cookierunhub.com
+ * at all, and episodes describe a fixed part of the game rather than a catalog
+ * that grows, so both are written by hand and left alone by `fetch:assets` and
+ * `verify:assets`.
  *
  * Their keys are authored too — `ep1`, `hp-extension` — not assigned. Nothing
  * here is reachable from a loadout code: the combi codec carries its own
@@ -58,8 +60,16 @@ export const CAPACITY: Record<Section, number> = {
 	treasures: 36 ** ID_WIDTH.treasures,
 };
 
+/**
+ * A blessed treasure has no number of its own on the site — it is a flag on
+ * its unblessed form — so its id is that form's number moved up by half the
+ * treasure id space. `050` and `I1E` are the same treasure's two forms, and
+ * each half holds 23,328 numbers.
+ */
+export const BLESSED_OFFSET = CAPACITY.treasures / 2;
+
 export type Entry = {
-	/** The old PascalCase key. Kept because a rescrape diff is unreadable without it. */
+	/** A readable handle derived from the name; `art.ts` looks pictures up by it. */
 	key: string;
 	name: string;
 	url: string;
@@ -68,30 +78,22 @@ export type Entry = {
 };
 
 /**
- * How the site sorts its treasures, read from the listing card's `data-fam`.
- * The combi page offers only the families a run can equip, so this is a closed
- * set the index is checked against rather than whatever the site happens to
- * say — a family nobody has decided about should stop a scrape, not slip into
- * the picker or out of it.
+ * The site's own treasure categories. The combi page offers every one of them,
+ * but this is still a closed set the index is checked against rather than
+ * whatever the site happens to say — a category nobody has decided about
+ * should stop a scrape, not slip into the picker unnoticed.
  */
 export const TREASURE_FAMILIES = [
 	"cookie",
-	"consumable",
-	"draw",
+	"gacha",
+	"limited",
 	"pet",
-	"special",
 	"squirrel",
 ] as const;
 
 export type TreasureFamily = (typeof TREASURE_FAMILIES)[number];
 
-/**
- * `family` is optional in the type and required by `verifyStructure`, the same
- * split `fetchedAt` has: `migrate` has to accept a file written before the
- * field existed, and it cannot invent one — only a scrape can. So the type
- * describes what may arrive, and the check describes what may be committed.
- */
-export type TreasureEntry = Entry & { family?: TreasureFamily } & (
+export type TreasureEntry = Entry & { family: TreasureFamily } & (
 		| { type: "N"; targets: [string | null, string | null] }
 		| { type: "E" | "B"; source: string }
 	);
@@ -117,9 +119,28 @@ export function fromId(id: string): number {
 	return Number.parseInt(id, 36);
 }
 
-/** The slug is the last path segment of the entry's own page URL. */
-export function slugOf(url: string): string {
-	return url.split("/").pop() ?? "";
+/** The largest site number an unblessed entry of `section` can carry. */
+export function maxHubId(section: Section): number {
+	return (section === "treasures" ? BLESSED_OFFSET : CAPACITY[section]) - 1;
+}
+
+/** The wire id of the site's entry `hubId`, or of its blessed form. */
+export function wireId(
+	section: Section,
+	hubId: number,
+	blessed = false,
+): string {
+	return toId(blessed ? hubId + BLESSED_OFFSET : hubId, ID_WIDTH[section]);
+}
+
+/** The inverse of `wireId`: which site entry an id names, and in which form. */
+export function hubIdOf(
+	section: Section,
+	id: string,
+): { hubId: number; blessed: boolean } {
+	const n = fromId(id);
+	const blessed = section === "treasures" && n >= BLESSED_OFFSET;
+	return { hubId: blessed ? n - BLESSED_OFFSET : n, blessed };
 }
 
 /** Exactly the shape `new Date().toISOString()` produces. */
@@ -128,7 +149,7 @@ const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 /**
  * The timestamp, or `null` for anything that is not one — a missing field, a
  * hand-written date, a number. Normalising here rather than throwing is what
- * lets `migrate` accept an index written before the field existed.
+ * lets `parseIndex` accept a fresh, empty index.
  */
 export function readFetchedAt(value: unknown): string | null {
 	if (typeof value !== "string" || !ISO.test(value)) return null;
@@ -148,10 +169,10 @@ const FIELD_ORDER = [
 ] as const;
 
 /**
- * One field order for the file, whatever built the entry. `migrate` appends
- * `key` to whatever it read, while the scraper writes each field as it builds —
- * without this, a rescrape that changes nothing still rewrites all 1,341
- * entries with their fields shuffled.
+ * One field order for the file, whatever built the entry — the scraper writes
+ * each field as it builds, and a retired entry is the previous one with a flag
+ * added. Without this, a rescrape that changes nothing could still rewrite
+ * every entry with its fields shuffled.
  */
 export function ordered<T extends Entry>(entry: T): T {
 	const source = entry as Record<string, unknown>;
@@ -172,50 +193,27 @@ export function orderedStatic(entry: StaticEntry): StaticEntry {
 	return { name: entry.name, url: entry.url, image: entry.image };
 }
 
-type OldEntry = Record<string, unknown>;
-
 function sectionOf(
-	old: unknown,
+	raw: unknown,
 	section: Section | StaticSection,
-): Record<string, OldEntry> {
-	const holder = old as Record<string, unknown>;
-	const found = holder[section];
-	if (found === undefined || found === null) return {};
-	return found as Record<string, OldEntry>;
+): Record<string, Record<string, unknown>> {
+	if (typeof raw !== "object" || raw === null) return {};
+	const found = (raw as Record<string, unknown>)[section];
+	if (typeof found !== "object" || found === null) return {};
+	return found as Record<string, Record<string, unknown>>;
 }
 
 /**
- * A section is migrated when its keys are ids. A section with only some id
- * keys is corrupt — a hand edit or a bad merge — and re-deriving ids from
- * enumeration position would move every id in it, which is the one thing this
- * module exists to prevent. So that case stops the run instead.
+ * Reads whatever is on disk into the index's shape: a missing section is
+ * empty, a malformed `fetchedAt` is `null`, and every entry's fields are put
+ * in the writer's order. It checks nothing — `verifyStructure` does — so the
+ * scraper can read a broken file and write a whole one over it.
  */
-function isMigrated(keys: string[], width: number): boolean {
-	const id = new RegExp(`^[0-9A-Z]{${width}}$`);
-	const shaped = keys.filter((key) => id.test(key)).length;
-	if (shaped === 0) return false;
-	if (shaped === keys.length) return true;
-	throw new Error(
-		`partially migrated: ${shaped} of ${keys.length} keys are ids — ` +
-			`re-deriving would move every id in the section`,
-	);
-}
-
-/**
- * Keys each section by id in file order, moving the old key into `key`.
- *
- * Ids are only derived from position for a section that has not been migrated
- * yet, whose keys are PascalCase names — there, `Object.entries` order is
- * insertion order. A migrated section keeps the ids it has, because JavaScript
- * enumerates canonical integer-string keys ("10", "11") ahead of every other
- * key regardless of insertion order, so re-deriving would hand those ids to
- * different entries. That is what lets `fetch-assets` call this unconditionally.
- */
-export function migrate(old: unknown): AssetIndex {
+export function parseIndex(raw: unknown): AssetIndex {
 	const out: AssetIndex = {
 		fetchedAt: readFetchedAt(
-			typeof old === "object" && old !== null
-				? (old as { fetchedAt?: unknown }).fetchedAt
+			typeof raw === "object" && raw !== null
+				? (raw as { fetchedAt?: unknown }).fetchedAt
 				: undefined,
 		),
 		cookies: {},
@@ -224,71 +222,18 @@ export function migrate(old: unknown): AssetIndex {
 		boosts: {},
 		episodes: {},
 	};
-	const treasureIds = new Map<string, string>();
-
-	// Carried through, not derived: a static section has no ids to assign and no
-	// old key shape to move away from. A file written before these sections
-	// existed simply has none, which is what keeps `migrate` able to read it.
 	for (const section of STATIC_SECTIONS) {
-		for (const [key, entry] of Object.entries(sectionOf(old, section))) {
+		for (const [key, entry] of Object.entries(sectionOf(raw, section))) {
 			out[section][key] = orderedStatic(entry as unknown as StaticEntry);
 		}
 	}
-
 	for (const section of SECTIONS) {
-		const entries = Object.entries(sectionOf(old, section));
-		const width = ID_WIDTH[section];
-		const capacity = CAPACITY[section];
-
-		if (entries.length > capacity) {
-			throw new Error(
-				`${section}: ${entries.length} entries exceeds the ${capacity} an id of width ${width} can hold`,
-			);
+		for (const [id, entry] of Object.entries(sectionOf(raw, section))) {
+			// One cast at the boundary: only the shape `verifyStructure` checks
+			// is guaranteed after this.
+			out[section][id] = ordered(entry as unknown as TreasureEntry);
 		}
-
-		const migrated = isMigrated(
-			entries.map(([key]) => key),
-			width,
-		);
-
-		entries.forEach(([oldKey, entry], position) => {
-			const id = migrated ? oldKey : toId(position, width);
-			// Destructured rather than read through `entry.key`: the entry comes
-			// from a loose index signature, so a property access is a typecheck
-			// error and a subscript is a lint one.
-			const { key: scraped } = entry;
-			const key = typeof scraped === "string" ? scraped : oldKey;
-			// One cast at the migration boundary: the input is whatever was on
-			// disk, and only the shape written below is guaranteed after this.
-			if (section === "treasures") {
-				treasureIds.set(oldKey, id);
-				out.treasures[id] = ordered({
-					...entry,
-					key,
-				} as unknown as TreasureEntry);
-				return;
-			}
-			out[section][id] = ordered({ ...entry, key } as unknown as Entry);
-		});
 	}
-
-	// Chain references hold old keys, and are only resolvable once every
-	// treasure has an id.
-	const remap = (reference: string): string =>
-		treasureIds.get(reference) ?? reference;
-
-	for (const entry of Object.values(out.treasures)) {
-		if (entry.type === "N") {
-			const [evolved = null, blessed = null] = entry.targets;
-			entry.targets = [
-				evolved === null ? null : remap(evolved),
-				blessed === null ? null : remap(blessed),
-			];
-			continue;
-		}
-		entry.source = remap(entry.source);
-	}
-
 	return out;
 }
 
@@ -317,8 +262,7 @@ function byKey(
  * The one way `assets/index.json` is written, so the scraper and the verifier
  * cannot disagree about what the file should look like.
  *
- * The static sections come last so that adding them left the 1,341 scraped
- * entries above them untouched, and so a hand edit to one shows up as a diff at
+ * The static sections come last so a hand edit to one shows up as a diff at
  * the end of the file rather than in the middle of the treasures.
  */
 export function serializeIndex(index: AssetIndex): string {
@@ -337,12 +281,11 @@ export function serializeIndex(index: AssetIndex): string {
 }
 
 /**
- * Everything about the index that can be checked without knowing what it looked
- * like before: that it parses, that `migrate` accepts it and leaves it alone,
- * that `fetchedAt` is `null` or an ISO 8601 instant, that it is written the way
- * the scraper writes it, that every id is the right shape and sits where its
- * position says it should, that no two entries claim one slug, that every
- * treasure chain reference resolves, and that each authored entry in a static
+ * Everything about the index that can be checked without asking the site: that
+ * it parses, that `fetchedAt` is `null` or an ISO 8601 instant, that it is
+ * written the way the scraper writes it, that every id is the right shape and
+ * names the page its url points at, that every treasure has a known family and
+ * a chain that resolves both ways, and that each authored entry in a static
  * section is shaped the way `staticProblems` describes.
  *
  * Returns one line per problem, so a caller can report them all at once.
@@ -355,19 +298,12 @@ export function verifyStructure(text: string): string[] {
 		return [`index.json is not valid JSON: ${String(error)}`];
 	}
 
-	let index: AssetIndex;
-	try {
-		index = migrate(parsed);
-	} catch (error) {
-		return [`migrate refused the index: ${String(error)}`];
-	}
-
+	const index = parseIndex(parsed);
 	const problems: string[] = [];
 
-	// Read off the parsed input, not off `migrate`'s output: migrate has already
+	// Read off the parsed input, not off `parseIndex`'s output: that has already
 	// normalised a malformed value to null, so a check downstream of it could
-	// never fire. Without this the fault is still caught — the writer would
-	// produce `null` where the file says otherwise — but only as generic drift.
+	// never fire.
 	const raw =
 		typeof parsed === "object" && parsed !== null
 			? (parsed as { fetchedAt?: unknown }).fetchedAt
@@ -391,37 +327,24 @@ export function verifyStructure(text: string): string[] {
 	for (const section of SECTIONS) {
 		const width = ID_WIDTH[section];
 		const shaped = new RegExp(`^[0-9A-Z]{${width}}$`);
-		const ids = Object.keys(index[section]).sort();
 
-		ids.forEach((id, position) => {
+		for (const [id, entry] of Object.entries(index[section])) {
 			if (!shaped.test(id)) {
 				problems.push(
 					`${section}/${id} is not ${width} characters of [0-9A-Z]`,
 				);
-				return;
-			}
-			// Ids are assigned from zero and never removed, so the nth lowest id
-			// is always n. Anything else means one was deleted or inserted, which
-			// moves every id after it.
-			const belongs = toId(position, width);
-			if (id !== belongs) {
-				problems.push(
-					`${section}: id ${id} sits where ${belongs} should be — an id was deleted or inserted`,
-				);
-			}
-		});
-
-		const seen = new Map<string, string>();
-		for (const [id, entry] of Object.entries(index[section])) {
-			const slug = slugOf(entry.url);
-			const first = seen.get(slug);
-			if (first !== undefined) {
-				problems.push(
-					`${section}: ${slug} is claimed by both ${first} and ${id}`,
-				);
 				continue;
 			}
-			seen.set(slug, id);
+			// The id is the site's number for the page the url names. An id
+			// that disagrees with its own url is one that moved — a published
+			// code that would now mean a different entry.
+			const { hubId, blessed } = hubIdOf(section, id);
+			const expected = pageUrl(section, hubId, blessed);
+			if (entry.url !== expected) {
+				problems.push(
+					`${section}/${id} names ${JSON.stringify(entry.url)}, but its id says ${expected}`,
+				);
+			}
 		}
 	}
 
@@ -504,7 +427,8 @@ function staticProblems(
  * blessed one names its base as `source`. The two directions are inverses, so
  * each has to agree with the other — a reference that merely resolves is not
  * enough, since a merge can leave one side pointing somewhere the other does
- * not point back from.
+ * not point back from. A retired form is exempt from the point-back half: its
+ * base is still listed and no longer names it, which is what retiring it means.
  */
 function chainProblems(treasures: Record<string, TreasureEntry>): string[] {
 	const problems: string[] = [];
@@ -530,6 +454,13 @@ function chainProblems(treasures: Record<string, TreasureEntry>): string[] {
 			continue;
 		}
 
+		// Only a blessed form sits in the upper half of the id space.
+		if ((type === "B") !== hubIdOf("treasures", id).blessed) {
+			problems.push(
+				`treasures/${id} is type ${type}, but its id is in the ${type === "B" ? "unblessed" : "blessed"} half`,
+			);
+		}
+
 		if (type !== "N") {
 			const { source } = entry as { source?: unknown };
 			if (typeof source !== "string" || !resolves(source)) {
@@ -538,6 +469,7 @@ function chainProblems(treasures: Record<string, TreasureEntry>): string[] {
 				);
 				continue;
 			}
+			if (entry.retired === true) continue;
 			// The base must point back, in the half matching this form.
 			const base = treasures[source];
 			const back =
@@ -583,48 +515,4 @@ function chainProblems(treasures: Record<string, TreasureEntry>): string[] {
 	}
 
 	return problems;
-}
-
-/**
- * Matches a listing against the index already on disk. A slug keeps whatever id
- * it was first given, a new slug takes one past the highest in use, and a slug
- * that no longer appears is reported so the caller can retire its entry instead
- * of deleting it. Ids are never reassigned, so no existing code changes meaning.
- */
-export function reconcile(
-	section: Section,
-	existing: Record<string, Entry>,
-	slugs: string[],
-): { ids: Map<string, string>; retired: string[] } {
-	const bySlug = new Map<string, string>();
-	let highest = -1;
-
-	for (const [id, entry] of Object.entries(existing)) {
-		bySlug.set(slugOf(entry.url), id);
-		highest = Math.max(highest, fromId(id));
-	}
-
-	const width = ID_WIDTH[section];
-	const capacity = CAPACITY[section];
-	const ids = new Map<string, string>();
-
-	for (const slug of slugs) {
-		const known = bySlug.get(slug);
-		if (known !== undefined) {
-			ids.set(slug, known);
-			continue;
-		}
-		highest += 1;
-		if (highest >= capacity) {
-			throw new Error(`${section}: no id left, ${capacity} already in use`);
-		}
-		ids.set(slug, toId(highest, width));
-	}
-
-	const listed = new Set(slugs);
-	const retired = Object.entries(existing)
-		.filter(([, entry]) => !listed.has(slugOf(entry.url)))
-		.map(([id]) => id);
-
-	return { ids, retired };
 }

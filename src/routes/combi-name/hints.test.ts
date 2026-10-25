@@ -93,7 +93,7 @@ test("a special episode with no boosts says so over slots 5-9", () => {
 });
 
 test("a loadout section is hinted group by group, separator included", () => {
-	const code = "1C00P02-10S0000000";
+	const code = "1C01P06-10S0000000";
 	const described = hintsFor(code);
 
 	expect(described).toHaveLength(code.length);
@@ -106,7 +106,7 @@ test("a loadout section is hinted group by group, separator included", () => {
 });
 
 test("a treasure group is one run for the order and one per slot", () => {
-	const described = hintsFor("1TU000.001-10S0000000");
+	const described = hintsFor("1TU001.002-10S0000000");
 	const groups = described.slice(1, 10).map(({ group }) => group);
 
 	// The . closing a slot belongs to the slot before it.
@@ -130,7 +130,7 @@ test("every run carries a short name: its slot and field, no value", () => {
 	expect(combi[1]?.name).toBe("Slot 2 · Mode");
 	expect(combi[4]?.name).toBe("Slots 5-7 · Floor");
 
-	const full = hintsFor("1C00TU000.001-10S0000000");
+	const full = hintsFor("1C01TU001.002-10S0000000");
 	expect(full[1]?.name).toBe("Cookie");
 	expect(full[4]?.name).toBe("Treasure order");
 	expect(full[6]?.name).toBe("Treasure slot 1");

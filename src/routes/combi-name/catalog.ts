@@ -1,8 +1,8 @@
 /**
  * The cookie, pet and treasure catalog, read from `assets/index.json`, whose
- * keys are the wire ids a loadout section carries. Ids are assigned append-only
- * by the scraper, so an id here means the same entry for the life of the
- * project — see `scripts/utils/asset-ids.ts`.
+ * keys are the wire ids a loadout section carries. An id is the entry's own
+ * number on cookierunhub.com in base 36, so it means the same entry for as long
+ * as the site keeps its numbering — see `scripts/utils/asset-ids.ts`.
  *
  * It lives in the route rather than `lib/` for the same reason the codec does:
  * exactly one page imports it.
@@ -89,18 +89,18 @@ export type CatalogEntry = {
 };
 
 /**
- * The treasure families the picker does not offer. `consumable` is the
- * XP-Elixirs and their like, 7 of the 1,144 entries, and none of them can go
- * in a slot. The `special` family — trophies, certificates and commemorative
- * frames — was hidden alongside them and is offered again: a run can equip
- * one, and 192 entries is too many to leave out of the picker on a guess.
+ * The treasure families the picker does not offer — none, today. The index
+ * files treasures under cookierunhub.com's own categories, which fold the
+ * XP-Elixirs into `limited` beside 200-odd treasures a run can equip, so there
+ * is no family left that is safe to hide whole; the picker offers everything.
+ * It stays a list so hiding one is a single edit.
  *
- * This hides them from the picker and from nowhere else. A code that already
- * carries one still decodes and still names it, the same promise a retired
- * entry gets: what can be chosen is a question about the page, what can be
- * named is a question about the wire format.
+ * A hidden family is hidden from the picker and from nowhere else. A code that
+ * already carries one still decodes and still names it, the same promise a
+ * retired entry gets: what can be chosen is a question about the page, what can
+ * be named is a question about the wire format.
  */
-export const HIDDEN_TREASURE_FAMILIES = ["consumable"] as const;
+export const HIDDEN_TREASURE_FAMILIES: readonly string[] = [];
 
 // One cast at the boundary. A JSON import's inferred type has no index
 // signature, and propagating 1,300 literal property types through every lookup
@@ -232,7 +232,7 @@ export function optionsFrom(
 		.sort(([a], [b]) => (a === b ? 0 : a < b ? -1 : 1));
 }
 
-// Built once at module load: three sections, 1,341 entries, and the page asks
+// Built once at module load: three sections, 1,378 entries, and the page asks
 // for them six times over.
 const LISTED: Record<CatalogSection, readonly PickerOption[]> = {
 	cookies: optionsFrom(DATA.cookies),
@@ -243,10 +243,7 @@ const LISTED: Record<CatalogSection, readonly PickerOption[]> = {
 function isOffered(section: CatalogSection, id: string): boolean {
 	if (section !== "treasures") return true;
 	const family = entryFor(section, id)?.family;
-	return (
-		family === undefined ||
-		!(HIDDEN_TREASURE_FAMILIES as readonly string[]).includes(family)
-	);
+	return family === undefined || !HIDDEN_TREASURE_FAMILIES.includes(family);
 }
 
 const OPTIONS: Record<CatalogSection, readonly PickerOption[]> = {

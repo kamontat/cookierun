@@ -21,15 +21,15 @@ function loadout(over: Partial<Loadout> = {}): Loadout {
 
 test("an empty loadout is recognised as empty", () => {
 	expect(isEmptyLoadout(emptyLoadout())).toBe(true);
-	expect(isEmptyLoadout(loadout({ cookie: "00" }))).toBe(false);
-	expect(isEmptyLoadout(loadout({ treasures: [[t("000")]] }))).toBe(false);
+	expect(isEmptyLoadout(loadout({ cookie: "01" }))).toBe(false);
+	expect(isEmptyLoadout(loadout({ treasures: [[t("001")]] }))).toBe(false);
 });
 
 test("each group carries its tag, and an unset field is left out", () => {
 	expect(encodeLoadout(loadout({ cookie: "2L" }))).toBe("1C2L");
-	expect(encodeLoadout(loadout({ pet: "1Z" }))).toBe("1P1Z");
-	expect(encodeLoadout(loadout({ cookie: "00", relay: "01", pet: "02" }))).toBe(
-		"1C00R01P02",
+	expect(encodeLoadout(loadout({ pet: "1Y" }))).toBe("1P1Y");
+	expect(encodeLoadout(loadout({ cookie: "01", relay: "02", pet: "06" }))).toBe(
+		"1C01R02P06",
 	);
 });
 
@@ -61,77 +61,77 @@ test("a treasure slot refuses the Any id", () => {
 
 test("groups are written in C R P T order", () => {
 	const code = encodeLoadout(
-		loadout({ cookie: "00", relay: "01", pet: "02", treasures: [[t("000")]] }),
+		loadout({ cookie: "01", relay: "02", pet: "06", treasures: [[t("001")]] }),
 	);
-	expect(code).toBe("1C00R01P02TU000");
+	expect(code).toBe("1C01R02P06TU001");
 });
 
 test("alternatives within a slot are joined by _ and sorted", () => {
-	expect(encodeLoadout(loadout({ treasures: [[t("0RB"), t("0FZ")]] }))).toBe(
-		"1TU0FZ_0RB",
+	expect(encodeLoadout(loadout({ treasures: [[t("0G2"), t("098")]] }))).toBe(
+		"1TU098_0G2",
 	);
 });
 
 test("slots are joined by - and sorted when order does not matter", () => {
 	expect(
 		encodeLoadout(
-			loadout({ treasures: [[t("0QQ")], [t("000")]], ordered: false }),
+			loadout({ treasures: [[t("0G1")], [t("001")]], ordered: false }),
 		),
-	).toBe("1TU000.0QQ");
+	).toBe("1TU001.0G1");
 });
 
 test("slots sharing their smallest id sort the same way whichever order they arrive in", () => {
 	const one = encodeLoadout(
 		loadout({
 			treasures: [
-				[t("001"), t("000")],
-				[t("000"), t("002")],
+				[t("002"), t("001")],
+				[t("001"), t("003")],
 			],
 		}),
 	);
 	const other = encodeLoadout(
 		loadout({
 			treasures: [
-				[t("000"), t("002")],
-				[t("001"), t("000")],
+				[t("001"), t("003")],
+				[t("002"), t("001")],
 			],
 		}),
 	);
 
 	expect(one).toBe(other);
-	expect(one).toBe("1TU000_001.000_002");
+	expect(one).toBe("1TU001_002.001_003");
 });
 
 test("slot order is preserved when order matters", () => {
 	expect(
 		encodeLoadout(
-			loadout({ treasures: [[t("0QQ")], [t("000")]], ordered: true }),
+			loadout({ treasures: [[t("0G1")], [t("001")]], ordered: true }),
 		),
-	).toBe("1TO0QQ.000");
+	).toBe("1TO0G1.001");
 });
 
 // With one slot there is nothing to order, so O would be a second code for the
 // same build.
 test("a single slot is always written U", () => {
 	expect(
-		encodeLoadout(loadout({ treasures: [[t("000")]], ordered: true })),
-	).toBe("1TU000");
+		encodeLoadout(loadout({ treasures: [[t("001")]], ordered: true })),
+	).toBe("1TU001");
 });
 
 test("decoding reads every group back", () => {
-	expect(decodeLoadout("1C00R01P02TO0QQ.000_0RB")).toEqual({
-		cookie: "00",
-		relay: "01",
-		pet: "02",
-		treasures: [[t("0QQ")], [t("000"), t("0RB")]],
+	expect(decodeLoadout("1C01R02P06TO0G1.001_0G2")).toEqual({
+		cookie: "01",
+		relay: "02",
+		pet: "06",
+		treasures: [[t("0G1")], [t("001"), t("0G2")]],
 		ordered: true,
 	});
 });
 
 test("a non-canonical code decodes as written and re-encodes canonically", () => {
-	const decoded = decodeLoadout("1TU0QQ.000");
-	expect(decoded.treasures).toEqual([[t("0QQ")], [t("000")]]);
-	expect(encodeLoadout(decoded)).toBe("1TU000.0QQ");
+	const decoded = decodeLoadout("1TU0G1.001");
+	expect(decoded.treasures).toEqual([[t("0G1")], [t("001")]]);
+	expect(encodeLoadout(decoded)).toBe("1TU001.0G1");
 });
 
 test("the version character is checked", () => {
@@ -146,13 +146,13 @@ test("an unknown group tag is rejected", () => {
 });
 
 test("a repeated group is rejected", () => {
-	expect(() => decodeLoadout("1C00C01")).toThrow(
+	expect(() => decodeLoadout("1C01C02")).toThrow(
 		'loadout group "C" appears twice',
 	);
 });
 
 test("groups out of C R P T order are rejected", () => {
-	expect(() => decodeLoadout("1P02C00")).toThrow(
+	expect(() => decodeLoadout("1P06C01")).toThrow(
 		'loadout group "C" is out of order, expected C R P T',
 	);
 });
@@ -185,13 +185,13 @@ test("the order flag has to be U or O", () => {
 });
 
 test("more than three slots is rejected", () => {
-	expect(() => decodeLoadout("1TU000.001.002.003")).toThrow(
+	expect(() => decodeLoadout("1TU001.002.003.004")).toThrow(
 		'loadout group "T": 4 treasure slots, at most 3 fit',
 	);
 });
 
 test("an empty slot is rejected", () => {
-	expect(() => decodeLoadout("1TU000..001")).toThrow(
+	expect(() => decodeLoadout("1TU001..002")).toThrow(
 		'loadout group "T": slot 2 is empty',
 	);
 });
@@ -200,13 +200,13 @@ test("an empty slot is rejected", () => {
 // so decoding merges the copies. A Loadout holds each treasure once per slot,
 // so encoding one that lists an id twice is still an error.
 test("a repeated id within one slot merges on decode, is rejected on encode, and may repeat across slots", () => {
-	expect(decodeLoadout("1TU000_000").treasures).toEqual([[t("000")]]);
+	expect(decodeLoadout("1TU001_001").treasures).toEqual([[t("001")]]);
 	expect(() =>
-		encodeLoadout(loadout({ treasures: [[t("000"), t("000", 3)]] })),
-	).toThrow('loadout group "T": slot 1 lists "000" twice');
-	expect(decodeLoadout("1TU000.000").treasures).toEqual([
-		[t("000")],
-		[t("000")],
+		encodeLoadout(loadout({ treasures: [[t("001"), t("001", 3)]] })),
+	).toThrow('loadout group "T": slot 1 lists "001" twice');
+	expect(decodeLoadout("1TU001.001").treasures).toEqual([
+		[t("001")],
+		[t("001")],
 	]);
 });
 
@@ -217,7 +217,7 @@ test("encoding validates the same rules as decoding", () => {
 	expect(() =>
 		encodeLoadout(
 			loadout({
-				treasures: [[t("000")], [t("001")], [t("002")], [t("003")]],
+				treasures: [[t("001")], [t("002")], [t("003")], [t("004")]],
 			}),
 		),
 	).toThrow('loadout group "T": 4 treasure slots, at most 3 fit');
@@ -227,142 +227,142 @@ test("encoding validates the same rules as decoding", () => {
 });
 
 test("a level is written after its id: none for +0, one digit, or a range", () => {
-	expect(encodeLoadout(loadout({ treasures: [[t("0FZ")]] }))).toBe("1TU0FZ");
-	expect(encodeLoadout(loadout({ treasures: [[t("0FZ", 5)]] }))).toBe(
-		"1TU0FZ5",
+	expect(encodeLoadout(loadout({ treasures: [[t("098")]] }))).toBe("1TU098");
+	expect(encodeLoadout(loadout({ treasures: [[t("098", 5)]] }))).toBe(
+		"1TU0985",
 	);
-	expect(encodeLoadout(loadout({ treasures: [[t("0FZ", 5, 8)]] }))).toBe(
-		"1TU0FZ58",
+	expect(encodeLoadout(loadout({ treasures: [[t("098", 5, 8)]] }))).toBe(
+		"1TU09858",
 	);
-	expect(encodeLoadout(loadout({ treasures: [[t("0FZ", 0, 9)]] }))).toBe(
-		"1TU0FZ09",
+	expect(encodeLoadout(loadout({ treasures: [[t("098", 0, 9)]] }))).toBe(
+		"1TU09809",
 	);
-	expect(encodeLoadout(loadout({ treasures: [[t("0FZ", 9)]] }))).toBe(
-		"1TU0FZ9",
+	expect(encodeLoadout(loadout({ treasures: [[t("098", 9)]] }))).toBe(
+		"1TU0989",
 	);
 });
 
 test("each alternative carries its own level", () => {
 	const code = encodeLoadout(
-		loadout({ treasures: [[t("0RB", 5, 9), t("0FZ")], [t("0QQ", 9)]] }),
+		loadout({ treasures: [[t("0G2", 5, 9), t("098")], [t("0G1", 9)]] }),
 	);
 
-	expect(code).toBe("1TU0FZ_0RB59.0QQ9");
+	expect(code).toBe("1TU098_0G259.0G19");
 	expect(decodeLoadout(code).treasures).toEqual([
-		[t("0FZ"), t("0RB", 5, 9)],
-		[t("0QQ", 9)],
+		[t("098"), t("0G2", 5, 9)],
+		[t("0G1", 9)],
 	]);
 });
 
 // Every code written before levels existed must keep its meaning and its code.
 test("codes without levels read as +0 and keep their code", () => {
-	const decoded = decodeLoadout("1TU0FZ_0RB.0QQ");
+	const decoded = decodeLoadout("1TU098_0G2.0G1");
 
-	expect(decoded.treasures).toEqual([[t("0FZ"), t("0RB")], [t("0QQ")]]);
-	expect(encodeLoadout(decoded)).toBe("1TU0FZ_0RB.0QQ");
+	expect(decoded.treasures).toEqual([[t("098"), t("0G2")], [t("0G1")]]);
+	expect(encodeLoadout(decoded)).toBe("1TU098_0G2.0G1");
 });
 
 test("a non-canonical level decodes and re-encodes short", () => {
-	expect(encodeLoadout(decodeLoadout("1TU0FZ00"))).toBe("1TU0FZ");
-	expect(encodeLoadout(decodeLoadout("1TU0FZ0"))).toBe("1TU0FZ");
-	expect(encodeLoadout(decodeLoadout("1TU0FZ55"))).toBe("1TU0FZ5");
+	expect(encodeLoadout(decodeLoadout("1TU09800"))).toBe("1TU098");
+	expect(encodeLoadout(decodeLoadout("1TU0980"))).toBe("1TU098");
+	expect(encodeLoadout(decodeLoadout("1TU09855"))).toBe("1TU0985");
 });
 
 // Same ids, different levels: two different slots, which must not tie in the
 // sort or one build would have two codes.
 test("slots differing only in level still sort to one code", () => {
 	const one = encodeLoadout(
-		loadout({ treasures: [[t("0FZ", 3)], [t("0FZ", 1)]] }),
+		loadout({ treasures: [[t("098", 3)], [t("098", 1)]] }),
 	);
 	const other = encodeLoadout(
-		loadout({ treasures: [[t("0FZ", 1)], [t("0FZ", 3)]] }),
+		loadout({ treasures: [[t("098", 1)], [t("098", 3)]] }),
 	);
 
 	expect(one).toBe(other);
-	expect(one).toBe("1TU0FZ1.0FZ3");
+	expect(one).toBe("1TU0981.0983");
 });
 
 test("a malformed level is rejected", () => {
-	expect(() => decodeLoadout("1TU0FZ123")).toThrow(
-		'loadout group "T": "0FZ123" has level "123", expected at most two digits',
+	expect(() => decodeLoadout("1TU098123")).toThrow(
+		'loadout group "T": "098123" has level "123", expected at most two digits',
 	);
-	expect(() => decodeLoadout("1TU0FZX")).toThrow(
-		'loadout group "T": "0FZX" has level "X", expected at most two digits',
+	expect(() => decodeLoadout("1TU098X")).toThrow(
+		'loadout group "T": "098X" has level "X", expected at most two digits',
 	);
-	expect(() => decodeLoadout("1TU0FZ95")).toThrow(
-		'loadout group "T": "0FZ" level runs backwards, 9-5',
+	expect(() => decodeLoadout("1TU09895")).toThrow(
+		'loadout group "T": "098" level runs backwards, 9-5',
 	);
 });
 
 test("encoding validates levels the same way", () => {
 	expect(() =>
-		encodeLoadout(loadout({ treasures: [[treasurePick("0FZ", [])]] })),
-	).toThrow('loadout group "T": "0FZ" accepts no level');
+		encodeLoadout(loadout({ treasures: [[treasurePick("098", [])]] })),
+	).toThrow('loadout group "T": "098" accepts no level');
 	expect(() =>
-		encodeLoadout(loadout({ treasures: [[t("0FZ", 0, 10)]] })),
-	).toThrow('loadout group "T": "0FZ" level 10 is outside 0-9');
+		encodeLoadout(loadout({ treasures: [[t("098", 0, 10)]] })),
+	).toThrow('loadout group "T": "098" level 10 is outside 0-9');
 	expect(() =>
-		encodeLoadout(loadout({ treasures: [[t("0FZ", 1.5)]] })),
-	).toThrow('loadout group "T": "0FZ" level 1.5 is outside 0-9');
+		encodeLoadout(loadout({ treasures: [[t("098", 1.5)]] })),
+	).toThrow('loadout group "T": "098" level 1.5 is outside 0-9');
 });
 
 test("copies of one id in a slot merge on decode", () => {
-	expect(decodeLoadout("1TU0FZ1_0FZ2").treasures).toEqual([[t("0FZ", 1, 2)]]);
-	expect(encodeLoadout(decodeLoadout("1TU0FZ1_0FZ2"))).toBe("1TU0FZ12");
+	expect(decodeLoadout("1TU0981_0982").treasures).toEqual([[t("098", 1, 2)]]);
+	expect(encodeLoadout(decodeLoadout("1TU0981_0982"))).toBe("1TU09812");
 });
 
 const SPLIT = [0, 1, 2, 5, 6, 7, 8, 9];
 
 test("a treasure whose levels are not one run is written as one copy per run", () => {
 	expect(
-		encodeLoadout(loadout({ treasures: [[treasurePick("0FZ", SPLIT)]] })),
-	).toBe("1TU0FZ02_0FZ59");
+		encodeLoadout(loadout({ treasures: [[treasurePick("098", SPLIT)]] })),
+	).toBe("1TU09802_09859");
 	expect(
-		encodeLoadout(loadout({ treasures: [[treasurePick("0FZ", [9, 0])]] })),
-	).toBe("1TU0FZ_0FZ9");
-	expect(decodeLoadout("1TU0FZ02_0FZ59").treasures).toEqual([
-		[treasurePick("0FZ", SPLIT)],
+		encodeLoadout(loadout({ treasures: [[treasurePick("098", [9, 0])]] })),
+	).toBe("1TU098_0989");
+	expect(decodeLoadout("1TU09802_09859").treasures).toEqual([
+		[treasurePick("098", SPLIT)],
 	]);
 });
 
 test("a pick's copies sit together among the other alternatives", () => {
 	const code = encodeLoadout(
 		loadout({
-			treasures: [[t("0RB", 3), treasurePick("0FZ", SPLIT)], [t("0QQ", 9)]],
+			treasures: [[t("0G2", 3), treasurePick("098", SPLIT)], [t("0G1", 9)]],
 		}),
 	);
 
-	expect(code).toBe("1TU0FZ02_0FZ59_0RB3.0QQ9");
+	expect(code).toBe("1TU09802_09859_0G23.0G19");
 	expect(decodeLoadout(code).treasures).toEqual([
-		[treasurePick("0FZ", SPLIT), t("0RB", 3)],
-		[t("0QQ", 9)],
+		[treasurePick("098", SPLIT), t("0G2", 3)],
+		[t("0G1", 9)],
 	]);
 });
 
 test("unsorted or repeated levels encode canonically", () => {
 	expect(
 		encodeLoadout(
-			loadout({ treasures: [[treasurePick("0FZ", [7, 5, 6, 5])]] }),
+			loadout({ treasures: [[treasurePick("098", [7, 5, 6, 5])]] }),
 		),
-	).toBe("1TU0FZ57");
+	).toBe("1TU09857");
 });
 
 test("copies merge whether they overlap, touch or arrive out of order", () => {
-	expect(encodeLoadout(decodeLoadout("1TU0FZ03_0FZ25"))).toBe("1TU0FZ05");
-	expect(encodeLoadout(decodeLoadout("1TU0FZ02_0FZ35"))).toBe("1TU0FZ05");
-	expect(encodeLoadout(decodeLoadout("1TU0FZ59_0FZ02"))).toBe("1TU0FZ02_0FZ59");
-	expect(decodeLoadout("1TU0FZ_0FZ").treasures).toEqual([[t("0FZ")]]);
+	expect(encodeLoadout(decodeLoadout("1TU09803_09825"))).toBe("1TU09805");
+	expect(encodeLoadout(decodeLoadout("1TU09802_09835"))).toBe("1TU09805");
+	expect(encodeLoadout(decodeLoadout("1TU09859_09802"))).toBe("1TU09802_09859");
+	expect(decodeLoadout("1TU098_098").treasures).toEqual([[t("098")]]);
 });
 
-// "0FZ18" sorts before "0FZ_0FZ9" because "1" (0x31) is below "_" (0x5F).
+// "09818" sorts before "098_0989" because "1" (0x31) is below "_" (0x5F).
 test("a slot with split runs still sorts to one code among unordered slots", () => {
-	const split = treasurePick("0FZ", [0, 9]);
-	const run = t("0FZ", 1, 8);
+	const split = treasurePick("098", [0, 9]);
+	const run = t("098", 1, 8);
 	const one = encodeLoadout(loadout({ treasures: [[split], [run]] }));
 	const other = encodeLoadout(loadout({ treasures: [[run], [split]] }));
 
 	expect(one).toBe(other);
-	expect(one).toBe("1TU0FZ18.0FZ_0FZ9");
+	expect(one).toBe("1TU09818.098_0989");
 });
 
 test("levelRuns reads a level set as its runs", () => {

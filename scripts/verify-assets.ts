@@ -1,14 +1,15 @@
 /**
- * Asks cookierundb.com whether `assets/index.json` is still complete: for each
+ * Asks cookierunhub.com whether `assets/index.json` is still complete: for each
  * section, how many entries the site lists against how many this index carries
- * without `retired: true`.
+ * without `retired: true`. A treasure the site marks blessed counts twice, once
+ * per form, the same way `fetch-assets` writes it.
  *
  * It does not check the index's own structure. `scripts/utils/asset-ids.test.ts`
  * runs `verifyStructure` over the committed file on every `bun run test`, and
  * duplicating it here would mean two places to keep in step — the thing
  * `scripts/utils/asset-ids.ts` exists to prevent.
  *
- * Network cost is three requests, one listing page per section.
+ * Network cost is three requests, one per section.
  */
 
 import { fileURLToPath } from "node:url";
@@ -16,10 +17,11 @@ import { fileURLToPath } from "node:url";
 import {
 	type AssetIndex,
 	type Entry,
-	migrate,
+	parseIndex,
 	SECTIONS,
 } from "./utils/asset-ids";
-import { fetchListing } from "./utils/cookierundb";
+import { fetchRows } from "./utils/cookierunhub";
+import { entriesFrom } from "./utils/hub-index";
 
 const INDEX = fileURLToPath(new URL("../assets/index.json", import.meta.url));
 
@@ -34,7 +36,7 @@ async function readIndex(): Promise<AssetIndex> {
 		fail(["assets/index.json does not exist"], "nothing to verify");
 	}
 	try {
-		return migrate(await Bun.file(INDEX).json());
+		return parseIndex(await Bun.file(INDEX).json());
 	} catch (error) {
 		fail(
 			[`assets/index.json could not be read: ${String(error)}`],
@@ -52,9 +54,11 @@ console.log(`fetched ${index.fetchedAt ?? "never"}`);
 for (const section of SECTIONS) {
 	let site: number;
 	try {
-		site = (await fetchListing(section)).length;
+		site = Object.keys(
+			entriesFrom(section, await fetchRows(section)).entries,
+		).length;
 	} catch (error) {
-		fail([`${section}: ${String(error)}`], "cookierundb.com is unreachable");
+		fail([`${section}: ${String(error)}`], "cookierunhub.com is unreachable");
 	}
 
 	// Annotated, not inferred: `index[section]` is a union of two record types,
