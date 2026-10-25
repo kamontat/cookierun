@@ -468,16 +468,6 @@ kbd {
 	text-transform: uppercase;
 }
 
-/* While an entry is open, the line naming it sits under the box, in the colour
-   that marks the entry in the saved list. */
-.saveform .editing {
-	margin: 0;
-	border-left: var(--cr-border) solid var(--cr-accent-2);
-	padding-left: var(--cr-space-2);
-	font-size: 0.9rem;
-	overflow-wrap: anywhere;
-}
-
 .saveform textarea {
 	width: 100%;
 	resize: vertical;
@@ -559,9 +549,9 @@ kbd {
 	font-size: 0.75rem;
 }
 
-/* The entry open for editing: a dashed ring in the colour of the line above
-   the box that names it, apart from the accent edge, which follows the code
-   on screen and may since have moved to another entry or to none. */
+/* The entry open for editing: a dashed ring, apart from the accent edge,
+   which follows the code on screen and may since have moved to another entry
+   or to none. */
 .savedlist li[data-editing] {
 	outline: var(--cr-border) dashed var(--cr-accent-2);
 	outline-offset: 2px;
