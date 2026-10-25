@@ -28,6 +28,7 @@ import {
 	type RandomBoost,
 } from "./codec";
 import { describeBuild, describeRun } from "./describe";
+import { attachResize } from "./drawer-width";
 import {
 	combiSectionOf,
 	decodeFull,
@@ -155,7 +156,7 @@ const relayNote = need("relay-note");
 
 const saveForm = need<HTMLFormElement>("save-form");
 const saveDescription = need<HTMLTextAreaElement>("save-description");
-const noteLabel = need("note-label");
+const codeHeading = need("code-heading");
 const statInputs = Object.fromEntries(
 	STAT_FIELDS.map((field) => [field, need<HTMLInputElement>(`stat-${field}`)]),
 ) as Record<StatField, HTMLInputElement>;
@@ -877,25 +878,29 @@ function markCurrent(code: string): void {
 			item.getAttribute("data-code") === editing,
 		);
 	}
-	showEditing();
+	showEditing(code);
 }
 
 /**
  * Puts the form in step with `editing`: one form, two jobs. While an entry is
- * open the submit button rewrites it and the label over the box says so; the
- * banner has already named the entry, so nothing under the box repeats it.
+ * open the submit button rewrites it and the code panel's heading says so, so
+ * whether this is a new code or a saved one is the first thing the panel
+ * reads; the banner has already named the entry, so nothing repeats it.
+ *
+ * New shows only while `code` is one no entry holds: the list keeps
+ * each code once, so saving a saved code "as new" would overwrite that entry.
  */
-function showEditing(): void {
+function showEditing(code: string): void {
 	const open =
 		editing !== null && savedEntries.some((saved) => saved.code === editing);
 	if (!open) editing = null;
 
-	saveNewButton.hidden = !open;
+	saveNewButton.hidden =
+		!open || savedEntries.some((saved) => saved.code === code);
 	saveCancelButton.hidden = !open;
 	saveButton.textContent = open ? "Update" : "Save";
-	noteLabel.textContent = open
-		? "Note · editing a saved code"
-		: "Note · new code";
+	codeHeading.textContent = open ? "Editing saved code" : "New code";
+	codeHeading.toggleAttribute("data-editing", open);
 }
 
 /** Fills the stat boxes, or empties them for `{}`. */
@@ -1002,9 +1007,10 @@ function updateEntry(from: string): void {
 		return;
 	}
 
-	editing = null;
+	// The entry stays open on its new code, note and stats as typed, so a
+	// second change is one more Update rather than a Load.
+	editing = code;
 	showSaved(result.entries);
-	clearNote();
 	const updated = result.entries.find((saved) => saved.code === code);
 	if (result.stored) {
 		say(
@@ -1022,7 +1028,12 @@ saveForm.addEventListener("submit", (event) => {
 	else updateEntry(editing);
 });
 
-saveNewButton.addEventListener("click", saveAsNew);
+saveNewButton.addEventListener("click", () => {
+	saveAsNew();
+	// The code is saved now, so New hides behind its own click; Save beside
+	// it takes focus rather than letting it fall to <body>.
+	if (saveNewButton.hidden) saveButton.focus();
+});
 
 saveCancelButton.addEventListener("click", () => {
 	stopEditing();
@@ -1115,7 +1126,7 @@ savedList.addEventListener("click", (event) => {
 	if (action === "load") {
 		// Loading opens the entry too: there used to be an Edit beside Load, and
 		// the two differed only in whether a later save wrote back. The box now
-		// asks that question itself — Update or Save as new — so one action
+		// asks that question itself — Update or New — so one action
 		// serves both. Focus goes back to the Saved button with the closing
 		// drawer, not to the note: someone who only wanted the build has not
 		// asked to type.
@@ -1207,6 +1218,9 @@ function bringNoticeHome(): void {
 }
 
 for (const drawer of [savedDrawer, helpDrawer]) {
+	const handle = drawer.querySelector<HTMLElement>(":scope > .resize");
+	if (handle !== null) attachResize(drawer, handle, localStorage);
+
 	// Which element the press itself landed on. A click fires on the nearest
 	// common ancestor of the press and the release, so a drag that starts in
 	// the sheet and ends past its edge targets the dialog just as a backdrop

@@ -67,10 +67,12 @@
       <!-- The code is the whole interface: it is the output, and it is also
            the input. Nothing else on the page shows a code. -->
       <section class="codepanel" aria-labelledby="code-heading">
-        <h2 id="code-heading">Your code</h2>
+        <!-- Says whether the code is new or a saved entry being edited; the
+             route keeps it in step with the save form. -->
+        <h2 id="code-heading">New code</h2>
 
-        <!-- Three buttons in the code bar's own row: its Edit, then Save and
-             the ⋯ menu slotted in after it, so the code keeps a line to
+        <!-- The code bar's own row: its Edit, then Save, New (while an entry
+             is open) and the ⋯ menu slotted in after it, so the code keeps a line to
              itself. The bar's own Copy is turned off by the route; Copy code
              lives in the menu with everything else. The bar drops the slotted
              buttons while its editor is open: saving or resetting a code
@@ -83,8 +85,13 @@
           <!-- Outside the form it submits, so it names it. It reads Update
                while a saved entry is open. -->
           <button id="save" type="submit" form="save-form">Save</button>
-          <!-- Built and closed the same way as a saved row's menu. Save as new
-               and Cancel only mean something while an entry is open. -->
+          <!-- Saves the code as an entry of its own, leaving the open one
+               alone. Shown only while an entry is open and the code on
+               screen is one no entry holds. -->
+          <button id="save-new" type="button" hidden>New</button>
+          <!-- Built and closed the same way as a saved row's menu. Cancel only
+               means something while an entry is open. -->
+
           <details id="code-menu" class="more">
             <summary class="moretoggle" aria-label="More actions">
               <span aria-hidden="true">⋯</span>
@@ -98,7 +105,6 @@
               <button id="copy-code" type="button">Copy code</button>
               <button id="copy-link" type="button">Copy link</button>
               <button id="reset" type="button">Reset</button>
-              <button id="save-new" type="button" hidden>Save as new</button>
               <button id="save-cancel" type="button" hidden>Cancel</button>
             </div>
           </details>
@@ -118,7 +124,7 @@
            submit it; Ctrl+Enter does too, and Escape closes an open entry. -->
       <form id="save-form" class="saveform" novalidate>
         <label for="save-description" id="note-label" class="eyebrow"
-          >Note · new code</label
+          >Note</label
         >
         <textarea
           id="save-description"
@@ -335,8 +341,10 @@
            until someone sends them: Share hands over one as a link carrying
            its note, and Export the whole list as text Import reads back. A
            modal sheet from the top bar's Saved button; .sheet is the panel,
-           so a click on the dialog itself is a click on the backdrop. -->
+           so a click on the dialog itself is a click on the backdrop.
+           .resize is its left edge, a handle drawer-width.ts wires up. -->
       <dialog id="saved-drawer" class="drawer" aria-labelledby="saved-heading">
+        <div class="resize"></div>
         <div class="sheet">
           <header>
             <h2 id="saved-heading">Saved codes</h2>
@@ -381,6 +389,7 @@
            code in front of you; this is the whole format, for reading one by
            eye. Opened from the top bar's Help button. -->
       <dialog id="help-drawer" class="drawer" aria-labelledby="help-heading">
+        <div class="resize"></div>
         <div class="sheet">
           <header>
             <h2 id="help-heading">How codes read</h2>
