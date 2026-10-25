@@ -27,7 +27,7 @@ import {
 	type Mode,
 	type RandomBoost,
 } from "./codec";
-import { describeBuild } from "./describe";
+import { describeBuild, describeRun } from "./describe";
 import {
 	combiSectionOf,
 	decodeFull,
@@ -786,6 +786,31 @@ codeMenu.addEventListener("click", (event) => {
 });
 
 /**
+ * What a saved row plays, as chips: the code itself means nothing at a glance,
+ * so the row reads it instead. A code a later format cannot read says so, and
+ * Load is where it says why.
+ */
+function runChips(code: string): HTMLUListElement {
+	const list = document.createElement("ul");
+	list.className = "run";
+	list.setAttribute("aria-label", "Run");
+	let chips: string[];
+	try {
+		chips = describeRun(decodeFull(code).full);
+	} catch {
+		chips = ["Code no longer reads"];
+	}
+	list.append(
+		...chips.map((text) => {
+			const chip = document.createElement("li");
+			chip.textContent = text;
+			return chip;
+		}),
+	);
+	return list;
+}
+
+/**
  * Draws the saved list from scratch. It is short and changes only on a click,
  * so there is nothing to gain from patching it in place.
  */
@@ -808,13 +833,11 @@ function showSaved(entries: readonly SavedCode[]): void {
 			} else {
 				description.textContent = entry.description;
 			}
-			const code = document.createElement("code");
-			code.textContent = entry.code;
 			const time = document.createElement("time");
 			const when = new Date(entry.savedAt);
 			time.dateTime = when.toISOString();
 			time.textContent = `Saved ${savedAtFormat.format(when)}`;
-			text.append(description, code);
+			text.append(description, runChips(entry.code));
 			const sentence = statsSentence(entry.stats ?? {});
 			if (sentence !== "") {
 				const stats = document.createElement("span");

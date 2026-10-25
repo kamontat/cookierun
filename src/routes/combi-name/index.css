@@ -498,7 +498,7 @@ kbd {
 
 /* One entry per row: the note and its code on the left, the two buttons on
    the right, wrapping under them where the row is too narrow. */
-.savedlist li {
+.savedlist > li {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -510,7 +510,7 @@ kbd {
 }
 
 /* The entry holding the code on screen now says so with the accent edge. */
-.savedlist li[aria-current="true"] {
+.savedlist > li[aria-current="true"] {
 	border-left-color: var(--cr-accent);
 }
 
@@ -534,10 +534,23 @@ kbd {
 	font-style: italic;
 }
 
-.savedlist code {
-	overflow-wrap: anywhere;
-	font-family: var(--cr-mono);
-	font-size: 0.85rem;
+/* The run in a few chips — mode, goal, episode, floor — in place of the
+   code, which says nothing at a glance. */
+.savedlist .run {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	margin: 0.15rem 0;
+	padding: 0;
+	list-style: none;
+}
+
+.savedlist .run li {
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: 999px;
+	background: var(--cr-surface);
+	padding: 0 0.5rem;
+	font-size: 0.8rem;
 }
 
 .savedlist .stats {
@@ -553,7 +566,7 @@ kbd {
 /* The entry open for editing: a dashed ring, apart from the accent edge,
    which follows the code on screen and may since have moved to another entry
    or to none. */
-.savedlist li[data-editing] {
+.savedlist > li[data-editing] {
 	outline: var(--cr-border) dashed var(--cr-accent-2);
 	outline-offset: 2px;
 }

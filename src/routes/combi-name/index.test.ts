@@ -1224,7 +1224,7 @@ test("the verdict sits under the mode chips", () => {
 });
 
 function savedRows(): HTMLLIElement[] {
-	return [...need("saved-list").querySelectorAll("li")];
+	return [...need("saved-list").querySelectorAll<HTMLLIElement>(":scope > li")];
 }
 
 function savedButtonFor(
@@ -1276,7 +1276,7 @@ test("the save button in the code panel submits the note", async () => {
 	expect(row?.querySelector(".description")?.textContent).toBe(
 		"Coin farm\nuse Fairy",
 	);
-	expect(row?.textContent).toContain("10M0000000");
+	expect(row?.getAttribute("data-code")).toBe("10M0000000");
 	expect(row?.getAttribute("aria-current")).toBe("true");
 	expect(need("saved-empty").hidden).toBe(true);
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
@@ -2050,6 +2050,14 @@ test("the note takes run stats, and the saved row shows them", async () => {
 	await settle();
 	expect(statInput("money").value).toBe("");
 	await reset();
+});
+
+test("a saved row reads as its run rather than its code", () => {
+	const row = rowFor("10M0000000");
+	expect(
+		[...row.querySelectorAll(".run li")].map((chip) => chip.textContent),
+	).toEqual(["Manual", "Money", "Any episode"]);
+	expect(row.querySelector("code")).toBeNull();
 });
 
 test("a row with no stats shows no stats line", () => {
