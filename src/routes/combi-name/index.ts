@@ -825,19 +825,9 @@ function showSaved(entries: readonly SavedCode[]): void {
 
 			const text = document.createElement("div");
 			text.className = "entry";
-			const description = document.createElement("span");
-			description.className = "description";
-			if (entry.description === "") {
-				description.classList.add("blank");
-				description.textContent = "No description";
-			} else {
-				description.textContent = entry.description;
-			}
-			const time = document.createElement("time");
-			const when = new Date(entry.savedAt);
-			time.dateTime = when.toISOString();
-			time.textContent = `Saved ${savedAtFormat.format(when)}`;
-			text.append(description, runChips(entry.code));
+			// The run first, what it brought home next, and the note last; a
+			// row with no note or no stats simply has no such line.
+			text.append(runChips(entry.code));
 			const sentence = statsSentence(entry.stats ?? {});
 			if (sentence !== "") {
 				const stats = document.createElement("span");
@@ -845,6 +835,16 @@ function showSaved(entries: readonly SavedCode[]): void {
 				stats.textContent = sentence;
 				text.append(stats);
 			}
+			if (entry.description !== "") {
+				const description = document.createElement("span");
+				description.className = "description";
+				description.textContent = entry.description;
+				text.append(description);
+			}
+			const time = document.createElement("time");
+			const when = new Date(entry.savedAt);
+			time.dateTime = when.toISOString();
+			time.textContent = `Saved ${savedAtFormat.format(when)}`;
 			text.append(time);
 
 			const buttons = document.createElement("div");

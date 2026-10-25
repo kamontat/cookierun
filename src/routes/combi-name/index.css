@@ -521,19 +521,6 @@ kbd {
 	min-width: 0;
 }
 
-/* A description keeps the line breaks it was typed with. */
-.savedlist .description {
-	white-space: pre-line;
-	overflow-wrap: anywhere;
-	font-weight: 600;
-}
-
-.savedlist .description.blank {
-	color: var(--cr-muted);
-	font-weight: 400;
-	font-style: italic;
-}
-
 /* The run in a few chips — mode, goal, episode, floor — in place of the
    code, which says nothing at a glance. */
 .savedlist .run {
@@ -556,6 +543,14 @@ kbd {
 .savedlist .stats {
 	font-family: var(--cr-mono);
 	font-size: 0.8rem;
+}
+
+/* The note comes last, under what the run is and what it brought home, and
+   keeps the line breaks it was typed with. A row without one has no line. */
+.savedlist .description {
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+	font-size: 0.9rem;
 }
 
 .savedlist time {

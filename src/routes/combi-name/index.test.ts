@@ -2060,6 +2060,24 @@ test("a saved row reads as its run rather than its code", () => {
 	expect(row.querySelector("code")).toBeNull();
 });
 
+test("a saved row reads run, stats, then note, and a blank note takes no line", async () => {
+	await choose("goal", "box");
+	const code = await codeText();
+	fillStats({ money: "100" });
+	await saveCurrent("Box run");
+
+	const parts = [...(rowFor(code).querySelector(".entry")?.children ?? [])];
+	expect(parts.map((part) => part.className || part.tagName)).toEqual([
+		"run",
+		"stats",
+		"description",
+		"TIME",
+	]);
+	await reset();
+
+	expect(rowFor("10M0000000").querySelector(".description")).toBeNull();
+});
+
 test("a row with no stats shows no stats line", () => {
 	expect(rowFor("10M0000000").querySelector(".stats")).toBeNull();
 });
