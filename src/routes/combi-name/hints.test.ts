@@ -105,14 +105,36 @@ test("a loadout section is hinted group by group, separator included", () => {
 	expect(described[8]?.hint).toBe("Slot 1 · Format version");
 });
 
-test("every character of a treasure group shares the treasure hint", () => {
+test("a treasure group is one run for the order and one per slot", () => {
 	const described = hintsFor("1TU000.001-10S0000000");
-	const treasure = described.slice(1, 10);
+	const groups = described.slice(1, 10).map(({ group }) => group);
 
-	expect(new Set(treasure.map(({ group }) => group))).toEqual(
-		new Set(["treasures"]),
-	);
-	expect(treasure[0]?.hint).toContain("Treasures · ");
+	// The . closing a slot belongs to the slot before it.
+	expect(groups).toEqual([
+		"treasureOrder",
+		"treasureOrder",
+		"treasure1",
+		"treasure1",
+		"treasure1",
+		"treasure1",
+		"treasure2",
+		"treasure2",
+		"treasure2",
+	]);
+	expect(described[1]?.hint).toContain("Treasures · ");
+	expect(described[3]?.hint).toContain("Treasures · ");
+});
+
+test("every run carries a short name: its slot and field, no value", () => {
+	const combi = hintsFor("1AMT000000");
+	expect(combi[1]?.name).toBe("Slot 2 · Mode");
+	expect(combi[4]?.name).toBe("Slots 5-7 · Floor");
+
+	const full = hintsFor("1C00TU000.001-10S0000000");
+	expect(full[1]?.name).toBe("Cookie");
+	expect(full[4]?.name).toBe("Treasure order");
+	expect(full[6]?.name).toBe("Treasure slot 1");
+	expect(full[10]?.name).toBe("Treasure slot 2");
 });
 
 test("a code that cannot be decoded gets no hints at all", () => {

@@ -90,11 +90,9 @@ test("characters sharing a group are drawn as one run", async () => {
 	]);
 });
 
-// The loadout run is one unbreakable word by design — word-wise selection is
-// the point — so a break opportunity is the only other way to keep a long run
-// from widening the page. It must add nothing a copy or a text-content check
-// would see.
-test("a run gets a break opportunity after each underscore and dot, without changing its text", async () => {
+// Every character is a cell of one width, so wrapped lines line up as a grid.
+// The cells add nothing a copy or a text-content check would see.
+test("every character of a run is a cell of its own, without changing its text", async () => {
 	const value = "AB_CD.EF";
 	const element = await mount(value);
 	element.hints = [...value].map((char) => ({
@@ -106,9 +104,9 @@ test("a run gets a break opportunity after each underscore and dot, without chan
 
 	const run = runs(element)[0];
 	expect(run?.textContent).toBe(value);
-	expect(run?.querySelectorAll("wbr")).toHaveLength(2);
-	expect(run?.innerHTML).toContain("_<wbr>");
-	expect(run?.innerHTML).toContain(".<wbr>");
+	expect(
+		[...(run?.querySelectorAll(".cell") ?? [])].map((cell) => cell.textContent),
+	).toEqual([...value]);
 });
 
 test("a run carries its hint as a tooltip", async () => {
@@ -212,6 +210,24 @@ test("clicking a run names it under the code", async () => {
 	expect(
 		element.shadowRoot?.querySelector(".message")?.classList.contains("error"),
 	).toBe(false);
+});
+
+// A tap jumps to the control, which shows the value, so the line only needs
+// to say which slot and field it was.
+test("a run with a short name is named by it, not by its whole hint", async () => {
+	const element = await mount();
+	element.hints = HINTS.map((hint) => ({
+		...hint,
+		name: hint.hint.split(" · ").slice(0, 2).join(" · "),
+	}));
+	await element.updateComplete;
+
+	runs(element)[3]?.click();
+	await element.updateComplete;
+
+	expect(
+		element.shadowRoot?.querySelector(".message")?.textContent?.trim(),
+	).toBe("Slot 4 · Episode");
 });
 
 // The page's line answers a question being asked right now; the name answers

@@ -1054,6 +1054,41 @@ test("clicking a summary row opens its tab and focuses the control", async () =>
 	await pickTab("main");
 });
 
+test("a treasure slot's run jumps to that slot, the order run to the order switch", async () => {
+	await typeCode("1TU0FZ.0RB-10S0000000");
+	await closeEditor();
+
+	codeBar.dispatchEvent(
+		new CustomEvent("slot-jump", { detail: "treasure2", bubbles: true }),
+	);
+	await settle();
+	expect(shownPanels()).toEqual(["panel-treasures"]);
+	expect(document.activeElement).toBe(need("treasure2"));
+
+	codeBar.dispatchEvent(
+		new CustomEvent("slot-jump", { detail: "treasureOrder", bubbles: true }),
+	);
+	await settle();
+	expect(document.activeElement).toBe(need("treasureOrder"));
+	await reset();
+	await pickTab("main");
+});
+
+test("the back-to-top button starts hidden and takes the page back to the code", async () => {
+	const toTop = need<HTMLButtonElement>("to-top");
+	expect(toTop.hidden).toBe(true);
+
+	const original = window.scrollTo;
+	let scrolledTo: unknown = null;
+	window.scrollTo = ((options: ScrollToOptions) => {
+		scrolledTo = options.top;
+	}) as typeof window.scrollTo;
+	toTop.click();
+	window.scrollTo = original;
+
+	expect(scrolledTo).toBe(0);
+});
+
 test("clicking a run of the code opens the tab that holds its control", async () => {
 	codeBar.dispatchEvent(
 		new CustomEvent("slot-jump", { detail: "randomBoost", bubbles: true }),

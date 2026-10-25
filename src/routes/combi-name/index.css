@@ -51,9 +51,10 @@ site-nav > button {
 	white-space: nowrap;
 }
 
-/* The code is what the page is for, so it stays in view while you work the
-   controls under it: a box pinned to the top, exactly as wide as the column,
-   so its edges are the note's, the summary's and the tabs' edges too. */
+/* The code is what the page is for, so on a wide screen it stays in view
+   while you work the controls under it: a box pinned to the top, exactly as
+   wide as the column, so its edges are the note's, the summary's and the
+   tabs' edges too. A phone unpins it, further down. */
 .codepanel {
 	position: sticky;
 	top: 0;
@@ -107,9 +108,54 @@ tab-strip {
 	background: var(--cr-bg);
 }
 
-/* A phone keeps the code at the top too, the same sticky panel as a wide
-   screen. */
+/* The way back to the code, for a phone. Bottom right, clear of the
+   snackbar's centre, at the tap size. Never on a wide screen, where the panel
+   is pinned and never leaves. */
+.totop {
+	position: fixed;
+	right: var(--cr-space-4);
+	bottom: calc(var(--cr-space-4) + env(safe-area-inset-bottom, 0px));
+	z-index: 3;
+	width: var(--cr-tap);
+	height: var(--cr-tap);
+	padding: 0;
+	font-size: 1.25rem;
+}
+
+@media (width >= 48rem) {
+	.totop {
+		display: none;
+	}
+}
+
+/* On a phone the panel is not pinned: with a full code it would hold a third
+   of the screen while you work the controls under it. It scrolls away with
+   the page, the tab strip sticks to the top alone, and .totop brings the code
+   back. */
 @media (width < 48rem) {
+	.codepanel {
+		position: static;
+	}
+
+	tab-strip {
+		top: 0;
+	}
+
+	:root {
+		scroll-padding-top: 4rem;
+	}
+
+	/* The snackbar steps up over the button while the button shows, so the
+	   two never overlap on a narrow screen. */
+	main:has(> .totop:not([hidden])) .codepanel notice-bar[type] {
+		bottom: calc(
+			2 *
+			var(--cr-space-4) +
+			var(--cr-tap) +
+			env(safe-area-inset-bottom, 0px)
+		);
+	}
+
 	/* The page's long name fits one line of a phone. */
 	.masthead h1 {
 		font-size: 1.25rem;

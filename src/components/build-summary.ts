@@ -528,6 +528,11 @@ export class BuildSummary extends LitElement {
 					align-items: center;
 					gap: var(--cr-space-1) var(--cr-space-2);
 					min-width: 0;
+					/* Room inside the clip for what hangs off a picture: the
+					   level badge below its bottom edge and the kind letter
+					   above its top-left corner. Without it the overflow cut
+					   both in half. */
+					padding: 0.4rem 0 0.4rem 0.45rem;
 					overflow: hidden;
 					white-space: nowrap;
 					mask-image: linear-gradient(

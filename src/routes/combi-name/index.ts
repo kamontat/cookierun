@@ -1259,6 +1259,28 @@ if (codePanel !== null && typeof ResizeObserver !== "undefined") {
 	}).observe(codePanel);
 }
 
+/*
+ * On a phone the code panel is not pinned, so once it scrolls out of view a
+ * floating button offers the way back. The stylesheet keeps the button off a
+ * wide screen, where the panel never leaves; this only says whether the panel
+ * is in view. Without IntersectionObserver the button simply never shows.
+ */
+const toTop = need<HTMLButtonElement>("to-top");
+if (codePanel !== null && typeof IntersectionObserver !== "undefined") {
+	new IntersectionObserver(([entry]) => {
+		toTop.hidden = entry?.isIntersecting ?? true;
+	}).observe(codePanel);
+}
+toTop.addEventListener("click", () => {
+	const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+	window.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
+	// The button hides once the panel is back in view, and focus would go
+	// down with it; the panel's Edit is where a keyboard picks up again.
+	codeBar.shadowRoot?.querySelector<HTMLButtonElement>(".edit")?.focus({
+		preventScroll: true,
+	});
+});
+
 /**
  * A link someone sent may carry a note and run stats. They are offered, not
  * saved: they go into the boxes, and keeping them is one click on Save — a
@@ -1401,6 +1423,13 @@ const OWNER: Record<string, HTMLElement> = {
 	relay: relayGrid,
 	pet: petGrid,
 	treasures: treasureSlots[0] as HTMLElement,
+	// The code draws the treasure group as the order flag and one run per
+	// slot, each jumping to its own control; the summary's one row still
+	// jumps to the first slot.
+	treasureOrder: orderChips,
+	treasure1: treasureSlots[0] as HTMLElement,
+	treasure2: treasureSlots[1] as HTMLElement,
+	treasure3: treasureSlots[2] as HTMLElement,
 };
 
 /**
@@ -1422,6 +1451,10 @@ const TAB_OF: Record<string, TabName> = {
 	relay: "cookies",
 	pet: "cookies",
 	treasures: "treasures",
+	treasureOrder: "treasures",
+	treasure1: "treasures",
+	treasure2: "treasures",
+	treasure3: "treasures",
 	boosts: "boosts",
 	randomBoost: "boosts",
 	cookiePowers: "boosts",
