@@ -2,7 +2,7 @@
 
 What changed in this project and why, newest first.
 
-## 2026-10-25: The workbench layout, with a top bar in place of the sidebar
+## 2026-10-25: The workbench layout, with a top bar in place of the sidebar, and snackbar notifications
 
 ### BREAKING CHANGES
 
@@ -26,8 +26,7 @@ What changed in this project and why, newest first.
   summary of the build, and four tabs. The tabs are **Main**, **Cookies**, **Treasures**
   and **Boosts**. Each shows a count of what it holds and is disabled when the episode has
   no room for it. The open tab is remembered under `combi-name:tab`.
-- The code panel is pinned under the top bar on desktop and docked to the bottom of the
-  screen on a phone.
+- The code panel is pinned under the top bar, on desktop and on a phone alike.
   - It shows the ten characters the game takes, with **Edit**, **Save** (or **Update**)
     and a **⋯** menu.
   - The menu holds **Show full code**, **Copy code**, **Copy link**, **Reset**, and
@@ -41,11 +40,15 @@ What changed in this project and why, newest first.
   - An evolved or blessed treasure wears an **E** or **B** and a ring in its colour.
   - The **›** at the end of each row opens its tab.
   - On a phone the summary folds to one line until tapped.
-- One notification banner, inside the code panel, carries every message as info, warn or
-  error.
+- One notification banner carries every message, as a snackbar floated at the bottom
+  centre of the window.
+  - Info is green, warn yellow and error red, each with its own badge (`i`, `!`, `×`),
+    through two new tokens, `--cr-success` and `--cr-warning`.
   - Info clears itself after a few seconds; warnings and errors stay until dismissed or
     replaced.
-  - While a drawer is open the banner moves into it.
+  - A message of several lines folds to its title and a count, such as "Read with changes
+    (2) ▾", and opens on a tap.
+  - While a drawer is open the banner moves into it and sits under the drawer's header.
 - Saved codes and Help open as side drawers from the top bar. Saved codes keep Load, the
   row menu, and import and export as before. Help holds the slot reference and the page's
   intro.
@@ -64,6 +67,11 @@ What changed in this project and why, newest first.
   wrapped line on iOS.
 - A long build stays tidy on a phone: the folded summary is one line, with the boost count
   ahead of the pictures, and nothing can widen the page.
+- Loading a saved code says so once. The line under the note that repeated "Loaded from X"
+  next to the banner's "Loaded X." is gone; the note's label and the **Update** button still
+  show that an entry is open.
+- A message no longer pushes the page down. The banner used to grow the code panel when it
+  appeared and shrink it when it went, so everything under the panel jumped.
 
 ### Bug fixes
 
@@ -75,6 +83,8 @@ What changed in this project and why, newest first.
 - An inline grid never scrolls inside its own box. On WebKit at 110% zoom the episode grid
   had become a one-pixel scrolling box.
 - The theme dropdown no longer keeps a focus ring after a mouse pick.
+- Exporting with nothing saved, or importing empty text, is a warning rather than an error.
+  Nothing failed; error is kept for what the browser or a code refused.
 
 ### Decisions
 
@@ -93,6 +103,12 @@ What changed in this project and why, newest first.
   from the platform.
 - Treasures keep their picker dialog, the owner's call. Every other picker became an
   inline grid.
+- The banner went through three mockup rounds. A strip in the panel that always kept one
+  line was built first, then dropped because the empty line was annoying. A card hanging
+  off the panel and a message in the button row's free space were also mocked up. The
+  owner picked the snackbar.
+- The phone's bottom dock for the code panel was dropped, the owner's call. The panel
+  sticks to the top as on desktop, and the bottom of the screen is left to the snackbar.
 
 ## 2026-10-23: Treasure slots as rows with a one-line level strip, and saved codes you can update, share and move
 
