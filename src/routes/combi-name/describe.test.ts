@@ -256,21 +256,27 @@ test("a run reads as its mode, goal and episode, the tower adding its floor", ()
 	expect(describeRun({ loadout: emptyLoadout(), combi: auto })).toEqual([
 		"Auto",
 		"Money",
-		"Episode 3",
+		"EP. 3",
 	]);
 	expect(
 		describeRun({ loadout: { ...emptyLoadout(), relay: "0O" }, combi: auto }),
-	).toEqual(["Semi-auto", "Money", "Episode 3"]);
+	).toEqual(["Semi-auto", "Money", "EP. 3"]);
 	expect(
 		describeRun({
 			loadout: emptyLoadout(),
 			combi: { ...auto, goal: "any", episode: "special2", floor: 40 },
 		}),
-	).toEqual(["Auto", "Any goal", "Special Episode 2", "Floor 40"]);
+	).toEqual(["Auto", "Any goal", "S.EP. 2", "Floor 40"]);
 	expect(
 		describeRun({
 			loadout: emptyLoadout(),
 			combi: { ...base, episode: "any" },
 		}),
 	).toEqual(["Manual", "Score", "Any episode"]);
+	expect(
+		describeRun({
+			loadout: emptyLoadout(),
+			combi: { ...base, episode: "specialExp" },
+		})[2],
+	).toBe("S.EP. Exp");
 });

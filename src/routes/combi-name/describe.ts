@@ -1,5 +1,5 @@
 import { type CatalogSection, isRetired, labelFor } from "./catalog";
-import { type Combi, isSemiAuto, limitsOf } from "./codec";
+import { type Combi, type Episode, isSemiAuto, limitsOf } from "./codec";
 import { carriesRelay, type FullCode, isSemiAutoBuild } from "./full-code";
 import {
 	ACTION_LABELS,
@@ -67,6 +67,16 @@ export function describeBuild(full: FullCode): AutoVerdict | null {
 }
 
 /**
+ * An episode as a chip says it: "EP. 3", "S.EP. 2", "S.EP. Exp". Cut from the
+ * label rather than kept as a second table, so a new episode needs no entry.
+ */
+function shortEpisode(episode: Episode): string {
+	const label = EPISODE_LABELS[episode];
+	if (!label.startsWith("Special ")) return label.replace(/^Episode/, "EP.");
+	return `S.EP. ${label.replace(/^Special |Episode/g, "").trim()}`;
+}
+
+/**
  * A build in a few words — mode, goal, episode, and the tower's floor — for a
  * saved row, where the note says what it is for and this says what it plays.
  * The mode is the build's, so a relay makes it Semi-auto; Any names its field,
@@ -81,7 +91,7 @@ export function describeRun(full: FullCode): string[] {
 	return [
 		mode,
 		combi.goal === "any" ? "Any goal" : GOAL_LABELS[combi.goal],
-		combi.episode === "any" ? "Any episode" : EPISODE_LABELS[combi.episode],
+		combi.episode === "any" ? "Any episode" : shortEpisode(combi.episode),
 		...(limitsOf(combi.episode).floor ? [floorText(combi.floor)] : []),
 	];
 }
