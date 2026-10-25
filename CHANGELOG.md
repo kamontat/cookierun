@@ -2,7 +2,7 @@
 
 What changed in this project and why, newest first.
 
-## 2026-10-25: The workbench layout, with a top bar in place of the sidebar, and snackbar notifications, and run stats on saved codes
+## 2026-10-25: The workbench layout, with a top bar in place of the sidebar, and snackbar notifications, and run stats on saved codes, and the code as a character grid with saved rows that read as runs
 
 ### BREAKING CHANGES
 
@@ -26,7 +26,9 @@ What changed in this project and why, newest first.
   summary of the build, and four tabs. The tabs are **Main**, **Cookies**, **Treasures**
   and **Boosts**. Each shows a count of what it holds and is disabled when the episode has
   no room for it. The open tab is remembered under `combi-name:tab`.
-- The code panel is pinned under the top bar, on desktop and on a phone alike.
+- The code panel is pinned under the top bar on desktop. On a phone it scrolls away with
+  the page, the tab bar sticks to the top on its own, and a floating **↑** button at the
+  bottom right brings the code back once it is out of view.
   - It shows the ten characters the game takes, with **Edit**, **Save** (or **Update**)
     and a **⋯** menu.
   - The menu holds **Show full code**, **Copy code**, **Copy link**, **Reset**, and
@@ -65,8 +67,22 @@ What changed in this project and why, newest first.
   (`#CODE?note=…&money=12000-15000&time=245`) and offers them in the boxes like its note.
   Export writes them as `money: 12000-15000` lines under the code, and import reads them
   back.
+- A saved row reads as the run it holds instead of its code: chips for the mode
+  (Semi-auto when the build is, relay included), the goal, the episode as `EP. 3` or
+  `S.EP. 2`, and the tower's floor, then its stats, then its note. A row with no note has
+  no note line, and **Saved [date]** sits at the start of the row's button line.
+- The code shows each treasure slot as its own run after the order flag, and tapping one
+  opens the Treasures tab on that slot; tapping the order flag goes to the order switch.
 
 ### Improvements
+
+- The code is a grid of character cells in monospace with no letter-spacing, and fields sit
+  one empty cell apart, so every character keeps its column whether the code fits one line
+  or wraps onto several. The long treasure run no longer wraps with a centred second line.
+- Parts of the code you can tap are yellow and underlined; the parts you cannot are grey
+  and plain, so the difference shows on a phone without a hover.
+- Tapping part of the code says only its slot and field under the code, such as
+  "Slot 2 · Mode", since the tap already opens the control that shows the value.
 
 - The page is one centred column, and the sections keep the same spacing whichever tab is
   open.
@@ -96,6 +112,8 @@ What changed in this project and why, newest first.
 - The theme dropdown no longer keeps a focus ring after a mouse pick.
 - Exporting with nothing saved, or importing empty text, is a warning rather than an error.
   Nothing failed; error is kept for what the browser or a code refused.
+- The folded summary on a phone no longer cuts off the **E**/**B** letter above a treasure
+  picture or the **+N** badge below it.
 
 ### Decisions
 
@@ -124,6 +142,17 @@ What changed in this project and why, newest first.
   what is kept or sent is what was typed. Every bad box is outlined, not just the first.
 - Stats are not part of the code. They belong to a saved entry and its link, so the wire
   format and `VERSION` are unchanged.
+- A saved row leaves its code out, the owner's call: the code says nothing at a glance,
+  while the mode, goal and episode do. Load, Copy link and Share still act on the code.
+- Later the same day the phone's code panel was unpinned after all. A full code in a pinned
+  panel took a third of the screen, and mockups of more compact codes (section rows,
+  equal cells, labelled cells, one line that scrolls sideways, a smaller loadout line) were
+  all still too tall on a phone. The owner chose a plain **↑** button over a floating pill
+  showing the code.
+- The code's cells had a light ground at first to mark them as tappable; it read badly on
+  the dark theme, so the underline alone marks a tap. The **↑** button is filled with the
+  text colour rather than the accent, because the accent fill is what a picked treasure
+  level wears and the button floats over those strips.
 
 ## 2026-10-23: Treasure slots as rows with a one-line level strip, and saved codes you can update, share and move
 
