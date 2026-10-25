@@ -2071,8 +2071,11 @@ test("a saved row reads run, stats, then note, and a blank note takes no line", 
 		"run",
 		"stats",
 		"description",
-		"TIME",
 	]);
+	// When it was saved sits on the buttons' line, ahead of Load.
+	const actions = rowFor(code).querySelector(".buttons")?.children ?? [];
+	expect(actions[0]?.tagName).toBe("TIME");
+	expect(actions[0]?.textContent).toStartWith("Saved ");
 	await reset();
 
 	expect(rowFor("10M0000000").querySelector(".description")).toBeNull();

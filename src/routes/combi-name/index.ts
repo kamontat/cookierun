@@ -845,11 +845,16 @@ function showSaved(entries: readonly SavedCode[]): void {
 			const when = new Date(entry.savedAt);
 			time.dateTime = when.toISOString();
 			time.textContent = `Saved ${savedAtFormat.format(when)}`;
-			text.append(time);
 
+			// When it was saved rides with the buttons, ahead of Load, so the
+			// entry's own lines are only what the run is.
 			const buttons = document.createElement("div");
 			buttons.className = "buttons";
-			buttons.append(savedButton("Load", "load", entry), savedMenu(entry));
+			buttons.append(
+				time,
+				savedButton("Load", "load", entry),
+				savedMenu(entry),
+			);
 
 			item.append(text, buttons);
 			return item;
