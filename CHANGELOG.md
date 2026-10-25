@@ -2,7 +2,7 @@
 
 What changed in this project and why, newest first.
 
-## 2026-10-26: Resizable Saved and Help drawers on desktop
+## 2026-10-26: Resizable Saved and Help drawers on desktop, and a code panel that says whether you are editing
 
 ### Features
 
@@ -17,8 +17,24 @@ What changed in this project and why, newest first.
 
 - Inside a drawer, the sheet now scrolls instead of the dialog, so the resize handle stays
   on the drawer's edge however far the list has scrolled.
+- The code panel's heading is now shown and reads **New code**, or **Editing saved code**
+  while a saved entry is open, with the heading and the panel's edge in a dashed accent. The
+  note's label is plain "Note"; it used to carry "new code" / "editing a saved code".
+- **Update** no longer closes the entry: it stays open on its new code with the note and stats
+  as typed, so a second change is one more Update rather than another Load.
+- **Save as new** is now **New**, a button of its own beside Update in the code panel rather
+  than an item in the ⋯ menu.
+
+### Bug fixes
+
+- Saving an unchanged code "as new" overwrote the entry it was loaded from instead of adding a
+  copy. **New** now shows only while the code on screen is one no entry holds.
 
 ### Decisions
+
+- New is hidden for a saved code rather than refusing the save with a message: the list keeps
+  each code once, so there is no copy it could make, and a button that cannot work is better
+  not offered.
 
 - The handle is only on a fine pointer at `48rem` and up. On a phone the drawer already takes
   90% of the screen, and a drag on its edge would fight the page's own swipe.
