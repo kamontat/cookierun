@@ -1,64 +1,49 @@
 /**
- * Scrapes cookie, pet and treasure icons from cookierundb.com into `assets/`
- * and writes `assets/index.json`, keying every entry by the fixed-width id
- * `reconcile` (`utils/asset-ids.ts`) assigns it against what is already on
- * disk, and recording its PascalCase key, name, page on cookierundb.com and
- * icon path (relative to `assets/`, or `null` where the game has no sprite).
- * An entry no longer listed is kept and marked `retired` rather than deleted,
- * since its id may already be part of a published code.
+ * Syncs cookie, pet and treasure entries and icons from cookierunhub.com into
+ * `assets/` and writes `assets/index.json`. Every entry is keyed by its wire
+ * id — the site's own number for it in base 36, see `utils/asset-ids.ts` — and
+ * records a readable key, its name, its page on cookierunhub.com and its icon
+ * path (relative to `assets/`, or `null` where the site has no picture). An
+ * entry the site no longer lists is kept and marked `retired` rather than
+ * deleted, since its id may already be part of a published code.
  *
  * Treasures carry their evolution chain as well: `type` is `N` for a base
  * treasure, `E` for an evolved one and `B` for a blessed one. A base lists its
  * `targets` as `[evolved, blessed]` — either half is `null` when that form does
  * not exist — and an evolved or blessed treasure names its base as `source`.
  *
- * Network cost is four page requests (sitemap + one listing page per section),
- * one request per evolved treasure — the listing pages say that a treasure is
- * evolved but not what it evolved from, so only the detail page can link the
- * chain — plus one request per icon that is not already on disk. So a re-run
- * after a complete scrape downloads no icons but still re-reads the chain.
- *
- * The sitemap lists page URLs, not icon URLs, so it cannot drive the download
- * itself. It is used as a completeness check: if a listing page ever stops
- * rendering entries the sitemap declares, the run fails loudly instead of
- * quietly writing a short index.
+ * Network cost is three API requests, one per section, plus one request per
+ * icon that is not already on disk. An icon on disk that no entry names any
+ * more is deleted, so `assets/` holds exactly what the index points at.
  */
 import { fileURLToPath } from "node:url";
 
 import {
 	type AssetIndex,
 	type Entry,
-	ID_WIDTH,
-	migrate,
 	ordered,
-	reconcile,
+	parseIndex,
 	SECTIONS,
 	type Section,
 	serializeIndex,
-	TREASURE_FAMILIES,
 	type TreasureEntry,
-	type TreasureFamily,
 	verifyStructure,
 } from "./utils/asset-ids";
-import {
-	type Card,
-	fetchEvolution,
-	fetchListing,
-	fetchSitemap,
-	get,
-	ORIGIN,
-} from "./utils/cookierundb";
+import { fetchRows, get } from "./utils/cookierunhub";
+import { entriesFrom } from "./utils/hub-index";
 
 // `fileURLToPath`, not `.pathname`: the latter percent-encodes, so a checkout
 // under a path containing a space would not resolve.
 const ASSETS = fileURLToPath(new URL("../assets/", import.meta.url));
+const ASSETS_INDEX = `${ASSETS}index.json`;
 const CONCURRENCY = 4;
 const BAR_WIDTH = 24;
 
 /**
- * A one-line progress bar for the two loops that run long enough to look hung.
- * It redraws in place on a TTY; anywhere else — a pipe, a CI log — it prints one
- * line per tenth instead, so the output stays readable without escape codes.
+ * A one-line progress bar for the download loop, which runs long enough to look
+ * hung. It redraws in place on a TTY; anywhere else — a pipe, a CI log — it
+ * prints one line per tenth instead, so the output stays readable without
+ * escape codes.
  */
 function progress(label: string, total: number) {
 	const tty = process.stdout.isTTY === true;
@@ -122,296 +107,88 @@ function bail(problems: string[], label: string) {
 	process.exit(1);
 }
 
-const sitemap = await fetchSitemap();
-const cards: Record<Section, Card[]> = { cookies: [], pets: [], treasures: [] };
-const drift: string[] = [];
-
-for (const section of SECTIONS) {
-	const listed = await fetchListing(section);
-	cards[section] = listed;
-
-	const declared = sitemap[section];
-	const found = new Set(listed.map((c) => c.slug));
-	for (const slug of declared) {
-		if (!found.has(slug))
-			drift.push(`${section}/${slug} in sitemap, not parsed`);
-	}
-	for (const slug of found) {
-		if (!declared.has(slug))
-			drift.push(`${section}/${slug} parsed, not in sitemap`);
-	}
-}
-bail(drift, "sitemap mismatch");
-
-const ASSETS_INDEX = `${ASSETS}index.json`;
-
 const onDisk = await Bun.file(ASSETS_INDEX).exists();
-const raw: unknown = onDisk ? await Bun.file(ASSETS_INDEX).json() : {};
-const previous: AssetIndex = onDisk
-	? migrate(raw)
-	: {
-			fetchedAt: null,
-			cookies: {},
-			pets: {},
-			treasures: {},
-			boosts: {},
-			episodes: {},
-		};
-
-/**
- * The `ids moved` check below compares the new index against `previous`, which
- * is `migrate`'s own output — so it cannot see a migration that renumbered. This
- * compares against what is actually on disk, which can.
- */
-const rawSections = raw as Record<string, Record<string, { url?: string }>>;
-const renumbered: string[] = [];
-for (const section of SECTIONS) {
-	const onDiskSection = rawSections[section] ?? {};
-	const shaped = new RegExp(`^[0-9A-Z]{${ID_WIDTH[section]}}$`);
-	for (const [id, entry] of Object.entries(onDiskSection)) {
-		if (!shaped.test(id)) continue;
-		const after = previous[section][id];
-		if (after === undefined || after.url !== entry.url) {
-			renumbered.push(
-				`${section}/${id} was ${entry.url}, migrate gave ${after?.url ?? "nothing"}`,
-			);
-		}
-	}
-}
-bail(renumbered, "migrate moved an id");
-
-const reconciled = {
-	cookies: reconcile(
-		"cookies",
-		previous.cookies,
-		cards.cookies.map((c) => c.slug),
-	),
-	pets: reconcile(
-		"pets",
-		previous.pets,
-		cards.pets.map((c) => c.slug),
-	),
-	treasures: reconcile(
-		"treasures",
-		previous.treasures,
-		cards.treasures.map((c) => c.slug),
-	),
-};
-
-const ids: Record<Section, Map<string, string>> = {
-	cookies: reconciled.cookies.ids,
-	pets: reconciled.pets.ids,
-	treasures: reconciled.treasures.ids,
-};
-
-function idFor(section: Section, slug: string): string {
-	const id = ids[section].get(slug);
-	if (id === undefined) throw new Error(`${section}/${slug} has no id`);
-	return id;
-}
-
-// Only the evolved half of the treasure list needs a detail page: a base learns
-// its own targets by inverting what the evolved treasures point back at.
-const evolved = cards.treasures.filter((card) => card.evolved);
-
-const chains = new Map<string, { source: string; type: "E" | "B" }>();
-const chainProblems: string[] = [];
-await pool("chains", evolved, async (card) => {
-	const chain = await fetchEvolution(card.slug);
-	if (chain === null) {
-		chainProblems.push(`treasures/${card.slug} is evolved but names no base`);
-		return;
-	}
-	if (!ids.treasures.has(chain.source)) {
-		chainProblems.push(
-			`treasures/${card.slug} evolves from unknown ${chain.source}`,
-		);
-		return;
-	}
-	chains.set(card.slug, chain);
-});
-
-// A base has at most one evolved and one blessed form; two of either means the
-// captions no longer mean what this script assumes they do.
-const targets = new Map<string, [string | null, string | null]>();
-for (const card of cards.treasures) {
-	if (!card.evolved) targets.set(card.slug, [null, null]);
-}
-for (const [slug, chain] of chains) {
-	const pair = targets.get(chain.source);
-	if (pair === undefined) {
-		chainProblems.push(
-			`treasures/${slug} evolves from evolved ${chain.source}`,
-		);
-		continue;
-	}
-	const index = chain.type === "E" ? 0 : 1;
-	const taken = pair[index];
-	if (taken !== null) {
-		chainProblems.push(
-			`treasures/${chain.source} has two ${chain.type} forms: ${taken}, ${slug}`,
-		);
-		continue;
-	}
-	pair[index] = slug;
-}
-bail(chainProblems, "evolution mismatch");
+const previous: AssetIndex = parseIndex(
+	onDisk ? await Bun.file(ASSETS_INDEX).json() : {},
+);
 
 const index: {
 	cookies: Record<string, Entry>;
 	pets: Record<string, Entry>;
 	treasures: Record<string, TreasureEntry>;
 } = { cookies: {}, pets: {}, treasures: {} };
-const downloads = new Map<string, string>(); // remote icon path -> path under assets/
-let spriteless = 0;
+const downloads = new Map<string, string>(); // path under assets/ -> remote URL
+const problems: string[] = [];
 
-/**
- * The readable handle the index used to be keyed by. Nothing resolves it, so a
- * name shared by two entries yielding one key is harmless — but an entry that
- * already has a key keeps it, so a rescrape does not churn the file. The keys
- * on disk carry the old collision numbering (`BabySotdae1`); recomputing them
- * would drop it for no gain.
- */
-function keyOf(name: string): string {
-	return (name.match(/[A-Za-z0-9]+/g) ?? [])
-		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-		.join("");
-}
-
-function entryFor(section: Section, card: Card, key: string): Entry {
-	if (card.icon === null) {
-		spriteless++;
-		return {
-			key,
-			name: card.name,
-			url: `${ORIGIN}/${section}/${card.slug}`,
-			image: null,
-		};
-	}
-	const local = `${section}/${card.icon.split("/").pop()}`;
-	downloads.set(card.icon, local);
-	return {
-		key,
-		name: card.name,
-		url: `${ORIGIN}/${section}/${card.slug}`,
-		image: local,
-	};
-}
-
-/** An entry already in the index keeps its key; a new one is given one. */
-function keyFor(section: Section, id: string, card: Card): string {
-	return previous[section][id]?.key ?? keyOf(card.name);
-}
-
-for (const section of ["cookies", "pets"] as const) {
-	for (const card of cards[section]) {
-		const id = idFor(section, card.slug);
-		index[section][id] = entryFor(section, card, keyFor(section, id, card));
-	}
-}
-
-/**
- * The listing sorts every treasure into a family, and the combi page offers
- * only the ones a run can equip. A family the index does not know is a scrape
- * that stops here rather than one that quietly drops treasures out of the
- * picker, or lets new ones in without anyone deciding.
- */
-function familyFor(card: Card): TreasureFamily {
-	const { family } = card;
-	if (
-		family === null ||
-		!(TREASURE_FAMILIES as readonly string[]).includes(family)
-	) {
-		throw new Error(
-			`treasures/${card.slug}: family ${JSON.stringify(family)} is not one of ${TREASURE_FAMILIES.join(", ")}`,
-		);
-	}
-	return family as TreasureFamily;
-}
-
-for (const card of cards.treasures) {
-	const id = idFor("treasures", card.slug);
-	const entry = {
-		...entryFor("treasures", card, keyFor("treasures", id, card)),
-		family: familyFor(card),
-	};
-	const chain = chains.get(card.slug);
-	if (chain === undefined) {
-		const pair = targets.get(card.slug) ?? [null, null];
-		index.treasures[id] = {
-			...entry,
-			type: "N",
-			targets: [
-				pair[0] === null ? null : idFor("treasures", pair[0]),
-				pair[1] === null ? null : idFor("treasures", pair[1]),
-			],
-		};
-		continue;
-	}
-	index.treasures[id] = {
-		...entry,
-		type: chain.type,
-		source: idFor("treasures", chain.source),
-	};
-}
-
-for (const id of reconciled.treasures.retired) {
-	const entry = previous.treasures[id];
-	if (entry !== undefined) index.treasures[id] = { ...entry, retired: true };
-}
-for (const section of ["cookies", "pets"] as const) {
-	for (const id of reconciled[section].retired) {
-		const entry = previous[section][id];
-		if (entry !== undefined) index[section][id] = { ...entry, retired: true };
-	}
-}
-
-const moved: string[] = [];
 for (const section of SECTIONS) {
+	const synced = entriesFrom(section, await fetchRows(section));
+	problems.push(...synced.problems);
+	for (const [local, remote] of synced.icons) downloads.set(local, remote);
+	Object.assign(index[section], synced.entries);
+}
+bail(problems, "the site's listing cannot be represented");
+
+// An id the site stopped listing keeps its entry, flagged, so a code that
+// carries it still reads. Its icon stays on disk for the same reason.
+for (const section of SECTIONS) {
+	const current: Record<string, Entry> = index[section];
 	for (const [id, entry] of Object.entries(previous[section])) {
-		const now = index[section][id];
-		if (now === undefined || now.url !== entry.url) {
-			moved.push(
-				`${section}/${id} was ${entry.url}, now ${now?.url ?? "gone"}`,
-			);
-		}
+		if (Object.hasOwn(current, id)) continue;
+		current[id] = { ...entry, retired: true };
 	}
 }
-bail(moved, "ids moved");
+
+const spriteless = SECTIONS.flatMap((section) =>
+	Object.values(index[section] as Record<string, Entry>),
+).filter((entry) => entry.image === null).length;
 
 // Only icons absent from disk are fetched; everything else is already correct.
-const jobs: [remote: string, local: string][] = [];
-for (const [remote, local] of downloads) {
-	if (!(await Bun.file(ASSETS + local).exists())) jobs.push([remote, local]);
+const jobs: [local: string, remote: string][] = [];
+for (const [local, remote] of downloads) {
+	if (!(await Bun.file(ASSETS + local).exists())) jobs.push([local, remote]);
 }
 
 console.log(
 	`entries: ${SECTIONS.map((s) => `${s}=${Object.keys(index[s]).length}`).join(" ")}` +
-		` (${spriteless} without a sprite)`,
+		` (${spriteless} without a picture)`,
 );
 console.log(
 	`icons: ${downloads.size} referenced, ${downloads.size - jobs.length} on disk, ${jobs.length} to download`,
 );
 
 const failures: string[] = [];
+const absent = new Set<string>();
 
-await pool("icons", jobs, async ([remote, local]) => {
+await pool("icons", jobs, async ([local, remote]) => {
 	try {
-		await Bun.write(ASSETS + local, await (await get(remote)).arrayBuffer());
+		const res = await get(remote);
+		await Bun.write(ASSETS + local, await res.arrayBuffer());
 	} catch (err) {
-		failures.push(String(err));
+		// The site lists a picture it does not serve — its own page falls back
+		// to a placeholder for these too. That is an entry without a picture,
+		// not a download that failed and should be retried.
+		if (String(err).includes("HTTP 404")) absent.add(local);
+		else failures.push(String(err));
 	}
 });
+
+for (const section of SECTIONS) {
+	for (const entry of Object.values(index[section] as Record<string, Entry>)) {
+		if (entry.image !== null && absent.has(entry.image)) entry.image = null;
+	}
+}
 
 // Said before anything below can bail: `bail` exits, and an operator whose run
 // failed still needs to know which icons did not arrive.
 console.log(
-	`done: ${jobs.length - failures.length} downloaded, ${failures.length} failed`,
+	`done: ${jobs.length - failures.length - absent.size} downloaded, ` +
+		`${absent.size} not on the site, ${failures.length} failed`,
 );
+for (const local of absent) console.log("  MISSING", local);
 for (const failure of failures) console.log("  FAIL", failure);
 
-// Icon downloads are the only partial-success path in this script: sitemap
-// drift, a broken chain and a failed structure check all bail before the write.
+// Icon downloads are the only partial-success path in this script: a listing
+// it cannot represent and a failed structure check both bail before the write.
 // So an icon that did not arrive means the run was not a success, and the
 // previous timestamp stands while the index itself is still written.
 const fetchedAt =
@@ -421,7 +198,7 @@ const fetchedAt =
 // disk costs nothing, while one that does needs `git checkout` to undo.
 //
 // The static sections are copied from what was on disk. This script has no
-// source for them — they are authored — so a scrape must hand them back exactly
+// source for them — they are authored — so a sync must hand them back exactly
 // as it found them rather than dropping them from the file it rewrites.
 const written = serializeIndex({
 	fetchedAt,
@@ -434,10 +211,28 @@ bail(verifyStructure(written), "the index this run assembled is not intact");
 await Bun.write(ASSETS_INDEX, written);
 console.log("index written");
 
+// Every icon an entry names, retired ones included; anything else under a
+// section's directory is left over from an entry or a source that is gone.
+const named = new Set<string>();
+for (const section of SECTIONS) {
+	for (const entry of Object.values(index[section] as Record<string, Entry>)) {
+		if (entry.image !== null) named.add(entry.image);
+	}
+}
+let pruned = 0;
+for (const section of SECTIONS) {
+	for await (const file of new Bun.Glob(`${section}/*`).scan(ASSETS)) {
+		if (named.has(file)) continue;
+		await Bun.file(ASSETS + file).delete();
+		pruned++;
+	}
+}
+console.log(`icons pruned: ${pruned}`);
+
 /**
- * What a run did to one entry. `restored` is not new behaviour — `reconcile`
- * matches by slug, so an entry the site lists again keeps its id and is rebuilt
- * without the flag — it is only newly visible.
+ * What a run did to one entry. `restored` is an entry the site lists again
+ * after a run that retired it: its id is the site's number, so it comes back
+ * under the same one.
  */
 type Change = "added" | "updated" | "retired" | "restored" | "unchanged";
 
@@ -452,7 +247,7 @@ function classify(before: Entry | undefined, after: Entry): Change {
 
 const reportWidth = Math.max(...SECTIONS.map((section) => section.length)) + 2;
 
-for (const section of SECTIONS) {
+for (const section of SECTIONS as Section[]) {
 	const tally: Record<Change, number> = {
 		added: 0,
 		updated: 0,
@@ -460,8 +255,8 @@ for (const section of SECTIONS) {
 		restored: 0,
 		unchanged: 0,
 	};
-	// Annotated for the same reason as in verify-assets.ts: the union of the two
-	// record types does not survive Object.entries without widening.
+	// Annotated: the union of the two record types does not survive
+	// Object.entries without widening.
 	const entries: [string, Entry][] = Object.entries(index[section]);
 	for (const [id, entry] of entries) {
 		tally[classify(previous[section][id], entry)]++;

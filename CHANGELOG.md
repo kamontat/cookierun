@@ -2,9 +2,26 @@
 
 What changed in this project and why, newest first.
 
-## 2026-10-26: Resizable Saved and Help drawers on desktop, and a code panel that says whether you are editing
+## 2026-10-26: Resizable Saved and Help drawers on desktop, and a code panel that says whether you are editing, and the catalog synced from cookierunhub.com
+
+### BREAKING CHANGES
+
+- Every cookie, pet and treasure id a loadout carries changed. A loadout code written before
+  this names different entries now, or none; only the ten-character combi section still means
+  what it did. Rebuild saved loadouts by picking their cookie, pet and treasures again.
+- The treasure `family` values are now `cookie`, `gacha`, `limited`, `pet` and `squirrel`;
+  `consumable`, `draw` and `special` are gone from `assets/index.json`.
+- `scripts/utils/cookierundb.ts` is removed, and `migrate` and `reconcile` are gone from
+  `scripts/utils/asset-ids.ts`; `parseIndex` replaces `migrate` for reading the file.
 
 ### Features
+
+- `bun run fetch:assets` and `bun run verify:assets` now read cookierunhub.com's encyclopedia
+  through its JSON API, three requests in all. It is more up to date: 2 new cookies and about
+  30 new treasures, for 96 cookies, 103 pets and 1,179 treasures.
+- A loadout id is the entry's own number on cookierunhub.com in base 36, so treasure 50 is
+  `01E` and its page is `/en/encyclopedia/treasures/50`. A blessed treasure, which the site
+  keeps as a flag on its unblessed form, takes that number plus 23,328: `I1E`.
 
 - On a wide screen with a mouse, the left edge of the combi page's **Saved** and **Help**
   drawers is a resize handle. Drag it, or focus it and press the arrow keys (Shift for bigger
@@ -24,6 +41,13 @@ What changed in this project and why, newest first.
   as typed, so a second change is one more Update rather than another Load.
 - **Save as new** is now **New**, a button of its own beside Update in the code panel rather
   than an item in the ⋯ menu.
+- Every cookie, pet and treasure icon is re-downloaded from cookierunhub.com, most as WebP, so
+  the build ships `assets/**/*.{png,webp}`. The favicon is now `cookies/fairy_cookie.png`.
+- The treasure picker offers every treasure, XP-Elixirs included: no family is hidden any
+  more.
+- A sync deletes icons no entry names, keeps the 12 treasures whose pictures the site lists
+  but does not serve as `image: null` instead of failing, and saves the 8 Korean file names
+  as `hub-<number>.png`.
 
 ### Bug fixes
 
@@ -40,6 +64,17 @@ What changed in this project and why, newest first.
   90% of the screen, and a drag on its edge would fight the page's own swipe.
 - The handle sits on the dialog rather than as a `position: fixed` child of the scrolling
   dialog: the fixed version left the mouse cursor stale over it.
+- Ids moved to cookierunhub.com's numbers as a clean break, rather than keeping the old
+  append-only ids behind a name-matching translation table. The site owns the numbering now,
+  so nothing here assigns ids, and `verifyStructure` checks each id against its page url.
+  `LOADOUT_VERSION` stays `1`.
+- Treasure families follow the site's own categories rather than mapping them onto the old
+  ones. Those categories put XP-Elixirs in `limited` beside equippable treasures, so the
+  picker shows everything rather than hiding by name.
+- Blessed ids are offset by half the 3-character space rather than prefixed with `B`, which
+  would have capped the site's treasure numbers at 1,295.
+- Every icon was re-downloaded rather than keeping the PNGs already on disk, so all of them
+  come from one source.
 
 ## 2026-10-25: The workbench layout, with a top bar in place of the sidebar, and snackbar notifications, and run stats on saved codes, and the code as a character grid with saved rows that read as runs
 

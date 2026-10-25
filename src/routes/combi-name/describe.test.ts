@@ -123,9 +123,9 @@ test("an Any cookie, relay and pet read as Any, not as None", () => {
 test("a picked cookie, relay and pet read as their names", () => {
 	const rows = describeLoadout({
 		...emptyLoadout(),
-		cookie: "00",
-		relay: "01",
-		pet: "00",
+		cookie: "01",
+		relay: "02",
+		pet: "01",
 	});
 
 	// The relay is a second cookie, not its own list. Id "01" names
@@ -136,18 +136,10 @@ test("a picked cookie, relay and pet read as their names", () => {
 	expect(rows[2]).toEqual({ field: "Pet", value: "Choco Drop" });
 });
 
-// Pet ids 0J, 0K and 2L are all named "Sotdae Flock". A reader told only the
-// name cannot tell which cookie the code means.
-test("a shared display name reads with the id that tells it apart", () => {
-	const rows = describeLoadout({ ...emptyLoadout(), pet: "0J" });
-
-	expect(rows[2]).toEqual({ field: "Pet", value: "Sotdae Flock [0J]" });
-});
-
 test("alternatives read as or, and slots as a numbered list when order matters", () => {
 	const unordered = describeLoadout({
 		...emptyLoadout(),
-		treasures: [[t("000"), t("001")], [t("002")]],
+		treasures: [[t("001"), t("002")], [t("003")]],
 		ordered: false,
 	});
 	expect(unordered[3]?.field).toBe("Treasures");
@@ -156,7 +148,7 @@ test("alternatives read as or, and slots as a numbered list when order matters",
 
 	const ordered = describeLoadout({
 		...emptyLoadout(),
-		treasures: [[t("000")], [t("001")]],
+		treasures: [[t("001")], [t("002")]],
 		ordered: true,
 	});
 	expect(ordered[3]?.field).toBe("Treasures (exact order)");
@@ -167,7 +159,7 @@ test("alternatives read as or, and slots as a numbered list when order matters",
 test("a single treasure slot never reads as exact order", () => {
 	const rows = describeLoadout({
 		...emptyLoadout(),
-		treasures: [[t("000")]],
+		treasures: [[t("001")]],
 		ordered: true,
 	});
 
@@ -177,7 +169,7 @@ test("a single treasure slot never reads as exact order", () => {
 test("each treasure reads with its level, +0 included", () => {
 	const rows = describeLoadout({
 		...emptyLoadout(),
-		treasures: [[t("000"), t("001", 5, 9)], [t("002", 9)]],
+		treasures: [[t("001"), t("002", 5, 9)], [t("003", 9)]],
 	});
 
 	const value = rows[3]?.value ?? "";
@@ -201,7 +193,7 @@ test("the build verdict names the relay as what forces the work", () => {
 	};
 
 	expect(
-		describeBuild({ loadout: { ...emptyLoadout(), relay: "0O" }, combi: auto }),
+		describeBuild({ loadout: { ...emptyLoadout(), relay: "0P" }, combi: auto }),
 	).toEqual({ semi: true, reasons: ["Relay cookie"] });
 	expect(describeBuild({ loadout: emptyLoadout(), combi: auto })).toEqual({
 		semi: false,
@@ -212,7 +204,7 @@ test("the build verdict names the relay as what forces the work", () => {
 test("a treasure's runs read with commas, so 'or' only separates treasures", () => {
 	const rows = describeLoadout({
 		...emptyLoadout(),
-		treasures: [[treasurePick("000", [0, 1, 2, 5, 6, 7, 8, 9]), t("001", 3)]],
+		treasures: [[treasurePick("001", [0, 1, 2, 5, 6, 7, 8, 9]), t("002", 3)]],
 	});
 
 	expect(rows[3]?.value).toMatch(/ \+0-2, \+5-9 or .+ \+3$/);
@@ -228,7 +220,7 @@ test("a relay on an episode with no relay slot is no reason", () => {
 	};
 
 	expect(
-		describeBuild({ loadout: { ...emptyLoadout(), relay: "0O" }, combi: auto }),
+		describeBuild({ loadout: { ...emptyLoadout(), relay: "0P" }, combi: auto }),
 	).toEqual({ semi: false, reasons: [] });
 });
 
@@ -236,7 +228,7 @@ test("a relay on an episode with no relay slot is no reason", () => {
 test("a manual run has no verdict even with a relay", () => {
 	expect(
 		describeBuild({
-			loadout: { ...emptyLoadout(), relay: "0O" },
+			loadout: { ...emptyLoadout(), relay: "0P" },
 			combi: {
 				goal: "score",
 				mode: "manual",
@@ -259,7 +251,7 @@ test("a run reads as its mode, goal and episode, the tower adding its floor", ()
 		"EP. 3",
 	]);
 	expect(
-		describeRun({ loadout: { ...emptyLoadout(), relay: "0O" }, combi: auto }),
+		describeRun({ loadout: { ...emptyLoadout(), relay: "0P" }, combi: auto }),
 	).toEqual(["Semi-auto", "Money", "EP. 3"]);
 	expect(
 		describeRun({

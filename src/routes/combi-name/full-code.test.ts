@@ -40,10 +40,10 @@ test("an empty loadout writes the bare ten-character code", () => {
 test("a loadout is written before the combi, separated by a dot", () => {
 	expect(
 		encodeFull({
-			loadout: loadout({ cookie: "00", treasures: [[t("000")]] }),
+			loadout: loadout({ cookie: "01", treasures: [[t("001")]] }),
 			combi,
 		}),
-	).toBe("1C00TU000-10S0000000");
+	).toBe("1C01TU001-10S0000000");
 });
 
 // Every code that worked before this feature has to keep working.
@@ -59,35 +59,35 @@ test("a bare code decodes with an empty loadout and the same combi", () => {
 });
 
 test("both sections decode together", () => {
-	const { full } = decodeFull("1C00P02TU000-10S070FW00");
+	const { full } = decodeFull("1C01P06TU001-10S070FW00");
 
-	expect(full.loadout.cookie).toBe("00");
-	expect(full.loadout.pet).toBe("02");
-	expect(full.loadout.treasures).toEqual([[t("000")]]);
+	expect(full.loadout.cookie).toBe("01");
+	expect(full.loadout.pet).toBe("06");
+	expect(full.loadout.treasures).toEqual([[t("001")]]);
 	expect(full.combi.cookiePowers).toEqual(["fairy", "seaFairy"]);
 });
 
 test("the combi section's soft warning survives the join", () => {
-	const { warnings } = decodeFull("1C00-1AM32R0000");
+	const { warnings } = decodeFull("1C01-1AM32R0000");
 
 	expect(warnings).toHaveLength(1);
 	expect(warnings[0]).toContain("slot 2 says Auto");
 });
 
 test("a second section separator is refused", () => {
-	expect(() => decodeFull("1C00-10S0000000-x")).toThrow(
+	expect(() => decodeFull("1C01-10S0000000-x")).toThrow(
 		'a code holds at most one "-", got 2',
 	);
 });
 
 test("an unreadable combi section still throws from the combi codec", () => {
-	expect(() => decodeFull("1C00-1S0000000")).toThrow(
+	expect(() => decodeFull("1C01-1S0000000")).toThrow(
 		"code must be exactly 10 characters",
 	);
 });
 
 test("combiSectionOf picks the right half, or the whole code", () => {
-	expect(combiSectionOf("1C00-10S0000000")).toBe("10S0000000");
+	expect(combiSectionOf("1C01-10S0000000")).toBe("10S0000000");
 	expect(combiSectionOf("10S0000000")).toBe("10S0000000");
 	expect(combiSectionOf("1C0")).toBe("1C0");
 });
@@ -107,9 +107,9 @@ test("a seeded sample of loadouts round-trips to its canonical form", () => {
 		return ((t ^ (t >>> 14)) >>> 0) % bound;
 	};
 
-	const cookieIds = ["00", "01", "2L", "__"];
-	const petIds = ["00", "02", "2U", "__"];
-	const treasureIds = ["000", "001", "0FZ", "0QQ", "0VR"];
+	const cookieIds = ["01", "02", "2L", "__"];
+	const petIds = ["01", "06", "2K", "__"];
+	const treasureIds = ["001", "002", "098", "0G1", "0PS", "I98"];
 	const pick = <T>(from: T[]): T => from[random(from.length)] as T;
 
 	let shuffles = 0;
@@ -175,8 +175,8 @@ test("a relay writes Semi-auto into slot 3", () => {
 	};
 
 	expect(
-		encodeFull({ loadout: { ...emptyLoadout(), relay: "0O" }, combi: auto }),
-	).toBe("1R0O-1HM0000000");
+		encodeFull({ loadout: { ...emptyLoadout(), relay: "0P" }, combi: auto }),
+	).toBe("1R0P-1HM0000000");
 	// The combi half on its own knows nothing about a relay and never did.
 	expect(encodeFull({ loadout: emptyLoadout(), combi: auto })).toBe(
 		"1AM0000000",
@@ -197,7 +197,7 @@ test("a build is semi-auto when the loadout carries a relay", () => {
 
 	expect(
 		isSemiAutoBuild({
-			loadout: { ...emptyLoadout(), relay: "0O" },
+			loadout: { ...emptyLoadout(), relay: "0P" },
 			combi: auto,
 		}),
 	).toBe(true);
@@ -232,19 +232,19 @@ test("an Any relay is a relay, for slot 3 and for the verdict", () => {
 // Hand-typed codes are allowed to contradict themselves; the relay wins, and
 // re-encoding snaps the slot back.
 test("a code saying Auto beside a relay warns rather than refusing", () => {
-	const { full, warnings } = decodeFull("1R0O-1AM0000000");
+	const { full, warnings } = decodeFull("1R0P-1AM0000000");
 
 	expect(full.combi.mode).toBe("auto");
 	expect(warnings).toEqual([
 		"slot 2 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
 	]);
-	expect(encodeFull(full)).toBe("1R0O-1HM0000000");
+	expect(encodeFull(full)).toBe("1R0P-1HM0000000");
 });
 
 // The codec's own contradiction warning does not fire for an H the loadout
 // explains: nothing is wrong with that code.
 test("a relayed code saying Semi-auto draws no warning", () => {
-	const { warnings } = decodeFull("1R0O-1HM0000000");
+	const { warnings } = decodeFull("1R0P-1HM0000000");
 
 	expect(warnings).toEqual([]);
 });
@@ -260,34 +260,34 @@ const special = (episode: Combi["episode"]): Combi => ({
 test("a special episode drops the relay, and the exp episode the treasures", () => {
 	const loadout = {
 		...emptyLoadout(),
-		cookie: "00",
-		relay: "0O",
-		pet: "02",
-		treasures: [[t("000")]],
+		cookie: "01",
+		relay: "0P",
+		pet: "06",
+		treasures: [[t("001")]],
 	};
 
 	expect(encodeFull({ loadout, combi: special("special1") })).toBe(
-		"1C00P02TU000-1AMC000000",
+		"1C01P06TU001-1AMC000000",
 	);
 	expect(encodeFull({ loadout, combi: special("special2") })).toBe(
-		"1C00P02TU000-1AMT000000",
+		"1C01P06TU001-1AMT000000",
 	);
 	expect(encodeFull({ loadout, combi: special("specialExp") })).toBe(
-		"1C00P02-1AMX000000",
+		"1C01P06-1AMX000000",
 	);
 });
 
 test("a relay a special episode has no room for forces nothing", () => {
 	expect(
 		isSemiAutoBuild({
-			loadout: { ...emptyLoadout(), relay: "0O" },
+			loadout: { ...emptyLoadout(), relay: "0P" },
 			combi: special("special1"),
 		}),
 	).toBe(false);
 });
 
 test("decoding drops what the episode has no room for, with a warning", () => {
-	const { full, warnings } = decodeFull("1C00R0OTU000-1AMX000000");
+	const { full, warnings } = decodeFull("1C01R0PTU001-1AMX000000");
 
 	expect(full.loadout.relay).toBeNull();
 	expect(full.loadout.treasures).toEqual([]);

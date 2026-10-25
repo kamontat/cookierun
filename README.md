@@ -108,15 +108,15 @@ An `R__` counts as a relay for everything a named relay counts for: the build is
 10S070FW00                          no loadout
 1C2L-10S070FW00                     a cookie only
 1C__R__P__-1HM0000000               any cookie, any relay, any pet
-1C2LR0BP1ZTU0FZ_0RB.0QQ-1HM32R000J  cookie, relay, pet, two treasure slots, any order
-1TU0FZ02_0FZ59_0RB3.0QQ9-10S0000000 slot 1: 0FZ at +0-2 or +5-9, or 0RB at +3; slot 2: 0QQ at +9
+1C2LR0BP1ZTU09F_0G2.0G1-1HM32R000J  cookie, relay, pet, two treasure slots, any order
+1TU09F02_09F59_0G23.0G19-10S0000000 slot 1: 09F at +0-2 or +5-9, or 0G2 at +3; slot 2: 0G1 at +9
 ```
 
 Encoding always writes the canonical form: ids are sorted within a slot, and whole slots are sorted against each other whenever the order flag is `U` — a single slot is always written `U`, since there is nothing to order with only one slot. That is what keeps one build to exactly one code. Reading a code is more forgiving: a hand-written or otherwise non-canonical loadout still decodes correctly, it just re-encodes into the canonical form rather than back into what you typed.
 
-Every id — cookie, relay, pet, or treasure — is a catalog id from `assets/index.json`, `__` aside. Ids are handed out once, append-only, and never reassigned or reused, so a code you write today still names the same cookie, pet, or treasure years from now, even if that entry is later pulled from the game.
+Every id — cookie, relay, pet, or treasure — is a catalog id from `assets/index.json`, `__` aside. An id is the entry's own number on [cookierunhub.com](https://www.cookierunhub.com/en/encyclopedia) in base 36 — treasure 50 is `01E`, and its page is `/en/encyclopedia/treasures/50`. A blessed treasure has no number of its own there, so it takes its unblessed form's number plus 23,328, half the 3-character space: the blessed form of `01E` is `I1E`. Because the site owns the numbering, a code you write today keeps naming the same cookie, pet, or treasure for as long as the site keeps its pages, and an entry the site stops listing stays in the catalog, marked retired, so a code carrying it still reads.
 
-Within one slot, an id repeats only to list another run of its levels, and reading a code merges every copy of an id in a slot into one treasure — so `TU0FZ_0FZ` is simply 0FZ at +0, and `TU0FZ03_0FZ25` is 0FZ at +0-5. The same id may also repeat across two different slots: that is how overlapping alternatives are written.
+Within one slot, an id repeats only to list another run of its levels, and reading a code merges every copy of an id in a slot into one treasure — so `TU09F_09F` is simply 09F at +0, and `TU09F03_09F25` is 09F at +0-5. The same id may also repeat across two different slots: that is how overlapping alternatives are written.
 
 ### Treasure levels
 
@@ -124,13 +124,13 @@ A treasure is upgraded from +0 to +9, and each treasure in a slot says which lev
 
 | Written | Levels |
 | --- | --- |
-| `0FZ` | +0, not upgraded |
-| `0FZ5` | +5 |
-| `0FZ58` | +5 to +8 |
-| `0FZ09` | +0 to +9, any level |
-| `0FZ9` | +9 |
-| `0FZ02_0FZ59` | +0 to +2, and +5 to +9 |
-| `0FZ_0FZ9` | +0 and +9 |
+| `09F` | +0, not upgraded |
+| `09F5` | +5 |
+| `09F58` | +5 to +8 |
+| `09F09` | +0 to +9, any level |
+| `09F9` | +9 |
+| `09F02_09F59` | +0 to +2, and +5 to +9 |
+| `09F_09F9` | +0 and +9 |
 
 No digits means +0, which is also how every code written before levels existed reads. A treasure whose levels are not one run repeats its id once per run, lowest first. Encoding writes the shortest form: runs are merged, a one-level run is one digit, and +0 is nothing. A range that runs backwards, like `95`, is rejected.
 
@@ -194,7 +194,7 @@ Below the summary, a row of tabs replaces the old board: **Main**, **Cookies**, 
 
 **Cookies** holds three role cards — Cookie, Relay, Pet — each showing the face and name of what it holds, or None or Any; the Relay card reads "No relay here" and disables itself where the episode takes none. Picking a card decides which inline grid underneath it writes that role, with a **Clear** button once the role holds something. Each grid is a filterable, uncapped list of faces — cookies for Cookie and Relay, pets for Pet — opening with two answers before the catalog: **Any**, the slot the build says anything fits, and the grid's own **None**, the slot the build never mentions.
 
-**Treasures** holds the order chips, then the three treasure slots, unchanged from the old board: a slot's name over its alternatives, one to a line, each with a button that drops just that one; the name opens a picker dialog over the page, with a level strip per pick, where picks are a draft until **Done** and Escape throws the draft away whole. The picker offers only what a run can equip — the consumable family, 7 of the 1,144 entries, is left out — though a code that already carries one still reads and still keeps it.
+**Treasures** holds the order chips, then the three treasure slots, unchanged from the old board: a slot's name over its alternatives, one to a line, each with a button that drops just that one; the name opens a picker dialog over the page, with a level strip per pick, where picks are a draft until **Done** and Escape throws the draft away whole. The picker offers every treasure the site lists.
 
 **Boosts** holds the boost cards, random boost chips — **None** first, then the eleven — and the cookie power+ cards, which wear the portrait of the cookie or pet each power belongs to.
 
@@ -215,7 +215,7 @@ bun run test          # 456 tests, including an exhaustive round-trip over all 6
 bun run check         # typecheck and Biome, in one pass
 bun run build         # writes dist/index.html, dist/combi-name/index.html, their chunks, and dist/assets/
 bun run preview       # serves the built dist/ on :4000; build first
-bun run verify:assets # asks cookierundb.com whether assets/index.json is still complete
+bun run verify:assets # asks cookierunhub.com whether assets/index.json is still complete
 ```
 
 The exhaustive test asserts that encoding produces exactly 3,319,305 distinct codes — 6,638,610 inputs collapse to that many because the auto/semi-auto character is derived rather than free, and a manual run drops its action. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
@@ -236,7 +236,7 @@ The exhaustive test asserts that encoding produces exactly 3,319,305 distinct co
 | `src/routes/combi-name/saved.ts` | The saved list: save, update and remove entries, and the plain-text form export writes and import reads. |
 | `src/components/` | Every custom element the pages declare, the top bar and the light/dark control among them. |
 | `src/lib/` | What more than one route needs: the tool registry, and the link writer that keeps every href relative. |
-| `scripts/` | The two asset programs and their helpers: `fetch-assets.ts` scrapes, `verify-assets.ts` checks the result offline. Every other package script is the command itself, in `package.json`. |
+| `scripts/` | The two asset programs and their helpers: `fetch-assets.ts` syncs from cookierunhub.com, `verify-assets.ts` asks the site whether the committed index is still complete. Every other package script is the command itself, in `package.json`. |
 | `tests/` | Test configuration only; every test sits beside the code it covers. |
 
 The `ALL_*` arrays and the label tables derive from the character tables, and a test asserts every value has a label, so adding a goal or episode cannot silently ship a page with a missing option.
