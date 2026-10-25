@@ -406,10 +406,11 @@ kbd {
 }
 
 /* Saved codes and Help: modal sheets from the right edge, opened from the top
-   bar, full height. The dialog is its own scroll area and carries no padding,
-   so a click that lands on it rather than inside .sheet is a click on the
-   backdrop; the scroll stops at its ends rather than running on into the page
-   behind. */
+   bar, full height. The dialog carries no padding and .sheet fills it, so a
+   click that lands on the dialog rather than inside .sheet is a click on the
+   backdrop. .sheet is the scroll area, not the dialog, so the resize handle on
+   the dialog's edge stays put while the list scrolls; the scroll stops at its
+   ends rather than running on into the page behind. */
 .drawer {
 	position: fixed;
 	inset: 0 0 0 auto;
@@ -422,16 +423,14 @@ kbd {
 	max-width: none;
 	height: 100%;
 	max-height: none;
-	overflow-y: auto;
-	overscroll-behavior: contain;
+	overflow: visible;
 	color: var(--cr-text);
 }
 
 /* The drawer's left edge, for resizing it: only with a mouse on a wide screen,
    where a long saved list or the help table wants more room. drawer-width.ts
-   sets --drawer-width on the dialog. The handle is fixed rather than in the
-   sheet, so it spans the window however far the dialog has scrolled; a
-   modal dialog carries no transform, so fixed is the viewport. */
+   sets --drawer-width on the dialog. The handle straddles the dialog's left
+   border, half over the backdrop, so it is easy to catch. */
 .drawer > .resize {
 	display: none;
 }
@@ -442,10 +441,10 @@ kbd {
 	}
 
 	.drawer > .resize {
-		position: fixed;
+		position: absolute;
 		top: 0;
-		right: calc(min(var(--drawer-width, 22rem), 90vw) - 0.25rem);
 		bottom: 0;
+		left: -0.25rem;
 		z-index: 2;
 		display: block;
 		width: 0.5rem;
@@ -472,7 +471,9 @@ kbd {
 
 .drawer > .sheet {
 	display: block;
-	min-height: 100%;
+	height: 100%;
+	overflow-y: auto;
+	overscroll-behavior: contain;
 	padding: 0 var(--cr-space-4) var(--cr-space-4);
 }
 
