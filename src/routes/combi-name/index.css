@@ -65,12 +65,16 @@ site-nav > button {
 	padding: var(--cr-space-3);
 }
 
-/* The banner rides in the panel, under the code and its buttons, so a message
-   is in view however far down the page the controls are. Empty, it is out of
-   flow and takes no room; the ResizeObserver in index.ts picks up the panel
-   growing when one shows, so the tab strip and the scroll padding follow. */
-.codepanel notice-bar[type] {
+/* The banner is a status strip in the panel, under the code and its buttons,
+   so a message is in view however far down the page the controls are. Its
+   line is there whether or not anything is showing, so a message arriving or
+   going never changes the panel's height and nothing under it jumps. Only
+   opening a folded list grows it, and the ResizeObserver in index.ts follows
+   that. */
+.codepanel notice-bar {
 	margin-top: var(--cr-space-2);
+	border-top: var(--cr-border) dashed var(--cr-line);
+	padding-top: var(--cr-space-1);
 }
 
 /* The panel holds the code and its actions and nothing else, so its heading
@@ -138,10 +142,10 @@ tab-strip {
 
 	.codepanel notice-bar {
 		order: -1;
-	}
-
-	.codepanel notice-bar[type] {
 		margin: 0 0 var(--cr-space-2);
+		border-top: 0;
+		border-bottom: var(--cr-border) dashed var(--cr-line);
+		padding: 0 0 var(--cr-space-1);
 	}
 
 	/* The page's long name fits one line of a phone. */
@@ -441,10 +445,21 @@ kbd {
 }
 
 /* The page's one banner, carried in under the header while a drawer is open.
-   Empty, it is out of flow and takes no room, so the margin only shows with a
-   message. */
+   A drawer has no height to keep steady, so there the strip's empty line is
+   given back: visually hidden, but still in the tree, since a live region
+   that is display: none until it speaks is often not heard. */
 .drawer notice-bar {
 	margin-bottom: var(--cr-space-3);
+}
+
+.drawer notice-bar:not([type]) {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 
 .diagram {

@@ -15,6 +15,9 @@ export type NoticeOptions = {
 	hold?: boolean;
 };
 
+/** The mark each type wears beside its colour. */
+const BADGE: Record<NoticeType, string> = { info: "i", warn: "!", error: "×" };
+
 /** How long an info message stays up, in milliseconds. */
 const INFO_FOR = 5000;
 
@@ -23,33 +26,31 @@ const INFO_FOR = 5000;
  * read with changes, a copy that worked, a store the browser refused — goes
  * here, as one of three types, and replaces whatever was showing.
  *
+ * It is a strip of one line that is always there, empty when there is nothing
+ * to say, so a message arriving or going never changes the height of what it
+ * sits in. A list folds behind its title and a count ("Read with changes (2)
+ * ▾") until it is opened; a new message starts folded again. Each type wears
+ * a badge as well as a colour: i, ! or ×.
+ *
  * Info and warn speak through a `role="status"` region, an error through a
  * `role="alert"` one. Both regions are always in the tree, so a screen reader
- * is already listening when a message arrives in either. An info message
- * clears itself after `infoFor`; warn and error stay until dismissed or
- * replaced, since each has something left to act on.
- *
- * Empty, the element takes no room and no grid track (it is positioned out of
- * flow, visually hidden), but stays in the accessibility tree: a live region
- * that is `display: none` until it has something to say is often not heard
- * saying it.
+ * is already listening when a message arrives in either, and a folded list is
+ * clipped off the screen rather than taken out of the region, so every line is
+ * still heard. An info message clears itself after `infoFor`; warn and error
+ * stay until dismissed or replaced, since each has something left to act on.
  */
 export class NoticeBar extends LitElement {
 	static override styles = [
 		base,
 		controls,
 		css`
+			/* One line reserved whether or not anything is showing (see .box):
+			   the strip is a fixed part of what holds it, not a box that pushes
+			   it taller. */
 			:host {
 				display: block;
-			}
-
-			:host(:not([type])) {
-				position: absolute;
-				width: 1px;
-				height: 1px;
-				overflow: hidden;
-				clip-path: inset(50%);
-				white-space: nowrap;
+				font-size: 0.9rem;
+				line-height: 1.26rem;
 			}
 
 			/* Each type's colour comes in through --tone, plumbing rather than a
@@ -66,26 +67,42 @@ export class NoticeBar extends LitElement {
 				--tone: var(--cr-danger);
 			}
 
-			/* The message and its dismiss button side by side. */
+			/* Badge, message and dismiss button side by side. The reserved line
+			   is the box's, not the host's: a rule or padding the page puts on
+			   the host would otherwise eat into it, since a page's box-sizing
+			   outranks anything :host says. */
 			.box {
+				min-height: calc(1.26rem + var(--cr-space-1) * 2);
 				display: flex;
 				flex-direction: row;
 				gap: var(--cr-space-2);
 				align-items: flex-start;
+				padding-block: var(--cr-space-1);
 			}
 
-			:host([type]) .box {
-				border: var(--cr-border) solid var(--tone);
-				border-left-width: calc(var(--cr-border) * 3);
+			/* The tone is the badge's ground, never text colour: the amber does
+			   not clear 4.5:1 as text on paper. The glyph is the page colour on
+			   it, and aria-hidden, since the live region already says which
+			   kind of message this is by being a status or an alert. */
+			.badge {
+				flex: none;
+				display: grid;
+				place-items: center;
+				width: 1.1rem;
+				height: 1.1rem;
+				margin-top: 0.08rem;
 				border-radius: var(--cr-radius);
-				background: color-mix(in srgb, var(--tone) 12%, var(--cr-surface));
-				padding: var(--cr-space-2) var(--cr-space-3);
+				background: var(--tone);
+				color: var(--cr-bg);
+				font-family: var(--cr-mono);
+				font-size: 0.75rem;
+				font-weight: 700;
+				line-height: 1;
 			}
 
 			.regions {
 				flex: 1 1 auto;
 				min-width: 0;
-				font-size: 0.9rem;
 				overflow-wrap: anywhere;
 			}
 
@@ -97,32 +114,70 @@ export class NoticeBar extends LitElement {
 			ul {
 				display: grid;
 				gap: var(--cr-space-1);
+				margin-top: var(--cr-space-1);
 				padding-left: 1.1rem;
 				list-style: disc;
 			}
 
-			/* Body text rather than the tone: the tone is the box's edge and wash,
-			   and the amber does not clear 4.5:1 as text on paper. */
-			strong {
-				display: block;
-				margin-bottom: var(--cr-space-1);
-				font-family: var(--cr-mono);
-				font-size: 0.8rem;
-				letter-spacing: var(--cr-tracking);
-				text-transform: uppercase;
+			/* Off the screen, still in the live region. */
+			ul.folded {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				margin: 0;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
+			}
+
+			/* The fold and the ✕ sit on the strip's one line and never make it
+			   taller: no border or padding of their own on a fine pointer, and on
+			   a coarse one the tap-sized box hangs over the line by negative
+			   margins rather than pushing it apart. --line is the strip's line
+			   height, 0.9rem at 1.4, plumbing rather than a site token. */
+			button.fold,
+			button.dismiss {
+				--line: 1.26rem;
+				min-height: 0;
+				height: var(--line);
+				border: 0;
+				background: none;
+				box-shadow: none;
+				padding: 0;
+				color: inherit;
+				font: inherit;
+				line-height: var(--line);
+			}
+
+			button.fold:active,
+			button.dismiss:active {
+				transform: none;
+			}
+
+			@media (pointer: coarse) {
+				button.fold,
+				button.dismiss {
+					height: auto;
+					min-height: var(--cr-tap);
+					margin-block: calc((var(--line) - var(--cr-tap)) / 2);
+				}
+			}
+
+			button.fold {
+				font-weight: 600;
+				text-align: start;
+				cursor: pointer;
+			}
+
+			button.fold .count {
+				color: var(--cr-muted);
+				font-weight: 400;
 			}
 
 			button.dismiss {
 				flex: none;
-				border-color: transparent;
-				background: none;
-				box-shadow: none;
-				padding: 0 var(--cr-space-1);
-				line-height: 1.4;
-			}
-
-			button.dismiss:active {
-				transform: none;
+				padding-inline: var(--cr-space-1);
+				color: var(--cr-muted);
 			}
 		`,
 	];
@@ -139,6 +194,10 @@ export class NoticeBar extends LitElement {
 
 	@state()
 	private heading = "";
+
+	/** Whether a folded list is open. Every new message starts folded. */
+	@state()
+	private open = false;
 
 	#held = false;
 
@@ -165,6 +224,7 @@ export class NoticeBar extends LitElement {
 		this.kind = type;
 		this.lines = typeof text === "string" ? [text] : [...text];
 		this.heading = options.title ?? "";
+		this.open = false;
 		this.#held = options.hold === true;
 		this.setAttribute("type", type);
 		this.#arm();
@@ -233,7 +293,19 @@ export class NoticeBar extends LitElement {
 		if (this.lines.length === 1 && this.heading === "") {
 			return html`<p>${this.lines[0]}</p>`;
 		}
-		return html`${this.heading === "" ? nothing : html`<strong>${this.heading}</strong>`}<ul>
+		const title = this.heading === "" ? (this.lines[0] ?? "") : this.heading;
+		return html`<button
+				type="button"
+				class="fold"
+				aria-expanded=${String(this.open)}
+				@click=${() => {
+					this.open = !this.open;
+				}}
+			>
+				${title} <span class="count">(${this.lines.length})</span>
+				<span aria-hidden="true">${this.open ? "▴" : "▾"}</span>
+			</button>
+			<ul class=${this.open ? "" : "folded"}>
 				${this.lines.map((line) => html`<li>${line}</li>`)}
 			</ul>`;
 	}
@@ -241,6 +313,11 @@ export class NoticeBar extends LitElement {
 	override render() {
 		const polite = this.kind === "info" || this.kind === "warn";
 		return html`<div class="box">
+			${
+				this.kind === null
+					? nothing
+					: html`<span class="badge" aria-hidden="true">${BADGE[this.kind]}</span>`
+			}
 			<div class="regions">
 				<div role="status">${polite ? this.#body() : nothing}</div>
 				<div role="alert">${this.kind === "error" ? this.#body() : nothing}</div>

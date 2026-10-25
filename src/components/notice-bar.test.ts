@@ -65,7 +65,20 @@ test("info and warn speak politely, an error as an alert", async () => {
 	expect(region(element, "alert")).toBe("The browser refused.");
 });
 
-test("a list of lines is drawn as a list under its title", async () => {
+function fold(element: NoticeBar): HTMLButtonElement | null {
+	return (
+		element.shadowRoot?.querySelector<HTMLButtonElement>("button.fold") ?? null
+	);
+}
+
+function badge(element: NoticeBar): string {
+	return element.shadowRoot?.querySelector(".badge")?.textContent ?? "";
+}
+
+// The strip is one line under the code, so a list folds behind its title and
+// a count. A screen reader still hears every line: the folded list is clipped
+// off the screen, not taken out of the live region.
+test("a list of lines folds behind its title until it is opened", async () => {
 	const element = await mount();
 
 	element.show("warn", ["Slot 2 read as Semi-auto.", "Slot 10 dropped."], {
@@ -77,12 +90,59 @@ test("a list of lines is drawn as a list under its title", async () => {
 		(item) => item.textContent?.trim(),
 	);
 	expect(items).toEqual(["Slot 2 read as Semi-auto.", "Slot 10 dropped."]);
-	expect(element.shadowRoot?.querySelector("strong")?.textContent).toBe(
-		"Read with changes",
+	expect(fold(element)?.textContent?.replace(/\s+/g, " ").trim()).toBe(
+		"Read with changes (2) ▾",
 	);
+	expect(fold(element)?.getAttribute("aria-expanded")).toBe("false");
+	expect(
+		element.shadowRoot?.querySelector("ul")?.classList.contains("folded"),
+	).toBe(true);
+	expect(region(element, "status")).toContain("Slot 10 dropped.");
 	expect(element.text).toBe(
 		"Read with changes\nSlot 2 read as Semi-auto.\nSlot 10 dropped.",
 	);
+
+	fold(element)?.click();
+	await element.updateComplete;
+	expect(fold(element)?.getAttribute("aria-expanded")).toBe("true");
+	expect(
+		element.shadowRoot?.querySelector("ul")?.classList.contains("folded"),
+	).toBe(false);
+
+	// A new message starts folded again.
+	element.show("warn", ["One.", "Two."], { title: "Again" });
+	await element.updateComplete;
+	expect(fold(element)?.getAttribute("aria-expanded")).toBe("false");
+});
+
+test("one line needs no fold", async () => {
+	const element = await mount();
+	element.show("info", "Saved 10S0000000.");
+	await element.updateComplete;
+
+	expect(fold(element)).toBe(null);
+	expect(element.shadowRoot?.querySelector("p")?.textContent).toBe(
+		"Saved 10S0000000.",
+	);
+});
+
+// Colour alone is not a distinction anyone can rely on, so each type also
+// wears a mark of its own.
+test("each type wears its own badge, and an empty strip none", async () => {
+	const element = await mount();
+	expect(badge(element)).toBe("");
+
+	element.show("info", "Copied.");
+	await element.updateComplete;
+	expect(badge(element)).toBe("i");
+
+	element.show("warn", "Careful.");
+	await element.updateComplete;
+	expect(badge(element)).toBe("!");
+
+	element.show("error", "Refused.");
+	await element.updateComplete;
+	expect(badge(element)).toBe("×");
 });
 
 test("info clears itself; warn and error stay", async () => {
