@@ -10,6 +10,7 @@ import {
 	STORAGE_KEY,
 	shareHashFor,
 	startingCode,
+	statsInHash,
 	storedCode,
 	storedFullCode,
 	storedTab,
@@ -165,4 +166,36 @@ test("a storage that throws reads the full code as off and remembers nothing", (
 
 	expect(storedFullCode(broken)).toBe(false);
 	expect(() => rememberFullCode(broken, true)).not.toThrow();
+});
+
+test("a shared link carries its run stats beside the note, readable by eye", () => {
+	const hash = shareHashFor("10M0000000", "Coin farm", {
+		money: { min: 12000, max: 15000 },
+		boxes: { min: 3, max: 3 },
+		time: 245,
+	});
+
+	expect(hash).toMatch(/&money=12000-15000&boxes=3&time=245$/);
+	expect(codeInHash(hash)).toBe("10M0000000");
+	expect(noteInHash(hash)).toBe("Coin farm");
+	expect(statsInHash(hash)).toEqual({
+		money: { min: 12000, max: 15000 },
+		boxes: { min: 3, max: 3 },
+		time: 245,
+	});
+});
+
+test("a link with stats and no note carries the stats alone", () => {
+	const hash = shareHashFor("10M0000000", "", { exp: { min: 300, max: 450 } });
+
+	expect(hash).toBe("#10M0000000?exp=300-450");
+	expect(noteInHash(hash)).toBeNull();
+	expect(statsInHash(hash)).toEqual({ exp: { min: 300, max: 450 } });
+});
+
+test("a stat in a link that does not read is left out", () => {
+	expect(statsInHash("#10M0000000?money=lots&boxes=9&time=60")).toEqual({
+		time: 60,
+	});
+	expect(statsInHash("#10M0000000")).toEqual({});
 });

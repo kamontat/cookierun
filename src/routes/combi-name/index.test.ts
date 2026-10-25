@@ -2012,3 +2012,99 @@ test("submitting the build form goes nowhere", () => {
 	expect(need("build").dispatchEvent(event)).toBe(false);
 	expect(event.defaultPrevented).toBe(true);
 });
+
+const statInput = (field: string) => need<HTMLInputElement>(`stat-${field}`);
+
+function fillStats(stats: Record<string, string>): void {
+	for (const [field, value] of Object.entries(stats)) {
+		statInput(field).value = value;
+	}
+}
+
+test("the note takes run stats, and the saved row shows them", async () => {
+	await choose("goal", "box");
+	const code = await codeText();
+	fillStats({ money: "12000-15000", exp: "300", boxes: "2-3", time: "245" });
+	await saveCurrent("Box farm");
+
+	expect(rowFor(code).querySelector(".stats")?.textContent).toBe(
+		"Money 12,000–15,000 · Exp 300 · Boxes 2–3 · Time 245s",
+	);
+	for (const field of ["money", "exp", "boxes", "time"]) {
+		expect(statInput(field).value).toBe("");
+	}
+	expect(localStorage.getItem("combi-name:saved")).toContain(
+		'"money":{"min":12000,"max":15000}',
+	);
+
+	// Loading the entry fills the stats back in, as typed.
+	savedButtonFor(code, "load").click();
+	await settle();
+	expect(statInput("money").value).toBe("12000-15000");
+	expect(statInput("boxes").value).toBe("2-3");
+	expect(statInput("time").value).toBe("245");
+
+	// Cancel empties them with the note.
+	need<HTMLButtonElement>("save-cancel").click();
+	await settle();
+	expect(statInput("money").value).toBe("");
+	await reset();
+});
+
+test("a row with no stats shows no stats line", () => {
+	expect(rowFor("10M0000000").querySelector(".stats")).toBeNull();
+});
+
+test("a stat that does not read stops the save and says why", async () => {
+	const before = savedCodes();
+	await choose("goal", "exp");
+	fillStats({ boxes: "9" });
+	await saveCurrent("Exp farm");
+
+	expect(savedCodes()).toEqual(before);
+	expect(notice()).toEqual({
+		type: "error",
+		text: "Boxes takes 0 to 5, or a range like 2-4.",
+	});
+	expect(statInput("boxes").getAttribute("aria-invalid")).toBe("true");
+	expect(document.activeElement).toBe(statInput("boxes"));
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe("Exp farm");
+
+	statInput("boxes").value = "4";
+	statInput("boxes").dispatchEvent(new Event("input", { bubbles: true }));
+	expect(statInput("boxes").hasAttribute("aria-invalid")).toBe(false);
+	need<HTMLButtonElement>("save").click();
+	await settle();
+	expect(savedCodes()).toHaveLength(before.length + 1);
+	await reset();
+});
+
+test("an entry's link carries its stats, and a link's stats are offered in the boxes", async () => {
+	const [code = ""] = savedCodes();
+	let written = "";
+	await withClipboard(
+		(text) => {
+			written = text;
+			return Promise.resolve();
+		},
+		async () => {
+			savedButtonFor(code, "copy").click();
+			await settle();
+		},
+	);
+	expect(written).toContain("&boxes=4");
+
+	location.hash = "#10M3000000?money=900-1200&time=61";
+	window.dispatchEvent(new Event("hashchange"));
+	await settle();
+
+	expect(await codeText()).toBe("10M3000000");
+	expect(statInput("money").value).toBe("900-1200");
+	expect(statInput("time").value).toBe("61");
+	expect(notice()).toEqual({
+		type: "info",
+		text: "This link came with run stats. Save keeps them.",
+	});
+	fillStats({ money: "", time: "" });
+	await reset();
+});

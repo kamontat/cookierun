@@ -67,11 +67,23 @@ import {
 	rememberTab,
 	shareHashFor,
 	startingCode,
+	statsInHash,
 	storedFullCode,
 	storedTab,
 	TAB_NAMES,
 	type TabName,
 } from "./state";
+import {
+	formatStat,
+	isEmptyStats,
+	parseStat,
+	putStat,
+	type RunStats,
+	STAT_FIELDS,
+	type StatField,
+	type StatsDraft,
+	statsSentence,
+} from "./stats";
 import { summaryOf } from "./summary";
 
 import "#components/build-summary";
@@ -144,6 +156,9 @@ const relayNote = need("relay-note");
 const saveForm = need<HTMLFormElement>("save-form");
 const saveDescription = need<HTMLTextAreaElement>("save-description");
 const noteLabel = need("note-label");
+const statInputs = Object.fromEntries(
+	STAT_FIELDS.map((field) => [field, need<HTMLInputElement>(`stat-${field}`)]),
+) as Record<StatField, HTMLInputElement>;
 const saveButton = need<HTMLButtonElement>("save");
 const saveNewButton = need<HTMLButtonElement>("save-new");
 const saveCancelButton = need<HTMLButtonElement>("save-cancel");
@@ -799,7 +814,15 @@ function showSaved(entries: readonly SavedCode[]): void {
 			const when = new Date(entry.savedAt);
 			time.dateTime = when.toISOString();
 			time.textContent = `Saved ${savedAtFormat.format(when)}`;
-			text.append(description, code, time);
+			text.append(description, code);
+			const sentence = statsSentence(entry.stats ?? {});
+			if (sentence !== "") {
+				const stats = document.createElement("span");
+				stats.className = "stats";
+				stats.textContent = sentence;
+				text.append(stats);
+			}
+			text.append(time);
 
 			const buttons = document.createElement("div");
 			buttons.className = "buttons";
@@ -847,10 +870,52 @@ function showEditing(): void {
 		: "Note · new code";
 }
 
-/** Closes the entry open for editing, and clears the box it filled. */
+/** Fills the stat boxes, or empties them for `{}`. */
+function writeStats(stats: RunStats): void {
+	for (const field of STAT_FIELDS) {
+		const value = stats[field];
+		statInputs[field].value = value === undefined ? "" : formatStat(value);
+		statInputs[field].removeAttribute("aria-invalid");
+	}
+}
+
+/**
+ * Reads the stat boxes. The first that does not read is marked, focused and
+ * named in the banner, and nothing is returned: a save with a stat silently
+ * dropped would be a save of something other than what was typed.
+ */
+function readStats(): RunStats | null {
+	const stats: StatsDraft = {};
+	for (const field of STAT_FIELDS) {
+		const input = statInputs[field];
+		const parsed = parseStat(field, input.value);
+		if (!parsed.ok) {
+			input.setAttribute("aria-invalid", "true");
+			input.focus();
+			say("error", parsed.error);
+			return null;
+		}
+		putStat(stats, field, parsed.value);
+	}
+	return stats;
+}
+
+for (const input of Object.values(statInputs)) {
+	input.addEventListener("input", () => {
+		input.removeAttribute("aria-invalid");
+	});
+}
+
+/** Empties the note and the stat boxes under it. */
+function clearNote(): void {
+	saveDescription.value = "";
+	writeStats({});
+}
+
+/** Closes the entry open for editing, and clears the boxes it filled. */
 function stopEditing(): void {
 	editing = null;
-	saveDescription.value = "";
+	clearNote();
 	markCurrent(codeBar.value);
 }
 
@@ -858,16 +923,17 @@ const REFUSED_SAVE =
 	"The browser refused to store it. It is listed for this visit only.";
 
 function saveAsNew(): void {
+	const stats = readStats();
+	if (stats === null) return;
 	const code = codeBar.value;
-	const { entries, stored } = saveCode(
-		localStorage,
-		code,
-		saveDescription.value,
-	);
+	const { entries, stored } = saveCode(localStorage, code, {
+		description: saveDescription.value,
+		stats,
+	});
 	editing = null;
 	showSaved(entries);
 	if (stored) {
-		saveDescription.value = "";
+		clearNote();
 		say("info", `Saved ${code}.`);
 	} else {
 		say("error", REFUSED_SAVE);
@@ -875,10 +941,13 @@ function saveAsNew(): void {
 }
 
 function updateEntry(from: string): void {
+	const stats = readStats();
+	if (stats === null) return;
 	const code = codeBar.value;
 	const result = updateSaved(localStorage, from, {
 		code,
 		description: saveDescription.value,
+		stats,
 	});
 
 	if (!result.ok) {
@@ -899,7 +968,7 @@ function updateEntry(from: string): void {
 
 	editing = null;
 	showSaved(result.entries);
-	saveDescription.value = "";
+	clearNote();
 	const updated = result.entries.find((saved) => saved.code === code);
 	if (result.stored) {
 		say(
@@ -926,9 +995,10 @@ saveCancelButton.addEventListener("click", () => {
 });
 
 // A description takes line breaks, so Enter is a new line and Ctrl+Enter (or
-// Cmd+Enter) is the shortcut for the button beside it. Escape backs out of an
-// edit the way it backs out of the code editor.
-saveDescription.addEventListener("keydown", (event) => {
+// Cmd+Enter) is the shortcut for the button beside it; in a stat box Enter
+// alone submits, as it does in any one-line field. Escape backs out of an
+// edit the way it backs out of the code editor, from any box in the form.
+saveForm.addEventListener("keydown", (event) => {
 	if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
 		event.preventDefault();
 		saveForm.requestSubmit();
@@ -959,10 +1029,10 @@ function openSaved(code: string): readonly string[] | null {
 	}
 }
 
-/** The page's own address with a hash that carries a code and its note. */
+/** The page's own address with a hash that carries a code, its note and stats. */
 function shareLink(entry: SavedCode): string {
 	const page = location.href.split("#")[0] ?? "";
-	return `${page}${shareHashFor(entry.code, entry.description)}`;
+	return `${page}${shareHashFor(entry.code, entry.description, entry.stats)}`;
 }
 
 /**
@@ -1026,6 +1096,7 @@ savedList.addEventListener("click", (event) => {
 		savedDrawer.close();
 		bringNoticeHome();
 		saveDescription.value = entry.description;
+		writeStats(entry.stats ?? {});
 		// A code read with changes keeps its warning up (render put it there):
 		// it says more than "loaded" does. Otherwise "Loaded" replaces whatever
 		// was showing, a stale warning about something else included.
@@ -1045,7 +1116,7 @@ savedList.addEventListener("click", (event) => {
 
 	if (editing === code) {
 		editing = null;
-		saveDescription.value = "";
+		clearNote();
 	}
 	const { entries, stored } = removeSaved(localStorage, code);
 	showSaved(entries);
@@ -1153,23 +1224,31 @@ if (codePanel !== null && typeof ResizeObserver !== "undefined") {
 }
 
 /**
- * A link someone sent may carry a note. It is offered, not saved: the note
- * goes into the box, and keeping it is one click on Save — a link that
- * filled someone's list on its own would be a link nobody dared follow.
+ * A link someone sent may carry a note and run stats. They are offered, not
+ * saved: they go into the boxes, and keeping them is one click on Save — a
+ * link that filled someone's list on its own would be a link nobody dared
+ * follow.
  */
 function offerNote(
 	code: string,
 	note: string | null,
+	stats: RunStats,
 	warnings: readonly string[] = [],
 ): void {
-	if (note === null || editing !== null) return;
+	if ((note === null && isEmptyStats(stats)) || editing !== null) return;
 	const saved = savedEntries.find((entry) => entry.code === code);
 	let sentence: string;
 	if (saved !== undefined) {
 		sentence = `This link's code is already saved as ${entryName(saved)}.`;
 	} else {
-		saveDescription.value = note;
-		sentence = "This link came with a note. Save keeps it.";
+		saveDescription.value = note ?? "";
+		writeStats(stats);
+		sentence =
+			note === null
+				? "This link came with run stats. Save keeps them."
+				: isEmptyStats(stats)
+					? "This link came with a note. Save keeps it."
+					: "This link came with a note and run stats. Save keeps them.";
 	}
 	// A code read with changes has a warning up already: the offer joins it as
 	// one more line rather than replacing it, so both are seen.
@@ -1674,12 +1753,13 @@ window.addEventListener("hashchange", () => {
 	const code = codeInHash(location.hash);
 	if (code === null) return;
 	const note = noteInHash(location.hash);
+	const stats = statsInHash(location.hash);
 	let warnings: readonly string[] = [];
 
 	if (code === codeBar.value) {
-		// The build already stands; only a note is news, and the address goes
-		// back to holding the build alone once the note is in the box.
-		if (note === null) return;
+		// The build already stands; only a note or stats are news, and the
+		// address goes back to holding the build alone once they are in the boxes.
+		if (note === null && isEmptyStats(stats)) return;
 		publish(code);
 	} else {
 		try {
@@ -1690,7 +1770,7 @@ window.addEventListener("hashchange", () => {
 			return;
 		}
 	}
-	offerNote(codeBar.value, note, warnings);
+	offerNote(codeBar.value, note, stats, warnings);
 });
 
 // The panel's own Copy is turned off: Copy code lives in the ⋯ menu with Copy
@@ -1769,12 +1849,13 @@ showSaved(savedEntries);
 const opening = startingCode(location.hash, localStorage);
 // Read before the first render rewrites the hash without it.
 const openingNote = noteInHash(location.hash);
+const openingStats = statsInHash(location.hash);
 if (opening !== null) {
 	try {
 		applyCode(opening);
 		// A note only ever arrives in the hash, and a hash wins over storage, so
 		// a note present here belongs to the code just applied.
-		offerNote(codeBar.value, openingNote);
+		offerNote(codeBar.value, openingNote, openingStats);
 	} catch {
 		render();
 	}

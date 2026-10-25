@@ -1,6 +1,6 @@
 /**
  * Codes someone kept on purpose, each with a few words of their own saying what
- * it is for. `state.ts` remembers the last build whether anyone asked or not;
+ * it is for, and the run stats it brought home (`stats.ts`). `state.ts` remembers the last build whether anyone asked or not;
  * this is the list they asked for.
  *
  * It lives in `localStorage` under its own key and nowhere else. It leaves the
@@ -13,7 +13,18 @@
  */
 
 import { decodeFull, encodeFull } from "./full-code";
-import { codeInHash, noteInHash } from "./state";
+import { codeInHash, noteInHash, statsInHash } from "./state";
+import {
+	formatStat,
+	isEmptyStats,
+	parseStat,
+	putStat,
+	type RunStats,
+	readStats,
+	STAT_FIELDS,
+	type StatField,
+	type StatsDraft,
+} from "./stats";
 
 export const SAVED_KEY = "combi-name:saved";
 
@@ -23,6 +34,8 @@ export const DESCRIPTION_MAX = 500;
 export interface SavedCode {
 	readonly code: string;
 	readonly description: string;
+	/** Left off rather than empty when the entry has none. */
+	readonly stats?: RunStats;
 	/** Milliseconds since the epoch, when the entry was last saved. */
 	readonly savedAt: number;
 }
@@ -54,6 +67,21 @@ export function cleanDescription(description: string): string {
 		.slice(0, DESCRIPTION_MAX);
 }
 
+/** An entry as it is kept: a clean description, and stats only if there are any. */
+function entryOf(
+	code: string,
+	note: { description: string; stats?: RunStats },
+	savedAt: number,
+): SavedCode {
+	const stats = readStats(note.stats);
+	return {
+		code,
+		description: cleanDescription(note.description),
+		...(isEmptyStats(stats) ? {} : { stats }),
+		savedAt,
+	};
+}
+
 /** The first line, for anywhere a description has to fit in a sentence. */
 export function descriptionTitle(description: string): string {
 	return description.split("\n")[0] ?? "";
@@ -76,7 +104,9 @@ export function readSaved(storage: Storage): SavedCode[] {
 		return [];
 	}
 	if (!Array.isArray(parsed)) return [];
-	return parsed.filter(isSavedCode);
+	return parsed
+		.filter(isSavedCode)
+		.map((entry) => entryOf(entry.code, entry, entry.savedAt));
 }
 
 function writeSaved(storage: Storage, entries: readonly SavedCode[]): boolean {
@@ -90,7 +120,7 @@ function writeSaved(storage: Storage, entries: readonly SavedCode[]): boolean {
 
 /**
  * Saves a code at the head of the list. A code already in the list is not
- * listed twice: saving it again takes the new description and moves it to the
+ * listed twice: saving it again takes the new description and stats and moves it to the
  * top, since two notes on one code is one note someone forgot they wrote.
  *
  * Returns the list as it now stands, and whether the browser kept it — a
@@ -99,14 +129,10 @@ function writeSaved(storage: Storage, entries: readonly SavedCode[]): boolean {
 export function saveCode(
 	storage: Storage,
 	code: string,
-	description: string,
+	note: { description: string; stats?: RunStats },
 	now: number = Date.now(),
 ): { entries: SavedCode[]; stored: boolean } {
-	const entry: SavedCode = {
-		code,
-		description: cleanDescription(description),
-		savedAt: now,
-	};
+	const entry = entryOf(code, note, now);
 	const entries = [
 		entry,
 		...readSaved(storage).filter((saved) => saved.code !== code),
@@ -127,7 +153,7 @@ export type UpdateResult =
 	| { ok: false; reason: "missing" | "taken"; entries: SavedCode[] };
 
 /**
- * Rewrites one entry — its code, its description, or both — where it stands.
+ * Rewrites one entry — its code, its description, its stats — where it stands.
  * Editing is not saving afresh, so the entry keeps its place in the list.
  *
  * The list holds each code once, so moving an entry onto a code another entry
@@ -136,7 +162,7 @@ export type UpdateResult =
 export function updateSaved(
 	storage: Storage,
 	code: string,
-	change: { code: string; description: string },
+	change: { code: string; description: string; stats?: RunStats },
 	now: number = Date.now(),
 ): UpdateResult {
 	const entries = readSaved(storage);
@@ -149,18 +175,15 @@ export function updateSaved(
 		return { ok: false, reason: "taken", entries };
 	}
 
-	const next = entries.with(index, {
-		code: change.code,
-		description: cleanDescription(change.description),
-		savedAt: now,
-	});
+	const next = entries.with(index, entryOf(change.code, change, now));
 	return { ok: true, entries: next, stored: writeSaved(storage, next) };
 }
 
 /**
  * The list as text someone can paste into a chat, a note or a file: each code
- * on a line of its own, its description under it with every line quoted by
- * `>`, and a blank line between entries. The quote is what tells a description
+ * on a line of its own, its stats under it one per line as `money: 1200-1500`,
+ * then its description with every line quoted by `>`, and a blank line between
+ * entries. The quote is what tells a description
  * from a code on the way back in, so a note may say anything, a code included.
  */
 export function formatSaved(entries: readonly SavedCode[]): string {
@@ -172,7 +195,11 @@ export function formatSaved(entries: readonly SavedCode[]): string {
 					: entry.description
 							.split("\n")
 							.map((line) => (line === "" ? ">" : `> ${line}`));
-			return [entry.code, ...note].join("\n");
+			const stats = STAT_FIELDS.flatMap((field) => {
+				const value = entry.stats?.[field];
+				return value === undefined ? [] : [`${field}: ${formatStat(value)}`];
+			});
+			return [entry.code, ...stats, ...note].join("\n");
 		})
 		.map((block) => `${block}\n`)
 		.join("\n");
@@ -182,6 +209,7 @@ export function formatSaved(entries: readonly SavedCode[]): string {
 export interface ParsedCode {
 	readonly code: string;
 	readonly description: string;
+	readonly stats?: RunStats;
 }
 
 /** A line of text that named no code this page can read. */
@@ -192,8 +220,15 @@ export interface SkippedLine {
 	readonly reason: string;
 }
 
+/** A stat on a line of its own under a code, as `formatSaved` writes it. */
+const STAT_LINE = /^(money|exp|boxes|time)\s*:\s*(.*)$/i;
+
 /** The code a line names, written in the form the page itself would write it. */
-function codeOnLine(text: string): { code: string; note: string | null } {
+function codeOnLine(text: string): {
+	code: string;
+	note: string | null;
+	stats: RunStats;
+} {
 	// A link, or a bare hash: the code is the fragment, and it may carry a note.
 	const at = text.indexOf("#");
 	const raw = at === -1 ? text : text.slice(at);
@@ -202,13 +237,15 @@ function codeOnLine(text: string): { code: string; note: string | null } {
 	return {
 		code: encodeFull(full),
 		note: at === -1 ? null : noteInHash(raw),
+		stats: at === -1 ? {} : statsInHash(raw),
 	};
 }
 
 /**
  * Reads the text `formatSaved` writes, and the looser things people paste
  * instead: bare codes one per line, a shared link, a `>` with no space after
- * it. A line that is neither a quote nor a code is skipped and reported rather
+ * it, a stat label in any case. A line that is neither a quote, a stat nor a
+ * code, or a stat whose value does not read, is skipped and reported rather
  * than failing the lot, since one typo should not cost someone a whole list.
  * A quote with no code above it belongs to nothing and goes without a word.
  *
@@ -219,8 +256,12 @@ export function parseSaved(text: string): {
 	entries: ParsedCode[];
 	skipped: SkippedLine[];
 } {
-	const blocks: { code: string; linkNote: string | null; lines: string[] }[] =
-		[];
+	const blocks: {
+		code: string;
+		linkNote: string | null;
+		stats: StatsDraft;
+		lines: string[];
+	}[] = [];
 	const skipped: SkippedLine[] = [];
 	let current: (typeof blocks)[number] | null = null;
 
@@ -234,9 +275,20 @@ export function parseSaved(text: string): {
 				return;
 			}
 			if (line === "") return;
+			const stat = STAT_LINE.exec(line);
+			if (stat !== null) {
+				const field = (stat[1] ?? "").toLowerCase() as StatField;
+				const parsed = parseStat(field, stat[2] ?? "");
+				if (parsed.ok) {
+					if (current !== null) putStat(current.stats, field, parsed.value);
+				} else {
+					skipped.push({ line: index + 1, text: line, reason: parsed.error });
+				}
+				return;
+			}
 			try {
-				const { code, note } = codeOnLine(line);
-				current = { code, linkNote: note, lines: [] };
+				const { code, note, stats } = codeOnLine(line);
+				current = { code, linkNote: note, stats: { ...stats }, lines: [] };
 				blocks.push(current);
 			} catch (error) {
 				current = null;
@@ -256,6 +308,7 @@ export function parseSaved(text: string): {
 			code: block.code,
 			description:
 				typed !== "" ? typed : cleanDescription(block.linkNote ?? ""),
+			...(isEmptyStats(block.stats) ? {} : { stats: block.stats }),
 		});
 	}
 	return { entries, skipped };
@@ -275,11 +328,7 @@ export function importSaved(
 	const existing = readSaved(storage);
 	const fresh = incoming
 		.filter((entry) => !existing.some((saved) => saved.code === entry.code))
-		.map((entry) => ({
-			code: entry.code,
-			description: cleanDescription(entry.description),
-			savedAt: now,
-		}));
+		.map((entry) => entryOf(entry.code, entry, now));
 	const entries = [...fresh, ...existing];
 	return {
 		entries,
