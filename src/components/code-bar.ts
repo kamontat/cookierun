@@ -91,7 +91,7 @@ export class CodeBar extends LitElement {
 			/* One run per field of the code; the empty cell between two runs is
 			   what makes the fields read as fields. A run is a button when it
 			   owns a control and jumps to it. One with nothing to jump to
-			   (\`.inert\`) is drawn plainly — muted, no cell, no underline — so
+			   (\`.inert\`) is drawn plainly — muted, no underline — so
 			   what a tap does is visible without a hover to ask. */
 			code .run {
 				position: relative;
@@ -115,7 +115,6 @@ export class CodeBar extends LitElement {
 				justify-content: center;
 				width: var(--cell);
 				height: 1.6em;
-				background: var(--cr-surface);
 				/* An underline of the text, not a border of the box: text
 				   decoration is drawn from the text's own baseline, which every
 				   cell on a line shares, where a border stepped up and down along
@@ -133,7 +132,6 @@ export class CodeBar extends LitElement {
 			}
 
 			code .inert .cell {
-				background: none;
 				text-decoration-line: none;
 			}
 
