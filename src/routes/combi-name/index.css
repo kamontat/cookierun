@@ -118,10 +118,12 @@ tab-strip {
 	z-index: 3;
 	width: var(--cr-tap);
 	height: var(--cr-tap);
-	/* A solid accent fill rather than the page buttons' surface, which sits
-	   close enough to the page's own ground that a button floating over
-	   content read as see-through. */
-	background: var(--cr-accent);
+	/* A solid fill rather than the page buttons' surface, which sits close
+	   enough to the page's own ground that a button floating over content read
+	   as see-through. The text colour inverted, not the accent: the accent
+	   fill is what a picked treasure level wears, and the button floats over
+	   those strips. */
+	background: var(--cr-text);
 	padding: 0;
 	color: var(--cr-bg);
 	font-size: 1.25rem;
