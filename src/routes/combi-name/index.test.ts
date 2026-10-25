@@ -100,9 +100,9 @@ async function typeCode(text: string): Promise<void> {
 }
 
 /** What the page's one notification banner is showing, if anything. */
-/** Whether the note is open on a saved entry: its label says so. */
+/** Whether a saved entry is open: the code panel's heading says so. */
 function isEditing(): boolean {
-	return need("note-label").textContent === "Note · editing a saved code";
+	return need("code-heading").textContent?.trim() === "Editing saved code";
 }
 
 function notice(): { type: string | null; text: string } {
@@ -819,10 +819,11 @@ test("a single filled treasure slot shows Any slot even with Exact order", async
 // Three buttons on the panel and nothing else: the bar's own Edit, then Save
 // and the menu slotted into the same row. The bar's own Copy is off, since
 // Copy code is in the menu.
-test("the code panel shows Edit, Save and the menu, and nothing else", async () => {
+test("the code panel shows Edit, Save, New and the menu, and nothing else", async () => {
 	await settle();
 	expect([...codeBar.children].map((child) => child.id)).toEqual([
 		"save",
+		"save-new",
 		"code-menu",
 	]);
 	expect((codeBar as HTMLElement & { copyable: boolean }).copyable).toBe(false);
@@ -1541,43 +1542,62 @@ test("a saved code that no longer reads keeps the drawer open and says so inside
 	await settle();
 });
 
-test("the note's label says when a saved entry is open", async () => {
-	expect(need("note-label").textContent?.trim()).toBe("Note · new code");
+test("the code panel's heading says whether the code is new or a saved one being edited", async () => {
+	expect(need("code-heading").textContent?.trim()).toBe("New code");
+	expect(need("note-label").textContent?.trim()).toBe("Note");
 
 	savedButtonFor("10M0000000", "load").click();
 	await settle();
-	expect(need("note-label").textContent?.trim()).toBe(
-		"Note · editing a saved code",
-	);
+	expect(need("code-heading").textContent?.trim()).toBe("Editing saved code");
+	expect(need("code-heading").hasAttribute("data-editing")).toBe(true);
+	expect(need("note-label").textContent?.trim()).toBe("Note");
 
 	await reset();
-	expect(need("note-label").textContent?.trim()).toBe("Note · new code");
+	expect(need("code-heading").textContent?.trim()).toBe("New code");
+	expect(need("code-heading").hasAttribute("data-editing")).toBe(false);
 });
 
-test("the code panel's menu holds Copy code, Copy link, Reset, Save as new and Cancel, in that order", async () => {
+test("the code panel's menu holds Copy code, Copy link, Reset and Cancel, in that order", async () => {
 	expect(
 		[...need("code-menu").querySelectorAll(".menu button")].map(
 			(button) => button.id,
 		),
-	).toEqual([
-		"code-full",
-		"copy-code",
-		"copy-link",
-		"reset",
-		"save-new",
-		"save-cancel",
-	]);
-	expect(need("save-new").hidden).toBe(true);
+	).toEqual(["code-full", "copy-code", "copy-link", "reset", "save-cancel"]);
 	expect(need("save-cancel").hidden).toBe(true);
 
 	savedButtonFor("10M0000000", "load").click();
 	await settle();
-	expect(need("save-new").hidden).toBe(false);
 	expect(need("save-cancel").hidden).toBe(false);
 
 	await reset();
-	expect(need("save-new").hidden).toBe(true);
 	expect(need("save-cancel").hidden).toBe(true);
+});
+
+// New sits beside Save (Update) in the code bar's own row, not in the menu:
+// while an entry is open the two are the choice a save makes.
+test("New sits beside Update in the code panel, outside the menu", async () => {
+	const saveNew = need<HTMLButtonElement>("save-new");
+	expect(saveNew.textContent?.trim()).toBe("New");
+	expect(saveNew.parentElement?.id).toBe("code");
+	expect(need("code-menu").contains(saveNew)).toBe(false);
+	expect(saveNew.hidden).toBe(true);
+
+	savedButtonFor("10M0000000", "load").click();
+	await settle();
+	await choose("goal", "exp");
+	expect(saveNew.hidden).toBe(false);
+
+	// It hides behind its own click, since the code is saved now, so focus
+	// goes to Save rather than down with it.
+	saveNew.focus();
+	saveNew.click();
+	await settle();
+	expect(saveNew.hidden).toBe(true);
+	expect(document.activeElement?.id).toBe("save");
+
+	savedButtonFor(await codeText(), "delete").click();
+	await settle();
+	await reset();
 });
 
 // Built and closed like a saved row's menu: a pick, Escape (focus back to its
@@ -1663,9 +1683,12 @@ test("Update writes the board and the note into the loaded entry in place", asyn
 	expect(savedRows()[1]?.querySelector(".description")?.textContent).toBe(
 		"Box farm",
 	);
-	expect(isEditing()).toBe(false);
-	expect(need("save").textContent?.trim()).toBe("Save");
-	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
+	// Updating does not close the entry: it stays open on its new code, note
+	// and all, so a second change is one more Update.
+	expect(isEditing()).toBe(true);
+	expect(need("save").textContent?.trim()).toBe("Update");
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe("Box farm");
+	expect(rowFor(edited).hasAttribute("data-editing")).toBe(true);
 	expect(notice()).toEqual({ type: "info", text: "Updated Box farm." });
 	await reset();
 });
@@ -1702,6 +1725,26 @@ test("saving as new while editing keeps the entry being edited", async () => {
 
 	expect(savedCodes()).toEqual(["10M0000000", "10S0000000", edited]);
 	expect(isEditing()).toBe(false);
+	await reset();
+});
+
+// The list holds each code once, so a copy of a saved code cannot be added;
+// saving it as new would quietly overwrite that entry's note instead. Save as
+// new is offered only once the build is a code no entry holds.
+test("New shows only while the code on screen is not saved yet", async () => {
+	const [, , edited = ""] = savedCodes();
+	savedButtonFor(edited, "load").click();
+	await settle();
+	expect(need("save-new").hidden).toBe(true);
+	expect(need("save-cancel").hidden).toBe(false);
+
+	await choose("goal", "exp");
+	expect(savedCodes()).not.toContain(await codeText());
+	expect(need("save-new").hidden).toBe(false);
+
+	// Back onto a code another entry holds.
+	await typeCode("10S0000000");
+	expect(need("save-new").hidden).toBe(true);
 	await reset();
 });
 
@@ -1966,18 +2009,9 @@ test("a pick from the code menu hands focus back to the menu's toggle", async ()
 	expect(menu.open).toBe(false);
 	expect(document.activeElement === toggle).toBe(true);
 
-	// An entry to open, so Save as new and Cancel are on offer.
+	// An entry to open, so Cancel is on offer.
 	await saveCurrent("Focus check");
 	const [first = ""] = savedCodes();
-	savedButtonFor(first, "load").click();
-	await settle();
-	menu.open = true;
-	const saveNew = need<HTMLButtonElement>("save-new");
-	saveNew.focus();
-	saveNew.click();
-	await settle();
-	expect(menu.open).toBe(false);
-	expect(document.activeElement === toggle).toBe(true);
 
 	// Cancel already sends focus to the note, and keeps it there.
 	savedButtonFor(first, "load").click();
