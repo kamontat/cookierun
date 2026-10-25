@@ -2,7 +2,7 @@
 
 What changed in this project and why, newest first.
 
-## 2026-10-25: The workbench layout, with a top bar in place of the sidebar, and snackbar notifications
+## 2026-10-25: The workbench layout, with a top bar in place of the sidebar, and snackbar notifications, and run stats on saved codes
 
 ### BREAKING CHANGES
 
@@ -57,6 +57,14 @@ What changed in this project and why, newest first.
   grid shows. Random boost is a row of chips. Treasure slots keep their picker.
 - Letters for parts of the code with nothing behind them are plain text and not clickable:
   the version character, the tower's reserved slots, and slots an episode doesn't use.
+- A saved code keeps what a run of it brought home, in four optional boxes under the note:
+  **Money** and **Exp** (a positive whole number or a range like `12000-15000`), **Boxes**
+  (0 to 5, or a range) and **Time** (seconds). A saved row shows them on one line, and Load
+  fills them back in.
+- Run stats travel with a code. A shared link carries them as plain query values
+  (`#CODE?note=…&money=12000-15000&time=245`) and offers them in the boxes like its note.
+  Export writes them as `money: 12000-15000` lines under the code, and import reads them
+  back.
 
 ### Improvements
 
@@ -72,6 +80,9 @@ What changed in this project and why, newest first.
   show that an entry is open.
 - A message no longer pushes the page down. The banner used to grow the code panel when it
   appeared and shrink it when it went, so everything under the panel jumped.
+- The code panel's **Copy link** carries the note and stats in the boxes, not just the code,
+  so a build can be sent before it is saved. A blocked clipboard shows the link itself,
+  since the address bar holds only the code.
 
 ### Bug fixes
 
@@ -109,6 +120,10 @@ What changed in this project and why, newest first.
   owner picked the snackbar.
 - The phone's bottom dock for the code panel was dropped, the owner's call. The panel
   sticks to the top as on desktop, and the bottom of the screen is left to the snackbar.
+- A stat that does not read stops Save, Update and Copy link rather than being left out, so
+  what is kept or sent is what was typed. Every bad box is outlined, not just the first.
+- Stats are not part of the code. They belong to a saved entry and its link, so the wire
+  format and `VERSION` are unchanged.
 
 ## 2026-10-23: Treasure slots as rows with a one-line level strip, and saved codes you can update, share and move
 
