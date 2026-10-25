@@ -1554,6 +1554,7 @@ test("the code panel's menu holds Copy code, Copy link, Reset, Save as new and C
 
 	savedButtonFor("10M0000000", "load").click();
 	await settle();
+	await choose("goal", "exp");
 	expect(need("save-new").hidden).toBe(false);
 	expect(need("save-cancel").hidden).toBe(false);
 
@@ -1687,6 +1688,26 @@ test("saving as new while editing keeps the entry being edited", async () => {
 
 	expect(savedCodes()).toEqual(["10M0000000", "10S0000000", edited]);
 	expect(isEditing()).toBe(false);
+	await reset();
+});
+
+// The list holds each code once, so a copy of a saved code cannot be added;
+// saving it as new would quietly overwrite that entry's note instead. Save as
+// new is offered only once the build is a code no entry holds.
+test("Save as new shows only while the code on screen is not saved yet", async () => {
+	const [, , edited = ""] = savedCodes();
+	savedButtonFor(edited, "load").click();
+	await settle();
+	expect(need("save-new").hidden).toBe(true);
+	expect(need("save-cancel").hidden).toBe(false);
+
+	await choose("goal", "exp");
+	expect(savedCodes()).not.toContain(await codeText());
+	expect(need("save-new").hidden).toBe(false);
+
+	// Back onto a code another entry holds.
+	await typeCode("10S0000000");
+	expect(need("save-new").hidden).toBe(true);
 	await reset();
 });
 

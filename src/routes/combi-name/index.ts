@@ -877,7 +877,7 @@ function markCurrent(code: string): void {
 			item.getAttribute("data-code") === editing,
 		);
 	}
-	showEditing();
+	showEditing(code);
 }
 
 /**
@@ -885,13 +885,17 @@ function markCurrent(code: string): void {
  * open the submit button rewrites it and the code panel's heading says so, so
  * whether this is a new code or a saved one is the first thing the panel
  * reads; the banner has already named the entry, so nothing repeats it.
+ *
+ * Save as new shows only while `code` is one no entry holds: the list keeps
+ * each code once, so saving a saved code "as new" would overwrite that entry.
  */
-function showEditing(): void {
+function showEditing(code: string): void {
 	const open =
 		editing !== null && savedEntries.some((saved) => saved.code === editing);
 	if (!open) editing = null;
 
-	saveNewButton.hidden = !open;
+	saveNewButton.hidden =
+		!open || savedEntries.some((saved) => saved.code === code);
 	saveCancelButton.hidden = !open;
 	saveButton.textContent = open ? "Update" : "Save";
 	codeHeading.textContent = open ? "Editing saved code" : "New code";
