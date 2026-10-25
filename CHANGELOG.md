@@ -2,6 +2,29 @@
 
 What changed in this project and why, newest first.
 
+## 2026-10-26: Resizable Saved and Help drawers on desktop
+
+### Features
+
+- On a wide screen with a mouse, the left edge of the combi page's **Saved** and **Help**
+  drawers is a resize handle. Drag it, or focus it and press the arrow keys (Shift for bigger
+  steps), to set the width anywhere from 288px to 90% of the window. Double-click it to go
+  back to the default `22rem`.
+- Each drawer remembers its own width under `combi-name:drawer-width:<id>`. A browser that
+  refuses storage still resizes, and only forgets on reload.
+
+### Improvements
+
+- Inside a drawer, the sheet now scrolls instead of the dialog, so the resize handle stays
+  on the drawer's edge however far the list has scrolled.
+
+### Decisions
+
+- The handle is only on a fine pointer at `48rem` and up. On a phone the drawer already takes
+  90% of the screen, and a drag on its edge would fight the page's own swipe.
+- The handle sits on the dialog rather than as a `position: fixed` child of the scrolling
+  dialog: the fixed version left the mouse cursor stale over it.
+
 ## 2026-10-25: The workbench layout, with a top bar in place of the sidebar, and snackbar notifications, and run stats on saved codes, and the code as a character grid with saved rows that read as runs
 
 ### BREAKING CHANGES
