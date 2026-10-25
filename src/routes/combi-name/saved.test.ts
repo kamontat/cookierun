@@ -37,7 +37,7 @@ const REFUSING = {
 test("a saved code comes back with its description", () => {
 	const held = storage();
 
-	saveCode(held, "10S0000000", "  Score run  ", 1);
+	saveCode(held, "10S0000000", { description: "  Score run  " }, 1);
 
 	expect(readSaved(held)).toEqual([
 		{ code: "10S0000000", description: "Score run", savedAt: 1 },
@@ -47,8 +47,8 @@ test("a saved code comes back with its description", () => {
 test("the newest save leads the list", () => {
 	const held = storage();
 
-	saveCode(held, "10S0000000", "first", 1);
-	saveCode(held, "10M0000000", "second", 2);
+	saveCode(held, "10S0000000", { description: "first" }, 1);
+	saveCode(held, "10M0000000", { description: "second" }, 2);
 
 	expect(readSaved(held).map((entry) => entry.code)).toEqual([
 		"10M0000000",
@@ -59,9 +59,9 @@ test("the newest save leads the list", () => {
 test("saving a code again replaces its description and moves it to the top", () => {
 	const held = storage();
 
-	saveCode(held, "10S0000000", "old", 1);
-	saveCode(held, "10M0000000", "other", 2);
-	const { entries } = saveCode(held, "10S0000000", "new", 3);
+	saveCode(held, "10S0000000", { description: "old" }, 1);
+	saveCode(held, "10M0000000", { description: "other" }, 2);
+	const { entries } = saveCode(held, "10S0000000", { description: "new" }, 3);
 
 	expect(entries).toEqual([
 		{ code: "10S0000000", description: "new", savedAt: 3 },
@@ -71,15 +71,17 @@ test("saving a code again replaces its description and moves it to the top", () 
 });
 
 test("a description longer than the limit is cut to it", () => {
-	const { entries } = saveCode(storage(), "10S0000000", "x".repeat(500));
+	const { entries } = saveCode(storage(), "10S0000000", {
+		description: "x".repeat(500),
+	});
 
 	expect(entries[0]?.description).toHaveLength(DESCRIPTION_MAX);
 });
 
 test("removing a code takes only that code out", () => {
 	const held = storage();
-	saveCode(held, "10S0000000", "a", 1);
-	saveCode(held, "10M0000000", "b", 2);
+	saveCode(held, "10S0000000", { description: "a" }, 1);
+	saveCode(held, "10M0000000", { description: "b" }, 2);
 
 	const { entries } = removeSaved(held, "10S0000000");
 
@@ -107,7 +109,12 @@ test("a list that is not this file's shape reads as empty or loses the bad rows"
 test("a browser that refuses storage still answers, and says the save was not kept", () => {
 	expect(readSaved(REFUSING)).toEqual([]);
 
-	const { entries, stored } = saveCode(REFUSING, "10S0000000", "a", 1);
+	const { entries, stored } = saveCode(
+		REFUSING,
+		"10S0000000",
+		{ description: "a" },
+		1,
+	);
 
 	expect(stored).toBe(false);
 	expect(entries).toHaveLength(1);
@@ -133,8 +140,8 @@ test("a description's title is its first line", () => {
 
 test("updating an entry's note keeps its code and its place in the list", () => {
 	const held = storage();
-	saveCode(held, "10S0000000", "a", 1);
-	saveCode(held, "10M0000000", "b", 2);
+	saveCode(held, "10S0000000", { description: "a" }, 1);
+	saveCode(held, "10M0000000", { description: "b" }, 2);
 
 	const result = updateSaved(
 		held,
@@ -152,8 +159,8 @@ test("updating an entry's note keeps its code and its place in the list", () => 
 
 test("updating an entry's code moves the note onto the new code in place", () => {
 	const held = storage();
-	saveCode(held, "10S0000000", "a", 1);
-	saveCode(held, "10M0000000", "b", 2);
+	saveCode(held, "10S0000000", { description: "a" }, 1);
+	saveCode(held, "10M0000000", { description: "b" }, 2);
 
 	updateSaved(held, "10S0000000", { code: "10B5000000", description: "a" }, 3);
 
@@ -165,8 +172,8 @@ test("updating an entry's code moves the note onto the new code in place", () =>
 
 test("an update onto a code another entry holds is refused, and nothing changes", () => {
 	const held = storage();
-	saveCode(held, "10S0000000", "a", 1);
-	saveCode(held, "10M0000000", "b", 2);
+	saveCode(held, "10S0000000", { description: "a" }, 1);
+	saveCode(held, "10M0000000", { description: "b" }, 2);
 	const before = readSaved(held);
 
 	const result = updateSaved(held, "10S0000000", {
@@ -239,7 +246,7 @@ test("a code listed twice in the text is read once, keeping the first note", () 
 
 test("importing adds the codes not yet saved, in order at the top, and leaves saved ones alone", () => {
 	const held = storage();
-	saveCode(held, "10S0000000", "mine", 1);
+	saveCode(held, "10S0000000", { description: "mine" }, 1);
 
 	const result = importSaved(
 		held,
@@ -259,4 +266,147 @@ test("importing adds the codes not yet saved, in order at the top, and leaves sa
 		{ code: "10B5000000", description: "b", savedAt: 5 },
 		{ code: "10S0000000", description: "mine", savedAt: 1 },
 	]);
+});
+
+test("an entry keeps its run stats, and drops the ones that are not well formed", () => {
+	const held = storage();
+	saveCode(
+		held,
+		"10M0000000",
+		{
+			description: "Coin farm",
+			stats: { money: { min: 12000, max: 15000 }, time: 245 },
+		},
+		1,
+	);
+
+	expect(readSaved(held)).toEqual([
+		{
+			code: "10M0000000",
+			description: "Coin farm",
+			stats: { money: { min: 12000, max: 15000 }, time: 245 },
+			savedAt: 1,
+		},
+	]);
+	expect(
+		readSaved(
+			storage(
+				JSON.stringify([
+					{
+						code: "10S0000000",
+						description: "",
+						savedAt: 1,
+						stats: { boxes: { min: 0, max: 9 }, exp: { min: 5, max: 5 } },
+					},
+					{ code: "10M0000000", description: "", savedAt: 1, stats: "junk" },
+				]),
+			),
+		),
+	).toEqual([
+		{
+			code: "10S0000000",
+			description: "",
+			stats: { exp: { min: 5, max: 5 } },
+			savedAt: 1,
+		},
+		{ code: "10M0000000", description: "", savedAt: 1 },
+	]);
+});
+
+test("updating an entry rewrites its stats, and clearing them takes them off", () => {
+	const held = storage();
+	saveCode(held, "10S0000000", { description: "a", stats: { time: 60 } }, 1);
+
+	updateSaved(
+		held,
+		"10S0000000",
+		{ code: "10S0000000", description: "a", stats: { time: 90 } },
+		2,
+	);
+	expect(readSaved(held)[0]?.stats).toEqual({ time: 90 });
+
+	updateSaved(held, "10S0000000", { code: "10S0000000", description: "a" }, 3);
+	expect(readSaved(held)[0]).toEqual({
+		code: "10S0000000",
+		description: "a",
+		savedAt: 3,
+	});
+});
+
+test("exported text carries the stats on lines of their own and reads them back", () => {
+	const entries = [
+		{
+			code: "10M0000000",
+			description: "Coin farm",
+			stats: {
+				money: { min: 12000, max: 15000 },
+				exp: { min: 300, max: 300 },
+				boxes: { min: 2, max: 4 },
+				time: 245,
+			},
+			savedAt: 2,
+		},
+		{ code: "10S0000000", description: "", savedAt: 1 },
+	];
+	const text = formatSaved(entries);
+
+	expect(text).toBe(
+		"10M0000000\nmoney: 12000-15000\nexp: 300\nboxes: 2-4\ntime: 245\n> Coin farm\n\n10S0000000\n",
+	);
+	expect(parseSaved(text)).toEqual({
+		entries: entries.map(({ savedAt: _savedAt, ...entry }) => entry),
+		skipped: [],
+	});
+});
+
+test("a stat line that does not read is skipped and reported, and the entry stays", () => {
+	const { entries, skipped } = parseSaved(
+		"10M0000000\nboxes: 9\nTime: 60\nmoney: 1,000 - 2,000",
+	);
+
+	expect(entries).toEqual([
+		{
+			code: "10M0000000",
+			description: "",
+			stats: { money: { min: 1000, max: 2000 }, time: 60 },
+		},
+	]);
+	expect(skipped).toEqual([
+		{
+			line: 2,
+			text: "boxes: 9",
+			reason: "Boxes takes 0 to 5, or a range like 2-4.",
+		},
+	]);
+});
+
+test("a shared link's stats come in with it, and typed stat lines win over them", () => {
+	const link = `https://example.com/combi-name/${shareHashFor(
+		"10M0000000",
+		"",
+		{
+			money: { min: 1, max: 2 },
+			time: 60,
+		},
+	)}`;
+
+	expect(parseSaved(`${link}\ntime: 90`).entries).toEqual([
+		{
+			code: "10M0000000",
+			description: "",
+			stats: { money: { min: 1, max: 2 }, time: 90 },
+		},
+	]);
+});
+
+test("importing keeps the stats that came in", () => {
+	const held = storage();
+
+	importSaved(
+		held,
+		[{ code: "10M0000000", description: "a", stats: { time: 60 } }],
+		5,
+	);
+
+	expect(readSaved(held)[0]?.stats).toEqual({ time: 60 });
 });

@@ -10,11 +10,20 @@
  * that refuses `localStorage` still has a working page for that visit.
  */
 
+import {
+	formatStat,
+	parseStat,
+	putStat,
+	type RunStats,
+	STAT_FIELDS,
+	type StatsDraft,
+} from "./stats";
+
 export const STORAGE_KEY = "combi-name:code";
 
 /**
- * A shared link may carry a note after the code, as `#CODE?note=...`. The page's
- * own hash never does — it is the build on screen and nothing else — so only a
+ * A shared link may carry a note and run stats after the code, as
+ * `#CODE?note=...&money=12000-15000&time=245`. The page's own hash never does — it is the build on screen and nothing else — so only a
  * link someone sent on purpose has one.
  */
 const NOTE_MARK = "?";
@@ -69,15 +78,43 @@ export function noteInHash(hash: string): string | null {
 	return note === null || note.trim() === "" ? null : note;
 }
 
+/**
+ * The run stats a shared link carries. They travel as typed — digits and a
+ * hyphen need no escaping — and one that does not read is left out.
+ */
+export function statsInHash(hash: string): RunStats {
+	const query = new URLSearchParams(splitHash(hash).query);
+	const stats: StatsDraft = {};
+	for (const field of STAT_FIELDS) {
+		const parsed = parseStat(field, query.get(field) ?? "");
+		if (parsed.ok) putStat(stats, field, parsed.value);
+	}
+	return stats;
+}
+
 export function hashFor(code: string): string {
 	return `#${code}`;
 }
 
-/** The hash of a link that hands someone a code and the note that goes with it. */
-export function shareHashFor(code: string, note: string): string {
+/**
+ * The hash of a link that hands someone a code and the note and stats that go
+ * with it.
+ */
+export function shareHashFor(
+	code: string,
+	note: string,
+	stats: RunStats = {},
+): string {
 	const canonical = code.trim().toUpperCase();
-	if (note.trim() === "") return hashFor(canonical);
-	return `${hashFor(canonical)}${NOTE_MARK}note=${encodeNote(note)}`;
+	const params = [
+		...(note.trim() === "" ? [] : [`note=${encodeNote(note)}`]),
+		...STAT_FIELDS.flatMap((field) => {
+			const value = stats[field];
+			return value === undefined ? [] : [`${field}=${formatStat(value)}`];
+		}),
+	];
+	if (params.length === 0) return hashFor(canonical);
+	return `${hashFor(canonical)}${NOTE_MARK}${params.join("&")}`;
 }
 
 export function storedCode(storage: Storage): string | null {

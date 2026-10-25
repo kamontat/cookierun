@@ -437,6 +437,39 @@ kbd {
 	font: inherit;
 }
 
+/* The run stats under the note: four short boxes in a row, two by two only on
+   a phone. Fixed tracks rather than auto-fit, which wrapped them three and one
+   at in-between widths. Each label stacks its name over its box. */
+.statfields {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: var(--cr-space-2);
+}
+
+@media (width < 26rem) {
+	.statfields {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.statfields label {
+	display: grid;
+	gap: var(--cr-space-1);
+	color: var(--cr-muted);
+	font-size: 0.8rem;
+}
+
+.statfields input {
+	width: 100%;
+	min-width: 0;
+	font: inherit;
+	color: var(--cr-text);
+}
+
+.statfields input[aria-invalid="true"] {
+	outline: 2px solid var(--cr-danger);
+}
+
 .transfer textarea {
 	flex: 1 1 14rem;
 	min-width: 0;
@@ -505,6 +538,11 @@ kbd {
 	overflow-wrap: anywhere;
 	font-family: var(--cr-mono);
 	font-size: 0.85rem;
+}
+
+.savedlist .stats {
+	font-family: var(--cr-mono);
+	font-size: 0.8rem;
 }
 
 .savedlist time {
