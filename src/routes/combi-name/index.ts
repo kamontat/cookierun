@@ -28,6 +28,7 @@ import {
 	type RandomBoost,
 } from "./codec";
 import { describeBuild, describeRun } from "./describe";
+import { attachResize } from "./drawer-width";
 import {
 	combiSectionOf,
 	decodeFull,
@@ -1217,6 +1218,9 @@ function bringNoticeHome(): void {
 }
 
 for (const drawer of [savedDrawer, helpDrawer]) {
+	const handle = drawer.querySelector<HTMLElement>(":scope > .resize");
+	if (handle !== null) attachResize(drawer, handle, localStorage);
+
 	// Which element the press itself landed on. A click fires on the nearest
 	// common ancestor of the press and the release, so a drag that starts in
 	// the sheet and ends past its edge targets the dialog just as a backdrop
