@@ -155,7 +155,7 @@ const relayNote = need("relay-note");
 
 const saveForm = need<HTMLFormElement>("save-form");
 const saveDescription = need<HTMLTextAreaElement>("save-description");
-const noteLabel = need("note-label");
+const codeHeading = need("code-heading");
 const statInputs = Object.fromEntries(
 	STAT_FIELDS.map((field) => [field, need<HTMLInputElement>(`stat-${field}`)]),
 ) as Record<StatField, HTMLInputElement>;
@@ -882,8 +882,9 @@ function markCurrent(code: string): void {
 
 /**
  * Puts the form in step with `editing`: one form, two jobs. While an entry is
- * open the submit button rewrites it and the label over the box says so; the
- * banner has already named the entry, so nothing under the box repeats it.
+ * open the submit button rewrites it and the code panel's heading says so, so
+ * whether this is a new code or a saved one is the first thing the panel
+ * reads; the banner has already named the entry, so nothing repeats it.
  */
 function showEditing(): void {
 	const open =
@@ -893,9 +894,8 @@ function showEditing(): void {
 	saveNewButton.hidden = !open;
 	saveCancelButton.hidden = !open;
 	saveButton.textContent = open ? "Update" : "Save";
-	noteLabel.textContent = open
-		? "Note · editing a saved code"
-		: "Note · new code";
+	codeHeading.textContent = open ? "Editing saved code" : "New code";
+	codeHeading.toggleAttribute("data-editing", open);
 }
 
 /** Fills the stat boxes, or empties them for `{}`. */
@@ -1002,9 +1002,10 @@ function updateEntry(from: string): void {
 		return;
 	}
 
-	editing = null;
+	// The entry stays open on its new code, note and stats as typed, so a
+	// second change is one more Update rather than a Load.
+	editing = code;
 	showSaved(result.entries);
-	clearNote();
 	const updated = result.entries.find((saved) => saved.code === code);
 	if (result.stored) {
 		say(

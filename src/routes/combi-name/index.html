@@ -67,7 +67,9 @@
       <!-- The code is the whole interface: it is the output, and it is also
            the input. Nothing else on the page shows a code. -->
       <section class="codepanel" aria-labelledby="code-heading">
-        <h2 id="code-heading">Your code</h2>
+        <!-- Says whether the code is new or a saved entry being edited; the
+             route keeps it in step with the save form. -->
+        <h2 id="code-heading">New code</h2>
 
         <!-- Three buttons in the code bar's own row: its Edit, then Save and
              the ⋯ menu slotted in after it, so the code keeps a line to
@@ -118,7 +120,7 @@
            submit it; Ctrl+Enter does too, and Escape closes an open entry. -->
       <form id="save-form" class="saveform" novalidate>
         <label for="save-description" id="note-label" class="eyebrow"
-          >Note · new code</label
+          >Note</label
         >
         <textarea
           id="save-description"

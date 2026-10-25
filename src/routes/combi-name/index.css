@@ -81,17 +81,27 @@ site-nav > button {
 	transform: translateX(-50%);
 }
 
-/* The panel holds the code and its actions and nothing else, so its heading
-   is for screen readers only: off the screen, not out of the tree, so the
-   section keeps its name. */
+/* The heading says whether the code on screen is a new one or a saved entry
+   being edited — the one place that question is answered, so it is shown, in
+   the eyebrow style. While an entry is open it and the panel's edge take the
+   dashed accent the entry's own row wears in the saved list. */
 .codepanel h2 {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	margin: -1px;
-	overflow: hidden;
-	clip-path: inset(50%);
-	white-space: nowrap;
+	margin: 0 0 var(--cr-space-2);
+	color: var(--cr-muted);
+	font-family: var(--cr-mono);
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: var(--cr-tracking);
+	text-transform: uppercase;
+}
+
+.codepanel h2[data-editing] {
+	color: var(--cr-accent-2);
+}
+
+.codepanel:has(h2[data-editing]) {
+	border-style: dashed;
+	border-color: var(--cr-accent-2);
 }
 
 /* The panel is the code and its buttons, and nothing else. The page's buttons

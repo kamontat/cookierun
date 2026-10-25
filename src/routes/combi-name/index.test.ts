@@ -100,9 +100,9 @@ async function typeCode(text: string): Promise<void> {
 }
 
 /** What the page's one notification banner is showing, if anything. */
-/** Whether the note is open on a saved entry: its label says so. */
+/** Whether a saved entry is open: the code panel's heading says so. */
 function isEditing(): boolean {
-	return need("note-label").textContent === "Note · editing a saved code";
+	return need("code-heading").textContent?.trim() === "Editing saved code";
 }
 
 function notice(): { type: string | null; text: string } {
@@ -1521,17 +1521,19 @@ test("a saved code that no longer reads keeps the drawer open and says so inside
 	await settle();
 });
 
-test("the note's label says when a saved entry is open", async () => {
-	expect(need("note-label").textContent?.trim()).toBe("Note · new code");
+test("the code panel's heading says whether the code is new or a saved one being edited", async () => {
+	expect(need("code-heading").textContent?.trim()).toBe("New code");
+	expect(need("note-label").textContent?.trim()).toBe("Note");
 
 	savedButtonFor("10M0000000", "load").click();
 	await settle();
-	expect(need("note-label").textContent?.trim()).toBe(
-		"Note · editing a saved code",
-	);
+	expect(need("code-heading").textContent?.trim()).toBe("Editing saved code");
+	expect(need("code-heading").hasAttribute("data-editing")).toBe(true);
+	expect(need("note-label").textContent?.trim()).toBe("Note");
 
 	await reset();
-	expect(need("note-label").textContent?.trim()).toBe("Note · new code");
+	expect(need("code-heading").textContent?.trim()).toBe("New code");
+	expect(need("code-heading").hasAttribute("data-editing")).toBe(false);
 });
 
 test("the code panel's menu holds Copy code, Copy link, Reset, Save as new and Cancel, in that order", async () => {
@@ -1643,9 +1645,12 @@ test("Update writes the board and the note into the loaded entry in place", asyn
 	expect(savedRows()[1]?.querySelector(".description")?.textContent).toBe(
 		"Box farm",
 	);
-	expect(isEditing()).toBe(false);
-	expect(need("save").textContent?.trim()).toBe("Save");
-	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
+	// Updating does not close the entry: it stays open on its new code, note
+	// and all, so a second change is one more Update.
+	expect(isEditing()).toBe(true);
+	expect(need("save").textContent?.trim()).toBe("Update");
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe("Box farm");
+	expect(rowFor(edited).hasAttribute("data-editing")).toBe(true);
 	expect(notice()).toEqual({ type: "info", text: "Updated Box farm." });
 	await reset();
 });
