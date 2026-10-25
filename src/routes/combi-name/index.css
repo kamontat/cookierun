@@ -643,7 +643,7 @@ kbd {
 }
 
 /* Load on the row, everything else behind the row's own menu; the code panel's
-   Reset, Save as new and Cancel sit behind one built the same way. The menu
+   Reset and Cancel sit behind one built the same way. The menu
    hangs from its button's right edge, over whatever is below, so opening it
    moves nothing on the page. */
 .more {

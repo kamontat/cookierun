@@ -886,7 +886,7 @@ function markCurrent(code: string): void {
  * whether this is a new code or a saved one is the first thing the panel
  * reads; the banner has already named the entry, so nothing repeats it.
  *
- * Save as new shows only while `code` is one no entry holds: the list keeps
+ * New shows only while `code` is one no entry holds: the list keeps
  * each code once, so saving a saved code "as new" would overwrite that entry.
  */
 function showEditing(code: string): void {
@@ -1027,7 +1027,12 @@ saveForm.addEventListener("submit", (event) => {
 	else updateEntry(editing);
 });
 
-saveNewButton.addEventListener("click", saveAsNew);
+saveNewButton.addEventListener("click", () => {
+	saveAsNew();
+	// The code is saved now, so New hides behind its own click; Save beside
+	// it takes focus rather than letting it fall to <body>.
+	if (saveNewButton.hidden) saveButton.focus();
+});
 
 saveCancelButton.addEventListener("click", () => {
 	stopEditing();
@@ -1120,7 +1125,7 @@ savedList.addEventListener("click", (event) => {
 	if (action === "load") {
 		// Loading opens the entry too: there used to be an Edit beside Load, and
 		// the two differed only in whether a later save wrote back. The box now
-		// asks that question itself — Update or Save as new — so one action
+		// asks that question itself — Update or New — so one action
 		// serves both. Focus goes back to the Saved button with the closing
 		// drawer, not to the note: someone who only wanted the build has not
 		// asked to type.

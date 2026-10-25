@@ -819,10 +819,11 @@ test("a single filled treasure slot shows Any slot even with Exact order", async
 // Three buttons on the panel and nothing else: the bar's own Edit, then Save
 // and the menu slotted into the same row. The bar's own Copy is off, since
 // Copy code is in the menu.
-test("the code panel shows Edit, Save and the menu, and nothing else", async () => {
+test("the code panel shows Edit, Save, New and the menu, and nothing else", async () => {
 	await settle();
 	expect([...codeBar.children].map((child) => child.id)).toEqual([
 		"save",
+		"save-new",
 		"code-menu",
 	]);
 	expect((codeBar as HTMLElement & { copyable: boolean }).copyable).toBe(false);
@@ -1536,31 +1537,47 @@ test("the code panel's heading says whether the code is new or a saved one being
 	expect(need("code-heading").hasAttribute("data-editing")).toBe(false);
 });
 
-test("the code panel's menu holds Copy code, Copy link, Reset, Save as new and Cancel, in that order", async () => {
+test("the code panel's menu holds Copy code, Copy link, Reset and Cancel, in that order", async () => {
 	expect(
 		[...need("code-menu").querySelectorAll(".menu button")].map(
 			(button) => button.id,
 		),
-	).toEqual([
-		"code-full",
-		"copy-code",
-		"copy-link",
-		"reset",
-		"save-new",
-		"save-cancel",
-	]);
-	expect(need("save-new").hidden).toBe(true);
+	).toEqual(["code-full", "copy-code", "copy-link", "reset", "save-cancel"]);
 	expect(need("save-cancel").hidden).toBe(true);
 
 	savedButtonFor("10M0000000", "load").click();
 	await settle();
-	await choose("goal", "exp");
-	expect(need("save-new").hidden).toBe(false);
 	expect(need("save-cancel").hidden).toBe(false);
 
 	await reset();
-	expect(need("save-new").hidden).toBe(true);
 	expect(need("save-cancel").hidden).toBe(true);
+});
+
+// New sits beside Save (Update) in the code bar's own row, not in the menu:
+// while an entry is open the two are the choice a save makes.
+test("New sits beside Update in the code panel, outside the menu", async () => {
+	const saveNew = need<HTMLButtonElement>("save-new");
+	expect(saveNew.textContent?.trim()).toBe("New");
+	expect(saveNew.parentElement?.id).toBe("code");
+	expect(need("code-menu").contains(saveNew)).toBe(false);
+	expect(saveNew.hidden).toBe(true);
+
+	savedButtonFor("10M0000000", "load").click();
+	await settle();
+	await choose("goal", "exp");
+	expect(saveNew.hidden).toBe(false);
+
+	// It hides behind its own click, since the code is saved now, so focus
+	// goes to Save rather than down with it.
+	saveNew.focus();
+	saveNew.click();
+	await settle();
+	expect(saveNew.hidden).toBe(true);
+	expect(document.activeElement?.id).toBe("save");
+
+	savedButtonFor(await codeText(), "delete").click();
+	await settle();
+	await reset();
 });
 
 // Built and closed like a saved row's menu: a pick, Escape (focus back to its
@@ -1694,7 +1711,7 @@ test("saving as new while editing keeps the entry being edited", async () => {
 // The list holds each code once, so a copy of a saved code cannot be added;
 // saving it as new would quietly overwrite that entry's note instead. Save as
 // new is offered only once the build is a code no entry holds.
-test("Save as new shows only while the code on screen is not saved yet", async () => {
+test("New shows only while the code on screen is not saved yet", async () => {
 	const [, , edited = ""] = savedCodes();
 	savedButtonFor(edited, "load").click();
 	await settle();
@@ -1972,18 +1989,9 @@ test("a pick from the code menu hands focus back to the menu's toggle", async ()
 	expect(menu.open).toBe(false);
 	expect(document.activeElement === toggle).toBe(true);
 
-	// An entry to open, so Save as new and Cancel are on offer.
+	// An entry to open, so Cancel is on offer.
 	await saveCurrent("Focus check");
 	const [first = ""] = savedCodes();
-	savedButtonFor(first, "load").click();
-	await settle();
-	menu.open = true;
-	const saveNew = need<HTMLButtonElement>("save-new");
-	saveNew.focus();
-	saveNew.click();
-	await settle();
-	expect(menu.open).toBe(false);
-	expect(document.activeElement === toggle).toBe(true);
 
 	// Cancel already sends focus to the note, and keeps it there.
 	savedButtonFor(first, "load").click();
