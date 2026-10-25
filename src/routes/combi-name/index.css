@@ -437,12 +437,19 @@ kbd {
 	font: inherit;
 }
 
-/* The run stats under the note: four short boxes in a row, two by two on a
-   phone. Each label stacks its name over its box. */
+/* The run stats under the note: four short boxes in a row, two by two only on
+   a phone. Fixed tracks rather than auto-fit, which wrapped them three and one
+   at in-between widths. Each label stacks its name over its box. */
 .statfields {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+	grid-template-columns: repeat(4, minmax(0, 1fr));
 	gap: var(--cr-space-2);
+}
+
+@media (width < 26rem) {
+	.statfields {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
 }
 
 .statfields label {

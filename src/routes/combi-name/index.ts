@@ -880,24 +880,32 @@ function writeStats(stats: RunStats): void {
 }
 
 /**
- * Reads the stat boxes. The first that does not read is marked, focused and
- * named in the banner, and nothing is returned: a save with a stat silently
- * dropped would be a save of something other than what was typed.
+ * Reads the stat boxes. Every box that does not read is marked, the first is
+ * focused, each is named in the banner, and nothing is returned: a save or a
+ * link with a stat silently dropped would be something other than what was
+ * typed.
  */
 function readStats(): RunStats | null {
 	const stats: StatsDraft = {};
+	const errors: string[] = [];
+	let first: HTMLInputElement | null = null;
 	for (const field of STAT_FIELDS) {
 		const input = statInputs[field];
 		const parsed = parseStat(field, input.value);
-		if (!parsed.ok) {
+		if (parsed.ok) {
+			input.removeAttribute("aria-invalid");
+			putStat(stats, field, parsed.value);
+		} else {
 			input.setAttribute("aria-invalid", "true");
-			input.focus();
-			say("error", parsed.error);
-			return null;
+			first ??= input;
+			errors.push(parsed.error);
 		}
-		putStat(stats, field, parsed.value);
 	}
-	return stats;
+	if (first === null) return stats;
+	first.focus();
+	if (errors.length === 1) say("error", errors[0] ?? "");
+	else say("error", errors, { title: `${errors.length} stats do not read` });
+	return null;
 }
 
 for (const input of Object.values(statInputs)) {
@@ -1815,16 +1823,22 @@ copyCodeButton.addEventListener("click", () => {
 		});
 });
 
+// The link hands over what is on screen: the code, and the note and stats in
+// the boxes under it — the link a saved row's Copy link makes, before saving.
 copyLinkButton.addEventListener("click", () => {
+	const stats = readStats();
+	if (stats === null) return;
+	const page = location.href.split("#")[0] ?? "";
+	const url = `${page}${shareHashFor(codeBar.value, saveDescription.value, stats)}`;
 	void navigator.clipboard
-		.writeText(location.href)
+		.writeText(url)
 		.then(() => {
 			sayAboutCode("info", "Copied the link.");
 		})
 		.catch(() => {
 			sayAboutCode(
 				"error",
-				"The browser blocked the clipboard. Copy the address bar by hand.",
+				`The browser blocked the clipboard. The link is ${url}`,
 			);
 		});
 });

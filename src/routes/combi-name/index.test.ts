@@ -725,7 +725,8 @@ test("a blocked clipboard says so in the banner", async () => {
 			await settle();
 			expect(notice()).toEqual({
 				type: "error",
-				text: "The browser blocked the clipboard. Copy the address bar by hand.",
+				// The address bar holds the code alone, so the link is spelled out.
+				text: `The browser blocked the clipboard. The link is ${location.href}`,
 			});
 
 			need<HTMLButtonElement>("copy-code").click();
@@ -2076,6 +2077,68 @@ test("a stat that does not read stops the save and says why", async () => {
 	need<HTMLButtonElement>("save").click();
 	await settle();
 	expect(savedCodes()).toHaveLength(before.length + 1);
+	await reset();
+});
+
+test("every stat that does not read is marked, and the banner names each", async () => {
+	const before = savedCodes();
+	fillStats({ money: "0", exp: "300", boxes: "9" });
+	need<HTMLButtonElement>("save").click();
+	await settle();
+
+	expect(savedCodes()).toEqual(before);
+	expect(statInput("money").getAttribute("aria-invalid")).toBe("true");
+	expect(statInput("exp").hasAttribute("aria-invalid")).toBe(false);
+	expect(statInput("boxes").getAttribute("aria-invalid")).toBe("true");
+	expect(document.activeElement).toBe(statInput("money"));
+	expect(notice()).toEqual({
+		type: "error",
+		text: "2 stats do not read\nMoney takes a positive whole number, or a range like 12000-15000.\nBoxes takes 0 to 5, or a range like 2-4.",
+	});
+	fillStats({ money: "", exp: "", boxes: "" });
+	await reset();
+});
+
+// The panel's Copy link hands over what is on screen: the code, and the note
+// and stats in the boxes under it, the same link a saved row's Copy link makes.
+test("Copy link in the menu carries the note and stats in the boxes", async () => {
+	need<HTMLTextAreaElement>("save-description").value = "Hello";
+	fillStats({ money: "100-200", time: "61" });
+	let written = "";
+	await withClipboard(
+		(text) => {
+			written = text;
+			return Promise.resolve();
+		},
+		async () => {
+			need<HTMLButtonElement>("copy-link").click();
+			await settle();
+		},
+	);
+
+	expect(written).toBe(
+		`${location.href.split("#")[0]}#10S0000000?note=SGVsbG8&money=100-200&time=61`,
+	);
+	expect(notice()).toEqual({ type: "info", text: "Copied the link." });
+
+	// A stat that does not read is not quietly left out of the link.
+	fillStats({ boxes: "9" });
+	written = "";
+	await withClipboard(
+		(text) => {
+			written = text;
+			return Promise.resolve();
+		},
+		async () => {
+			need<HTMLButtonElement>("copy-link").click();
+			await settle();
+		},
+	);
+	expect(written).toBe("");
+	expect(notice().type).toBe("error");
+	need<HTMLButtonElement>("save-cancel").click();
+	need<HTMLTextAreaElement>("save-description").value = "";
+	fillStats({ money: "", time: "", boxes: "" });
 	await reset();
 });
 
