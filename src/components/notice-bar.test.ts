@@ -255,3 +255,20 @@ test("an info message moved to another parent still clears itself", async () => 
 
 	expect(element.type).toBe(null);
 });
+
+// Green for info, yellow for warn, red for error. Each tone the strip reads
+// is a site token, restated in both light blocks like every other colour, or
+// a light theme would paint the dark theme's neon on paper.
+test("its tones are site tokens defined for both themes", async () => {
+	const tokens = await Bun.file(
+		new URL("../routes/tokens.css", import.meta.url),
+	).text();
+	const source = await Bun.file(
+		new URL("./notice-bar.ts", import.meta.url),
+	).text();
+
+	for (const token of ["--cr-success", "--cr-warning", "--cr-danger"]) {
+		expect(source).toContain(`var(${token})`);
+		expect(tokens.split(`${token}:`).length - 1).toBe(3);
+	}
+});

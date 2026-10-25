@@ -18,6 +18,13 @@
 	--cr-accent-2: #ffd23f;
 	--cr-danger: #ff6b5e;
 
+	/* The banner's tones: green for news, yellow for something to look at,
+	   and --cr-danger above for what failed. Their own names rather than
+	   --cr-evolved and --cr-blessed, which carry the same values today but
+	   mean a treasure's form, not a message's weight. */
+	--cr-success: #4ade80;
+	--cr-warning: #ffd23f;
+
 	/* The scrim behind an open dialog — a token of its own rather than
 	   `--cr-line` or `--cr-surface`, since neither is a translucent black and
 	   the page behind the dialog is what this dims, not the dialog itself.
@@ -76,6 +83,8 @@
 		--cr-accent: #d81b60;
 		--cr-accent-2: #a86800;
 		--cr-danger: #c62828;
+		--cr-success: #1b7a43;
+		--cr-warning: #a86800;
 		--cr-backdrop: rgb(0 0 0 / 45%);
 		--cr-evolved: #1b7a43;
 		--cr-blessed: #a86800;
@@ -94,6 +103,8 @@
 	--cr-accent: #d81b60;
 	--cr-accent-2: #a86800;
 	--cr-danger: #c62828;
+	--cr-success: #1b7a43;
+	--cr-warning: #a86800;
 	--cr-backdrop: rgb(0 0 0 / 45%);
 	--cr-evolved: #1b7a43;
 	--cr-blessed: #a86800;

@@ -26,58 +26,89 @@ const INFO_FOR = 5000;
  * read with changes, a copy that worked, a store the browser refused — goes
  * here, as one of three types, and replaces whatever was showing.
  *
- * It is a strip of one line that is always there, empty when there is nothing
- * to say, so a message arriving or going never changes the height of what it
- * sits in. A list folds behind its title and a count ("Read with changes (2)
- * ▾") until it is opened; a new message starts folded again. Each type wears
- * a badge as well as a colour: i, ! or ×.
+ * Each type wears a badge as well as a colour — i, ! or × on green, yellow
+ * or red — on a card in the site's block look. A list folds behind its title
+ * and a count ("Read with changes (2) ▾") until it is opened; a new message
+ * starts folded again. Where the card sits is the page's call.
  *
  * Info and warn speak through a `role="status"` region, an error through a
  * `role="alert"` one. Both regions are always in the tree, so a screen reader
  * is already listening when a message arrives in either, and a folded list is
  * clipped off the screen rather than taken out of the region, so every line is
- * still heard. An info message clears itself after `infoFor`; warn and error
- * stay until dismissed or replaced, since each has something left to act on.
+ * still heard. Empty, the element takes no room but stays in the tree. An
+ * info message clears itself after `infoFor`; warn and error stay until
+ * dismissed or replaced, since each has something left to act on.
  */
 export class NoticeBar extends LitElement {
 	static override styles = [
 		base,
 		controls,
 		css`
-			/* One line reserved whether or not anything is showing (see .box):
-			   the strip is a fixed part of what holds it, not a box that pushes
-			   it taller. */
 			:host {
 				display: block;
 				font-size: 0.9rem;
 				line-height: 1.26rem;
 			}
 
+			/* Empty, it takes no room (out of flow, visually hidden) but stays in
+			   the accessibility tree: a live region that is display: none until
+			   it has something to say is often not heard saying it. */
+			:host(:not([type])) {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
+			}
+
 			/* Each type's colour comes in through --tone, plumbing rather than a
-			   site token: every value it takes is defined in tokens.css. */
+			   site token: every value it takes is defined in tokens.css. Green
+			   for news, yellow for something to look at, red for what failed. */
 			:host([type="info"]) {
-				--tone: var(--cr-accent);
+				--tone: var(--cr-success);
 			}
 
 			:host([type="warn"]) {
-				--tone: var(--cr-blessed);
+				--tone: var(--cr-warning);
 			}
 
 			:host([type="error"]) {
 				--tone: var(--cr-danger);
 			}
 
-			/* Badge, message and dismiss button side by side. The reserved line
-			   is the box's, not the host's: a rule or padding the page puts on
-			   the host would otherwise eat into it, since a page's box-sizing
-			   outranks anything :host says. */
+			/* Badge, message and dismiss button side by side, on a card in the
+			   site's block look with the tone as its leading edge. Where the
+			   card sits is the page's call: the combi page floats it as a
+			   snackbar, a drawer keeps it in line. */
 			.box {
-				min-height: calc(1.26rem + var(--cr-space-1) * 2);
 				display: flex;
 				flex-direction: row;
 				gap: var(--cr-space-2);
 				align-items: flex-start;
-				padding-block: var(--cr-space-1);
+			}
+
+			:host([type]) .box {
+				border: var(--cr-border) solid var(--cr-line);
+				border-left: calc(var(--cr-border) * 3) solid var(--tone);
+				border-radius: var(--cr-radius);
+				background: var(--cr-surface);
+				box-shadow: var(--cr-block);
+				padding: var(--cr-space-2) var(--cr-space-3);
+				animation: rise 160ms ease-out;
+			}
+
+			@keyframes rise {
+				from {
+					opacity: 0;
+					transform: translateY(0.5rem);
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				:host([type]) .box {
+					animation: none;
+				}
 			}
 
 			/* The tone is the badge's ground, never text colour: the amber does
@@ -130,11 +161,12 @@ export class NoticeBar extends LitElement {
 				white-space: nowrap;
 			}
 
-			/* The fold and the ✕ sit on the strip's one line and never make it
-			   taller: no border or padding of their own on a fine pointer, and on
-			   a coarse one the tap-sized box hangs over the line by negative
-			   margins rather than pushing it apart. --line is the strip's line
-			   height, 0.9rem at 1.4, plumbing rather than a site token. */
+			/* The fold and the ✕ sit on the message's first line and never make
+			   the card taller: no border or padding of their own on a fine
+			   pointer, and on a coarse one the tap-sized box hangs over the line
+			   by negative margins rather than pushing it apart. --line is the
+			   card's line height, 0.9rem at 1.4, plumbing rather than a site
+			   token. */
 			button.fold,
 			button.dismiss {
 				--line: 1.26rem;
