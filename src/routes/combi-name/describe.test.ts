@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 
 import type { Combi } from "./codec";
-import { describeBuild, describeCombi, describeLoadout } from "./describe";
+import {
+	describeBuild,
+	describeCombi,
+	describeLoadout,
+	describeRun,
+} from "./describe";
 import {
 	emptyLoadout,
 	levelRange,
@@ -244,4 +249,34 @@ test("a manual run has no verdict even with a relay", () => {
 			},
 		}),
 	).toBe(null);
+});
+
+test("a run reads as its mode, goal and episode, the tower adding its floor", () => {
+	const auto: Combi = { ...base, mode: "auto", goal: "money" };
+	expect(describeRun({ loadout: emptyLoadout(), combi: auto })).toEqual([
+		"Auto",
+		"Money",
+		"EP. 3",
+	]);
+	expect(
+		describeRun({ loadout: { ...emptyLoadout(), relay: "0O" }, combi: auto }),
+	).toEqual(["Semi-auto", "Money", "EP. 3"]);
+	expect(
+		describeRun({
+			loadout: emptyLoadout(),
+			combi: { ...auto, goal: "any", episode: "special2", floor: 40 },
+		}),
+	).toEqual(["Auto", "Any goal", "S.EP. 2", "Floor 40"]);
+	expect(
+		describeRun({
+			loadout: emptyLoadout(),
+			combi: { ...base, episode: "any" },
+		}),
+	).toEqual(["Manual", "Score", "Any episode"]);
+	expect(
+		describeRun({
+			loadout: emptyLoadout(),
+			combi: { ...base, episode: "specialExp" },
+		})[2],
+	).toBe("S.EP. Exp");
 });

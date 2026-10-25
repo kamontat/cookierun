@@ -20,6 +20,12 @@ export type CharHint = {
 	 * `slot-jump`. Read from the run's first hint only, same as `group`.
 	 */
 	inert?: boolean;
+	/**
+	 * What a tap says under the code, in place of the whole hint — the slot
+	 * and field, say, since the tap also jumps to the control that shows the
+	 * value. Read from the run's first hint; the hint is said without it.
+	 */
+	name?: string;
 };
 
 /** How long the copy button says it worked before going back to its label. */
@@ -59,46 +65,74 @@ export class CodeBar extends LitElement {
 			/* Wrapping, not scrolling: a hint bubble inside an \`overflow\` box is
 			   clipped by it, and a long full code has group boundaries to wrap at.
 			   The size is held down to what a full code — three times the length of
-			   a bare name — can still fit on a line or two. */
+			   a bare name — can still fit on a line or two.
+
+			   A grid of character cells. Every cell is --cell wide plus a --tick
+			   gutter, and runs sit one empty cell apart, so every cell starts on a
+			   multiple of the same pitch: a character keeps its column whether
+			   the code fits one line or wraps. Monospace with no letter-spacing,
+			   so the glyphs sit in the cells the same way. */
 			code {
+				--cell: 1.3ch;
+				--tick: 2px;
 				display: flex;
 				flex: 0 0 auto;
 				flex-wrap: wrap;
-				align-items: baseline;
+				align-items: stretch;
+				gap: var(--cr-space-1) calc(var(--cell) + 2 * var(--tick));
 				min-width: 0;
 				color: var(--cr-accent-2);
 				font-family: var(--cr-mono);
 				font-size: clamp(1.15rem, 3.2vw, 1.75rem);
 				font-weight: 600;
-				letter-spacing: 0.1em;
+				letter-spacing: 0;
 			}
 
-			/* One run per field of the code. The gap is what makes the fields
-			   read as fields rather than as ten loose characters. A run is a
-			   button when it owns a control and jumps to it; one with nothing
-			   to jump to (\`.inert\`) shares this same look, minus the parts
-			   that promise a click: no pointer cursor, no hover or focus
-			   colour, no pressed state. */
+			/* One run per field of the code; the empty cell between two runs is
+			   what makes the fields read as fields. A run is a button when it
+			   owns a control and jumps to it. One with nothing to jump to
+			   (\`.inert\`) is drawn plainly — muted, no underline — so
+			   what a tap does is visible without a hover to ask. */
 			code .run {
 				position: relative;
-				margin: 0 0.06em;
-				padding: 0 0.06em;
+				display: inline-flex;
+				flex: 0 1 auto;
+				flex-wrap: wrap;
+				gap: var(--tick);
+				min-width: 0;
+				max-width: 100%;
+				margin: 0;
+				padding: 0;
 				color: inherit;
 				font: inherit;
-				line-height: 1.25;
-				/* An underline of the text, not a border of the box: a run is a
-				   button or, when inert, a span, and WebKit sizes and aligns the
-				   two boxes differently, so a bottom border stepped up and down
-				   along a line on iOS. Text decoration is drawn from the text's
-				   own baseline, which every run on a line shares. */
+				letter-spacing: inherit;
+				text-transform: none;
+			}
+
+			code .cell {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: var(--cell);
+				height: 1.6em;
+				/* An underline of the text, not a border of the box: text
+				   decoration is drawn from the text's own baseline, which every
+				   cell on a line shares, where a border stepped up and down along
+				   a line on iOS. */
 				text-decoration-line: underline;
 				text-decoration-style: dotted;
 				text-decoration-color: currentColor;
 				text-decoration-thickness: 2px;
-				text-underline-offset: 0.3em;
+				text-underline-offset: 0.25em;
 				text-decoration-skip-ink: none;
-				letter-spacing: inherit;
-				text-transform: none;
+			}
+
+			code .inert {
+				color: var(--cr-muted);
+			}
+
+			code .inert .cell {
+				text-decoration-line: none;
 			}
 
 			code button.run {
@@ -159,18 +193,19 @@ export class CodeBar extends LitElement {
 			}
 
 			/* Shorter than the hit area the shared chunk gives every other
-			   button, and deliberately so: a full code wraps onto two lines, and
-			   two rows of 44px inside a panel already pinned to an edge of the
-			   screen — the top on a wide one, the bottom on a phone — costs more
-			   than the taller target buys. The run is text first, and the
-			   controls below it are the way this page is meant to be driven. An
-			   inert run is never a tap target, but it takes the same box all the
-			   same: every run on a line has to end at the same height, or the
-			   underlines step up and down along it. */
+			   button, and deliberately so: a full code wraps onto several lines,
+			   and a 44px row for each costs more than the taller target buys.
+			   The run is text first, and the controls below it are the way this
+			   page is meant to be driven. The cell grows instead of the run, and
+			   an inert run's cells grow with it, so every line keeps one height. */
 			@media (pointer: coarse) {
 				code .run {
-					min-height: 2.25rem;
-					padding: var(--cr-space-1) 0.12em;
+					min-height: 0;
+					padding: 0;
+				}
+
+				code .cell {
+					height: 2rem;
 				}
 			}
 
@@ -433,17 +468,14 @@ export class CodeBar extends LitElement {
 	}
 
 	/**
-	 * A run's characters, with a `<wbr>` — no width, no character, nothing a
-	 * copy or a text-content check would ever see — after each `_` and `.`.
-	 * The loadout run is one unbreakable word by design, word-wise selection is
-	 * the point of that, so widening the page is the only other way out; this
-	 * gives the browser somewhere to break the line without touching the code
-	 * itself, what a run is grouped as, or what Copy puts on the clipboard.
+	 * A run's characters, one cell each. Every cell is one width and runs sit
+	 * one cell apart, so the code reads as a grid: a character keeps its column
+	 * whether the code fits one line or wraps onto several. A cell adds nothing
+	 * a copy or a text-content check would see, and a run too long for a line
+	 * wraps between cells rather than widening the page.
 	 */
 	#chars(run: CharHint[]) {
-		return run.map(({ char }) =>
-			char === "_" || char === "." ? html`${char}<wbr />` : char,
-		);
+		return run.map(({ char }) => html`<span class="cell">${char}</span>`);
 	}
 
 	/** Where the shown part of the value starts: after the last marker, or 0. */
@@ -597,7 +629,7 @@ export class CodeBar extends LitElement {
 										data-group=${group}
 										aria-label=${`${hint} — go to this control`}
 										@click=${() => {
-											this.#name(hint);
+											this.#name(run[0]?.name ?? hint);
 											this.dispatchEvent(
 												new CustomEvent<string>("slot-jump", {
 													detail: group,

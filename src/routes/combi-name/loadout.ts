@@ -130,7 +130,7 @@ const SINGLE_GROUPS: SingleGroup[] = [
 const TREASURE_WIDTH = ID_WIDTH.treasures;
 const TAG_ORDER = ["C", "R", "P", "T"];
 /** Between two treasure slots. */
-const SLOT_SEPARATOR = ".";
+export const SLOT_SEPARATOR = ".";
 /** Between two acceptable treasures within one slot. */
 const ALTERNATIVE_SEPARATOR = "_";
 

@@ -1054,6 +1054,41 @@ test("clicking a summary row opens its tab and focuses the control", async () =>
 	await pickTab("main");
 });
 
+test("a treasure slot's run jumps to that slot, the order run to the order switch", async () => {
+	await typeCode("1TU0FZ.0RB-10S0000000");
+	await closeEditor();
+
+	codeBar.dispatchEvent(
+		new CustomEvent("slot-jump", { detail: "treasure2", bubbles: true }),
+	);
+	await settle();
+	expect(shownPanels()).toEqual(["panel-treasures"]);
+	expect(document.activeElement).toBe(need("treasure2"));
+
+	codeBar.dispatchEvent(
+		new CustomEvent("slot-jump", { detail: "treasureOrder", bubbles: true }),
+	);
+	await settle();
+	expect(document.activeElement).toBe(need("treasureOrder"));
+	await reset();
+	await pickTab("main");
+});
+
+test("the back-to-top button starts hidden and takes the page back to the code", async () => {
+	const toTop = need<HTMLButtonElement>("to-top");
+	expect(toTop.hidden).toBe(true);
+
+	const original = window.scrollTo;
+	let scrolledTo: unknown = null;
+	window.scrollTo = ((options: ScrollToOptions) => {
+		scrolledTo = options.top;
+	}) as typeof window.scrollTo;
+	toTop.click();
+	window.scrollTo = original;
+
+	expect(scrolledTo).toBe(0);
+});
+
 test("clicking a run of the code opens the tab that holds its control", async () => {
 	codeBar.dispatchEvent(
 		new CustomEvent("slot-jump", { detail: "randomBoost", bubbles: true }),
@@ -1224,7 +1259,7 @@ test("the verdict sits under the mode chips", () => {
 });
 
 function savedRows(): HTMLLIElement[] {
-	return [...need("saved-list").querySelectorAll("li")];
+	return [...need("saved-list").querySelectorAll<HTMLLIElement>(":scope > li")];
 }
 
 function savedButtonFor(
@@ -1276,7 +1311,7 @@ test("the save button in the code panel submits the note", async () => {
 	expect(row?.querySelector(".description")?.textContent).toBe(
 		"Coin farm\nuse Fairy",
 	);
-	expect(row?.textContent).toContain("10M0000000");
+	expect(row?.getAttribute("data-code")).toBe("10M0000000");
 	expect(row?.getAttribute("aria-current")).toBe("true");
 	expect(need("saved-empty").hidden).toBe(true);
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
@@ -2050,6 +2085,35 @@ test("the note takes run stats, and the saved row shows them", async () => {
 	await settle();
 	expect(statInput("money").value).toBe("");
 	await reset();
+});
+
+test("a saved row reads as its run rather than its code", () => {
+	const row = rowFor("10M0000000");
+	expect(
+		[...row.querySelectorAll(".run li")].map((chip) => chip.textContent),
+	).toEqual(["Manual", "Money", "Any episode"]);
+	expect(row.querySelector("code")).toBeNull();
+});
+
+test("a saved row reads run, stats, then note, and a blank note takes no line", async () => {
+	await choose("goal", "box");
+	const code = await codeText();
+	fillStats({ money: "100" });
+	await saveCurrent("Box run");
+
+	const parts = [...(rowFor(code).querySelector(".entry")?.children ?? [])];
+	expect(parts.map((part) => part.className || part.tagName)).toEqual([
+		"run",
+		"stats",
+		"description",
+	]);
+	// When it was saved sits on the buttons' line, ahead of Load.
+	const actions = rowFor(code).querySelector(".buttons")?.children ?? [];
+	expect(actions[0]?.tagName).toBe("TIME");
+	expect(actions[0]?.textContent).toStartWith("Saved ");
+	await reset();
+
+	expect(rowFor("10M0000000").querySelector(".description")).toBeNull();
 });
 
 test("a row with no stats shows no stats line", () => {

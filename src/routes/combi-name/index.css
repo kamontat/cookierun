@@ -51,9 +51,10 @@ site-nav > button {
 	white-space: nowrap;
 }
 
-/* The code is what the page is for, so it stays in view while you work the
-   controls under it: a box pinned to the top, exactly as wide as the column,
-   so its edges are the note's, the summary's and the tabs' edges too. */
+/* The code is what the page is for, so on a wide screen it stays in view
+   while you work the controls under it: a box pinned to the top, exactly as
+   wide as the column, so its edges are the note's, the summary's and the
+   tabs' edges too. A phone unpins it, further down. */
 .codepanel {
 	position: sticky;
 	top: 0;
@@ -107,9 +108,62 @@ tab-strip {
 	background: var(--cr-bg);
 }
 
-/* A phone keeps the code at the top too, the same sticky panel as a wide
-   screen. */
+/* The way back to the code, for a phone. Bottom right, clear of the
+   snackbar's centre, at the tap size. Never on a wide screen, where the panel
+   is pinned and never leaves. */
+.totop {
+	position: fixed;
+	right: var(--cr-space-4);
+	bottom: calc(var(--cr-space-4) + env(safe-area-inset-bottom, 0px));
+	z-index: 3;
+	width: var(--cr-tap);
+	height: var(--cr-tap);
+	/* A solid fill rather than the page buttons' surface, which sits close
+	   enough to the page's own ground that a button floating over content read
+	   as see-through. The text colour inverted, not the accent: the accent
+	   fill is what a picked treasure level wears, and the button floats over
+	   those strips. */
+	background: var(--cr-text);
+	padding: 0;
+	color: var(--cr-bg);
+	font-size: 1.25rem;
+	font-weight: 700;
+}
+
+@media (width >= 48rem) {
+	.totop {
+		display: none;
+	}
+}
+
+/* On a phone the panel is not pinned: with a full code it would hold a third
+   of the screen while you work the controls under it. It scrolls away with
+   the page, the tab strip sticks to the top alone, and .totop brings the code
+   back. */
 @media (width < 48rem) {
+	.codepanel {
+		position: static;
+	}
+
+	tab-strip {
+		top: 0;
+	}
+
+	:root {
+		scroll-padding-top: 4rem;
+	}
+
+	/* The snackbar steps up over the button while the button shows, so the
+	   two never overlap on a narrow screen. */
+	main:has(> .totop:not([hidden])) .codepanel notice-bar[type] {
+		bottom: calc(
+			2 *
+			var(--cr-space-4) +
+			var(--cr-tap) +
+			env(safe-area-inset-bottom, 0px)
+		);
+	}
+
 	/* The page's long name fits one line of a phone. */
 	.masthead h1 {
 		font-size: 1.25rem;
@@ -498,7 +552,7 @@ kbd {
 
 /* One entry per row: the note and its code on the left, the two buttons on
    the right, wrapping under them where the row is too narrow. */
-.savedlist li {
+.savedlist > li {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -510,7 +564,7 @@ kbd {
 }
 
 /* The entry holding the code on screen now says so with the accent edge. */
-.savedlist li[aria-current="true"] {
+.savedlist > li[aria-current="true"] {
 	border-left-color: var(--cr-accent);
 }
 
@@ -521,28 +575,36 @@ kbd {
 	min-width: 0;
 }
 
-/* A description keeps the line breaks it was typed with. */
-.savedlist .description {
-	white-space: pre-line;
-	overflow-wrap: anywhere;
-	font-weight: 600;
+/* The run in a few chips — mode, goal, episode, floor — in place of the
+   code, which says nothing at a glance. */
+.savedlist .run {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	margin: 0.15rem 0;
+	padding: 0;
+	list-style: none;
 }
 
-.savedlist .description.blank {
-	color: var(--cr-muted);
-	font-weight: 400;
-	font-style: italic;
-}
-
-.savedlist code {
-	overflow-wrap: anywhere;
-	font-family: var(--cr-mono);
-	font-size: 0.85rem;
+.savedlist .run li {
+	border: var(--cr-border) solid var(--cr-line);
+	border-radius: 999px;
+	background: var(--cr-surface);
+	padding: 0 0.5rem;
+	font-size: 0.8rem;
 }
 
 .savedlist .stats {
 	font-family: var(--cr-mono);
 	font-size: 0.8rem;
+}
+
+/* The note comes last, under what the run is and what it brought home, and
+   keeps the line breaks it was typed with. A row without one has no line. */
+.savedlist .description {
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+	font-size: 0.9rem;
 }
 
 .savedlist time {
@@ -553,19 +615,21 @@ kbd {
 /* The entry open for editing: a dashed ring, apart from the accent edge,
    which follows the code on screen and may since have moved to another entry
    or to none. */
-.savedlist li[data-editing] {
+.savedlist > li[data-editing] {
 	outline: var(--cr-border) dashed var(--cr-accent-2);
 	outline-offset: 2px;
 }
 
-/* Held to the right even once the row wraps them under the note, so the
-   menu, which hangs from its button's right edge, opens inside the row. */
+/* A line of its own under the entry, from the left edge: when it was saved,
+   then Load and the menu. The menu hangs from its button's right edge, and the
+   date and Load ahead of it leave it room to open inside the row. */
 .savedlist .buttons {
 	display: flex;
+	flex: 1 0 100%;
 	flex-direction: row;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: var(--cr-space-2);
-	margin-left: auto;
 }
 
 /* Load on the row, everything else behind the row's own menu; the code panel's

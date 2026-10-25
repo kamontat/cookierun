@@ -27,7 +27,7 @@ import {
 	type Mode,
 	type RandomBoost,
 } from "./codec";
-import { describeBuild } from "./describe";
+import { describeBuild, describeRun } from "./describe";
 import {
 	combiSectionOf,
 	decodeFull,
@@ -786,6 +786,31 @@ codeMenu.addEventListener("click", (event) => {
 });
 
 /**
+ * What a saved row plays, as chips: the code itself means nothing at a glance,
+ * so the row reads it instead. A code a later format cannot read says so, and
+ * Load is where it says why.
+ */
+function runChips(code: string): HTMLUListElement {
+	const list = document.createElement("ul");
+	list.className = "run";
+	list.setAttribute("aria-label", "Run");
+	let chips: string[];
+	try {
+		chips = describeRun(decodeFull(code).full);
+	} catch {
+		chips = ["Code no longer reads"];
+	}
+	list.append(
+		...chips.map((text) => {
+			const chip = document.createElement("li");
+			chip.textContent = text;
+			return chip;
+		}),
+	);
+	return list;
+}
+
+/**
  * Draws the saved list from scratch. It is short and changes only on a click,
  * so there is nothing to gain from patching it in place.
  */
@@ -800,21 +825,9 @@ function showSaved(entries: readonly SavedCode[]): void {
 
 			const text = document.createElement("div");
 			text.className = "entry";
-			const description = document.createElement("span");
-			description.className = "description";
-			if (entry.description === "") {
-				description.classList.add("blank");
-				description.textContent = "No description";
-			} else {
-				description.textContent = entry.description;
-			}
-			const code = document.createElement("code");
-			code.textContent = entry.code;
-			const time = document.createElement("time");
-			const when = new Date(entry.savedAt);
-			time.dateTime = when.toISOString();
-			time.textContent = `Saved ${savedAtFormat.format(when)}`;
-			text.append(description, code);
+			// The run first, what it brought home next, and the note last; a
+			// row with no note or no stats simply has no such line.
+			text.append(runChips(entry.code));
 			const sentence = statsSentence(entry.stats ?? {});
 			if (sentence !== "") {
 				const stats = document.createElement("span");
@@ -822,11 +835,26 @@ function showSaved(entries: readonly SavedCode[]): void {
 				stats.textContent = sentence;
 				text.append(stats);
 			}
-			text.append(time);
+			if (entry.description !== "") {
+				const description = document.createElement("span");
+				description.className = "description";
+				description.textContent = entry.description;
+				text.append(description);
+			}
+			const time = document.createElement("time");
+			const when = new Date(entry.savedAt);
+			time.dateTime = when.toISOString();
+			time.textContent = `Saved ${savedAtFormat.format(when)}`;
 
+			// When it was saved rides with the buttons, ahead of Load, so the
+			// entry's own lines are only what the run is.
 			const buttons = document.createElement("div");
 			buttons.className = "buttons";
-			buttons.append(savedButton("Load", "load", entry), savedMenu(entry));
+			buttons.append(
+				time,
+				savedButton("Load", "load", entry),
+				savedMenu(entry),
+			);
 
 			item.append(text, buttons);
 			return item;
@@ -1231,6 +1259,28 @@ if (codePanel !== null && typeof ResizeObserver !== "undefined") {
 	}).observe(codePanel);
 }
 
+/*
+ * On a phone the code panel is not pinned, so once it scrolls out of view a
+ * floating button offers the way back. The stylesheet keeps the button off a
+ * wide screen, where the panel never leaves; this only says whether the panel
+ * is in view. Without IntersectionObserver the button simply never shows.
+ */
+const toTop = need<HTMLButtonElement>("to-top");
+if (codePanel !== null && typeof IntersectionObserver !== "undefined") {
+	new IntersectionObserver(([entry]) => {
+		toTop.hidden = entry?.isIntersecting ?? true;
+	}).observe(codePanel);
+}
+toTop.addEventListener("click", () => {
+	const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+	window.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
+	// The button hides once the panel is back in view, and focus would go
+	// down with it; the panel's Edit is where a keyboard picks up again.
+	codeBar.shadowRoot?.querySelector<HTMLButtonElement>(".edit")?.focus({
+		preventScroll: true,
+	});
+});
+
 /**
  * A link someone sent may carry a note and run stats. They are offered, not
  * saved: they go into the boxes, and keeping them is one click on Save — a
@@ -1373,6 +1423,13 @@ const OWNER: Record<string, HTMLElement> = {
 	relay: relayGrid,
 	pet: petGrid,
 	treasures: treasureSlots[0] as HTMLElement,
+	// The code draws the treasure group as the order flag and one run per
+	// slot, each jumping to its own control; the summary's one row still
+	// jumps to the first slot.
+	treasureOrder: orderChips,
+	treasure1: treasureSlots[0] as HTMLElement,
+	treasure2: treasureSlots[1] as HTMLElement,
+	treasure3: treasureSlots[2] as HTMLElement,
 };
 
 /**
@@ -1394,6 +1451,10 @@ const TAB_OF: Record<string, TabName> = {
 	relay: "cookies",
 	pet: "cookies",
 	treasures: "treasures",
+	treasureOrder: "treasures",
+	treasure1: "treasures",
+	treasure2: "treasures",
+	treasure3: "treasures",
 	boosts: "boosts",
 	randomBoost: "boosts",
 	cookiePowers: "boosts",

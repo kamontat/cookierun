@@ -577,6 +577,14 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
           </p>
         </div>
       </dialog>
+
+      <!-- On a phone the code panel scrolls away with the page rather than
+           holding a third of the screen; this takes the page back up to it.
+           Shown by the route once the panel is out of view, and never on a
+           wide screen, where the panel stays pinned. -->
+      <button id="to-top" class="totop" type="button" aria-label="Back to the code" hidden>
+        <span aria-hidden="true">↑</span>
+      </button>
     </main>
 
     <site-footer></site-footer>
