@@ -54,9 +54,15 @@ import {
 	importSaved,
 	parseSaved,
 	readSaved,
+	rememberSort,
 	removeSaved,
+	SAVED_SORT_LABELS,
+	SAVED_SORTS,
 	type SavedCode,
+	type SavedSort,
 	saveCode,
+	sortSaved,
+	storedSort,
 	updateSaved,
 } from "./saved";
 import {
@@ -165,6 +171,7 @@ const saveNewButton = need<HTMLButtonElement>("save-new");
 const saveCancelButton = need<HTMLButtonElement>("save-cancel");
 const savedEmpty = need("saved-empty");
 const savedList = need<HTMLUListElement>("saved-list");
+const savedSort = need<HTMLSelectElement>("saved-sort");
 const savedCount = need("saved-count");
 const savedDrawer = need<HTMLDialogElement>("saved-drawer");
 const helpDrawer = need<HTMLDialogElement>("help-drawer");
@@ -811,16 +818,29 @@ function runChips(code: string): HTMLUListElement {
 	return list;
 }
 
+savedSort.replaceChildren(
+	...SAVED_SORTS.map((sort) => {
+		const option = document.createElement("option");
+		option.value = sort;
+		option.textContent = SAVED_SORT_LABELS[sort];
+		return option;
+	}),
+);
+savedSort.value = storedSort(localStorage);
+
 /**
- * Draws the saved list from scratch. It is short and changes only on a click,
- * so there is nothing to gain from patching it in place.
+ * Draws the saved list from scratch, in the order Sort by asks for. It is
+ * short and changes only on a click, so there is nothing to gain from
+ * patching it in place. `savedEntries` keeps the stored order.
  */
 function showSaved(entries: readonly SavedCode[]): void {
 	savedEntries = entries;
 	savedCount.textContent = String(entries.length);
 	savedEmpty.hidden = entries.length > 0;
+	const sortLabel = savedSort.closest("label");
+	if (sortLabel !== null) sortLabel.hidden = entries.length < 2;
 	savedList.replaceChildren(
-		...entries.map((entry) => {
+		...sortSaved(entries, savedSort.value as SavedSort).map((entry) => {
 			const item = document.createElement("li");
 			item.setAttribute("data-code", entry.code);
 
@@ -1115,8 +1135,12 @@ savedList.addEventListener("click", (event) => {
 	);
 	if (button === null || button === undefined) return;
 	const code = button.getAttribute("data-code") ?? "";
-	const index = savedEntries.findIndex((entry) => entry.code === code);
-	const entry = savedEntries[index];
+	const entry = savedEntries.find((saved) => saved.code === code);
+	// Where the row sits on screen, which a sort may make other than its
+	// place in the stored list.
+	const index = [...savedList.children].findIndex(
+		(row) => row.getAttribute("data-code") === code,
+	);
 	if (entry === undefined) return;
 	const action = button.getAttribute("data-action") as SavedAction;
 	// A pick from a row's menu is the menu's answer; it closes behind it.
@@ -1183,6 +1207,11 @@ savedList.addEventListener("click", (event) => {
 	(
 		next ?? savedDrawer.querySelector<HTMLButtonElement>("[data-close]")
 	)?.focus();
+});
+
+savedSort.addEventListener("change", () => {
+	rememberSort(localStorage, savedSort.value as SavedSort);
+	showSaved(savedEntries);
 });
 
 /** Undoes `lockPageScroll` for whichever drawer is open, if one is. */

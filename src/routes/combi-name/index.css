@@ -588,6 +588,21 @@ kbd {
 	gap: var(--cr-space-2);
 }
 
+/* Sort by sits at the right, over the rows it orders. */
+.savedsort {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--cr-space-2);
+	color: var(--cr-muted);
+	font-size: 0.85rem;
+}
+
+.savedsort select {
+	font: inherit;
+	color: var(--cr-text);
+}
+
 .savedlist {
 	display: grid;
 	gap: var(--cr-space-2);

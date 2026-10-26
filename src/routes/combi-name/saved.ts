@@ -180,6 +180,81 @@ export function updateSaved(
 }
 
 /**
+ * The ways the drawer can show the list. Sorting is a view: the list is stored,
+ * exported and edited newest first whatever the drawer shows, so picking a sort
+ * never rewrites anyone's list.
+ */
+export const SAVED_SORTS = [
+	"newest",
+	"oldest",
+	"money",
+	"exp",
+	"boxes",
+	"time",
+] as const;
+
+export type SavedSort = (typeof SAVED_SORTS)[number];
+
+export const SAVED_SORT_LABELS: Readonly<Record<SavedSort, string>> = {
+	newest: "Newest",
+	oldest: "Oldest",
+	money: "Most money",
+	exp: "Most exp",
+	boxes: "Most boxes",
+	time: "Longest",
+};
+
+export const SAVED_SORT_KEY = "combi-name:saved-sort";
+
+function isSavedSort(value: unknown): value is SavedSort {
+	return (SAVED_SORTS as readonly unknown[]).includes(value);
+}
+
+/** The sort this browser last picked, or newest when it picked none. */
+export function storedSort(storage: Storage): SavedSort {
+	try {
+		const value = storage.getItem(SAVED_SORT_KEY);
+		return isSavedSort(value) ? value : "newest";
+	} catch {
+		return "newest";
+	}
+}
+
+export function rememberSort(storage: Storage, sort: SavedSort): void {
+	try {
+		storage.setItem(SAVED_SORT_KEY, sort);
+	} catch {}
+}
+
+/** A stat as one pair to compare: the top of a range first, then its floor. */
+function statKey(entry: SavedCode, field: StatField): [number, number] | null {
+	const value = entry.stats?.[field];
+	if (value === undefined) return null;
+	return typeof value === "number" ? [value, value] : [value.max, value.min];
+}
+
+/**
+ * The list in the order the drawer shows it. A stat sort puts the most first,
+ * by the top of a range and then its floor, and the entries that never noted
+ * that stat after every one that did. Ties keep the order the list has.
+ */
+export function sortSaved(
+	entries: readonly SavedCode[],
+	sort: SavedSort,
+): SavedCode[] {
+	if (sort === "newest") return [...entries];
+	if (sort === "oldest") return [...entries].reverse();
+	return [...entries].sort((a, b) => {
+		const left = statKey(a, sort);
+		const right = statKey(b, sort);
+		if (left === null || right === null) {
+			return (left === null ? 1 : 0) - (right === null ? 1 : 0);
+		}
+		return right[0] - left[0] || right[1] - left[1];
+	});
+}
+
+/**
  * The list as text someone can paste into a chat, a note or a file: each code
  * on a line of its own, its stats under it one per line as `money: 1200-1500`,
  * then its description with every line quoted by `>`, and a blank line between

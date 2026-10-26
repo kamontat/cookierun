@@ -354,6 +354,14 @@
             Nothing saved yet. Saved codes stay in this browser until you share
             or export them.
           </p>
+          <!-- How the drawer orders the rows, and only the drawer: the list is
+               stored and exported newest first whatever this says. Options
+               come from saved.ts's SAVED_SORTS; hidden with fewer than two
+               rows, when there is nothing to order. -->
+          <label class="savedsort" hidden>
+            Sort by
+            <select id="saved-sort"></select>
+          </label>
           <ul id="saved-list" class="savedlist"></ul>
 
           <details class="transfer">

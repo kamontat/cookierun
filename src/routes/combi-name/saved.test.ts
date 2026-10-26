@@ -8,9 +8,15 @@ import {
 	importSaved,
 	parseSaved,
 	readSaved,
+	rememberSort,
 	removeSaved,
 	SAVED_KEY,
+	SAVED_SORT_KEY,
+	SAVED_SORTS,
+	type SavedCode,
 	saveCode,
+	sortSaved,
+	storedSort,
 	updateSaved,
 } from "./saved";
 import { shareHashFor } from "./state";
@@ -409,4 +415,62 @@ test("importing keeps the stats that came in", () => {
 	);
 
 	expect(readSaved(held)[0]?.stats).toEqual({ time: 60 });
+});
+
+const LIST: readonly SavedCode[] = [
+	{
+		code: "A",
+		description: "",
+		savedAt: 3,
+		stats: { money: { min: 1, max: 5 } },
+	},
+	{ code: "B", description: "", savedAt: 1, stats: { time: 90 } },
+	{
+		code: "C",
+		description: "",
+		savedAt: 2,
+		stats: { money: { min: 4, max: 9 }, time: 30 },
+	},
+	{
+		code: "D",
+		description: "",
+		savedAt: 4,
+		stats: { money: { min: 2, max: 5 } },
+	},
+];
+
+const codes = (entries: readonly SavedCode[]) =>
+	entries.map((entry) => entry.code);
+
+test("newest is the list as stored, and oldest is it the other way up", () => {
+	expect(codes(sortSaved(LIST, "newest"))).toEqual(["A", "B", "C", "D"]);
+	expect(codes(sortSaved(LIST, "oldest"))).toEqual(["D", "C", "B", "A"]);
+});
+
+test("a stat sort puts the most first, by the top of a range, and entries without it last", () => {
+	// A and D tie on the top of their range, so the higher floor leads.
+	expect(codes(sortSaved(LIST, "money"))).toEqual(["C", "D", "A", "B"]);
+	expect(codes(sortSaved(LIST, "time"))).toEqual(["B", "C", "A", "D"]);
+	// Nobody has exp: the stored order stands.
+	expect(codes(sortSaved(LIST, "exp"))).toEqual(["A", "B", "C", "D"]);
+});
+
+test("sorting leaves the list it was given alone", () => {
+	const before = codes(LIST);
+	sortSaved(LIST, "oldest");
+	expect(codes(LIST)).toEqual(before);
+});
+
+test("the chosen sort is remembered, and anything else reads as newest", () => {
+	const held = storage();
+	expect(storedSort(held)).toBe("newest");
+
+	rememberSort(held, "money");
+	expect(storedSort(held)).toBe("money");
+
+	expect(storedSort(storage("sideways"))).toBe("newest");
+	expect(storedSort(REFUSING)).toBe("newest");
+	expect(() => rememberSort(REFUSING, "time")).not.toThrow();
+	expect(SAVED_SORT_KEY).not.toBe(SAVED_KEY);
+	expect(SAVED_SORTS[0]).toBe("newest");
 });
