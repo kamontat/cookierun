@@ -1283,10 +1283,19 @@ test("the save button in the code panel submits the note", async () => {
 	expect(row?.getAttribute("data-code")).toBe("10M0000000");
 	expect(row?.getAttribute("aria-current")).toBe("true");
 	expect(need("saved-empty").hidden).toBe(true);
-	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
 	expect(localStorage.getItem("combi-name:saved")).toContain("Coin farm");
 
+	// The new entry opens for editing rather than the form resetting, so a
+	// second change is one Update rather than a Load.
+	expect(isEditing()).toBe(true);
+	expect(need("save").textContent?.trim()).toBe("Update");
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe(
+		"Coin farm\nuse Fairy",
+	);
+	expect(row?.hasAttribute("data-editing")).toBe(true);
+
 	await reset();
+	expect(isEditing()).toBe(false);
 	expect(savedRows()[0]?.getAttribute("aria-current")).toBe("false");
 });
 
@@ -1681,7 +1690,7 @@ test("an update onto a code saved elsewhere is refused and the edit stays open u
 	expect(savedRows()[1]?.hasAttribute("data-editing")).toBe(false);
 });
 
-test("saving as new while editing keeps the entry being edited", async () => {
+test("saving as new while editing keeps the old entry and opens the new one", async () => {
 	const [, edited = ""] = savedCodes();
 	savedButtonFor(edited, "load").click();
 	await settle();
@@ -1692,7 +1701,9 @@ test("saving as new while editing keeps the entry being edited", async () => {
 	await settle();
 
 	expect(savedCodes()).toEqual(["10M0000000", "10S0000000", edited]);
-	expect(isEditing()).toBe(false);
+	expect(isEditing()).toBe(true);
+	expect(rowFor("10M0000000").hasAttribute("data-editing")).toBe(true);
+	expect(rowFor(edited).hasAttribute("data-editing")).toBe(false);
 	await reset();
 });
 
@@ -2088,12 +2099,14 @@ test("the note takes run stats, and the saved row shows them", async () => {
 	expect(rowFor(code).querySelector(".stats")?.textContent).toBe(
 		"Money 12,000–15,000 · Exp 300 · Boxes 2–3 · Time 245s",
 	);
-	for (const field of ["money", "exp", "boxes", "time"]) {
-		expect(statInput(field).value).toBe("");
-	}
 	expect(localStorage.getItem("combi-name:saved")).toContain(
 		'"money":{"min":12000,"max":15000}',
 	);
+	// The new entry is open, so its stats stay in the boxes as typed.
+	expect(statInput("money").value).toBe("12000-15000");
+	need<HTMLButtonElement>("save-cancel").click();
+	await settle();
+	expect(statInput("money").value).toBe("");
 
 	// Loading the entry fills the stats back in, as typed.
 	savedButtonFor(code, "load").click();

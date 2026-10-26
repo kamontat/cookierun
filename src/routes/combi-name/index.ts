@@ -971,10 +971,11 @@ function saveAsNew(): void {
 		description: saveDescription.value,
 		stats,
 	});
-	editing = null;
+	// The new entry opens on its code, note and stats as typed, the way an
+	// Update leaves one, so a second change is one more Update.
+	editing = code;
 	showSaved(entries);
 	if (stored) {
-		clearNote();
 		say("info", `Saved ${code}.`);
 	} else {
 		say("error", REFUSED_SAVE);
