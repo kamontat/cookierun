@@ -561,6 +561,22 @@ test("the editor opens on the whole value, not the part shown", async () => {
 	expect(field(element)?.value).toBe(FULL);
 });
 
+test("editable false hides the built-in Edit button, and the editor still opens", async () => {
+	const element = await mount();
+	expect(element.editable).toBe(true);
+	expect(element.shadowRoot?.querySelector("button.edit")).not.toBe(null);
+
+	element.editable = false;
+	await element.updateComplete;
+
+	expect(element.shadowRoot?.querySelector("button.edit")).toBe(null);
+	expect(element.shadowRoot?.querySelector(".buttons slot")).not.toBe(null);
+
+	element.editing = true;
+	await settle(element);
+	expect(field(element)).not.toBe(null);
+});
+
 test("copyable false hides the built-in Copy button and keeps Edit", async () => {
 	const element = await mount();
 	expect(element.copyable).toBe(true);
