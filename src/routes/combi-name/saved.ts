@@ -12,6 +12,7 @@
  * `state.ts`'s are, and imported text is decoded code by code.
  */
 
+import { describeRun } from "./describe";
 import { decodeFull, encodeFull } from "./full-code";
 import { codeInHash, noteInHash, statsInHash } from "./state";
 import {
@@ -252,6 +253,94 @@ export function sortSaved(
 		}
 		return right[0] - left[0] || right[1] - left[1];
 	});
+}
+
+/** What a run reads as on its row, or null for a code that no longer reads. */
+function runChipsOf(code: string): string[] | null {
+	try {
+		return describeRun(decodeFull(code).full);
+	} catch {
+		return null;
+	}
+}
+
+/** The three things a row's run says that the drawer can filter on. */
+export const RUN_FACETS = ["mode", "goal", "episode"] as const;
+
+export type RunFacet = (typeof RUN_FACETS)[number];
+
+/**
+ * A run's mode, goal and episode, worded as its row's chips word them, so a
+ * filter offers exactly what the rows say.
+ */
+export function runFacets(code: string): Record<RunFacet, string> | null {
+	return facetsOf(runChipsOf(code));
+}
+
+function facetsOf(chips: string[] | null): Record<RunFacet, string> | null {
+	if (chips === null) return null;
+	const [mode = "", goal = "", episode = ""] = chips;
+	return { mode, goal, episode };
+}
+
+/** What the drawer is narrowed to. An empty field narrows nothing. */
+export interface SavedFilter extends Record<RunFacet, string> {
+	readonly text: string;
+}
+
+export const NO_FILTER: SavedFilter = {
+	text: "",
+	mode: "",
+	goal: "",
+	episode: "",
+};
+
+export function isFiltering(filter: SavedFilter): boolean {
+	return (
+		filter.text.trim() !== "" ||
+		RUN_FACETS.some((facet) => filter[facet] !== "")
+	);
+}
+
+/**
+ * The entries a filter keeps, in the order they came. The search is words,
+ * each of which has to turn up somewhere in the note, the code or the run's
+ * chips, in any case. A code that no longer reads has no run, so any facet
+ * leaves it out.
+ */
+export function filterSaved(
+	entries: readonly SavedCode[],
+	filter: SavedFilter,
+): SavedCode[] {
+	const words = filter.text.toLowerCase().split(/\s+/).filter(Boolean);
+	const facets = RUN_FACETS.filter((facet) => filter[facet] !== "");
+	return entries.filter((entry) => {
+		const chips = runChipsOf(entry.code);
+		if (facets.length > 0) {
+			const run = facetsOf(chips);
+			if (run === null) return false;
+			if (facets.some((facet) => run[facet] !== filter[facet])) return false;
+		}
+		const haystack = [entry.description, entry.code, ...(chips ?? [])]
+			.join("\n")
+			.toLowerCase();
+		return words.every((word) => haystack.includes(word));
+	});
+}
+
+/** Each value a facet takes in the list, once, sorted as a reader would. */
+export function facetValues(
+	entries: readonly SavedCode[],
+	facet: RunFacet,
+): string[] {
+	const values = new Set<string>();
+	for (const entry of entries) {
+		const run = runFacets(entry.code);
+		if (run !== null) values.add(run[facet]);
+	}
+	return [...values].sort((a, b) =>
+		a.localeCompare(b, undefined, { numeric: true }),
+	);
 }
 
 /**

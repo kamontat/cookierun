@@ -588,19 +588,41 @@ kbd {
 	gap: var(--cr-space-2);
 }
 
-/* Sort by sits at the right, over the rows it orders. */
-.savedsort {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
+/* The search on its own line, then the facets, Clear and Sort by in a row
+   that wraps; Sort by pushes to the right end of whatever line it lands on. */
+.savedtools {
 	gap: var(--cr-space-2);
-	color: var(--cr-muted);
+	margin-top: var(--cr-space-2);
 	font-size: 0.85rem;
 }
 
-.savedsort select {
+.savedtools input,
+.savedtools select,
+.savedtools button {
+	min-width: 0;
 	font: inherit;
 	color: var(--cr-text);
+}
+
+.savedfilters {
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--cr-space-2);
+}
+
+.savedfilters select {
+	flex: 1 1 7rem;
+	width: auto;
+}
+
+.savedsort {
+	display: flex;
+	flex: 1 1 12rem;
+	align-items: center;
+	gap: var(--cr-space-2);
+	color: var(--cr-muted);
+	white-space: nowrap;
 }
 
 .savedlist {
