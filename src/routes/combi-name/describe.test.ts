@@ -18,7 +18,7 @@ const t = (id: string, min = 0, max = min): TreasurePick =>
 	treasurePick(id, levelRange(min, max));
 
 const base: Combi = {
-	goal: "score",
+	goals: ["score"],
 	mode: "manual",
 	episode: "episode3",
 	floor: null,
@@ -74,7 +74,9 @@ test("no auto verdict for a run played by hand", () => {
 });
 
 test("a full auto combi gets a verdict with no reasons", () => {
-	expect(describeCombi({ ...base, goal: "money", mode: "auto" }).auto).toEqual({
+	expect(
+		describeCombi({ ...base, goals: ["money"], mode: "auto" }).auto,
+	).toEqual({
 		semi: false,
 		reasons: [],
 	});
@@ -83,7 +85,7 @@ test("a full auto combi gets a verdict with no reasons", () => {
 test("a semi-auto verdict names every reason it needs manual work", () => {
 	const { auto } = describeCombi({
 		...base,
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		boosts: ["hpExtension", "fastStart"],
 		randomBoost: "revive",
@@ -182,7 +184,7 @@ test("each treasure reads with its level, +0 included", () => {
 // three the combi carries.
 test("the build verdict names the relay as what forces the work", () => {
 	const auto: Combi = {
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		episode: "any",
 		floor: null,
@@ -214,7 +216,7 @@ test("a treasure's runs read with commas, so 'or' only separates treasures", () 
 test("a relay on an episode with no relay slot is no reason", () => {
 	const auto: Combi = {
 		...base,
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		episode: "special1",
 	};
@@ -230,7 +232,7 @@ test("a manual run has no verdict even with a relay", () => {
 		describeBuild({
 			loadout: { ...emptyLoadout(), relay: "0P" },
 			combi: {
-				goal: "score",
+				goals: ["score"],
 				mode: "manual",
 				episode: "any",
 				floor: null,
@@ -244,7 +246,7 @@ test("a manual run has no verdict even with a relay", () => {
 });
 
 test("a run reads as its mode, goal and episode, the tower adding its floor", () => {
-	const auto: Combi = { ...base, mode: "auto", goal: "money" };
+	const auto: Combi = { ...base, mode: "auto", goals: ["money"] };
 	expect(describeRun({ loadout: emptyLoadout(), combi: auto })).toEqual([
 		"Auto",
 		"Money",
@@ -256,7 +258,7 @@ test("a run reads as its mode, goal and episode, the tower adding its floor", ()
 	expect(
 		describeRun({
 			loadout: emptyLoadout(),
-			combi: { ...auto, goal: "any", episode: "special2", floor: 40 },
+			combi: { ...auto, goals: [], episode: "special2", floor: 40 },
 		}),
 	).toEqual(["Auto", "Any goal", "S.EP. 2", "Floor 40"]);
 	expect(
@@ -271,4 +273,21 @@ test("a run reads as its mode, goal and episode, the tower adding its floor", ()
 			combi: { ...base, episode: "specialExp" },
 		})[2],
 	).toBe("S.EP. Exp");
+	expect(
+		describeRun({
+			loadout: emptyLoadout(),
+			combi: { ...auto, goals: ["exp", "money"] },
+		})[1],
+	).toBe("Money + Exp");
+});
+
+test("a run aiming for several goals names them all, in table order", () => {
+	expect(describeCombi({ ...base, goals: ["box", "score"] }).rows[0]).toEqual({
+		field: "Goal",
+		value: "Score + Box",
+	});
+	expect(describeCombi({ ...base, mode: "auto", goals: [] }).rows[0]).toEqual({
+		field: "Goal",
+		value: "Any goal",
+	});
 });

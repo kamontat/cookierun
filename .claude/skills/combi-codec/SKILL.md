@@ -7,7 +7,7 @@ description: Use when touching src/routes/combi-name/ — the codec, its charact
 
 The character tables at the top of `src/routes/combi-name/codec.ts` are the single source of truth, and everything else derives from them:
 
-- `GOAL_CHARS`, `MODE_CHARS`, `EPISODE_CHARS`, `BOOST_SLOT`, `RANDOM_BOOST_CHARS`, `COOKIE_POWER_SLOTS`, `ACTION_CHARS` define both the encoding and the set of valid values. Every character is meant to be read: a letter from the name of what it holds, a digit where the value is a number, `0` for off. The two multi-select fields are `SetSlot`s: one slot holds any set of a few members, a lone member is its own letter, and each combination of two or more takes a running character from `combos` (digits first, so a digit reads as "more than one"). Boosts are one such slot; cookie power+ is three, one per group of the seven powers.
+- `GOAL_SLOT`, `MODE_CHARS`, `EPISODE_CHARS`, `BOOST_SLOT`, `RANDOM_BOOST_CHARS`, `COOKIE_POWER_SLOTS`, `ACTION_CHARS` define both the encoding and the set of valid values. Every character is meant to be read: a letter from the name of what it holds, a digit where the value is a number, `0` for off. The three multi-select fields are `SetSlot`s: one slot holds any set of a few members, a lone member is its own letter, and each combination of two or more takes a running character from `combos` (digits first, so a digit reads as "more than one"). Goals are one such slot (`Combi.goals`, empty for Any), and so are boosts; cookie power+ is three, one per group of the seven powers.
 - `ALL_GOALS`, `ALL_MODES`, `ALL_EPISODES`, `ALL_BOOSTS`, `ALL_RANDOM_BOOSTS`, `ALL_COOKIE_POWERS`, and `ALL_ACTIONS` are computed from those tables — never hand-maintain a parallel list.
 - `EPISODE_LIMITS` / `limitsOf` say what an episode lets a run carry: Special Episodes 1 and 2 and the Special Exp Episode take no boosts, random boost, cookie power+ or relay; the Exp episode no treasures either; Special Episode 2 alone has a floor. `normalize` drops what an episode (or a manual run's action) has no room for; `encode` always writes through it, `decode` applies it and warns about what it dropped. The relay and treasures are the loadout's, so `fitLoadout` in `full-code.ts` drops those, with `loadoutWarnings` beside it.
 - `src/routes/combi-name/labels.ts` maps every value to a display name. A test asserts key-for-key parity with the `ALL_*` arrays, so a new value cannot ship unlabeled. No error or warning the codec raises quotes a display name, so every name lives here, boosts included.
@@ -20,21 +20,25 @@ To add an episode or cookie power: add it to its character table, its label tabl
 
 ## Ordering is part of the wire format
 
-`Object.keys` order determines the `ALL_*` order for the character tables, and the `members` order of `BOOST_SLOT` and `COOKIE_POWER_SLOTS` determines `ALL_BOOSTS` and `ALL_COOKIE_POWERS`. A character is written out per value, never derived from position, so reordering a `*_CHARS` table moves the chips on the page without changing what a character means — except for a `SetSlot`, whose `combos` keys spell each set in `members` order, so reordering members breaks every combination key; and which group a power sits in decides which slot it is written to. Changing a character moves the wire format. If the slot layout or a character mapping has to change, bump `VERSION` in `src/routes/combi-name/codec.ts` — `decode` rejects any other version outright. (`VERSION` is still `1` after the move to goal + mode slots and lettered boosts and powers: the owner chose a breaking change over a bump.)
+`Object.keys` order determines the `ALL_*` order for the character tables, and the `members` order of `GOAL_SLOT`, `BOOST_SLOT` and `COOKIE_POWER_SLOTS` determines `ALL_GOALS`, `ALL_BOOSTS` and `ALL_COOKIE_POWERS`. A character is written out per value, never derived from position, so reordering a `*_CHARS` table moves the chips on the page without changing what a character means — except for a `SetSlot`, whose `combos` keys spell each set in `members` order, so reordering members breaks every combination key; and which group a power sits in decides which slot it is written to. Changing a character moves the wire format. If the slot layout or a character mapping has to change, bump `VERSION` in `src/routes/combi-name/codec.ts` — `decode` rejects any other version outright. (`VERSION` is still `1` after the move to goal + mode slots and lettered boosts and powers: the owner chose a breaking change over a bump. Goals becoming a set needed no bump at all: a lone goal kept its letter and Any its `0`, so only characters no code had used were added.)
 
 The layout: 1 version, 2 mode, 3 goal, 4 episode, 5 boost set, 6 random boost, 7-9 cookie power+ (one set slot per group: Cheerleader/Special Force/Fairy, Cheesecake/Sea Fairy, Serenade of Love/EXP Party), 10 action. On Special Episode 2 slots 5-7 are the floor instead, `000` for any and `001`-`100`, and slots 8-9 must be `00`; `decode` reads slots 5-9 by the episode in slot 4.
 
-The form end of that guarantee is `<card-group>`'s `selected` getter: it filters the element's own `options` rather than reading DOM order, which is what keeps boosts and cookie powers in table order.
+The form end of that guarantee is `<card-group>`'s `selected` getter, and `<chip-group multiple>`'s `values` getter for the goals: each filters the element's own `options` rather than reading click order, which is what keeps goals, boosts and cookie powers in table order.
 
 ## Semi-auto is derived, and the page says so by not offering it
 
 `ALL_MODES` carries `semiauto` and `MODE_CHARS` maps it to `H`, because a code
 carrying `H` has to decode — but the page's mode chips are `ALL_MODES` minus
-that one. A manual run is `0` and is never touched by this rule. An auto run is
-offered Any, Money, Exp and Box (`AUTO_GOALS`) and a manual one Score, Money,
-Exp and Box (`MANUAL_GOALS`). Any (`0`) is an auto run that specialises in
-nothing. A code saying Score beside `A` or `H`, or Any beside a manual `0`,
-decodes with a warning. Semi-auto is what `normalizeMode` makes of an auto run when Fast
+that one. A manual run is `0` and is never touched by this rule. Goals are a
+set: an auto run picks 1-3 of Money, Exp and Box (`AUTO_GOALS`) and a manual
+one 1-4 of Score, Money, Exp and Box (`MANUAL_GOALS`); the last goal on cannot
+be clicked off. Any (`0`, an empty set) is an auto run that specialises in
+nothing — no longer offered, but a code that says it still decodes and shows
+as a goal row with no chip on. Switching to auto drops Score and falls to Money
+if nothing is left; a manual run left with nothing lands on Score. A code
+saying Score beside `A` or `H`, alone or among others, or Any beside a manual
+`0`, decodes with a warning. Semi-auto is what `normalizeMode` makes of an auto run when Fast
 Start, a random boost, a jump action or a relay cookie is in play, so a chip for
 it could only disagree with the code those produce. `writeForm` lands a decoded
 `semiauto` on the Auto chip, and the chip's own label follows the build: the
@@ -62,7 +66,7 @@ The separators are chosen for word-wise selection (double-click, Option+Shift+Ar
 
 ## The exhaustive test
 
-`src/routes/combi-name/exhaustive.test.ts` round-trips all 6,638,610 combinations a code can carry — what an episode has no room for is not varied there — and asserts encoding yields exactly 3,319,305 distinct codes (the auto/semi-auto character is derived, so the auto family collapses, and a manual run drops its action). Both numbers are hardcoded; changing the configuration space means recomputing them, and a mismatch usually means a table changed size rather than that the test is stale. Both tests also carry an explicit 120s timeout: their runtime is the size of the format, and the 5s Bun allows by default was already tight on a CI runner at half this space.
+`src/routes/combi-name/exhaustive.test.ts` round-trips all 21,243,552 combinations a code can carry — what an episode has no room for is not varied there — and asserts encoding yields exactly 10,621,776 distinct codes (the auto/semi-auto character is derived, so the auto family collapses, and a manual run drops its action). Both numbers are hardcoded; changing the configuration space means recomputing them, and a mismatch usually means a table changed size rather than that the test is stale. Both tests also carry an explicit 300s timeout: their runtime is the size of the format — about 50s each on a laptop since goals became a set and tripled the space — and the 5s Bun allows by default was already tight on a CI runner at a sixth of it.
 
 It covers the combi section only. A loadout's alternative treasure slots make its space open-ended rather than a fixed count to enumerate, so the loadout is instead covered by a seeded round-trip sample in `full-code.test.ts` — encode 2,000 random loadouts, decode each back, and check the result re-encodes to the same code.
 

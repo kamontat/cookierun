@@ -551,6 +551,21 @@ test("a run's facets are the mode, goal and episode its row reads as", () => {
 	expect(runFacets("NOT A CODE")).toBeNull();
 });
 
+// A run aiming for several goals is one of each of them: filtering on Exp
+// keeps it, and the goal filter offers each goal once, never the pair.
+test("a run aiming for several goals matches and offers each of them", () => {
+	const runs: readonly SavedCode[] = [
+		...RUNS,
+		{ code: "1063000000", description: "", savedAt: 0 },
+	];
+
+	expect(codes(filterSaved(runs, { ...NO_FILTER, goal: "Exp" }))).toEqual([
+		"1AE0000000",
+		"1063000000",
+	]);
+	expect(facetValues(runs, "goal")).toEqual(["Box", "Exp", "Money"]);
+});
+
 test("no filter keeps every entry", () => {
 	expect(isFiltering(NO_FILTER)).toBe(false);
 	expect(codes(filterSaved(RUNS, NO_FILTER))).toEqual(codes(RUNS));

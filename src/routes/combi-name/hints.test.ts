@@ -27,6 +27,11 @@ test("each slot names its number, its field and what it currently says", () => {
 	expect(episode).toBe("Slot 4 · Episode · Episode 3");
 });
 
+test("the goal slot names every goal the run aims for", () => {
+	expect(hints("1A40000000")[2]).toBe("Slot 3 · Goal · Money + Exp");
+	expect(hints("1A00000000")[2]).toBe("Slot 3 · Goal · Any goal");
+});
+
 test("the boost slot names every boost that is on", () => {
 	expect(hints("1HE34R000J")[4]).toBe(
 		"Slot 5 · Boosts · Power Jelly Boost, Fast Start",

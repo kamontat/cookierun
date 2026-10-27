@@ -19,7 +19,7 @@ const t = (id: string, min = 0, max = min): TreasurePick =>
 	treasurePick(id, levelRange(min, max));
 
 const combi: Combi = {
-	goal: "score",
+	goals: ["score"],
 	mode: "manual",
 	episode: "any",
 	floor: null,
@@ -51,7 +51,7 @@ test("a bare code decodes with an empty loadout and the same combi", () => {
 	const { full, warnings } = decodeFull("1HE34R000J");
 
 	expect(full.loadout).toEqual(emptyLoadout());
-	expect(full.combi.goal).toBe("exp");
+	expect(full.combi.goals).toEqual(["exp"]);
 	expect(full.combi.boosts).toEqual(["powerJellyBoost", "fastStart"]);
 	expect(full.combi.randomBoost).toBe("revive");
 	expect(full.combi.action).toBe("jumpAtStart");
@@ -164,7 +164,7 @@ test("a seeded sample of loadouts round-trips to its canonical form", () => {
 // itself through — and the ten characters someone pastes into the game say so.
 test("a relay writes Semi-auto into slot 3", () => {
 	const auto: Combi = {
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		episode: "any",
 		floor: null,
@@ -185,7 +185,7 @@ test("a relay writes Semi-auto into slot 3", () => {
 
 test("a build is semi-auto when the loadout carries a relay", () => {
 	const auto: Combi = {
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		episode: "any",
 		floor: null,
@@ -208,7 +208,7 @@ test("a build is semi-auto when the loadout carries a relay", () => {
 // says a relay gets swapped in by hand. Only no relay at all leaves it auto.
 test("an Any relay is a relay, for slot 3 and for the verdict", () => {
 	const auto: Combi = {
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		episode: "any",
 		floor: null,
@@ -251,7 +251,7 @@ test("a relayed code saying Semi-auto draws no warning", () => {
 
 const special = (episode: Combi["episode"]): Combi => ({
 	...combi,
-	goal: "money",
+	goals: ["money"],
 	mode: "auto",
 	episode,
 });

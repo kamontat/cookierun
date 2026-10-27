@@ -12,14 +12,13 @@ import type { SummaryItem, SummaryRow } from "#components/build-summary";
 import { boostArt, cookiePowerArt, episodeArt } from "./art";
 import { type CatalogSection, imageFor, kindFor, labelFor } from "./catalog";
 import { limitsOf } from "./codec";
-import { describeBuild, floorText } from "./describe";
+import { describeBuild, floorText, goalsText } from "./describe";
 import type { FullCode } from "./full-code";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
 	COOKIE_POWER_LABELS,
 	EPISODE_LABELS,
-	GOAL_LABELS,
 	MODE_LABELS,
 	RANDOM_BOOST_LABELS,
 } from "./labels";
@@ -102,12 +101,12 @@ function modePill(full: FullCode): SummaryItem {
 }
 
 /**
- * The goal's word, with "Any" saying what it is any of: a control sits under a
- * heading that names it, but a summary line puts a goal and an episode side by
- * side, and two bare "Any"s there read as nothing.
+ * The goals' words, with "Any" saying what it is any of: a control sits under
+ * a heading that names it, but a summary line puts a goal and an episode side
+ * by side, and two bare "Any"s there read as nothing.
  */
 function goalText({ combi }: FullCode): string {
-	return combi.goal === "any" ? "Any goal" : GOAL_LABELS[combi.goal];
+	return goalsText(combi.goals);
 }
 
 function episodeText({ combi }: FullCode): string {

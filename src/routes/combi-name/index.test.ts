@@ -84,6 +84,18 @@ function isOn(hostId: string, value: string): boolean {
 	);
 }
 
+/**
+ * Sets the goal row to exactly one goal: the row is a set now, so a click adds
+ * to it, and a test that means "aim for Money" has to take the others off.
+ */
+async function onlyGoal(value: string): Promise<void> {
+	if (!isOn("goal", value)) await choose("goal", value);
+	const others = [
+		...inside(need("goal")).querySelectorAll<HTMLButtonElement>("button[role]"),
+	].filter((chip) => chip.value !== value && isOn("goal", chip.value));
+	for (const chip of others) await choose("goal", chip.value);
+}
+
 /** Types into the code bar the way someone pasting a code by hand would. */
 async function typeCode(text: string): Promise<void> {
 	(codeBar as HTMLElement & { editing: boolean }).editing = true;
@@ -180,21 +192,34 @@ test("the page opens on a valid code", async () => {
 	expect(await codeText()).toBe("10S0000000");
 });
 
-test("choosing a goal writes it into the code", async () => {
+// Goals are a set: a click adds one, and the code holds the pair in slot 3.
+test("choosing a goal adds it to the run's goals", async () => {
 	await choose("goal", "money");
 
+	expect(await codeText()).toBe("1010000000");
+	expect(isOn("goal", "score")).toBe(true);
+	expect(isOn("goal", "money")).toBe(true);
+
+	await choose("goal", "score");
 	expect(await codeText()).toBe("10M0000000");
+	await reset();
+});
+
+test("a manual run can aim for all four goals", async () => {
+	for (const goal of ["money", "exp", "box"]) await choose("goal", goal);
+
+	expect(await codeText()).toBe("10A0000000");
 	await reset();
 });
 
 test("a boost card writes its set and rewrites the mode slot to semi-auto", async () => {
 	await choose("mode", "auto");
-	// Score is played by hand, so an auto run falls to Any, its first goal.
-	expect(await codeText()).toBe("1A00000000");
+	// Score is played by hand, so an auto run falls to Money, its first goal.
+	expect(await codeText()).toBe("1AM0000000");
 
 	await choose("boosts", "fastStart");
 
-	expect(await codeText()).toBe("1H00F00000");
+	expect(await codeText()).toBe("1HM0F00000");
 	expect(verdict.textContent).toBe("Plays as semi-auto because of Fast Start.");
 	await reset();
 });
@@ -203,7 +228,7 @@ test("Double XP is its own letter and leaves the run on full auto", async () => 
 	await choose("mode", "auto");
 	await choose("boosts", "doubleXp");
 
-	expect(await codeText()).toBe("1A00X00000");
+	expect(await codeText()).toBe("1AM0X00000");
 	expect(verdict.textContent).toBe("Plays itself all the way: full auto.");
 	expect(isOn("boosts", "doubleXp")).toBe(true);
 	await reset();
@@ -252,21 +277,20 @@ test("the random boost chips write slot 6 and None puts it back to 0", async () 
 test("clicking the chosen action puts it back to no action", async () => {
 	await choose("mode", "auto");
 	await choose("action", "jumpAtStart");
-	expect(await codeText()).toBe("1H0000000J");
+	expect(await codeText()).toBe("1HM000000J");
 
 	await choose("action", "jumpAtStart");
 
-	expect(await codeText()).toBe("1A00000000");
+	expect(await codeText()).toBe("1AM0000000");
 	await reset();
 });
 
-// A goal is always something, so the row that holds them does not reset.
-test("clicking the chosen goal leaves it chosen", async () => {
-	await choose("goal", "money");
-	await choose("goal", "money");
+// A run always aims for something, so the last goal on cannot be clicked off.
+test("clicking the only chosen goal leaves it chosen", async () => {
+	await choose("goal", "score");
 
-	expect(await codeText()).toBe("10M0000000");
-	await reset();
+	expect(await codeText()).toBe("10S0000000");
+	expect(isOn("goal", "score")).toBe(true);
 });
 
 // The summary is drawn from the code the page just wrote, and a row of it
@@ -333,7 +357,7 @@ test("picking Any on the cookie, relay and pet writes it into the code", async (
 	await choose("pet", "__");
 
 	// The relay writes Semi-auto into slot 3 whichever cookie fills it.
-	expect(await codeText()).toBe("1C__R__P__-1H00000000");
+	expect(await codeText()).toBe("1C__R__P__-1HM0000000");
 	expect(roleCard("cookie").textContent).toContain("Any cookie");
 	expect(roleCard("pet").textContent).toContain("Any pet");
 	await reset();
@@ -385,7 +409,7 @@ test("typing progress is held while the editor is open and let go when it closes
 });
 
 test("an unfinished code leaves the controls where they were", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	await typeCode("1E3H");
 
 	expect(isOn("goal", "money")).toBe(true);
@@ -415,7 +439,7 @@ test("closing the editor on an unreadable code takes its error down", async () =
 });
 
 test("an unreadable code leaves the controls where they were", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	await typeCode("10Q0000000");
 
 	expect(isOn("goal", "money")).toBe(true);
@@ -447,7 +471,7 @@ test("a decode warning clears on the next build change", async () => {
 	await closeEditor();
 	expect(notice().type).toBe("warn");
 
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 
 	expect(notice().type).toBe(null);
 	await reset();
@@ -478,14 +502,14 @@ test("a message from the last code goes away once a control moves", async () => 
 	await settle();
 	expect(notice().type).not.toBe(null);
 
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 
 	expect(notice().type).toBe(null);
 	await reset();
 });
 
 test("pasting something that is not a code is left to the browser", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	const event = new Event("paste", { bubbles: true, cancelable: true });
 	Object.defineProperty(event, "clipboardData", {
 		value: { getData: () => "hello there" },
@@ -513,7 +537,7 @@ test("clicking a run of the code moves focus to the control that writes it", asy
 });
 
 test("reset goes back to the code the page opened on", async () => {
-	await choose("goal", "box");
+	await onlyGoal("box");
 	await choose("boosts", "fastStart");
 
 	await reset();
@@ -523,7 +547,7 @@ test("reset goes back to the code the page opened on", async () => {
 });
 
 test("the code is remembered for the next visit", async () => {
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 
 	expect(localStorage.getItem("combi-name:code")).toBe("10E0000000");
 	await reset();
@@ -543,7 +567,7 @@ test("a code arriving in the address bar loads without a reload", async () => {
 });
 
 test("a hash the page cannot read leaves the build alone", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	location.hash = "#not-a-code";
 	window.dispatchEvent(new Event("hashchange"));
 	await settle();
@@ -666,7 +690,7 @@ test("Copy code copies the ten characters the game takes, not the loadout", asyn
 });
 
 test("Copy code in the menu copies the code itself and says so", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	let written = "";
 	await withClipboard(
 		(text) => {
@@ -829,7 +853,7 @@ test("opening the editor takes the page's buttons off the panel", async () => {
 // however the rest of the build reads — and the code says so in slot 2.
 test("a relay turns an auto build semi-auto, code and all", async () => {
 	await choose("mode", "auto");
-	expect(await codeText()).toBe("1A00000000");
+	expect(await codeText()).toBe("1AM0000000");
 
 	await typeCode("1R0P-1AM0000000");
 
@@ -977,13 +1001,40 @@ test("a manual run takes the action off the board", async () => {
 	await reset();
 });
 
-test("an auto run is offered Any instead of Score", async () => {
+test("an auto run is offered Money, Exp and Box, and keeps what it can", async () => {
 	expect(() => control("goal", "score")).not.toThrow();
 	expect(() => control("goal", "any")).toThrow();
 
+	await choose("goal", "exp");
 	await choose("mode", "auto");
 	expect(() => control("goal", "score")).toThrow();
-	expect(isOn("goal", "any")).toBe(true);
+	expect(() => control("goal", "any")).toThrow();
+	expect(await codeText()).toBe("1AE0000000");
+
+	await choose("goal", "money");
+	await choose("goal", "box");
+	expect(await codeText()).toBe("1AC0000000");
+	await reset();
+});
+
+// A code written before goals were a set can still say Any on an auto run: it
+// reads as itself, a row with no goal on, rather than being rewritten.
+test("an auto code aiming for Any keeps it, with no goal chip on", async () => {
+	await typeCode("1A00000000");
+
+	expect(await codeText()).toBe("1A00000000");
+	for (const goal of ["money", "exp", "box"]) {
+		expect(isOn("goal", goal)).toBe(false);
+	}
+	await reset();
+});
+
+test("typing a code with several goals turns each one on", async () => {
+	await typeCode("1060000000");
+
+	expect(isOn("goal", "score")).toBe(false);
+	expect(isOn("goal", "exp")).toBe(true);
+	expect(isOn("goal", "box")).toBe(true);
 	await reset();
 });
 
@@ -1226,7 +1277,7 @@ test("the summary follows the code", async () => {
 	await settle();
 	expect(runRow()).toContain("Score");
 
-	await choose("goal", "money");
+	await onlyGoal("money");
 
 	expect(runRow()).toContain("Money");
 	await reset();
@@ -1282,7 +1333,7 @@ test("exporting or importing nothing is a warning, not an error", async () => {
 // note through its form attribute.
 test("the save button in the code panel submits the note", async () => {
 	expect(need("saved-empty").hidden).toBe(false);
-	await choose("goal", "money");
+	await onlyGoal("money");
 
 	await saveCurrent("Coin farm\nuse Fairy");
 
@@ -1577,7 +1628,7 @@ test("Save as new sits beside Update in the code panel, outside the menu", async
 
 	savedButtonFor("10M0000000", "load").click();
 	await settle();
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 	expect(saveNew.hidden).toBe(false);
 
 	// It hides behind its own click, since the code is saved now, so focus
@@ -1654,7 +1705,7 @@ function savedCodes(): string[] {
 }
 
 test("Update writes the board and the note into the loaded entry in place", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	await saveCurrent("Coin farm");
 	await reset();
 	await saveCurrent("Score run");
@@ -1668,7 +1719,7 @@ test("Update writes the board and the note into the loaded entry in place", asyn
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("Coin farm");
 	expect(savedRows()[1]?.hasAttribute("data-editing")).toBe(true);
 
-	await choose("goal", "box");
+	await onlyGoal("box");
 	const edited = await codeText();
 	await saveCurrent("Box farm");
 
@@ -1710,7 +1761,7 @@ test("saving as new while editing keeps the old entry and opens the new one", as
 	const [, edited = ""] = savedCodes();
 	savedButtonFor(edited, "load").click();
 	await settle();
-	await choose("goal", "money");
+	await onlyGoal("money");
 
 	need<HTMLTextAreaElement>("save-description").value = "Coin farm";
 	need<HTMLButtonElement>("save-new").click();
@@ -1733,7 +1784,7 @@ test("New shows only while the code on screen is not saved yet", async () => {
 	expect(need("save-new").hidden).toBe(true);
 	expect(need("save-cancel").hidden).toBe(false);
 
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 	expect(savedCodes()).not.toContain(await codeText());
 	expect(need("save-new").hidden).toBe(false);
 
@@ -2042,7 +2093,7 @@ test("Clear hands focus to the role card it emptied", async () => {
 // them out again on every click.
 test("the verdict is rewritten only when its words change", async () => {
 	await choose("mode", "auto");
-	await choose("goal", "money");
+	await onlyGoal("money");
 	expect(verdict.textContent).not.toBe("");
 	let writes = 0;
 	const watcher = new MutationObserver((records) => {
@@ -2053,7 +2104,7 @@ test("the verdict is rewritten only when its words change", async () => {
 		characterData: true,
 		subtree: true,
 	});
-	await choose("goal", "box");
+	await onlyGoal("box");
 	await settle();
 	watcher.disconnect();
 
@@ -2111,7 +2162,7 @@ function fillStats(stats: Record<string, string>): void {
 }
 
 test("the note takes run stats, and the saved row shows them", async () => {
-	await choose("goal", "box");
+	await onlyGoal("box");
 	const code = await codeText();
 	fillStats({ money: "12000-15000", exp: "300", boxes: "2-3", time: "245" });
 	await saveCurrent("Box farm");
@@ -2153,7 +2204,7 @@ test("the note takes a score, first of the stats", async () => {
 		"stat-time",
 	]);
 
-	await choose("goal", "score");
+	await onlyGoal("score");
 	const code = await codeText();
 	fillStats({ score: "1200000-1500000", money: "100" });
 	await saveCurrent("High score");
@@ -2173,7 +2224,7 @@ test("a saved row reads as its run rather than its code", () => {
 });
 
 test("a saved row reads run, stats, then note, and a blank note takes no line", async () => {
-	await choose("goal", "box");
+	await onlyGoal("box");
 	const code = await codeText();
 	fillStats({ money: "100" });
 	await saveCurrent("Box run");
@@ -2199,7 +2250,7 @@ test("a row with no stats shows no stats line", () => {
 
 test("a stat that does not read stops the save and says why", async () => {
 	const before = savedCodes();
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 	fillStats({ boxes: "9" });
 	await saveCurrent("Exp farm");
 
@@ -2449,10 +2500,10 @@ test("Filter by narrows the drawer's rows by a search and the run's mode, goal a
 // first, on the page rather than through a dialog the browser draws.
 test("Delete all asks first, then empties the list and closes the open entry", async () => {
 	await reset();
-	await choose("goal", "box");
+	await onlyGoal("box");
 	await saveCurrent("Box run");
 	await reset();
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 	await saveCurrent("Exp run");
 	const count = savedCodes().length;
 	expect(count).toBeGreaterThan(1);

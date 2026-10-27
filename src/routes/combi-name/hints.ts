@@ -10,14 +10,13 @@
  */
 
 import { CODE_LENGTH, type Combi, limitsOf } from "./codec";
-import { describeLoadout, floorText, NOT_USED } from "./describe";
+import { describeLoadout, floorText, goalsText, NOT_USED } from "./describe";
 import { combiSectionOf, decodeFull, SECTION_SEPARATOR } from "./full-code";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
 	COOKIE_POWER_LABELS,
 	EPISODE_LABELS,
-	GOAL_LABELS,
 	MODE_LABELS,
 	RANDOM_BOOST_LABELS,
 } from "./labels";
@@ -112,7 +111,7 @@ function spansOfCombi(combi: Combi): Span[] {
 	return [
 		span(1, "version", "Slot 1 · Format version"),
 		span(1, "mode", "Slot 2 · Mode", MODE_LABELS[combi.mode]),
-		span(1, "goal", "Slot 3 · Goal", GOAL_LABELS[combi.goal]),
+		span(1, "goal", "Slot 3 · Goal", goalsText(combi.goals)),
 		span(1, "episode", "Slot 4 · Episode", EPISODE_LABELS[combi.episode]),
 		...carriedSpans(combi),
 		span(1, "action", "Slot 10 · Action", ACTION_LABELS[combi.action]),

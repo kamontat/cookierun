@@ -1,8 +1,9 @@
 /**
- * What a run aims for. `any` is an auto run that specialises in nothing; a run
- * played by hand always aims for something.
+ * What a run aims for. A run aims for a set of these; an empty set is an auto
+ * run that specialises in nothing, while a run played by hand always aims for
+ * something.
  */
-export type Goal = "any" | "score" | "money" | "exp" | "box";
+export type Goal = "score" | "money" | "exp" | "box";
 
 /**
  * Who plays the run. Semi-auto is never picked: it is what an auto run becomes
@@ -55,7 +56,8 @@ export type CookiePower =
 export type Action = "none" | "jumpAtStart";
 
 export type Combi = {
-	goal: Goal;
+	/** In `ALL_GOALS` order once normalized. Empty is Any. */
+	goals: Goal[];
 	mode: Mode;
 	episode: Episode;
 	/** The tower floor, on Special Episode 2 only. Null is any floor. */
@@ -67,15 +69,6 @@ export type Combi = {
 };
 
 export const VERSION = "1";
-
-/** A letter from each goal's own name, and `0` for none in particular. */
-const GOAL_CHARS: Record<Goal, string> = {
-	any: "0",
-	score: "S",
-	money: "M",
-	exp: "E",
-	box: "B",
-};
 
 /**
  * Manual is `0` because it is auto switched off. Semi-auto is `H`, for a run
@@ -118,6 +111,35 @@ const EPISODE_CHARS: Record<Episode, string> = {
 type SetSlot<T extends string> = {
 	members: readonly { value: T; char: string }[];
 	combos: Readonly<Record<string, string>>;
+};
+
+/**
+ * Slot 3: every set of goals in one character. A single goal is a letter from
+ * its own name and none in particular is `0`, as they were before a run could
+ * aim for more than one; the pairs and triples run `1`-`9`, then `C`, since
+ * `B` is the box's, and all four are `A`, as all four boosts are. Member
+ * order is also `ALL_GOALS`' order.
+ */
+const GOAL_SLOT: SetSlot<Goal> = {
+	members: [
+		{ value: "score", char: "S" },
+		{ value: "money", char: "M" },
+		{ value: "exp", char: "E" },
+		{ value: "box", char: "B" },
+	],
+	combos: {
+		SM: "1",
+		SE: "2",
+		SB: "3",
+		ME: "4",
+		MB: "5",
+		EB: "6",
+		SME: "7",
+		SMB: "8",
+		SEB: "9",
+		MEB: "C",
+		SMEB: "A",
+	},
 };
 
 /**
@@ -228,7 +250,7 @@ const FLOOR_MAX = 100;
 const FLOOR_DIGITS = 3;
 
 // Derived from the tables above so the lists can never drift from the codes.
-export const ALL_GOALS = Object.keys(GOAL_CHARS) as Goal[];
+export const ALL_GOALS = GOAL_SLOT.members.map(({ value }) => value);
 export const ALL_MODES = Object.keys(MODE_CHARS) as Mode[];
 export const ALL_EPISODES = Object.keys(EPISODE_CHARS) as Episode[];
 export const ALL_BOOSTS = BOOST_SLOT.members.map(({ value }) => value);
@@ -240,11 +262,11 @@ export const ALL_COOKIE_POWERS = COOKIE_POWER_SLOTS.flatMap(({ members }) =>
 );
 export const ALL_ACTIONS = Object.keys(ACTION_CHARS) as Action[];
 
-/** The goals an auto run can aim for. Score is played by hand. */
-export const AUTO_GOALS: readonly Goal[] = ["any", "money", "exp", "box"];
+/** The goals an auto run can aim for, any 1-3 of them. Score is played by hand. */
+export const AUTO_GOALS: readonly Goal[] = ["money", "exp", "box"];
 
-/** The goals a run played by hand can aim for. Any is an auto run's. */
-export const MANUAL_GOALS: readonly Goal[] = ["score", "money", "exp", "box"];
+/** The goals a run played by hand can aim for, any 1-4 of them. */
+export const MANUAL_GOALS: readonly Goal[] = ALL_GOALS;
 
 /**
  * What an episode lets a run carry. `boosts` covers the boost slot, the random
@@ -286,7 +308,6 @@ function invert<K extends string>(table: Record<K, string>): Map<string, K> {
 	);
 }
 
-const GOAL_BY_CHAR = invert(GOAL_CHARS);
 const MODE_BY_CHAR = invert(MODE_CHARS);
 const EPISODE_BY_CHAR = invert(EPISODE_CHARS);
 const ACTION_BY_CHAR = invert(ACTION_CHARS);
@@ -329,6 +350,7 @@ function setCodec<T extends string>({
 	};
 }
 
+const GOAL_CODEC = setCodec(GOAL_SLOT);
 const BOOST_CODEC = setCodec(BOOST_SLOT);
 const COOKIE_POWER_CODECS = COOKIE_POWER_SLOTS.map(setCodec);
 
@@ -354,6 +376,7 @@ export function normalize(combi: Combi): Combi {
 	const limits = limitsOf(combi.episode);
 	return {
 		...combi,
+		goals: inOrder(ALL_GOALS, combi.goals),
 		floor: limits.floor ? combi.floor : null,
 		boosts: limits.boosts ? inOrder(ALL_BOOSTS, combi.boosts) : [],
 		randomBoost: limits.boosts ? combi.randomBoost : null,
@@ -407,7 +430,7 @@ export function encode(combi: Combi, forcedSemiAuto = false): string {
 	return [
 		VERSION,
 		MODE_CHARS[normalizeMode(canonical, forcedSemiAuto)],
-		GOAL_CHARS[canonical.goal],
+		GOAL_CODEC.encode(canonical.goals),
 		EPISODE_CHARS[canonical.episode],
 		encodeCarried(canonical),
 		ACTION_CHARS[canonical.action],
@@ -477,7 +500,7 @@ export function decode(code: string, forcedSemiAuto = false): DecodeResult {
 	const hasFloor = limitsOf(episode).floor;
 
 	const written: Combi = {
-		goal: lookup(GOAL_BY_CHAR, code[AT.goal] as string, "3 (goal)"),
+		goals: lookup(GOAL_CODEC.decode, code[AT.goal] as string, "3 (goal)"),
 		mode: lookup(MODE_BY_CHAR, code[AT.mode] as string, "2 (mode)"),
 		episode,
 		floor: hasFloor ? decodeFloor(code) : null,
@@ -533,14 +556,14 @@ function droppedWarnings(combi: Combi): string[] {
 
 function goalWarnings(combi: Combi): string[] {
 	if (combi.mode === "manual") {
-		if (MANUAL_GOALS.includes(combi.goal)) return [];
+		if (combi.goals.length > 0) return [];
 		return [
 			"slot 3 says Any but a run played by hand aims for Score, Money, Exp, or Box",
 		];
 	}
-	if (AUTO_GOALS.includes(combi.goal)) return [];
+	if (combi.goals.every((goal) => AUTO_GOALS.includes(goal))) return [];
 	return [
-		"slot 3 says Score but an auto run aims for Any, Money, Exp, or Box — Score is played by hand",
+		"slot 3 says Score but an auto run aims for Money, Exp, or Box — Score is played by hand",
 	];
 }
 

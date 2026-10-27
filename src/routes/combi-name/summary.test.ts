@@ -20,7 +20,7 @@ const [TA = "", TB = "", TC = ""] = Object.keys(index.treasures);
 
 function combi(overrides: Partial<Combi> = {}): Combi {
 	return {
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		episode: "episode3",
 		floor: null,
@@ -153,6 +153,13 @@ test("the Run row names what Any stands for", () => {
 	const { items } = row(summaryOf(full, BASE).rows, "Run");
 
 	expect(texts(items)).toEqual(["Auto", "Any goal", "Any episode"]);
+});
+
+test("the Run row names every goal the run aims for", () => {
+	const { full } = decodeFull("1AC0000000");
+	const { items } = row(summaryOf(full, BASE).rows, "Run");
+
+	expect(texts(items)).toEqual(["Auto", "Money + Exp + Box", "Any episode"]);
 });
 
 test("Cookies reads cookie → relay · pet as faces, named only in their titles", () => {

@@ -17,7 +17,7 @@ SE2:   1  A  E  T  0  4  2 0 0  0
 | --- | --- | --- |
 | 1 | Format version | `1` |
 | 2 | Mode | `0` Manual, `A` Auto, `H` Semi-auto |
-| 3 | Goal | `S` Score, `M` Money, `E` Exp, `B` Box, `0` Any (auto only) |
+| 3 | Goal | One character for the whole set of goals, below |
 | 4 | Episode | `0` Any, `1`-`7` Episode 1-7, `C` Special Episode 1 (Island of Coins), `T` Special Episode 2 (Tower of Frozen Waves), `R` Special Episode 3 (Mysterious Rabbit Hole), `X` Special Exp Episode (XP-Elixir Workshop) |
 | 5 | Boosts | One character for the whole set, below |
 | 6 | Random boost | `0` none, otherwise one of the eleven below |
@@ -26,7 +26,22 @@ SE2:   1  A  E  T  0  4  2 0 0  0
 
 `0` means off or none in every slot. The combi name is letters and digits only: the game field takes it as is, and a `-` inside it would read as the section separator below.
 
-An auto run aims for Money, Exp, or Box, or for nothing in particular — Any, `0`; Score is played by hand. A code that says Score beside `A` or `H`, or Any beside a manual `0`, still decodes, with a warning. A manual run has no starting action: a `J` beside a manual `0` is dropped, with a warning.
+A manual run has no starting action: a `J` beside a manual `0` is dropped, with a warning.
+
+### Goals (slot 3)
+
+A run aims for one or more goals: a manual run any 1-4 of Score, Money, Exp and Box, an auto run any 1-3 of Money, Exp and Box — Score is played by hand. Each set has a fixed character. A single goal is its own letter, as it was before a run could aim for more than one, so every older code still reads the same; the pairs and triples run in order, digits first, then `C`, since `B` is the box's, and all four is `A`:
+
+| Char | Goals | Char | Goals | Char | Goals |
+| --- | --- | --- | --- | --- | --- |
+| `0` | Any (auto only) | `1` | Score + Money | `7` | Score + Money + Exp |
+| `S` | Score | `2` | Score + Exp | `8` | Score + Money + Box |
+| `M` | Money | `3` | Score + Box | `9` | Score + Exp + Box |
+| `E` | Exp | `4` | Money + Exp | `C` | Money + Exp + Box |
+| `B` | Box | `5` | Money + Box | `A` | all four |
+| | | `6` | Exp + Box | | |
+
+Any, `0`, is an auto run that aims for nothing in particular. The page no longer offers it, but a code that says it still reads as itself. A code that says Score beside `A` or `H`, alone or among others, or Any beside a manual `0`, still decodes, with a warning.
 
 ### Boosts (slot 5)
 
@@ -145,6 +160,7 @@ Slot 2 stores `A` or `H` for readability, but those four reasons are the authori
 ```
 1AM3H00000    full auto, money (HP Extension only)
 1A03H00000    full auto, no goal in particular
+1AC3H00000    full auto, money + exp + box
 1HM32R0000    semi-auto (HP Extension + Fast Start, Revive)
 1HE3H0000J    semi-auto (jump only)
 1AB3300000    full auto, box (HP Extension + Double XP)
@@ -157,7 +173,7 @@ Slot 2 stores `A` or `H` for readability, but those four reasons are the authori
 import { encode, decode, isSemiAuto } from "./src/routes/combi-name/codec";
 
 encode({
-  goal: "score",
+  goals: ["score"],
   mode: "manual",
   episode: "any",
   floor: null,
@@ -190,7 +206,7 @@ Under the note sits the summary: a read-only digest of the build, one row per ta
 
 Below the summary, a row of tabs replaces the old board: **Main**, **Cookies**, **Treasures**, and **Boosts**, each with a badge counting what it holds. A tab the episode has no room for — Treasures on the Special Exp Episode, Boosts on any of the three special episodes — is disabled and says why in its title, and the page shows Main in its place; picking an episode that has room for the stored tab brings it back.
 
-**Main** holds mode and goal chip rows, with the auto/semi-auto verdict sentence under them, the episode, the tower's floor, and the starting action. An auto run is offered Any, Money, Exp, and Box, and a manual one Score, Money, Exp, and Box. There is no Semi-auto chip — pick **Auto**, and the build turns semi-auto by itself the moment Fast Start, a random boost, a jump action or a relay cookie is in play, which is what the format says anyway; the chip itself then reads Semi-auto, and the verdict and the summary's Run row say so too. The episode is an inline grid of its twelve cards, short enough to show whole without a filter box; its own none is **Any**. A field the episode has no room for keeps its heading and says so in place of its control, and switching back brings back what it held. Action opens with a none of its own, and clicking the chip you already picked goes back to it.
+**Main** holds mode and goal chip rows, with the auto/semi-auto verdict sentence under them, the episode, the tower's floor, and the starting action. Goals are a set: click a goal to add it and again to take it off, though the last one stays on. A manual run picks any 1-4 of Score, Money, Exp, and Box, and an auto run any 1-3 of Money, Exp, and Box; switching to auto drops Score, and a run left with nothing falls to Money. There is no Semi-auto chip — pick **Auto**, and the build turns semi-auto by itself the moment Fast Start, a random boost, a jump action or a relay cookie is in play, which is what the format says anyway; the chip itself then reads Semi-auto, and the verdict and the summary's Run row say so too. The episode is an inline grid of its twelve cards, short enough to show whole without a filter box; its own none is **Any**. A field the episode has no room for keeps its heading and says so in place of its control, and switching back brings back what it held. Action opens with a none of its own, and clicking the chip you already picked goes back to it.
 
 **Cookies** holds three role cards — Cookie, Relay, Pet — each showing the face and name of what it holds, or None or Any; the Relay card reads "No relay here" and disables itself where the episode takes none. Picking a card decides which inline grid underneath it writes that role, with a **Clear** button once the role holds something. Each grid is a filterable, uncapped list of faces — cookies for Cookie and Relay, pets for Pet — opening with two answers before the catalog: **Any**, the slot the build says anything fits, and the grid's own **None**, the slot the build never mentions.
 
@@ -211,14 +227,14 @@ The build produces one `index.html` per page, the JavaScript and CSS they share 
 ```bash
 bun install
 bun run dev           # dev server on :3000; / is the home pane, /combi-name/ is the combi tool
-bun run test          # 456 tests, including an exhaustive round-trip over all 6,638,610 combis
+bun run test          # 456 tests, including an exhaustive round-trip over all 21,243,552 combis
 bun run check         # typecheck and Biome, in one pass
 bun run build         # writes dist/index.html, dist/combi-name/index.html, their chunks, and dist/assets/
 bun run preview       # serves the built dist/ on :4000; build first
 bun run verify:assets # asks cookierunhub.com whether assets/index.json is still complete
 ```
 
-The exhaustive test asserts that encoding produces exactly 3,319,305 distinct codes — 6,638,610 inputs collapse to that many because the auto/semi-auto character is derived rather than free, and a manual run drops its action. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
+The exhaustive test asserts that encoding produces exactly 10,621,776 distinct codes — 21,243,552 inputs collapse to that many because the auto/semi-auto character is derived rather than free, and a manual run drops its action. DOM tests run against the combi page and against every component under happy-dom, registered by `tests/happydom.ts` and preloaded via `bunfig.toml`.
 
 ### Layout
 

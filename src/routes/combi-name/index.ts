@@ -442,7 +442,7 @@ function readFloor(): number | null {
 
 function readForm(): Combi {
 	return {
-		goal: goalChips.value as Goal,
+		goals: goalChips.values as Goal[],
 		mode: modeChips.value as Mode,
 		// The grid offers no None of its own — `any` is the episode's — so the
 		// fallback is a type-level one and never a value the page can produce.
@@ -463,7 +463,7 @@ function writeForm(combi: Combi): void {
 	// A semi-auto code lands on the Auto chip: semi-auto is what the flag slots
 	// make of an auto run, not a mode anyone picks, so there is no chip for it.
 	modeChips.value = combi.mode === "semiauto" ? "auto" : combi.mode;
-	goalChips.value = combi.goal;
+	goalChips.values = combi.goals;
 	episodeGrid.value = combi.episode;
 	floorInput.value = combi.floor === null ? "" : String(combi.floor);
 	randomBoostChips.value = combi.randomBoost ?? "";
@@ -549,10 +549,14 @@ function verdictText(full: FullCode): string {
  * through here.
  */
 function render(warnings: readonly string[] = []): void {
-	// Before the form is read: an auto run has no Score to aim for and a manual
-	// one no Any, so the goal row has to have dropped it by the time its value
-	// is taken.
+	// Before the form is read: an auto run has no Score to aim for, so the goal
+	// row has to have dropped it by the time its values are taken.
 	goalChips.options = goalOptions(modeChips.value as Mode);
+	// A run played by hand always aims for something, so Any — an auto run's,
+	// or a code that says it — lands on Score, the first a manual run is offered.
+	if (modeChips.value === "manual" && goalChips.values.length === 0) {
+		goalChips.values = [MANUAL_GOALS[0] as Goal];
+	}
 	const code = encodeFull({ loadout: readLoadout(), combi: readForm() });
 	codeBar.value = code;
 
@@ -1826,11 +1830,11 @@ function modeOptions(semi: boolean): readonly (readonly [string, string])[] {
 }
 
 /**
- * The goals a mode can aim for. Score is played by hand and Any is an auto
- * run that specialises in nothing, so each mode is offered its own four — and
- * a pick the other mode's row lacks falls to the first of them, the way a chip
- * row reads a value its options no longer hold: Score becomes Any on the way
- * to auto, and Any becomes Score on the way back.
+ * The goals a mode can aim for, any number of them but at least one. Score is
+ * played by hand, so an auto run is offered the other three, and a run aiming
+ * for Score alone falls to Money on the way to auto, the way a chip row reads
+ * picks its options no longer hold. Any — no goal in particular — is not
+ * offered: a code that says it still reads, as a row with no chip on.
  */
 function goalOptions(mode: Mode): readonly (readonly [string, string])[] {
 	const goals = mode === "manual" ? MANUAL_GOALS : AUTO_GOALS;
@@ -1839,6 +1843,10 @@ function goalOptions(mode: Mode): readonly (readonly [string, string])[] {
 
 modeChips.options = modeOptions(false);
 goalChips.options = goalOptions("manual");
+goalChips.multiple = true;
+// A set starts empty, which is Any; the page opens on a manual run, which
+// always aims for something, so it starts on Score as the single row did.
+goalChips.values = [MANUAL_GOALS[0] as Goal];
 // Twelve landscape cards is a grid, not a row: an episode is a place, and the
 // picture is what anyone recognises it by. `any` has no icon and falls back to
 // the lettered cell the catalog pickers already use.

@@ -16,7 +16,6 @@ export const BOOST_LABELS: Record<Boost, string> = {
 };
 
 export const GOAL_LABELS: Record<Goal, string> = {
-	any: "Any",
 	score: "Score",
 	money: "Money",
 	exp: "Exp",

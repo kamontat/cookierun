@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import {
 	ALL_BOOSTS,
 	ALL_COOKIE_POWERS,
+	ALL_GOALS,
 	type Boost,
 	type Combi,
 	decode,
@@ -12,7 +13,7 @@ import {
 } from "./codec";
 
 const fullAuto: Combi = {
-	goal: "money",
+	goals: ["money"],
 	mode: "auto",
 	episode: "any",
 	floor: null,
@@ -22,7 +23,7 @@ const fullAuto: Combi = {
 	action: "none",
 };
 
-const manual: Combi = { ...fullAuto, goal: "score", mode: "manual" };
+const manual: Combi = { ...fullAuto, goals: ["score"], mode: "manual" };
 
 test("encodes a manual score combi with three boosts and two cookie powers", () => {
 	const code = encode({
@@ -38,7 +39,7 @@ test("decodes every slot back into a combi", () => {
 	const { combi } = decode("1HE34RC0EJ");
 
 	expect(combi).toEqual({
-		goal: "exp",
+		goals: ["exp"],
 		mode: "semiauto",
 		episode: "episode3",
 		floor: null,
@@ -227,19 +228,29 @@ test("a manual run carries no action", () => {
 test("an auto run aiming for Score decodes, with a warning", () => {
 	const { combi, warnings } = decode("1AS0H00000");
 
-	expect(combi.goal).toBe("score");
+	expect(combi.goals).toEqual(["score"]);
 	expect(warnings).toEqual([
-		"slot 3 says Score but an auto run aims for Any, Money, Exp, or Box — Score is played by hand",
+		"slot 3 says Score but an auto run aims for Money, Exp, or Box — Score is played by hand",
 	]);
 });
 
-// Any is an auto run that specialises in nothing: slot 2 reads 0.
-test("an auto run aiming for nothing in particular writes 0 into slot 2", () => {
-	const code = encode({ ...fullAuto, goal: "any" });
+test("an auto run aiming for Score among others decodes, with a warning", () => {
+	const { combi, warnings } = decode("1A10H00000");
+
+	expect(combi.goals).toEqual(["score", "money"]);
+	expect(warnings).toEqual([
+		"slot 3 says Score but an auto run aims for Money, Exp, or Box — Score is played by hand",
+	]);
+});
+
+// Any is an auto run that specialises in nothing: slot 3 reads 0. The page no
+// longer offers it, but a code written before still says it.
+test("an auto run aiming for nothing in particular writes 0 into slot 3", () => {
+	const code = encode({ ...fullAuto, goals: [] });
 
 	expect(code).toBe("1A00H00000");
 	expect(decode(code)).toEqual({
-		combi: { ...fullAuto, goal: "any" },
+		combi: { ...fullAuto, goals: [] },
 		warnings: [],
 	});
 });
@@ -248,6 +259,39 @@ test("a manual run aiming for Any decodes, with a warning", () => {
 	expect(decode("1000000000").warnings).toEqual([
 		"slot 3 says Any but a run played by hand aims for Score, Money, Exp, or Box",
 	]);
+});
+
+// A lone goal keeps the letter it always had, so every code written before
+// goals became a set still reads as it did.
+test("a single goal is its own letter", () => {
+	expect(
+		(["score", "money", "exp", "box"] as const).map(
+			(goal) => encode({ ...manual, goals: [goal] })[2],
+		),
+	).toEqual(["S", "M", "E", "B"]);
+});
+
+test("encodes a set of goals in one character, whatever order it came in", () => {
+	expect(encode({ ...manual, goals: ["exp", "score"] })).toBe("1020H00000");
+	expect(encode({ ...manual, goals: ["money", "exp", "box"] })).toBe(
+		"10C0H00000",
+	);
+	expect(encode({ ...manual, goals: ["box", "exp", "money", "score"] })).toBe(
+		"10A0H00000",
+	);
+});
+
+test("every goal set has its own character and reads back as itself", () => {
+	const chars = new Set<string>();
+
+	for (let mask = 0; mask < 1 << ALL_GOALS.length; mask++) {
+		const goals = ALL_GOALS.filter((_, index) => (mask & (1 << index)) !== 0);
+		const code = encode({ ...manual, goals });
+		chars.add(code[2] as string);
+		expect(decode(code).combi.goals).toEqual(goals);
+	}
+
+	expect(chars.size).toBe(16);
 });
 
 test("no fast start, random boost, or action is full auto", () => {
