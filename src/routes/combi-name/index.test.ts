@@ -601,7 +601,7 @@ test("the code bar shows only the ten characters the game takes", async () => {
 	expect(await codeText()).toBe("1C0P-10S0000000");
 	expect(await shownCode()).toBe("10S0000000");
 
-	inside(codeBar).querySelector<HTMLButtonElement>(".edit")?.click();
+	need<HTMLButtonElement>("edit-code").click();
 	await settle();
 	expect(inside(codeBar).querySelector<HTMLInputElement>("input")?.value).toBe(
 		"1C0P-10S0000000",
@@ -784,21 +784,29 @@ test("a single filled treasure slot shows Any slot even with Exact order", async
 	await reset();
 });
 
-// Three buttons on the panel and nothing else: the bar's own Edit, then Save
-// and the menu slotted into the same row. The bar's own Copy is off, since
-// Copy code is in the menu.
-test("the code panel shows Edit, Save, New and the menu, and nothing else", async () => {
+// The panel's row is the actions that change what is saved, Reset, and the
+// menu. The bar's own Edit and Copy are off, since both are in the menu.
+test("the code panel shows Save, Save as new, Reset and the menu, and nothing else", async () => {
 	await settle();
 	expect([...codeBar.children].map((child) => child.id)).toEqual([
 		"save",
 		"save-new",
+		"reset",
 		"code-menu",
 	]);
-	expect((codeBar as HTMLElement & { copyable: boolean }).copyable).toBe(false);
-	const own = [
-		...inside(codeBar).querySelectorAll<HTMLButtonElement>(".buttons button"),
-	].map((button) => button.textContent?.trim());
-	expect(own).toEqual(["Edit"]);
+	const bar = codeBar as HTMLElement & { copyable: boolean; editable: boolean };
+	expect(bar.copyable).toBe(false);
+	expect(bar.editable).toBe(false);
+	expect(inside(codeBar).querySelectorAll(".buttons button").length).toBe(0);
+	expect(need("reset").hidden).toBe(false);
+});
+
+test("Edit code in the menu opens the code editor", async () => {
+	need<HTMLButtonElement>("edit-code").click();
+	await settle();
+	expect((codeBar as HTMLElement & { editing: boolean }).editing).toBe(true);
+	expect(inside(codeBar).querySelector("input")).not.toBe(null);
+	await closeEditor();
 });
 
 // A code mid-edit is not the code those buttons act on: copying a link to it,
@@ -1056,6 +1064,8 @@ test("the back-to-top button starts hidden and takes the page back to the code",
 	window.scrollTo = original;
 
 	expect(scrolledTo).toBe(0);
+	// The button hides once the panel is back; focus picks up on Save.
+	expect(document.activeElement?.id).toBe("save");
 });
 
 test("clicking a run of the code opens the tab that holds its control", async () => {
@@ -1283,10 +1293,19 @@ test("the save button in the code panel submits the note", async () => {
 	expect(row?.getAttribute("data-code")).toBe("10M0000000");
 	expect(row?.getAttribute("aria-current")).toBe("true");
 	expect(need("saved-empty").hidden).toBe(true);
-	expect(need<HTMLTextAreaElement>("save-description").value).toBe("");
 	expect(localStorage.getItem("combi-name:saved")).toContain("Coin farm");
 
+	// The new entry opens for editing rather than the form resetting, so a
+	// second change is one Update rather than a Load.
+	expect(isEditing()).toBe(true);
+	expect(need("save").textContent?.trim()).toBe("Update");
+	expect(need<HTMLTextAreaElement>("save-description").value).toBe(
+		"Coin farm\nuse Fairy",
+	);
+	expect(row?.hasAttribute("data-editing")).toBe(true);
+
 	await reset();
+	expect(isEditing()).toBe(false);
 	expect(savedRows()[0]?.getAttribute("aria-current")).toBe("false");
 });
 
@@ -1525,12 +1544,18 @@ test("the code panel's heading says whether the code is new or a saved one being
 	expect(need("code-heading").hasAttribute("data-editing")).toBe(false);
 });
 
-test("the code panel's menu holds Copy code, Copy link, Reset and Cancel, in that order", async () => {
+test("the code panel's menu holds Edit code, Copy code, Copy link, Show full code and Cancel, in that order", async () => {
 	expect(
 		[...need("code-menu").querySelectorAll(".menu button")].map(
 			(button) => button.id,
 		),
-	).toEqual(["code-full", "copy-code", "copy-link", "reset", "save-cancel"]);
+	).toEqual([
+		"edit-code",
+		"copy-code",
+		"copy-link",
+		"code-full",
+		"save-cancel",
+	]);
 	expect(need("save-cancel").hidden).toBe(true);
 
 	savedButtonFor("10M0000000", "load").click();
@@ -1541,11 +1566,11 @@ test("the code panel's menu holds Copy code, Copy link, Reset and Cancel, in tha
 	expect(need("save-cancel").hidden).toBe(true);
 });
 
-// New sits beside Save (Update) in the code bar's own row, not in the menu:
-// while an entry is open the two are the choice a save makes.
-test("New sits beside Update in the code panel, outside the menu", async () => {
+// Save as new sits beside Save (Update) in the code bar's own row, not in the
+// menu: while an entry is open the two are the choice a save makes.
+test("Save as new sits beside Update in the code panel, outside the menu", async () => {
 	const saveNew = need<HTMLButtonElement>("save-new");
-	expect(saveNew.textContent?.trim()).toBe("New");
+	expect(saveNew.textContent?.trim()).toBe("Save as new");
 	expect(saveNew.parentElement?.id).toBe("code");
 	expect(need("code-menu").contains(saveNew)).toBe(false);
 	expect(saveNew.hidden).toBe(true);
@@ -1681,7 +1706,7 @@ test("an update onto a code saved elsewhere is refused and the edit stays open u
 	expect(savedRows()[1]?.hasAttribute("data-editing")).toBe(false);
 });
 
-test("saving as new while editing keeps the entry being edited", async () => {
+test("saving as new while editing keeps the old entry and opens the new one", async () => {
 	const [, edited = ""] = savedCodes();
 	savedButtonFor(edited, "load").click();
 	await settle();
@@ -1692,7 +1717,9 @@ test("saving as new while editing keeps the entry being edited", async () => {
 	await settle();
 
 	expect(savedCodes()).toEqual(["10M0000000", "10S0000000", edited]);
-	expect(isEditing()).toBe(false);
+	expect(isEditing()).toBe(true);
+	expect(rowFor("10M0000000").hasAttribute("data-editing")).toBe(true);
+	expect(rowFor(edited).hasAttribute("data-editing")).toBe(false);
 	await reset();
 });
 
@@ -1970,12 +1997,16 @@ test("a pick from the code menu hands focus back to the menu's toggle", async ()
 	const menu = need<HTMLDetailsElement>("code-menu");
 	const toggle = menu.querySelector("summary");
 
+	const fullCode = need<HTMLButtonElement>("code-full");
 	menu.open = true;
-	resetButton.focus();
-	resetButton.click();
+	fullCode.focus();
+	fullCode.click();
 	await settle();
 	expect(menu.open).toBe(false);
 	expect(document.activeElement === toggle).toBe(true);
+	// Back to the game code only, as the rest of the file expects.
+	fullCode.click();
+	await settle();
 
 	// An entry to open, so Cancel is on offer.
 	await saveCurrent("Focus check");
@@ -2088,12 +2119,14 @@ test("the note takes run stats, and the saved row shows them", async () => {
 	expect(rowFor(code).querySelector(".stats")?.textContent).toBe(
 		"Money 12,000–15,000 · Exp 300 · Boxes 2–3 · Time 245s",
 	);
-	for (const field of ["money", "exp", "boxes", "time"]) {
-		expect(statInput(field).value).toBe("");
-	}
 	expect(localStorage.getItem("combi-name:saved")).toContain(
 		'"money":{"min":12000,"max":15000}',
 	);
+	// The new entry is open, so its stats stay in the boxes as typed.
+	expect(statInput("money").value).toBe("12000-15000");
+	need<HTMLButtonElement>("save-cancel").click();
+	await settle();
+	expect(statInput("money").value).toBe("");
 
 	// Loading the entry fills the stats back in, as typed.
 	savedButtonFor(code, "load").click();

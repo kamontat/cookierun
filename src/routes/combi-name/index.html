@@ -71,10 +71,10 @@
              route keeps it in step with the save form. -->
         <h2 id="code-heading">New code</h2>
 
-        <!-- The code bar's own row: its Edit, then Save, New (while an entry
-             is open) and the ⋯ menu slotted in after it, so the code keeps a line to
-             itself. The bar's own Copy is turned off by the route; Copy code
-             lives in the menu with everything else. The bar drops the slotted
+        <!-- The code bar's own row: Save (Update and Save as new while an
+             entry is open), Reset and the ⋯ menu slotted in, so the code keeps
+             a line to itself. The bar's own Edit and Copy are turned off by the
+             route; Edit code and Copy code live in the menu. The bar drops the slotted
              buttons while its editor is open: saving or resetting a code
              mid-edit means acting on a code that is not the one on screen. -->
         <code-bar
@@ -88,7 +88,8 @@
           <!-- Saves the code as an entry of its own, leaving the open one
                alone. Shown only while an entry is open and the code on
                screen is one no entry holds. -->
-          <button id="save-new" type="button" hidden>New</button>
+          <button id="save-new" type="button" hidden>Save as new</button>
+          <button id="reset" type="button">Reset</button>
           <!-- Built and closed the same way as a saved row's menu. Cancel only
                means something while an entry is open. -->
 
@@ -97,14 +98,15 @@
               <span aria-hidden="true">⋯</span>
             </summary>
             <div class="menu">
+              <!-- The bar's own Edit is off; this opens its editor. -->
+              <button id="edit-code" type="button">Edit code</button>
+              <button id="copy-code" type="button">Copy code</button>
+              <button id="copy-link" type="button">Copy link</button>
               <!-- The panel shows the ten characters the game takes; this
                    swaps it to the whole code, loadout and all, and back. -->
               <button id="code-full" type="button" aria-pressed="false">
                 Show full code
               </button>
-              <button id="copy-code" type="button">Copy code</button>
-              <button id="copy-link" type="button">Copy link</button>
-              <button id="reset" type="button">Reset</button>
               <button id="save-cancel" type="button" hidden>Cancel</button>
             </div>
           </details>

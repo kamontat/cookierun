@@ -135,6 +135,7 @@ const codeBar = need<CodeBar>("code");
 const summaryCard = need<BuildSummary>("summary");
 const verdictLine = need("verdict");
 const notice = need<NoticeBar>("notice");
+const editCodeButton = need<HTMLButtonElement>("edit-code");
 const copyCodeButton = need<HTMLButtonElement>("copy-code");
 const fullCodeButton = need<HTMLButtonElement>("code-full");
 const copyLinkButton = need<HTMLButtonElement>("copy-link");
@@ -970,7 +971,7 @@ function markCurrent(code: string): void {
  * whether this is a new code or a saved one is the first thing the panel
  * reads; the banner has already named the entry, so nothing repeats it.
  *
- * New shows only while `code` is one no entry holds: the list keeps
+ * Save as new shows only while `code` is one no entry holds: the list keeps
  * each code once, so saving a saved code "as new" would overwrite that entry.
  */
 function showEditing(code: string): void {
@@ -1054,10 +1055,11 @@ function saveAsNew(): void {
 		description: saveDescription.value,
 		stats,
 	});
-	editing = null;
+	// The new entry opens on its code, note and stats as typed, the way an
+	// Update leaves one, so a second change is one more Update.
+	editing = code;
 	showSaved(entries);
 	if (stored) {
-		clearNote();
 		say("info", `Saved ${code}.`);
 	} else {
 		say("error", REFUSED_SAVE);
@@ -1113,7 +1115,7 @@ saveForm.addEventListener("submit", (event) => {
 
 saveNewButton.addEventListener("click", () => {
 	saveAsNew();
-	// The code is saved now, so New hides behind its own click; Save beside
+	// The code is saved now, so Save as new hides behind its own click; Save beside
 	// it takes focus rather than letting it fall to <body>.
 	if (saveNewButton.hidden) saveButton.focus();
 });
@@ -1213,7 +1215,7 @@ savedList.addEventListener("click", (event) => {
 	if (action === "load") {
 		// Loading opens the entry too: there used to be an Edit beside Load, and
 		// the two differed only in whether a later save wrote back. The box now
-		// asks that question itself — Update or New — so one action
+		// asks that question itself — Update or Save as new — so one action
 		// serves both. Focus goes back to the Saved button with the closing
 		// drawer, not to the note: someone who only wanted the build has not
 		// asked to type.
@@ -1395,10 +1397,8 @@ toTop.addEventListener("click", () => {
 	const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 	window.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
 	// The button hides once the panel is back in view, and focus would go
-	// down with it; the panel's Edit is where a keyboard picks up again.
-	codeBar.shadowRoot?.querySelector<HTMLButtonElement>(".edit")?.focus({
-		preventScroll: true,
-	});
+	// down with it; the panel's Save is where a keyboard picks up again.
+	saveButton.focus({ preventScroll: true });
 });
 
 /**
@@ -1962,9 +1962,14 @@ window.addEventListener("hashchange", () => {
 	offerNote(codeBar.value, note, stats, warnings);
 });
 
-// The panel's own Copy is turned off: Copy code lives in the ⋯ menu with Copy
-// link, so the panel shows exactly Edit, Save and the menu.
+// The panel's own Edit and Copy are turned off: both live in the ⋯ menu, so
+// the panel's row is Save (or Update and Save as new), Reset and the menu.
 codeBar.copyable = false;
+codeBar.editable = false;
+
+editCodeButton.addEventListener("click", () => {
+	codeBar.editing = true;
+});
 
 // The bar draws the ten characters the game takes and nothing before them: the
 // loadout is the summary's to show, and it still rides in the link, the saves

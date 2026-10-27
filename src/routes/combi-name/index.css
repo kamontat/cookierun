@@ -179,7 +179,7 @@ tab-strip {
 		font-size: 1.25rem;
 	}
 
-	/* Edit, Save and the ⋯ menu share one row of a phone's panel, so the
+	/* Save, Reset and the ⋯ menu share one row of a phone's panel, so the
 	   page's two give up some side padding to match the bar's own; on a second
 	   row the menu would open off the screen's left edge. */
 	#code > button,
@@ -720,7 +720,7 @@ kbd {
 }
 
 /* Load on the row, everything else behind the row's own menu; the code panel's
-   Reset and Cancel sit behind one built the same way. The menu
+   Edit code, the copies and Cancel sit behind one built the same way. The menu
    hangs from its button's right edge, over whatever is below, so opening it
    moves nothing on the page. */
 .more {

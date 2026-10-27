@@ -315,6 +315,14 @@ export class CodeBar extends LitElement {
 	copyable = true;
 
 	/**
+	 * Whether to draw the built-in Edit button, on the same terms as
+	 * `copyable`. Turning it off hides the button only: the page opens the
+	 * editor by setting `editing`, from a button of its own.
+	 */
+	@property({ attribute: false })
+	editable = true;
+
+	/**
 	 * When set, the display draws only what follows the last occurrence of
 	 * this marker — the combi page passes the section separator, so the bar
 	 * shows the ten characters the game takes and leaves the loadout before
@@ -643,15 +651,19 @@ export class CodeBar extends LitElement {
 				}</code
 			>
 			<span class="buttons">
-				<button
-					type="button"
-					class="edit"
-					@click=${() => {
-						this.editing = true;
-					}}
-				>
-					Edit
-				</button>
+				${
+					this.editable
+						? html`<button
+								type="button"
+								class="edit"
+								@click=${() => {
+									this.editing = true;
+								}}
+							>
+								Edit
+							</button>`
+						: nothing
+				}
 				${
 					this.copyable
 						? html`<button
