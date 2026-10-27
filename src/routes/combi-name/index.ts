@@ -50,13 +50,25 @@ import {
 import { type Loadout, treasurePick } from "./loadout";
 import {
 	descriptionTitle,
+	facetValues,
+	filterSaved,
 	formatSaved,
 	importSaved,
+	isFiltering,
 	parseSaved,
+	RUN_FACETS,
+	type RunFacet,
 	readSaved,
+	rememberSort,
 	removeSaved,
+	SAVED_SORT_LABELS,
+	SAVED_SORTS,
 	type SavedCode,
+	type SavedFilter,
+	type SavedSort,
 	saveCode,
+	sortSaved,
+	storedSort,
 	updateSaved,
 } from "./saved";
 import {
@@ -166,6 +178,16 @@ const saveNewButton = need<HTMLButtonElement>("save-new");
 const saveCancelButton = need<HTMLButtonElement>("save-cancel");
 const savedEmpty = need("saved-empty");
 const savedList = need<HTMLUListElement>("saved-list");
+const savedTools = need("saved-tools");
+const savedSearch = need<HTMLInputElement>("saved-search");
+const savedFacets: Record<RunFacet, HTMLSelectElement> = {
+	mode: need<HTMLSelectElement>("saved-mode"),
+	goal: need<HTMLSelectElement>("saved-goal"),
+	episode: need<HTMLSelectElement>("saved-episode"),
+};
+const savedClear = need<HTMLButtonElement>("saved-clear");
+const savedSort = need<HTMLSelectElement>("saved-sort");
+const savedNoMatch = need("saved-nomatch");
 const savedCount = need("saved-count");
 const savedDrawer = need<HTMLDialogElement>("saved-drawer");
 const helpDrawer = need<HTMLDialogElement>("help-drawer");
@@ -812,16 +834,77 @@ function runChips(code: string): HTMLUListElement {
 	return list;
 }
 
+function optionOf(value: string, label: string): HTMLOptionElement {
+	const option = document.createElement("option");
+	option.value = value;
+	option.textContent = label;
+	return option;
+}
+
+savedSort.replaceChildren(
+	...SAVED_SORTS.map((sort) => optionOf(sort, SAVED_SORT_LABELS[sort])),
+);
+savedSort.value = storedSort(localStorage);
+
+const FACET_ALL: Readonly<Record<RunFacet, string>> = {
+	mode: "All modes",
+	goal: "All goals",
+	episode: "All episodes",
+};
+
 /**
- * Draws the saved list from scratch. It is short and changes only on a click,
- * so there is nothing to gain from patching it in place.
+ * Rewrites each facet's choices from the list as it now stands. A value the
+ * list no longer holds goes, and the filter on it with it, rather than
+ * narrowing to rows that cannot come back.
+ */
+function writeFacets(entries: readonly SavedCode[]): void {
+	for (const facet of RUN_FACETS) {
+		const select = savedFacets[facet];
+		const values = facetValues(entries, facet);
+		const kept = values.includes(select.value) ? select.value : "";
+		select.replaceChildren(
+			optionOf("", FACET_ALL[facet]),
+			...values.map((value) => optionOf(value, value)),
+		);
+		select.value = kept;
+	}
+}
+
+function clearFilter(): void {
+	savedSearch.value = "";
+	for (const facet of RUN_FACETS) savedFacets[facet].value = "";
+}
+
+function currentFilter(): SavedFilter {
+	return {
+		text: savedSearch.value,
+		mode: savedFacets.mode.value,
+		goal: savedFacets.goal.value,
+		episode: savedFacets.episode.value,
+	};
+}
+
+/**
+ * Draws the saved list from scratch, narrowed by the filter and in the order
+ * Sort by asks for. It is short and changes only on a click or a keystroke in
+ * the search, so there is nothing to gain from patching it in place.
+ * `savedEntries` keeps the whole list in its stored order.
  */
 function showSaved(entries: readonly SavedCode[]): void {
 	savedEntries = entries;
 	savedCount.textContent = String(entries.length);
 	savedEmpty.hidden = entries.length > 0;
+	// With one row or none there is nothing to narrow or order, and a filter
+	// left on behind hidden tools could hide the last row with no way back.
+	savedTools.hidden = entries.length < 2;
+	if (savedTools.hidden) clearFilter();
+	writeFacets(entries);
+	const filter = currentFilter();
+	savedClear.hidden = !isFiltering(filter);
+	const shown = filterSaved(entries, filter);
+	savedNoMatch.hidden = entries.length === 0 || shown.length > 0;
 	savedList.replaceChildren(
-		...entries.map((entry) => {
+		...sortSaved(shown, savedSort.value as SavedSort).map((entry) => {
 			const item = document.createElement("li");
 			item.setAttribute("data-code", entry.code);
 
@@ -1117,8 +1200,12 @@ savedList.addEventListener("click", (event) => {
 	);
 	if (button === null || button === undefined) return;
 	const code = button.getAttribute("data-code") ?? "";
-	const index = savedEntries.findIndex((entry) => entry.code === code);
-	const entry = savedEntries[index];
+	const entry = savedEntries.find((saved) => saved.code === code);
+	// Where the row sits on screen, which a sort may make other than its
+	// place in the stored list.
+	const index = [...savedList.children].findIndex(
+		(row) => row.getAttribute("data-code") === code,
+	);
 	if (entry === undefined) return;
 	const action = button.getAttribute("data-action") as SavedAction;
 	// A pick from a row's menu is the menu's answer; it closes behind it.
@@ -1179,12 +1266,31 @@ savedList.addEventListener("click", (event) => {
 	}
 	// Focus takes the gone entry's place, or falls back to the drawer's Close
 	// button: the note that adds one sits behind the modal.
-	const next = savedList.querySelectorAll<HTMLButtonElement>(
+	// Counted on screen: a filter may show fewer rows than the list holds.
+	const loads = savedList.querySelectorAll<HTMLButtonElement>(
 		'button[data-action="load"]',
-	)[Math.min(index, entries.length - 1)];
+	);
+	const next = loads[Math.min(index, loads.length - 1)];
 	(
 		next ?? savedDrawer.querySelector<HTMLButtonElement>("[data-close]")
 	)?.focus();
+});
+
+savedSort.addEventListener("change", () => {
+	rememberSort(localStorage, savedSort.value as SavedSort);
+	showSaved(savedEntries);
+});
+
+// The filter is for this look at the list only, so unlike the sort it is not
+// remembered.
+savedSearch.addEventListener("input", () => showSaved(savedEntries));
+for (const facet of RUN_FACETS) {
+	savedFacets[facet].addEventListener("change", () => showSaved(savedEntries));
+}
+savedClear.addEventListener("click", () => {
+	clearFilter();
+	showSaved(savedEntries);
+	savedSearch.focus();
 });
 
 /** Undoes `lockPageScroll` for whichever drawer is open, if one is. */

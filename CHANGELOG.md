@@ -2,12 +2,18 @@
 
 What changed in this project and why, newest first.
 
-## 2026-10-27: Saving opens the new entry, and the code panel's buttons regrouped
+## 2026-10-27: Saving opens the new entry, the code panel's buttons regrouped, and sort and filter for saved codes
 
 ### Features
 
 - `<code-bar>` has an `editable` property, beside `copyable`: set it to `false` to drop the
   bar's own Edit button for a page that opens the editor from somewhere else.
+- The Saved drawer has **Sort by**: Newest, Oldest, Most money, Most exp, Most boxes and
+  Longest. A stat sort ranks by the top of a range, then its floor, and puts entries without
+  that stat last. The pick is remembered in this browser under `combi-name:saved-sort`.
+- The Saved drawer can be filtered: a search box that needs every word somewhere in an entry's
+  note, code or run, and Mode, Goal and Episode selects that offer only the values the list
+  holds. **Clear** resets them, and the drawer says when nothing matches.
 
 ### Improvements
 
@@ -28,6 +34,12 @@ What changed in this project and why, newest first.
   saved entry rather than what is on screen, and "Save copy" because it sits beside Copy code.
 - Save and Update stay one button with a label that changes, so the row does not shift between
   modes. Cancel stays in the menu, as the one way to stop editing without resetting the build.
+- Sorting and filtering change only what the drawer shows. The stored list, editing and export
+  keep the saved order and every entry, so picking a sort never rewrites anyone's list. A
+  manual reorder (move up and down) was offered and not chosen.
+- The filter's Mode, Goal and Episode use the words a saved row's run chips use, so the
+  choices match what the rows say. The filter is not remembered, unlike the sort, and the
+  tools hide with fewer than two entries, clearing the filter so it cannot hide the last row.
 
 ## 2026-10-26: Resizable Saved and Help drawers on desktop, and a code panel that says whether you are editing, and the catalog synced from cookierunhub.com
 

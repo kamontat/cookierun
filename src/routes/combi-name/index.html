@@ -356,6 +356,33 @@
             Nothing saved yet. Saved codes stay in this browser until you share
             or export them.
           </p>
+          <!-- Which rows the drawer shows and in what order, and only the
+               drawer: the list is stored and exported whole and newest first
+               whatever these say. The sort's options come from saved.ts's
+               SAVED_SORTS, each facet's from the runs the list holds. Hidden
+               with fewer than two rows, when there is nothing to narrow or
+               order, and the filter is cleared with it. -->
+          <div id="saved-tools" class="savedtools" hidden>
+            <input
+              id="saved-search"
+              type="search"
+              placeholder="Search notes, codes and runs"
+              aria-label="Search saved codes"
+            />
+            <div class="savedfilters">
+              <select id="saved-mode" aria-label="Filter by mode"></select>
+              <select id="saved-goal" aria-label="Filter by goal"></select>
+              <select id="saved-episode" aria-label="Filter by episode"></select>
+              <button id="saved-clear" type="button" hidden>Clear</button>
+              <label class="savedsort">
+                Sort by
+                <select id="saved-sort"></select>
+              </label>
+            </div>
+          </div>
+          <p id="saved-nomatch" class="caveat" hidden>
+            No saved codes match. Clear the filter to see them all.
+          </p>
           <ul id="saved-list" class="savedlist"></ul>
 
           <details class="transfer">

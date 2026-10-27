@@ -2290,3 +2290,135 @@ test("an entry's link carries its stats, and a link's stats are offered in the b
 	fillStats({ money: "", time: "" });
 	await reset();
 });
+
+function sortBy(value: string): void {
+	const sort = need<HTMLSelectElement>("saved-sort");
+	sort.value = value;
+	sort.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+test("Sort by reorders the drawer's rows without touching the stored list", async () => {
+	need<HTMLTextAreaElement>("import-text").value = [
+		"10M3000000",
+		"money: 100-900",
+		"10B3000000",
+		"money: 5000",
+		"10E3000000",
+	].join("\n");
+	need<HTMLButtonElement>("import").click();
+	await settle();
+	const stored = localStorage.getItem("combi-name:saved");
+	const sort = need<HTMLSelectElement>("saved-sort");
+	expect(need("saved-tools").hidden).toBe(false);
+	expect(sort.value).toBe("newest");
+	const before = savedCodes();
+	expect(before.slice(0, 3)).toEqual([
+		"10M3000000",
+		"10B3000000",
+		"10E3000000",
+	]);
+
+	sortBy("money");
+	await settle();
+	expect(savedCodes().slice(0, 2)).toEqual(["10B3000000", "10M3000000"]);
+	expect(localStorage.getItem("combi-name:saved")).toBe(stored);
+	expect(localStorage.getItem("combi-name:saved-sort")).toBe("money");
+
+	sortBy("oldest");
+	await settle();
+	expect(savedCodes()).toEqual([...before].reverse());
+
+	// Deleting hands focus to the row now in the gone one's place on screen.
+	await openSavedDrawer();
+	const [, second = "", third = ""] = savedCodes();
+	savedButtonFor(second, "delete").click();
+	await settle();
+	expect(document.activeElement).toBe(savedButtonFor(third, "load"));
+
+	for (const code of savedCodes()) savedButtonFor(code, "delete").click();
+	await settle();
+	expect(need("saved-tools").hidden).toBe(true);
+	sortBy("newest");
+	closeButton(savedDrawer()).click();
+	await settle();
+});
+
+function filterBy(id: string, value: string): void {
+	const control = need<HTMLInputElement | HTMLSelectElement>(id);
+	control.value = value;
+	control.dispatchEvent(
+		new Event(control instanceof HTMLInputElement ? "input" : "change", {
+			bubbles: true,
+		}),
+	);
+}
+
+test("Filter by narrows the drawer's rows by a search and the run's mode, goal and episode", async () => {
+	need<HTMLTextAreaElement>("import-text").value = [
+		"10M3000000",
+		"> Coin farm",
+		"10B3000000",
+		"1AE0000000",
+	].join("\n");
+	need<HTMLButtonElement>("import").click();
+	await openSavedDrawer();
+	expect(need("saved-tools").hidden).toBe(false);
+	expect(
+		[...need<HTMLSelectElement>("saved-goal").options].map((o) => o.value),
+	).toEqual(["", "Box", "Exp", "Money"]);
+	expect(need("saved-nomatch").hidden).toBe(true);
+
+	filterBy("saved-search", "coin");
+	await settle();
+	expect(savedCodes()).toEqual(["10M3000000"]);
+	expect(need<HTMLButtonElement>("saved-clear").hidden).toBe(false);
+
+	filterBy("saved-search", "nothing like it");
+	await settle();
+	expect(savedCodes()).toEqual([]);
+	expect(need("saved-nomatch").hidden).toBe(false);
+	expect(need("saved-empty").hidden).toBe(true);
+
+	filterBy("saved-search", "");
+	filterBy("saved-goal", "Box");
+	await settle();
+	expect(savedCodes()).toEqual(["10B3000000"]);
+	filterBy("saved-mode", "Auto");
+	await settle();
+	expect(savedCodes()).toEqual([]);
+
+	need<HTMLButtonElement>("saved-clear").click();
+	await settle();
+	expect(savedCodes()).toEqual(["10M3000000", "10B3000000", "1AE0000000"]);
+	expect(need<HTMLSelectElement>("saved-goal").value).toBe("");
+	expect(need<HTMLButtonElement>("saved-clear").hidden).toBe(true);
+
+	// Down to one row there is nothing to narrow, and a filter left on could
+	// hide it, so the tools go and take the filter with them.
+	filterBy("saved-mode", "Manual");
+	await settle();
+	expect(savedCodes()).toEqual(["10M3000000", "10B3000000"]);
+	savedButtonFor("10B3000000", "delete").click();
+	await settle();
+	// The last row shown went, so focus takes the row above it on screen.
+	expect(document.activeElement).toBe(savedButtonFor("10M3000000", "load"));
+	filterBy("saved-mode", "");
+	need<HTMLTextAreaElement>("import-text").value = "10B3000000";
+	need<HTMLButtonElement>("import").click();
+	await settle();
+
+	filterBy("saved-goal", "Exp");
+	await settle();
+	savedButtonFor("1AE0000000", "delete").click();
+	await settle();
+	filterBy("saved-goal", "Money");
+	await settle();
+	savedButtonFor("10M3000000", "delete").click();
+	await settle();
+	expect(need("saved-tools").hidden).toBe(true);
+	expect(need<HTMLSelectElement>("saved-goal").value).toBe("");
+	expect(savedCodes()).toEqual(["10B3000000"]);
+	savedButtonFor("10B3000000", "delete").click();
+	closeButton(savedDrawer()).click();
+	await settle();
+});
