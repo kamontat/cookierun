@@ -2445,6 +2445,9 @@ test("Delete all asks first, then empties the list and closes the open entry", a
 	clear.click();
 	await settle();
 	expect(confirm.hidden).toBe(false);
+	// The question's own Delete all takes the place of the one that asked it,
+	// rather than showing two.
+	expect(clear.hidden).toBe(true);
 	expect(confirm.textContent).toContain(`Delete all ${count} saved codes?`);
 	expect(savedCodes()).toHaveLength(count);
 	expect(document.activeElement).toBe(need("delete-cancel"));
@@ -2452,6 +2455,7 @@ test("Delete all asks first, then empties the list and closes the open entry", a
 	need<HTMLButtonElement>("delete-cancel").click();
 	await settle();
 	expect(confirm.hidden).toBe(true);
+	expect(clear.hidden).toBe(false);
 	expect(savedCodes()).toHaveLength(count);
 	expect(document.activeElement).toBe(clear);
 

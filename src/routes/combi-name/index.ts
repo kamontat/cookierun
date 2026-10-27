@@ -913,7 +913,7 @@ function showSaved(entries: readonly SavedCode[]): void {
 	// The question names a count, so a list that changed under it is asked
 	// about afresh.
 	deleteAll.hidden = entries.length === 0;
-	deleteConfirm.hidden = true;
+	askDelete(false);
 	savedList.replaceChildren(
 		...sortSaved(shown, savedSort.value as SavedSort).map((entry) => {
 			const item = document.createElement("li");
@@ -1304,18 +1304,27 @@ savedClear.addEventListener("click", () => {
 	savedSearch.focus();
 });
 
+/**
+ * Swaps Delete all for its question and back. The question carries its own
+ * Delete all, so the button that asked it steps aside rather than showing two.
+ */
+function askDelete(asking: boolean): void {
+	deleteButton.hidden = asking;
+	deleteConfirm.hidden = !asking;
+}
+
 // Asked on the page rather than through confirm(): a dialog the browser draws
 // can be switched off, and then the question would answer itself.
 deleteButton.addEventListener("click", () => {
 	const count = savedEntries.length;
 	deleteQuestion.textContent = `Delete all ${plural(count, "saved code")}? This cannot be undone; export them first to keep a copy.`;
-	deleteConfirm.hidden = false;
+	askDelete(true);
 	// Focus lands on the safe answer, so a second Enter keeps the list.
 	deleteCancelButton.focus();
 });
 
 deleteCancelButton.addEventListener("click", () => {
-	deleteConfirm.hidden = true;
+	askDelete(false);
 	deleteButton.focus();
 });
 
@@ -1399,7 +1408,7 @@ for (const drawer of [savedDrawer, helpDrawer]) {
 	drawer.addEventListener("close", () => {
 		closeMenus();
 		// A Delete all left asking is not still asking next time.
-		deleteConfirm.hidden = true;
+		askDelete(false);
 		bringNoticeHome();
 		unlockPage?.();
 		unlockPage = null;
