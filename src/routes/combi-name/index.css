@@ -805,6 +805,24 @@ kbd {
 	color: var(--cr-danger);
 }
 
+/* Emptying the list is rarer still, so it sits last, apart from the rest. */
+.deleteall {
+	margin-top: var(--cr-space-3);
+	border-top: var(--cr-border) solid var(--cr-line);
+	padding-top: var(--cr-space-3);
+	align-items: flex-start;
+	gap: var(--cr-space-2);
+}
+
+.deleteall p {
+	margin: 0;
+}
+
+#delete-saved,
+#delete-yes {
+	color: var(--cr-danger);
+}
+
 /* Moving codes in and out is an occasional job, so it is folded under the
    list rather than standing beside the box that saves one. */
 .transfer {

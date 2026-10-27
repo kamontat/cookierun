@@ -411,6 +411,25 @@
               </label>
             </div>
           </details>
+
+          <!-- The one click that cannot be taken back, so it asks on the page
+               first and sits last, under the list it empties. Hidden while
+               there is nothing to delete. -->
+          <div id="delete-all" class="deleteall">
+            <button id="delete-saved" type="button">Delete all</button>
+            <!-- Focus lands on an answer, so each carries the question. -->
+            <div id="delete-confirm" class="deleteconfirm" hidden>
+              <p id="delete-question"></p>
+              <div class="transferbuttons">
+                <button id="delete-yes" type="button" aria-describedby="delete-question">
+                  Delete all
+                </button>
+                <button id="delete-cancel" type="button" aria-describedby="delete-question">
+                  Keep them
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </dialog>
 

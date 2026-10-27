@@ -49,6 +49,7 @@ import {
 } from "./labels";
 import { type Loadout, treasurePick } from "./loadout";
 import {
+	clearSaved,
 	descriptionTitle,
 	facetValues,
 	filterSaved,
@@ -190,6 +191,12 @@ const savedSort = need<HTMLSelectElement>("saved-sort");
 const savedNoMatch = need("saved-nomatch");
 const savedCount = need("saved-count");
 const savedDrawer = need<HTMLDialogElement>("saved-drawer");
+const deleteAll = need("delete-all");
+const deleteButton = need<HTMLButtonElement>("delete-saved");
+const deleteConfirm = need("delete-confirm");
+const deleteQuestion = need("delete-question");
+const deleteYesButton = need<HTMLButtonElement>("delete-yes");
+const deleteCancelButton = need<HTMLButtonElement>("delete-cancel");
 const helpDrawer = need<HTMLDialogElement>("help-drawer");
 
 const exportCopyButton = need<HTMLButtonElement>("export-copy");
@@ -903,6 +910,10 @@ function showSaved(entries: readonly SavedCode[]): void {
 	savedClear.hidden = !isFiltering(filter);
 	const shown = filterSaved(entries, filter);
 	savedNoMatch.hidden = entries.length === 0 || shown.length > 0;
+	// The question names a count, so a list that changed under it is asked
+	// about afresh.
+	deleteAll.hidden = entries.length === 0;
+	deleteConfirm.hidden = true;
 	savedList.replaceChildren(
 		...sortSaved(shown, savedSort.value as SavedSort).map((entry) => {
 			const item = document.createElement("li");
@@ -1293,6 +1304,42 @@ savedClear.addEventListener("click", () => {
 	savedSearch.focus();
 });
 
+// Asked on the page rather than through confirm(): a dialog the browser draws
+// can be switched off, and then the question would answer itself.
+deleteButton.addEventListener("click", () => {
+	const count = savedEntries.length;
+	deleteQuestion.textContent = `Delete all ${plural(count, "saved code")}? This cannot be undone; export them first to keep a copy.`;
+	deleteConfirm.hidden = false;
+	// Focus lands on the safe answer, so a second Enter keeps the list.
+	deleteCancelButton.focus();
+});
+
+deleteCancelButton.addEventListener("click", () => {
+	deleteConfirm.hidden = true;
+	deleteButton.focus();
+});
+
+deleteYesButton.addEventListener("click", () => {
+	const count = savedEntries.length;
+	if (editing !== null) {
+		editing = null;
+		clearNote();
+	}
+	const { entries, stored } = clearSaved(localStorage);
+	showSaved(entries);
+	if (stored) {
+		say("info", `Deleted all ${plural(count, "saved code")}.`);
+	} else {
+		say(
+			"error",
+			"The browser refused to store the change. They are gone for this visit only.",
+		);
+	}
+	// The button that was pressed is hidden now, and so is everything around
+	// it; Close is what is left to press.
+	savedDrawer.querySelector<HTMLButtonElement>("[data-close]")?.focus();
+});
+
 /** Undoes `lockPageScroll` for whichever drawer is open, if one is. */
 let unlockPage: (() => void) | null = null;
 
@@ -1351,6 +1398,8 @@ for (const drawer of [savedDrawer, helpDrawer]) {
 	// that closed the drawer never reached the menu's own handler.
 	drawer.addEventListener("close", () => {
 		closeMenus();
+		// A Delete all left asking is not still asking next time.
+		deleteConfirm.hidden = true;
 		bringNoticeHome();
 		unlockPage?.();
 		unlockPage = null;

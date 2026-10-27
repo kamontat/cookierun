@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 
 import {
 	cleanDescription,
+	clearSaved,
 	DESCRIPTION_MAX,
 	descriptionTitle,
 	facetValues,
@@ -98,6 +99,19 @@ test("removing a code takes only that code out", () => {
 
 	expect(entries.map((entry) => entry.code)).toEqual(["10M0000000"]);
 	expect(readSaved(held)).toEqual(entries);
+});
+
+test("clearing the list takes every code out", () => {
+	const held = storage();
+	saveCode(held, "10S0000000", { description: "a" }, 1);
+	saveCode(held, "10M0000000", { description: "b" }, 2);
+
+	const { entries, stored } = clearSaved(held);
+
+	expect(entries).toEqual([]);
+	expect(stored).toBe(true);
+	expect(readSaved(held)).toEqual([]);
+	expect(clearSaved(REFUSING).stored).toBe(false);
 });
 
 test("a list that is not this file's shape reads as empty or loses the bad rows", () => {
