@@ -541,23 +541,28 @@ kbd {
 	font: inherit;
 }
 
-/* The run stats under the note: five short boxes in a row, two by two only on
-   a phone, where Score, the longest number, takes the first row to itself.
-   Fixed tracks rather than auto-fit, which wrapped them unevenly at in-between
-   widths. Each label stacks its name over its box. */
+/* The run stats under the note: five short boxes in a row on a wide screen,
+   two rows below it — Score and Money, the long numbers, a half each, then
+   Exp, Boxes and Time a third each, on six fixed tracks. Fixed tracks rather
+   than auto-fit, which wrapped them unevenly at in-between widths. Each label
+   stacks its name over its box. */
 .statfields {
 	display: grid;
 	grid-template-columns: repeat(5, minmax(0, 1fr));
 	gap: var(--cr-space-2);
 }
 
-@media (width < 26rem) {
+@media (width < 48rem) {
 	.statfields {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: repeat(6, minmax(0, 1fr));
 	}
 
-	.statfields label:first-child {
-		grid-column: 1 / -1;
+	.statfields label {
+		grid-column: span 2;
+	}
+
+	.statfields label:nth-child(-n + 2) {
+		grid-column: span 3;
 	}
 }
 
