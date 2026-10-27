@@ -2,7 +2,7 @@
 
 What changed in this project and why, newest first.
 
-## 2026-10-27: Saving opens the new entry, the code panel's buttons regrouped, sort and filter for saved codes, and Delete all
+## 2026-10-27: Saving opens the new entry, the code panel's buttons regrouped, sort and filter for saved codes, Delete all, and a Score stat
 
 ### Features
 
@@ -18,6 +18,10 @@ What changed in this project and why, newest first.
   the question names how many codes go and suggests exporting first, and replaces the button
   until it is answered. Focus starts on **Keep them**. Confirming closes the entry open for
   editing, if any. The button hides while the list is empty.
+- A saved code takes a **Score** stat, first of the five: a positive whole number or a range
+  like `1200000-1500000`. It shows on the row's stats line, rides in a shared link as
+  `&score=…` and in exported text as `score: …`, and the Saved drawer sorts by
+  **Highest score**.
 
 ### Improvements
 
@@ -30,6 +34,8 @@ What changed in this project and why, newest first.
   **Cancel** while an entry is open. Edit left the panel's row for it.
 - **New** is renamed **Save as new**, and saving through it opens the entry it adds.
 - On a phone, the back-to-top button now focuses Save rather than the Edit that left the row.
+- Below 48rem the stat boxes wrap to two rows — Score and Money a half each, then Exp, Boxes
+  and Time a third each — rather than squeezing into one row until 26rem.
 
 ### Decisions
 
@@ -38,6 +44,8 @@ What changed in this project and why, newest first.
   saved entry rather than what is on screen, and "Save copy" because it sits beside Copy code.
 - Save and Update stay one button with a label that changes, so the row does not shift between
   modes. Cancel stays in the menu, as the one way to stop editing without resetting the build.
+- Score is a range like Money and Exp, since a run's score varies as much as its coins. It
+  comes first because it is the number a Score run is played for.
 - Sorting and filtering change only what the drawer shows. The stored list, editing and export
   keep the saved order and every entry, so picking a sort never rewrites anyone's list. A
   manual reorder (move up and down) was offered and not chosen.
