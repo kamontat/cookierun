@@ -2,6 +2,33 @@
 
 What changed in this project and why, newest first.
 
+## 2026-10-27: Saving opens the new entry, and the code panel's buttons regrouped
+
+### Features
+
+- `<code-bar>` has an `editable` property, beside `copyable`: set it to `false` to drop the
+  bar's own Edit button for a page that opens the editor from somewhere else.
+
+### Improvements
+
+- **Save** no longer empties the note and stats. The entry it just added opens for editing,
+  the way **Update** leaves one, so the panel reads **Editing saved code** and a second change
+  is one more Update rather than a Load.
+- The code panel's row is now the save actions and **Reset**: **Save** for a new code,
+  **Update** and **Save as new** while a saved entry is open, then Reset and the ⋯ menu.
+- The ⋯ menu holds **Edit code**, **Copy code**, **Copy link** and **Show full code**, plus
+  **Cancel** while an entry is open. Edit left the panel's row for it.
+- **New** is renamed **Save as new**, and saving through it opens the entry it adds.
+- On a phone, the back-to-top button now focuses Save rather than the Edit that left the row.
+
+### Decisions
+
+- **New** read as starting a blank code, but it saves the code on screen as an entry of its
+  own; "Save as new" says that. "Duplicate" was rejected because it suggests copying the
+  saved entry rather than what is on screen, and "Save copy" because it sits beside Copy code.
+- Save and Update stay one button with a label that changes, so the row does not shift between
+  modes. Cancel stays in the menu, as the one way to stop editing without resetting the build.
+
 ## 2026-10-26: Resizable Saved and Help drawers on desktop, and a code panel that says whether you are editing, and the catalog synced from cookierunhub.com
 
 ### BREAKING CHANGES
