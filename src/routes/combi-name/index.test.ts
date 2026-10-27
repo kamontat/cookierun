@@ -2422,3 +2422,61 @@ test("Filter by narrows the drawer's rows by a search and the run's mode, goal a
 	closeButton(savedDrawer()).click();
 	await settle();
 });
+
+// Every entry at once is the one click that cannot be taken back, so it asks
+// first, on the page rather than through a dialog the browser draws.
+test("Delete all asks first, then empties the list and closes the open entry", async () => {
+	await reset();
+	await choose("goal", "box");
+	await saveCurrent("Box run");
+	await reset();
+	await choose("goal", "exp");
+	await saveCurrent("Exp run");
+	const count = savedCodes().length;
+	expect(count).toBeGreaterThan(1);
+	expect(isEditing()).toBe(true);
+
+	await openSavedDrawer();
+	const clear = need<HTMLButtonElement>("delete-saved");
+	const confirm = need("delete-confirm");
+	expect(need("delete-all").hidden).toBe(false);
+	expect(confirm.hidden).toBe(true);
+
+	clear.click();
+	await settle();
+	expect(confirm.hidden).toBe(false);
+	// The question's own Delete all takes the place of the one that asked it,
+	// rather than showing two.
+	expect(clear.hidden).toBe(true);
+	expect(confirm.textContent).toContain(`Delete all ${count} saved codes?`);
+	expect(savedCodes()).toHaveLength(count);
+	expect(document.activeElement).toBe(need("delete-cancel"));
+
+	need<HTMLButtonElement>("delete-cancel").click();
+	await settle();
+	expect(confirm.hidden).toBe(true);
+	expect(clear.hidden).toBe(false);
+	expect(savedCodes()).toHaveLength(count);
+	expect(document.activeElement).toBe(clear);
+
+	clear.click();
+	await settle();
+	need<HTMLButtonElement>("delete-yes").click();
+	await settle();
+
+	expect(savedRows()).toHaveLength(0);
+	expect(localStorage.getItem("combi-name:saved")).toBe("[]");
+	expect(need("saved-count").textContent).toBe("0");
+	expect(notice()).toEqual({
+		type: "info",
+		text: `Deleted all ${count} saved codes.`,
+	});
+	expect(isEditing()).toBe(false);
+	expect(confirm.hidden).toBe(true);
+	// Nothing left to delete, so the button goes with the list.
+	expect(need("delete-all").hidden).toBe(true);
+	expect(document.activeElement).toBe(closeButton(savedDrawer()));
+	closeButton(savedDrawer()).click();
+	await settle();
+	await reset();
+});

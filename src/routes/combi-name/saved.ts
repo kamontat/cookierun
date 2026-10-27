@@ -149,6 +149,14 @@ export function removeSaved(
 	return { entries, stored: writeSaved(storage, entries) };
 }
 
+/** Empties the list. Written as an empty list, the shape `removeSaved` leaves. */
+export function clearSaved(storage: Storage): {
+	entries: SavedCode[];
+	stored: boolean;
+} {
+	return { entries: [], stored: writeSaved(storage, []) };
+}
+
 export type UpdateResult =
 	| { ok: true; entries: SavedCode[]; stored: boolean }
 	| { ok: false; reason: "missing" | "taken"; entries: SavedCode[] };
