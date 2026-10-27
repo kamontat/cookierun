@@ -2,7 +2,7 @@
 
 What changed in this project and why, newest first.
 
-## 2026-10-27: Saving opens the new entry, the code panel's buttons regrouped, and sort and filter for saved codes
+## 2026-10-27: Saving opens the new entry, the code panel's buttons regrouped, sort and filter for saved codes, and Delete all
 
 ### Features
 
@@ -14,6 +14,10 @@ What changed in this project and why, newest first.
 - The Saved drawer can be filtered: a search box that needs every word somewhere in an entry's
   note, code or run, and Mode, Goal and Episode selects that offer only the values the list
   holds. **Clear** resets them, and the drawer says when nothing matches.
+- The Saved drawer ends with **Delete all**, which empties the list after asking on the page:
+  the question names how many codes go and suggests exporting first, and replaces the button
+  until it is answered. Focus starts on **Keep them**. Confirming closes the entry open for
+  editing, if any. The button hides while the list is empty.
 
 ### Improvements
 
@@ -40,6 +44,9 @@ What changed in this project and why, newest first.
 - The filter's Mode, Goal and Episode use the words a saved row's run chips use, so the
   choices match what the rows say. The filter is not remembered, unlike the sort, and the
   tools hide with fewer than two entries, clearing the filter so it cannot hide the last row.
+- Delete all asks on the page rather than through `confirm()`, because a browser can switch
+  its own dialogs off and then the question would answer itself. It deletes the whole list
+  even while a filter narrows the drawer; the question states the full count.
 
 ## 2026-10-26: Resizable Saved and Help drawers on desktop, and a code panel that says whether you are editing, and the catalog synced from cookierunhub.com
 
