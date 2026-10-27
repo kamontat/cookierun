@@ -2142,6 +2142,28 @@ test("the note takes run stats, and the saved row shows them", async () => {
 	await reset();
 });
 
+test("the note takes a score, first of the stats", async () => {
+	expect(
+		[...document.querySelectorAll(".statfields input")].map((box) => box.id),
+	).toEqual([
+		"stat-score",
+		"stat-money",
+		"stat-exp",
+		"stat-boxes",
+		"stat-time",
+	]);
+
+	await choose("goal", "score");
+	const code = await codeText();
+	fillStats({ score: "1200000-1500000", money: "100" });
+	await saveCurrent("High score");
+
+	expect(rowFor(code).querySelector(".stats")?.textContent).toBe(
+		"Score 1,200,000–1,500,000 · Money 100",
+	);
+	await reset();
+});
+
 test("a saved row reads as its run rather than its code", () => {
 	const row = rowFor("10M0000000");
 	expect(

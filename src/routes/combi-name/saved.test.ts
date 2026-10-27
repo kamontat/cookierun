@@ -18,6 +18,7 @@ import {
 	runFacets,
 	SAVED_KEY,
 	SAVED_SORT_KEY,
+	SAVED_SORT_LABELS,
 	SAVED_SORTS,
 	type SavedCode,
 	saveCode,
@@ -472,6 +473,41 @@ test("a stat sort puts the most first, by the top of a range, and entries withou
 	expect(codes(sortSaved(LIST, "time"))).toEqual(["B", "C", "A", "D"]);
 	// Nobody has exp: the stored order stands.
 	expect(codes(sortSaved(LIST, "exp"))).toEqual(["A", "B", "C", "D"]);
+});
+
+test("saved codes sort by the highest score", () => {
+	const list: SavedCode[] = [
+		{ code: "A", description: "", savedAt: 2 },
+		{
+			code: "B",
+			description: "",
+			savedAt: 1,
+			stats: { score: { min: 1, max: 9 } },
+		},
+	];
+	expect(SAVED_SORTS).toContain("score");
+	expect(SAVED_SORT_LABELS.score).toBe("Highest score");
+	expect(codes(sortSaved(list, "score"))).toEqual(["B", "A"]);
+});
+
+test("exported text carries the score as a line of its own", () => {
+	const text = formatSaved([
+		{
+			code: "10S0000000",
+			description: "",
+			stats: { score: { min: 1200000, max: 1500000 } },
+			savedAt: 1,
+		},
+	]);
+
+	expect(text).toBe("10S0000000\nscore: 1200000-1500000\n");
+	expect(parseSaved("10S0000000\nScore: 1,200,000").entries).toEqual([
+		{
+			code: "10S0000000",
+			description: "",
+			stats: { score: { min: 1200000, max: 1200000 } },
+		},
+	]);
 });
 
 test("sorting leaves the list it was given alone", () => {

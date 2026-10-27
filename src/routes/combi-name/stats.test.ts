@@ -105,3 +105,21 @@ test("stats read as one line, in a fixed order", () => {
 	).toBe("Money 12,000–15,000 · Boxes 2–3 · Time 245s");
 	expect(statsSentence({})).toBe("");
 });
+
+test("score is a positive whole number or a range, and comes first", () => {
+	expect(STAT_FIELDS[0]).toBe("score");
+	expect(parseStat("score", "1,200,000 - 1,500,000")).toEqual({
+		ok: true,
+		value: { min: 1200000, max: 1500000 },
+	});
+	expect(parseStat("score", "0").ok).toBe(false);
+	expect(readStats({ score: { min: 5, max: 9 } })).toEqual({
+		score: { min: 5, max: 9 },
+	});
+	expect(
+		statsSentence({
+			money: { min: 12000, max: 12000 },
+			score: { min: 1200000, max: 1500000 },
+		}),
+	).toBe("Score 1,200,000–1,500,000 · Money 12,000");
+});
