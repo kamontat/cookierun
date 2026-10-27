@@ -134,10 +134,17 @@
           maxlength="500"
           placeholder="What is this build for? Ctrl+Enter saves."
         ></textarea>
-        <!-- What a run of it brought home. All optional; Money, Exp and Boxes
-             take a range like 12000-15000, Time is seconds. Text boxes, not
-             number ones, so a range can be typed. -->
+        <!-- What a run of it brought home. All optional; Score, Money, Exp and
+             Boxes take a range like 12000-15000, Time is seconds. Text boxes,
+             not number ones, so a range can be typed. -->
         <div class="statfields">
+          <label
+            >Score
+            <input
+              id="stat-score"
+              autocomplete="off"
+              placeholder="1200000-1500000"
+          /></label>
           <label
             >Money
             <input id="stat-money" autocomplete="off" placeholder="12000-15000"
@@ -389,8 +396,8 @@
             <summary>Import and export</summary>
             <p class="caveat">
               One code per line, with its stats under it as
-              <code>money: 12000-15000</code>, <code>exp</code>,
-              <code>boxes</code> or <code>time</code>, then its note, each line
+              <code>money: 12000-15000</code>, <code>score</code>,
+              <code>exp</code>, <code>boxes</code> or <code>time</code>, then its note, each line
               starting with <code>&gt;</code>. A shared link works as a line too.
             </p>
             <div class="transferbuttons">

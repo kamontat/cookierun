@@ -196,6 +196,7 @@ export function updateSaved(
 export const SAVED_SORTS = [
 	"newest",
 	"oldest",
+	"score",
 	"money",
 	"exp",
 	"boxes",
@@ -207,6 +208,7 @@ export type SavedSort = (typeof SAVED_SORTS)[number];
 export const SAVED_SORT_LABELS: Readonly<Record<SavedSort, string>> = {
 	newest: "Newest",
 	oldest: "Oldest",
+	score: "Highest score",
 	money: "Most money",
 	exp: "Most exp",
 	boxes: "Most boxes",
@@ -393,7 +395,7 @@ export interface SkippedLine {
 }
 
 /** A stat on a line of its own under a code, as `formatSaved` writes it. */
-const STAT_LINE = /^(money|exp|boxes|time)\s*:\s*(.*)$/i;
+const STAT_LINE = /^(score|money|exp|boxes|time)\s*:\s*(.*)$/i;
 
 /** The code a line names, written in the form the page itself would write it. */
 function codeOnLine(text: string): {

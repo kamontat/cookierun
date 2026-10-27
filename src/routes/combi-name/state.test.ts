@@ -199,3 +199,16 @@ test("a stat in a link that does not read is left out", () => {
 	});
 	expect(statsInHash("#10M0000000")).toEqual({});
 });
+
+test("a shared link carries the score first among its stats", () => {
+	const hash = shareHashFor("10S0000000", "", {
+		money: { min: 10, max: 10 },
+		score: { min: 1200000, max: 1500000 },
+	});
+
+	expect(hash).toBe("#10S0000000?score=1200000-1500000&money=10");
+	expect(statsInHash(hash)).toEqual({
+		score: { min: 1200000, max: 1500000 },
+		money: { min: 10, max: 10 },
+	});
+});

@@ -1,7 +1,7 @@
 /**
- * What a saved run brought home, beside the note: the money and exp it earned,
- * the boxes it opened, and how long it lasted. A run varies, so the first
- * three may be a range; time is one number of seconds.
+ * What a saved run brought home, beside the note: the score it reached, the
+ * money and exp it earned, the boxes it opened, and how long it lasted. A run
+ * varies, so the first four may be a range; time is one number of seconds.
  *
  * None of it is part of the code. It belongs to a saved entry, travels in a
  * shared link's query and in the exported text, and like everything else read
@@ -14,6 +14,7 @@ export interface StatRange {
 }
 
 export interface RunStats {
+	readonly score?: StatRange;
 	readonly money?: StatRange;
 	readonly exp?: StatRange;
 	readonly boxes?: StatRange;
@@ -25,6 +26,7 @@ export type StatField = keyof RunStats;
 
 /** The order stats are shown, linked and exported in. */
 export const STAT_FIELDS: readonly StatField[] = [
+	"score",
 	"money",
 	"exp",
 	"boxes",
@@ -32,6 +34,7 @@ export const STAT_FIELDS: readonly StatField[] = [
 ];
 
 export const STAT_LABELS: Readonly<Record<StatField, string>> = {
+	score: "Score",
 	money: "Money",
 	exp: "Exp",
 	boxes: "Boxes",
@@ -56,6 +59,12 @@ export function putStat<F extends StatField>(
 const LIMITS: Readonly<
 	Record<StatField, { min: number; max: number; range: boolean; takes: string }>
 > = {
+	score: {
+		min: 1,
+		max: Number.MAX_SAFE_INTEGER,
+		range: true,
+		takes: "a positive whole number, or a range like 1200000-1500000",
+	},
 	money: {
 		min: 1,
 		max: Number.MAX_SAFE_INTEGER,
@@ -145,7 +154,7 @@ export function readStats(value: unknown): RunStats {
 	if (typeof value !== "object" || value === null) return {};
 	const raw = value as { [K in StatField]?: unknown };
 	const stats: StatsDraft = {};
-	for (const field of ["money", "exp", "boxes"] as const) {
+	for (const field of ["score", "money", "exp", "boxes"] as const) {
 		const range = raw[field];
 		if (isRange(field, range)) {
 			stats[field] = { min: range.min, max: range.max };
