@@ -2,6 +2,52 @@
 
 What changed in this project and why, newest first.
 
+## 2026-10-28: A new combi code layout read letter by letter, and several goals per run
+
+### BREAKING CHANGES
+
+- The combi code has a new layout, and no code written before it decodes — saved codes and
+  links included. Rebuild a build on the page and save it again. A code in an earlier layout
+  is refused at slot 1, since `0`, `1` and `H` are no longer modes.
+- The version character left the ten game characters. A full code now always opens with it,
+  so a build with no loadout is `1-MS0A000000` in links, saved codes and exports, where it was
+  the bare code before.
+- `Combi.goal` is now `Combi.goals`, a set. `encode` throws on a set no code can say: Score
+  beside another goal, or no goal at all.
+- The Any goal is gone; every run aims for at least one goal.
+
+### Features
+
+- A run can aim for more than one goal. A manual run aims for Score, or for 1-3 of Money,
+  Exp and Box; an auto run for 1-3 of Money, Exp and Box. Several goals read as
+  "Money + Exp" in the summary, the code's hints and the saved rows, and the Saved drawer's
+  goal filter matches a run on any one of its goals.
+- `<chip-group>` has a `multiple` mode — checkbox chips, read and written through `values`,
+  where the last chip on stays on — and an `exclusive` list of values that stand alone.
+
+### Improvements
+
+- The game code reads slot by slot: `M`, `A`, `S` or `J` for the mode, where `J` is a
+  semi-auto run that jumps at the start, so the action slot is gone; two characters for the
+  goals (`S0`, `M0`, `X0`, `B0`, `MX`, `MB`, `XB`, `AA`); `A` for Any episode; and two
+  characters for the random boost (`2C`, `BS`, `HD`, `RV`, `CC`, `17`, `GC`, `CO`, `PO`,
+  `MA`, `PL`, `00` for none).
+- In the boost slot, HP Extension with Power Jelly is `2` and with Double XP as well `3`; the
+  other pairs and triples take the characters left over.
+- A whole cookie power+ group is `A`, so all seven read `AAA` rather than `411`.
+- On Special Episode 2 the floor is slots 5-7, with `000` after it.
+- The exhaustive test walks 10,621,776 combis to 5,310,888 codes, about 30s each, under a
+  300s timeout.
+
+### Decisions
+
+- Every layout change here broke old codes rather than bumping the version or reading the old
+  layout alongside: one layout to read and document was preferred over a migration path.
+- Score stands alone among the goals, and an auto run never aims for it, because Score is
+  played by hand; only the eight sets a run actually aims for have characters.
+- The version lives only in the full code: the game field's ten characters are all spent on
+  the run, and a bare code copied back out of the game is read as the current version.
+
 ## 2026-10-27: Saving opens the new entry, the code panel's buttons regrouped, sort and filter for saved codes, Delete all, and a Score stat
 
 ### Features
