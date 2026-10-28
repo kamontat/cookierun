@@ -87,16 +87,28 @@ test("each group of cookie powers has a slot of its own", () => {
 	).toBe("10S000C0E0");
 });
 
-// A slot with two or more of its group on reads as a running character.
-test("every cookie power at once is 4 1 1", () => {
+// A whole group on is A, as all four boosts and all four goals are.
+test("every cookie power at once is AAA", () => {
 	const code = encode({
 		...manual,
 		boosts: [],
 		cookiePowers: ALL_COOKIE_POWERS,
 	});
 
-	expect(code).toBe("10S0004110");
+	expect(code).toBe("10S000AAA0");
 	expect(decode(code).combi.cookiePowers).toEqual(ALL_COOKIE_POWERS);
+});
+
+test("a group's old all-on characters no longer read", () => {
+	expect(() => decode("10S0004000")).toThrow(
+		'slot 7 (cookie power+): unknown char "4"',
+	);
+	expect(() => decode("10S0000100")).toThrow(
+		'slot 8 (cookie power+): unknown char "1"',
+	);
+	expect(() => decode("10S0000010")).toThrow(
+		'slot 9 (cookie power+): unknown char "1"',
+	);
 });
 
 test("every set of cookie powers has its own code and reads back as itself", () => {

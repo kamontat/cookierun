@@ -1051,7 +1051,7 @@ test("every cookie power can be on at once", async () => {
 	]) {
 		await choose("cookiePowers", power);
 	}
-	expect(await codeText()).toBe("10S0004110");
+	expect(await codeText()).toBe("10S000AAA0");
 	await reset();
 });
 

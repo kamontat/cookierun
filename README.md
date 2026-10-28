@@ -73,15 +73,15 @@ Each boost is a letter from its own name.
 
 ### Cookie power+ (slots 7-9)
 
-Any number of the seven can be on, so they are split into three groups with a slot each. A slot works like the boost slot: `0` for none of its group, a power's own letter when it is the only one of its group, and a running digit for two or more.
+Any number of the seven can be on, so they are split into three groups with a slot each. A slot works like the boost slot: `0` for none of its group, a power's own letter when it is the only one of its group, a running digit for some but not all of a group, and `A` for the whole group — as all four boosts and all four goals are `A`.
 
 | Slot | Powers | Combinations |
 | --- | --- | --- |
-| 7 | `C` Cheerleader, `S` Special Force, `F` Fairy | `1` C+S, `2` C+F, `3` S+F, `4` all three |
-| 8 | `K` Cheesecake, `W` Sea Fairy (W for water) | `1` both |
-| 9 | `L` Serenade of Love, `E` EXP Party | `1` both |
+| 7 | `C` Cheerleader, `S` Special Force, `F` Fairy | `1` C+S, `2` C+F, `3` S+F, `A` all three |
+| 8 | `K` Cheesecake, `W` Sea Fairy (W for water) | `A` both |
+| 9 | `L` Serenade of Love, `E` EXP Party | `A` both |
 
-Fairy plus Sea Fairy is `FW0`; Cheerleader, Fairy and EXP Party is `20E`; all seven is `411`.
+Fairy plus Sea Fairy is `FW0`; Cheerleader, Fairy and EXP Party is `20E`; all seven is `AAA`. A code written before this used `4` in slot 7 and `1` in slots 8 and 9 for a whole group; those characters no longer read.
 
 ### Special episodes
 

@@ -193,7 +193,9 @@ const RANDOM_BOOST_CHARS: Record<RandomBoost, string> = {
  * into three groups of one slot each, and each slot is a set slot of its own.
  * A run with at most one power per group reads as plain letters. Cheesecake
  * is `K`, since `C` is the cheerleader's; Sea Fairy is `W` for water, since
- * `S` and `F` are taken; Serenade of Love is `L` for love.
+ * `S` and `F` are taken; Serenade of Love is `L` for love. A whole group on
+ * is `A`, as all four boosts and all four goals are, so all seven powers read
+ * `AAA`.
  */
 const COOKIE_POWER_SLOTS: readonly SetSlot<CookiePower>[] = [
 	{
@@ -202,21 +204,21 @@ const COOKIE_POWER_SLOTS: readonly SetSlot<CookiePower>[] = [
 			{ value: "specialForce", char: "S" },
 			{ value: "fairy", char: "F" },
 		],
-		combos: { CS: "1", CF: "2", SF: "3", CSF: "4" },
+		combos: { CS: "1", CF: "2", SF: "3", CSF: "A" },
 	},
 	{
 		members: [
 			{ value: "cheesecake", char: "K" },
 			{ value: "seaFairy", char: "W" },
 		],
-		combos: { KW: "1" },
+		combos: { KW: "A" },
 	},
 	{
 		members: [
 			{ value: "serenadeOfLove", char: "L" },
 			{ value: "expParty", char: "E" },
 		],
-		combos: { LE: "1" },
+		combos: { LE: "A" },
 	},
 ];
 
