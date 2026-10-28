@@ -84,6 +84,18 @@ function isOn(hostId: string, value: string): boolean {
 	);
 }
 
+/**
+ * Sets the goal row to exactly one goal: the row is a set now, so a click adds
+ * to it, and a test that means "aim for Money" has to take the others off.
+ */
+async function onlyGoal(value: string): Promise<void> {
+	if (!isOn("goal", value)) await choose("goal", value);
+	const others = [
+		...inside(need("goal")).querySelectorAll<HTMLButtonElement>("button[role]"),
+	].filter((chip) => chip.value !== value && isOn("goal", chip.value));
+	for (const chip of others) await choose("goal", chip.value);
+}
+
 /** Types into the code bar the way someone pasting a code by hand would. */
 async function typeCode(text: string): Promise<void> {
 	(codeBar as HTMLElement & { editing: boolean }).editing = true;
@@ -177,24 +189,42 @@ test("no region of the page is named for cookies, which blockers hide", () => {
 });
 
 test("the page opens on a valid code", async () => {
-	expect(await codeText()).toBe("10S0000000");
+	expect(await codeText()).toBe("1-MS0A000000");
 });
 
-test("choosing a goal writes it into the code", async () => {
+// Goals are a set, but Score stands alone: picking another goal turns Score
+// off, a further one is added beside it, and Score turns the others off.
+test("choosing a goal adds it to the run's goals, but Score stands alone", async () => {
 	await choose("goal", "money");
+	expect(await codeText()).toBe("1-MM0A000000");
+	expect(isOn("goal", "score")).toBe(false);
 
-	expect(await codeText()).toBe("10M0000000");
+	await choose("goal", "exp");
+	expect(await codeText()).toBe("1-MMXA000000");
+	expect(isOn("goal", "money")).toBe(true);
+	expect(isOn("goal", "exp")).toBe(true);
+
+	await choose("goal", "score");
+	expect(await codeText()).toBe("1-MS0A000000");
+	expect(isOn("goal", "money")).toBe(false);
+	await reset();
+});
+
+test("a manual run can aim for Money, Exp and Box at once", async () => {
+	for (const goal of ["money", "exp", "box"]) await choose("goal", goal);
+
+	expect(await codeText()).toBe("1-MAAA000000");
 	await reset();
 });
 
 test("a boost card writes its set and rewrites the mode slot to semi-auto", async () => {
 	await choose("mode", "auto");
-	// Score is played by hand, so an auto run falls to Any, its first goal.
-	expect(await codeText()).toBe("1A00000000");
+	// Score is played by hand, so an auto run falls to Money, its first goal.
+	expect(await codeText()).toBe("1-AM0A000000");
 
 	await choose("boosts", "fastStart");
 
-	expect(await codeText()).toBe("1H00F00000");
+	expect(await codeText()).toBe("1-SM0AF00000");
 	expect(verdict.textContent).toBe("Plays as semi-auto because of Fast Start.");
 	await reset();
 });
@@ -203,7 +233,7 @@ test("Double XP is its own letter and leaves the run on full auto", async () => 
 	await choose("mode", "auto");
 	await choose("boosts", "doubleXp");
 
-	expect(await codeText()).toBe("1A00X00000");
+	expect(await codeText()).toBe("1-AM0AX00000");
 	expect(verdict.textContent).toBe("Plays itself all the way: full auto.");
 	expect(isOn("boosts", "doubleXp")).toBe(true);
 	await reset();
@@ -218,7 +248,7 @@ test("the mode chips do not offer semi-auto", () => {
 });
 
 test("a semi-auto code shows Auto picked, and says semi-auto in words", async () => {
-	await typeCode("1HM0F00000");
+	await typeCode("1-SM0AF00000");
 
 	expect(isOn("mode", "auto")).toBe(true);
 	expect(verdict.textContent).toContain("semi-auto");
@@ -228,9 +258,11 @@ test("a semi-auto code shows Auto picked, and says semi-auto in words", async ()
 // The chips carry auto, the code carries H: reading one back must not quietly
 // turn it into the other.
 test("a semi-auto code re-encodes as itself", async () => {
-	await typeCode("1HM0F00000");
+	await typeCode("1-SM0AF00000");
 
-	expect((codeBar as HTMLElement & { value: string }).value).toBe("1HM0F00000");
+	expect((codeBar as HTMLElement & { value: string }).value).toBe(
+		"1-SM0AF00000",
+	);
 	await reset();
 });
 
@@ -238,35 +270,34 @@ test("a semi-auto code re-encodes as itself", async () => {
 // like any other — and, the row being resettable, so is clicking the chosen one.
 test("the random boost chips write slot 6 and None puts it back to 0", async () => {
 	await choose("randomBoost", "revive");
-	expect(await codeText()).toBe("10S00R0000");
+	expect(await codeText()).toBe("1-MS0A0RV000");
 
 	await choose("randomBoost", "");
-	expect(await codeText()).toBe("10S0000000");
+	expect(await codeText()).toBe("1-MS0A000000");
 
 	await choose("randomBoost", "revive");
 	await choose("randomBoost", "revive");
-	expect(await codeText()).toBe("10S0000000");
+	expect(await codeText()).toBe("1-MS0A000000");
 	await reset();
 });
 
 test("clicking the chosen action puts it back to no action", async () => {
 	await choose("mode", "auto");
 	await choose("action", "jumpAtStart");
-	expect(await codeText()).toBe("1H0000000J");
+	expect(await codeText()).toBe("1-JM0A000000");
 
 	await choose("action", "jumpAtStart");
 
-	expect(await codeText()).toBe("1A00000000");
+	expect(await codeText()).toBe("1-AM0A000000");
 	await reset();
 });
 
-// A goal is always something, so the row that holds them does not reset.
-test("clicking the chosen goal leaves it chosen", async () => {
-	await choose("goal", "money");
-	await choose("goal", "money");
+// A run always aims for something, so the last goal on cannot be clicked off.
+test("clicking the only chosen goal leaves it chosen", async () => {
+	await choose("goal", "score");
 
-	expect(await codeText()).toBe("10M0000000");
-	await reset();
+	expect(await codeText()).toBe("1-MS0A000000");
+	expect(isOn("goal", "score")).toBe(true);
 });
 
 // The summary is drawn from the code the page just wrote, and a row of it
@@ -300,12 +331,12 @@ test("a manual run says no verdict", async () => {
 test("a cookie power card writes its letter into the code", async () => {
 	await choose("cookiePowers", "cheerleader");
 
-	expect(await codeText()).toBe("10S000C000");
+	expect(await codeText()).toBe("1-MS0A000C00");
 	await reset();
 });
 
 test("typing a code moves every control to match it", async () => {
-	await typeCode("1HM32S000J");
+	await typeCode("1-JM031BS000");
 
 	expect(isOn("goal", "money")).toBe(true);
 	expect(isOn("mode", "auto")).toBe(true);
@@ -317,7 +348,7 @@ test("typing a code moves every control to match it", async () => {
 });
 
 test("typing a code with a loadout fills the loadout controls too", async () => {
-	await typeCode("1C0P-10S0000000");
+	await typeCode("1C0P-MS0A000000");
 
 	expect(roleCard("cookie").textContent).toContain("Fairy Cookie");
 	expect(isOn("cookie", "0P")).toBe(true);
@@ -333,7 +364,7 @@ test("picking Any on the cookie, relay and pet writes it into the code", async (
 	await choose("pet", "__");
 
 	// The relay writes Semi-auto into slot 3 whichever cookie fills it.
-	expect(await codeText()).toBe("1C__R__P__-1H00000000");
+	expect(await codeText()).toBe("1C__R__P__-SM0A000000");
 	expect(roleCard("cookie").textContent).toContain("Any cookie");
 	expect(roleCard("pet").textContent).toContain("Any pet");
 	await reset();
@@ -385,7 +416,7 @@ test("typing progress is held while the editor is open and let go when it closes
 });
 
 test("an unfinished code leaves the controls where they were", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	await typeCode("1E3H");
 
 	expect(isOn("goal", "money")).toBe(true);
@@ -393,7 +424,7 @@ test("an unfinished code leaves the controls where they were", async () => {
 });
 
 test("an unreadable code says what is wrong with it", async () => {
-	await typeCode("10Q0000000");
+	await typeCode("1-MQ0A000000");
 
 	expect(notice().type).toBe("error");
 	expect(notice().text).toContain("Q");
@@ -405,7 +436,7 @@ test("an unreadable code says what is wrong with it", async () => {
 // Once the editor shuts, the bar shows the built code again, so an error
 // about the draft that never applied is about nothing on screen.
 test("closing the editor on an unreadable code takes its error down", async () => {
-	await typeCode("10Q0000000");
+	await typeCode("1-MQ0A000000");
 	expect(notice().type).toBe("error");
 
 	await closeEditor();
@@ -415,8 +446,8 @@ test("closing the editor on an unreadable code takes its error down", async () =
 });
 
 test("an unreadable code leaves the controls where they were", async () => {
-	await choose("goal", "money");
-	await typeCode("10Q0000000");
+	await onlyGoal("money");
+	await typeCode("1-MQ0A000000");
 
 	expect(isOn("goal", "money")).toBe(true);
 	await reset();
@@ -427,14 +458,14 @@ test("an unreadable code leaves the controls where they were", async () => {
 test("a contradicting code shows its warnings in the banner, and they go again", async () => {
 	expect(notice().type).toBe(null);
 
-	await typeCode("1AM0F00000");
+	await typeCode("1-AM0AF00000");
 
 	expect(isOn("boosts", "fastStart")).toBe(true);
 	expect(notice().type).toBe("warn");
 	expect(notice().text).toContain("Read with changes");
 	expect(notice().text).toContain("Semi-auto");
 
-	await typeCode("10S0000000");
+	await typeCode("1-MS0A000000");
 
 	expect(notice().type).toBe(null);
 	await reset();
@@ -443,11 +474,11 @@ test("a contradicting code shows its warnings in the banner, and they go again",
 // Warnings are about the code that produced them: the next build change
 // clears them, just as typing a clean code does.
 test("a decode warning clears on the next build change", async () => {
-	await typeCode("1AM0F00000");
+	await typeCode("1-AM0AF00000");
 	await closeEditor();
 	expect(notice().type).toBe("warn");
 
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 
 	expect(notice().type).toBe(null);
 	await reset();
@@ -456,13 +487,13 @@ test("a decode warning clears on the next build change", async () => {
 test("pasting a code anywhere on the page loads it", async () => {
 	const event = new Event("paste", { bubbles: true, cancelable: true });
 	Object.defineProperty(event, "clipboardData", {
-		value: { getData: () => "10M3000000" },
+		value: { getData: () => "1-MM03000000" },
 	});
 	document.dispatchEvent(event);
 	await settle();
 
 	expect(isOn("goal", "money")).toBe(true);
-	expect(await codeText()).toBe("10M3000000");
+	expect(await codeText()).toBe("1-MM03000000");
 	expect(notice()).toEqual({ type: "info", text: "Code pasted." });
 	await reset();
 });
@@ -472,20 +503,20 @@ test("pasting a code anywhere on the page loads it", async () => {
 test("a message from the last code goes away once a control moves", async () => {
 	const event = new Event("paste", { bubbles: true, cancelable: true });
 	Object.defineProperty(event, "clipboardData", {
-		value: { getData: () => "10M3000000" },
+		value: { getData: () => "1-MM03000000" },
 	});
 	document.dispatchEvent(event);
 	await settle();
 	expect(notice().type).not.toBe(null);
 
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 
 	expect(notice().type).toBe(null);
 	await reset();
 });
 
 test("pasting something that is not a code is left to the browser", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	const event = new Event("paste", { bubbles: true, cancelable: true });
 	Object.defineProperty(event, "clipboardData", {
 		value: { getData: () => "hello there" },
@@ -513,19 +544,19 @@ test("clicking a run of the code moves focus to the control that writes it", asy
 });
 
 test("reset goes back to the code the page opened on", async () => {
-	await choose("goal", "box");
+	await onlyGoal("box");
 	await choose("boosts", "fastStart");
 
 	await reset();
 
-	expect(await codeText()).toBe("10S0000000");
+	expect(await codeText()).toBe("1-MS0A000000");
 	expect(isOn("boosts", "fastStart")).toBe(false);
 });
 
 test("the code is remembered for the next visit", async () => {
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 
-	expect(localStorage.getItem("combi-name:code")).toBe("10E0000000");
+	expect(localStorage.getItem("combi-name:code")).toBe("1-MX0A000000");
 	await reset();
 });
 
@@ -533,7 +564,7 @@ test("the code is remembered for the next visit", async () => {
 // so without this the page would ignore the code someone just pasted into the
 // address bar — and then overwrite it on the next click.
 test("a code arriving in the address bar loads without a reload", async () => {
-	location.hash = "#10B5000000";
+	location.hash = "#1-MB05000000";
 	window.dispatchEvent(new Event("hashchange"));
 	await settle();
 
@@ -543,7 +574,7 @@ test("a code arriving in the address bar loads without a reload", async () => {
 });
 
 test("a hash the page cannot read leaves the build alone", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	location.hash = "#not-a-code";
 	window.dispatchEvent(new Event("hashchange"));
 	await settle();
@@ -595,16 +626,16 @@ test("Copy link in the menu copies the page's address and says so", async () => 
 // The game takes ten characters; the loadout before the dash is the summary's
 // to show, and still rides in the link, the saves and the editor.
 test("the code bar shows only the ten characters the game takes", async () => {
-	await typeCode("1C0P-10S0000000");
+	await typeCode("1C0P-MS0A000000");
 	await closeEditor();
 
-	expect(await codeText()).toBe("1C0P-10S0000000");
-	expect(await shownCode()).toBe("10S0000000");
+	expect(await codeText()).toBe("1C0P-MS0A000000");
+	expect(await shownCode()).toBe("MS0A000000");
 
 	need<HTMLButtonElement>("edit-code").click();
 	await settle();
 	expect(inside(codeBar).querySelector<HTMLInputElement>("input")?.value).toBe(
-		"1C0P-10S0000000",
+		"1C0P-MS0A000000",
 	);
 	await closeEditor();
 	await reset();
@@ -612,7 +643,7 @@ test("the code bar shows only the ten characters the game takes", async () => {
 
 // The full code is one menu pick away, and the pick is remembered.
 test("the menu shows the full code and back, and Copy code copies what is shown", async () => {
-	await typeCode("1C0P-10M0000000");
+	await typeCode("1C0P-MM0A000000");
 	await closeEditor();
 	const toggle = need<HTMLButtonElement>("code-full");
 	expect(toggle.textContent?.trim()).toBe("Show full code");
@@ -620,7 +651,7 @@ test("the menu shows the full code and back, and Copy code copies what is shown"
 
 	toggle.click();
 	await settle();
-	expect(await shownCode()).toBe("1C0P-10M0000000");
+	expect(await shownCode()).toBe("1C0P-MM0A000000");
 	expect(toggle.textContent?.trim()).toBe("Show game code only");
 	expect(toggle.getAttribute("aria-pressed")).toBe("true");
 	expect(localStorage.getItem("combi-name:full-code")).toBe("1");
@@ -636,17 +667,17 @@ test("the menu shows the full code and back, and Copy code copies what is shown"
 			await settle();
 		},
 	);
-	expect(written).toBe("1C0P-10M0000000");
+	expect(written).toBe("1C0P-MM0A000000");
 
 	toggle.click();
 	await settle();
-	expect(await shownCode()).toBe("10M0000000");
+	expect(await shownCode()).toBe("MM0A000000");
 	expect(localStorage.getItem("combi-name:full-code")).toBe("0");
 	await reset();
 });
 
 test("Copy code copies the ten characters the game takes, not the loadout", async () => {
-	await typeCode("1C0P-10M0000000");
+	await typeCode("1C0P-MM0A000000");
 	await closeEditor();
 	let written = "";
 	await withClipboard(
@@ -660,13 +691,13 @@ test("Copy code copies the ten characters the game takes, not the loadout", asyn
 		},
 	);
 
-	expect(written).toBe("10M0000000");
-	expect(notice()).toEqual({ type: "info", text: "Copied 10M0000000." });
+	expect(written).toBe("MM0A000000");
+	expect(notice()).toEqual({ type: "info", text: "Copied MM0A000000." });
 	await reset();
 });
 
 test("Copy code in the menu copies the code itself and says so", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	let written = "";
 	await withClipboard(
 		(text) => {
@@ -679,8 +710,8 @@ test("Copy code in the menu copies the code itself and says so", async () => {
 		},
 	);
 
-	expect(written).toBe("10M0000000");
-	expect(notice()).toEqual({ type: "info", text: "Copied 10M0000000." });
+	expect(written).toBe("MM0A000000");
+	expect(notice()).toEqual({ type: "info", text: "Copied MM0A000000." });
 	await reset();
 });
 
@@ -738,7 +769,7 @@ test("every field states the slot or group it writes", () => {
 test("picking a cookie in its grid writes the loadout section", async () => {
 	await choose("cookie", "0P");
 
-	expect(await codeText()).toBe("1C0P-10S0000000");
+	expect(await codeText()).toBe("1C0P-MS0A000000");
 	await reset();
 });
 
@@ -754,7 +785,7 @@ test("the verdict still follows the flag slots", async () => {
 // slot claims a position the code only carries when the order is exact.
 // With two or more slots filled, the code carries the order; with fewer, it does not.
 test("the order switch relabels the treasure slots when two are filled", async () => {
-	await typeCode("1TU098.00Z-10S0000000");
+	await typeCode("1TU098.00Z-MS0A000000");
 
 	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
 	expect(need("treasure2").getAttribute("legend")).toBe("Any slot");
@@ -774,7 +805,7 @@ test("the order switch relabels the treasure slots when two are filled", async (
 // With only one slot filled, the code cannot carry an order, even when the
 // switch says "Exact order", because order requires at least two treasures to matter.
 test("a single filled treasure slot shows Any slot even with Exact order", async () => {
-	await typeCode("1TU098-10S0000000");
+	await typeCode("1TU098-MS0A000000");
 
 	expect(need("treasure1").getAttribute("legend")).toBe("Any slot");
 
@@ -829,12 +860,12 @@ test("opening the editor takes the page's buttons off the panel", async () => {
 // however the rest of the build reads — and the code says so in slot 2.
 test("a relay turns an auto build semi-auto, code and all", async () => {
 	await choose("mode", "auto");
-	expect(await codeText()).toBe("1A00000000");
+	expect(await codeText()).toBe("1-AM0A000000");
 
-	await typeCode("1R0P-1AM0000000");
+	await typeCode("1R0P-AM0A000000");
 
 	expect((codeBar as HTMLElement & { value: string }).value).toBe(
-		"1R0P-1HM0000000",
+		"1R0P-SM0A000000",
 	);
 	expect(verdict.textContent).toBe(
 		"Plays as semi-auto because of Relay cookie.",
@@ -868,7 +899,7 @@ function levelsOf(slotId: string, treasure: string): string[] {
 }
 
 test("a code's treasure levels land on the level buttons", async () => {
-	await typeCode("1TU09802_09859_0G258.0G19-10S0000000");
+	await typeCode("1TU09802_09859_0G258.0G19-MS0A000000");
 
 	expect(levelsOf("treasure1", "098")).toEqual([
 		"0",
@@ -886,7 +917,7 @@ test("a code's treasure levels land on the level buttons", async () => {
 });
 
 test("toggling a level rewrites the code", async () => {
-	await typeCode("1TU098-10S0000000");
+	await typeCode("1TU098-MS0A000000");
 	(codeBar as HTMLElement & { editing: boolean }).editing = false;
 	await settle();
 
@@ -898,7 +929,7 @@ test("toggling a level rewrites the code", async () => {
 	await settle();
 
 	expect((codeBar as HTMLElement & { value: string }).value).toBe(
-		"1TU098_0989-10S0000000",
+		"1TU098_0989-MS0A000000",
 	);
 	await reset();
 });
@@ -906,8 +937,8 @@ test("toggling a level rewrites the code", async () => {
 // A reversed copy does not decode, and a code that does not decode leaves the
 // controls exactly where they were.
 test("a code with a backwards level range changes nothing", async () => {
-	await typeCode("1TU0989-10S0000000");
-	await typeCode("1TU09895-10S0000000");
+	await typeCode("1TU0989-MS0A000000");
+	await typeCode("1TU09895-MS0A000000");
 
 	expect(levelsOf("treasure1", "098")).toEqual(["9"]);
 	await reset();
@@ -919,7 +950,7 @@ test("the tower shows a floor box, and the floor lands in slots 5-7", async () =
 	const floor = need<HTMLInputElement>("floor");
 	expect(field.hidden).toBe(true);
 
-	await typeCode("1AMT042000");
+	await typeCode("1-AM0T042000");
 	// Typing leaves the editor open, and the built code shows once it closes.
 	(codeBar as HTMLElement & { editing: boolean }).editing = false;
 	await settle();
@@ -929,43 +960,43 @@ test("the tower shows a floor box, and the floor lands in slots 5-7", async () =
 	floor.value = "7";
 	floor.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
 	await settle();
-	expect(await codeText()).toBe("1AMT007000");
+	expect(await codeText()).toBe("1-AM0T007000");
 
 	floor.value = "";
 	floor.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
 	await settle();
-	expect(await codeText()).toBe("1AMT000000");
+	expect(await codeText()).toBe("1-AM0T000000");
 	await reset();
 });
 
 // The controls keep what they hold: switching back brings the boosts back.
 test("a special episode takes boosts and the relay off the board, not out of the controls", async () => {
-	await typeCode("1C01R0P-1HM3H00000");
+	await typeCode("1C01R0P-SM03H00000");
 	// Clicking a cell blurs the editor in a browser, but not in happy-dom.
 	await closeEditor();
 	expect(need("field-boosts").hasAttribute("data-off")).toBe(false);
 	expect(roleCard("relay").disabled).toBe(false);
 
 	await choose("episode", "special1");
-	expect(await codeText()).toBe("1C01-1AMC000000");
+	expect(await codeText()).toBe("1C01-AM0C000000");
 	expect(need("field-boosts").hasAttribute("data-off")).toBe(true);
 	expect(need("field-cookiePowers").hasAttribute("data-off")).toBe(true);
 	expect(roleCard("relay").disabled).toBe(true);
 	expect(need("relay-note").hidden).toBe(false);
 
 	await choose("episode", "episode3");
-	expect(await codeText()).toBe("1C01R0P-1HM3H00000");
+	expect(await codeText()).toBe("1C01R0P-SM03H00000");
 	await reset();
 });
 
 test("the exp episode takes the treasures off the board too", async () => {
-	await typeCode("1TU001-1AM3000000");
+	await typeCode("1TU001-AM03000000");
 	await closeEditor();
 	expect(need("field-treasures").hasAttribute("data-off")).toBe(false);
 
 	await choose("episode", "specialExp");
 	expect(need("field-treasures").hasAttribute("data-off")).toBe(true);
-	expect(await codeText()).toBe("1AMX000000");
+	expect(await codeText()).toBe("1-AM0X000000");
 	await reset();
 });
 
@@ -977,13 +1008,28 @@ test("a manual run takes the action off the board", async () => {
 	await reset();
 });
 
-test("an auto run is offered Any instead of Score", async () => {
+test("an auto run is offered Money, Exp and Box, and keeps what it can", async () => {
 	expect(() => control("goal", "score")).not.toThrow();
 	expect(() => control("goal", "any")).toThrow();
 
+	await choose("goal", "exp");
 	await choose("mode", "auto");
 	expect(() => control("goal", "score")).toThrow();
-	expect(isOn("goal", "any")).toBe(true);
+	expect(() => control("goal", "any")).toThrow();
+	expect(await codeText()).toBe("1-AX0A000000");
+
+	await choose("goal", "money");
+	await choose("goal", "box");
+	expect(await codeText()).toBe("1-AAAA000000");
+	await reset();
+});
+
+test("typing a code with several goals turns each one on", async () => {
+	await typeCode("1-MXBA000000");
+
+	expect(isOn("goal", "score")).toBe(false);
+	expect(isOn("goal", "exp")).toBe(true);
+	expect(isOn("goal", "box")).toBe(true);
 	await reset();
 });
 
@@ -1000,7 +1046,7 @@ test("every cookie power can be on at once", async () => {
 	]) {
 		await choose("cookiePowers", power);
 	}
-	expect(await codeText()).toBe("10S0004110");
+	expect(await codeText()).toBe("1-MS0A000AAA");
 	await reset();
 });
 
@@ -1015,7 +1061,7 @@ test("picking a tab shows its panel and remembers it", async () => {
 });
 
 test("clicking a summary row opens its tab and focuses the control", async () => {
-	await typeCode("1TU098-10S0000000");
+	await typeCode("1TU098-MS0A000000");
 	await closeEditor();
 
 	inside(summary)
@@ -1032,7 +1078,7 @@ test("clicking a summary row opens its tab and focuses the control", async () =>
 });
 
 test("a treasure slot's run jumps to that slot, the order run to the order switch", async () => {
-	await typeCode("1TU098.0G2-10S0000000");
+	await typeCode("1TU098.0G2-MS0A000000");
 	await closeEditor();
 
 	codeBar.dispatchEvent(
@@ -1117,20 +1163,17 @@ test("the Exp episode disables the treasures tab", async () => {
 });
 
 test("a code's unused parts are not clickable", async () => {
-	await typeCode("1C01-1AMC000000");
+	await typeCode("1C01-AM0C000000");
 	const dead = ["boosts", "randomBoost", "cookiePowers", "reserved"];
 	const unused = hints().filter(
-		(hint) =>
-			dead.includes(hint.group) ||
-			hint.group === "version" ||
-			hint.group === "loadoutVersion",
+		(hint) => dead.includes(hint.group) || hint.group === "version",
 	);
 	expect(unused.map((hint) => hint.group)).toContain("reserved");
-	expect(unused.map((hint) => hint.group)).toContain("loadoutVersion");
+	expect(unused.map((hint) => hint.group)).toContain("version");
 	for (const hint of unused) expect(hint.inert).toBe(true);
 	expect(hints().find((hint) => hint.group === "cookie")?.inert).toBe(false);
 
-	await typeCode("1C01-1AM3H00000");
+	await typeCode("1C01-AM03H00000");
 	expect(hints().find((hint) => hint.group === "boosts")?.inert).toBe(false);
 	await closeEditor();
 	await reset();
@@ -1151,7 +1194,7 @@ test("a role card picks which grid the Cookies tab shows, and a pick writes the 
 
 	await choose("relay", "0P");
 
-	expect(await codeText()).toBe("1R0P-10S0000000");
+	expect(await codeText()).toBe("1R0P-MS0A000000");
 	expect(roleCard("relay").textContent).toContain("Fairy Cookie");
 	await reset();
 	roleCard("cookie").click();
@@ -1181,13 +1224,13 @@ test("Clear empties the selected role", async () => {
 	expect(clear.hidden).toBe(true);
 
 	await choose("cookie", "0P");
-	expect(await codeText()).toBe("1C0P-10S0000000");
+	expect(await codeText()).toBe("1C0P-MS0A000000");
 	expect(clear.hidden).toBe(false);
 
 	clear.click();
 	await settle();
 
-	expect(await codeText()).toBe("10S0000000");
+	expect(await codeText()).toBe("1-MS0A000000");
 	expect(roleCard("cookie").textContent).toContain("None");
 	expect(clear.hidden).toBe(true);
 	await reset();
@@ -1196,7 +1239,7 @@ test("Clear empties the selected role", async () => {
 test("the tab badges count what is set", async () => {
 	expect(tabOptions().map(([, , badge]) => badge)).toEqual(["", "", "0/3", ""]);
 
-	await typeCode("1C0PP10TU098.0G2-1HM31RFW00");
+	await typeCode("1C0PP10TU098.0G2-SM032RVFW0");
 
 	expect(tabOptions().map(([, , badge]) => badge)).toEqual([
 		"",
@@ -1209,7 +1252,7 @@ test("the tab badges count what is set", async () => {
 });
 
 test("the relay is not counted where the episode takes none", async () => {
-	await typeCode("1C0PR10P10-1HM3000000");
+	await typeCode("1C0PR10P10-SM03000000");
 	await closeEditor();
 	expect(tabOptions()[1]?.[2]).toBe("3");
 
@@ -1226,7 +1269,7 @@ test("the summary follows the code", async () => {
 	await settle();
 	expect(runRow()).toContain("Score");
 
-	await choose("goal", "money");
+	await onlyGoal("money");
 
 	expect(runRow()).toContain("Money");
 	await reset();
@@ -1282,7 +1325,7 @@ test("exporting or importing nothing is a warning, not an error", async () => {
 // note through its form attribute.
 test("the save button in the code panel submits the note", async () => {
 	expect(need("saved-empty").hidden).toBe(false);
-	await choose("goal", "money");
+	await onlyGoal("money");
 
 	await saveCurrent("Coin farm\nuse Fairy");
 
@@ -1290,7 +1333,7 @@ test("the save button in the code panel submits the note", async () => {
 	expect(row?.querySelector(".description")?.textContent).toBe(
 		"Coin farm\nuse Fairy",
 	);
-	expect(row?.getAttribute("data-code")).toBe("10M0000000");
+	expect(row?.getAttribute("data-code")).toBe("1-MM0A000000");
 	expect(row?.getAttribute("aria-current")).toBe("true");
 	expect(need("saved-empty").hidden).toBe(true);
 	expect(localStorage.getItem("combi-name:saved")).toContain("Coin farm");
@@ -1351,7 +1394,7 @@ test("Saved opens a drawer that lists the saved codes, and its count follows the
 	await reset();
 	await saveCurrent("Score run");
 	expect(need("saved-count").textContent).toBe("2");
-	savedButtonFor("10S0000000", "delete").click();
+	savedButtonFor("1-MS0A000000", "delete").click();
 	await settle();
 	expect(need("saved-count").textContent).toBe("1");
 });
@@ -1441,13 +1484,13 @@ test("dismissing from the keyboard hands focus to Save, or to the drawer's Close
 // "Skipped line 2." is about an import, not the build a Load is about to put
 // on screen: it must neither swallow "Loaded X." nor linger beside it.
 test("a stale warning from elsewhere does not swallow Loaded", async () => {
-	need<HTMLTextAreaElement>("import-text").value = "10M0000000\nnope";
+	need<HTMLTextAreaElement>("import-text").value = "1-MM0A000000\nnope";
 	need<HTMLButtonElement>("import").click();
 	await settle();
 	expect(notice().type).toBe("warn");
 
 	await openSavedDrawer();
-	savedButtonFor("10M0000000", "load").click();
+	savedButtonFor("1-MM0A000000", "load").click();
 	await settle();
 
 	expect(notice()).toEqual({ type: "info", text: "Loaded Coin farm." });
@@ -1459,15 +1502,15 @@ test("a stale warning from elsewhere does not swallow Loaded", async () => {
 // One action, not Load beside Edit: the two differed only in whether saving
 // afterwards wrote back, and that is a choice the save box already offers.
 test("loading from the drawer closes it and opens the entry in the note", async () => {
-	expect(await codeText()).toBe("10S0000000");
+	expect(await codeText()).toBe("1-MS0A000000");
 	await pickTab("boosts");
 	await openSavedDrawer();
 
-	savedButtonFor("10M0000000", "load").click();
+	savedButtonFor("1-MM0A000000", "load").click();
 
 	expect(savedDrawer().open).toBe(false);
 
-	expect(await codeText()).toBe("10M0000000");
+	expect(await codeText()).toBe("1-MM0A000000");
 	// Opening a saved code keeps the tab someone was on.
 	expect(shownPanels()).toEqual(["panel-boosts"]);
 	await pickTab("main");
@@ -1506,7 +1549,7 @@ test("a saved code that no longer reads keeps the drawer open and says so inside
 		]),
 	);
 	// Re-importing a saved code adds nothing but redraws the list.
-	need<HTMLTextAreaElement>("import-text").value = "10M0000000";
+	need<HTMLTextAreaElement>("import-text").value = "1-MM0A000000";
 	need<HTMLButtonElement>("import").click();
 	await settle();
 	need<NoticeBar>("notice").clear();
@@ -1521,7 +1564,7 @@ test("a saved code that no longer reads keeps the drawer open and says so inside
 	// The one banner went into the drawer with it, so the message is seen.
 	expect(savedDrawer().contains(need("notice"))).toBe(true);
 	expect(isEditing()).toBe(false);
-	expect(await codeText()).toBe("10S0000000");
+	expect(await codeText()).toBe("1-MS0A000000");
 
 	savedButtonFor("1ZZZZZZZZZ", "delete").click();
 	await settle();
@@ -1533,7 +1576,7 @@ test("the code panel's heading says whether the code is new or a saved one being
 	expect(need("code-heading").textContent?.trim()).toBe("New code");
 	expect(need("note-label").textContent?.trim()).toBe("Note");
 
-	savedButtonFor("10M0000000", "load").click();
+	savedButtonFor("1-MM0A000000", "load").click();
 	await settle();
 	expect(need("code-heading").textContent?.trim()).toBe("Editing saved code");
 	expect(need("code-heading").hasAttribute("data-editing")).toBe(true);
@@ -1558,7 +1601,7 @@ test("the code panel's menu holds Edit code, Copy code, Copy link, Show full cod
 	]);
 	expect(need("save-cancel").hidden).toBe(true);
 
-	savedButtonFor("10M0000000", "load").click();
+	savedButtonFor("1-MM0A000000", "load").click();
 	await settle();
 	expect(need("save-cancel").hidden).toBe(false);
 
@@ -1575,9 +1618,9 @@ test("Save as new sits beside Update in the code panel, outside the menu", async
 	expect(need("code-menu").contains(saveNew)).toBe(false);
 	expect(saveNew.hidden).toBe(true);
 
-	savedButtonFor("10M0000000", "load").click();
+	savedButtonFor("1-MM0A000000", "load").click();
 	await settle();
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 	expect(saveNew.hidden).toBe(false);
 
 	// It hides behind its own click, since the code is saved now, so focus
@@ -1606,7 +1649,7 @@ test("picking from the code menu closes it", async () => {
 	await reset();
 	expect(menu.open).toBe(false);
 
-	savedButtonFor("10M0000000", "load").click();
+	savedButtonFor("1-MM0A000000", "load").click();
 	await settle();
 	open();
 	need<HTMLButtonElement>("save-cancel").click();
@@ -1630,13 +1673,13 @@ test("picking from the code menu closes it", async () => {
 
 test("deleting a saved code takes it off the list and out of storage", async () => {
 	await openSavedDrawer();
-	savedButtonFor("10M0000000", "delete").click();
+	savedButtonFor("1-MM0A000000", "delete").click();
 	await settle();
 
 	expect(savedRows()).toHaveLength(0);
 	expect(need("saved-empty").hidden).toBe(false);
 	expect(localStorage.getItem("combi-name:saved")).toBe("[]");
-	expect(notice()).toEqual({ type: "info", text: "Deleted 10M0000000." });
+	expect(notice()).toEqual({ type: "info", text: "Deleted 1-MM0A000000." });
 	expect(need("saved-count").textContent).toBe("0");
 });
 
@@ -1654,25 +1697,25 @@ function savedCodes(): string[] {
 }
 
 test("Update writes the board and the note into the loaded entry in place", async () => {
-	await choose("goal", "money");
+	await onlyGoal("money");
 	await saveCurrent("Coin farm");
 	await reset();
 	await saveCurrent("Score run");
-	expect(savedCodes()).toEqual(["10S0000000", "10M0000000"]);
+	expect(savedCodes()).toEqual(["1-MS0A000000", "1-MM0A000000"]);
 
-	savedButtonFor("10M0000000", "load").click();
+	savedButtonFor("1-MM0A000000", "load").click();
 	await settle();
 
-	expect(await codeText()).toBe("10M0000000");
+	expect(await codeText()).toBe("1-MM0A000000");
 	expect(isEditing()).toBe(true);
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe("Coin farm");
 	expect(savedRows()[1]?.hasAttribute("data-editing")).toBe(true);
 
-	await choose("goal", "box");
+	await onlyGoal("box");
 	const edited = await codeText();
 	await saveCurrent("Box farm");
 
-	expect(savedCodes()).toEqual(["10S0000000", edited]);
+	expect(savedCodes()).toEqual(["1-MS0A000000", edited]);
 	expect(savedRows()[1]?.querySelector(".description")?.textContent).toBe(
 		"Box farm",
 	);
@@ -1691,12 +1734,12 @@ test("an update onto a code saved elsewhere is refused and the edit stays open u
 	savedButtonFor(edited, "load").click();
 	await settle();
 
-	await typeCode("10S0000000");
+	await typeCode("1-MS0A000000");
 	await saveCurrent("Box farm");
 
 	expect(notice().text).toContain("already saved");
 	expect(notice().type).toBe("error");
-	expect(savedCodes()).toEqual(["10S0000000", edited]);
+	expect(savedCodes()).toEqual(["1-MS0A000000", edited]);
 	expect(isEditing()).toBe(true);
 
 	need<HTMLButtonElement>("save-cancel").click();
@@ -1710,15 +1753,15 @@ test("saving as new while editing keeps the old entry and opens the new one", as
 	const [, edited = ""] = savedCodes();
 	savedButtonFor(edited, "load").click();
 	await settle();
-	await choose("goal", "money");
+	await onlyGoal("money");
 
 	need<HTMLTextAreaElement>("save-description").value = "Coin farm";
 	need<HTMLButtonElement>("save-new").click();
 	await settle();
 
-	expect(savedCodes()).toEqual(["10M0000000", "10S0000000", edited]);
+	expect(savedCodes()).toEqual(["1-MM0A000000", "1-MS0A000000", edited]);
 	expect(isEditing()).toBe(true);
-	expect(rowFor("10M0000000").hasAttribute("data-editing")).toBe(true);
+	expect(rowFor("1-MM0A000000").hasAttribute("data-editing")).toBe(true);
 	expect(rowFor(edited).hasAttribute("data-editing")).toBe(false);
 	await reset();
 });
@@ -1733,18 +1776,18 @@ test("New shows only while the code on screen is not saved yet", async () => {
 	expect(need("save-new").hidden).toBe(true);
 	expect(need("save-cancel").hidden).toBe(false);
 
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 	expect(savedCodes()).not.toContain(await codeText());
 	expect(need("save-new").hidden).toBe(false);
 
 	// Back onto a code another entry holds.
-	await typeCode("10S0000000");
+	await typeCode("1-MS0A000000");
 	expect(need("save-new").hidden).toBe(true);
 	await reset();
 });
 
 // "Coin farm" as base64url.
-const COIN_FARM_LINK = `${location.href.split("#")[0]}#10M0000000?note=Q29pbiBmYXJt`;
+const COIN_FARM_LINK = `${location.href.split("#")[0]}#1-MM0A000000?note=Q29pbiBmYXJt`;
 
 test("copying an entry's link reports inside the drawer", async () => {
 	let written = "";
@@ -1754,7 +1797,7 @@ test("copying an entry's link reports inside the drawer", async () => {
 			return Promise.resolve();
 		},
 		async () => {
-			savedButtonFor("10M0000000", "copy").click();
+			savedButtonFor("1-MM0A000000", "copy").click();
 			await settle();
 		},
 	);
@@ -1778,7 +1821,7 @@ function rowFor(code: string): HTMLLIElement {
 // Five buttons a row was a wall. Load is what a row is for; the rest is one
 // tap further, behind the row's own menu.
 test("a row shows Load and a menu, and the rest of its actions sit in the menu", () => {
-	const row = rowFor("10M0000000");
+	const row = rowFor("1-MM0A000000");
 	const menu = row.querySelector<HTMLDetailsElement>("details.more");
 	if (menu === null) throw new Error("the row has no menu");
 
@@ -1804,40 +1847,40 @@ test("a row's menu closes on a pick, on Escape, on a click elsewhere, and when a
 			"details.more",
 		) as HTMLDetailsElement;
 
-	menuOf("10M0000000").open = true;
-	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
+	menuOf("1-MM0A000000").open = true;
+	menuOf("1-MM0A000000").dispatchEvent(new Event("toggle"));
 	await withClipboard(
 		() => Promise.resolve(),
 		async () => {
-			savedButtonFor("10M0000000", "copy").click();
+			savedButtonFor("1-MM0A000000", "copy").click();
 			await settle();
 		},
 	);
-	expect(menuOf("10M0000000").open).toBe(false);
+	expect(menuOf("1-MM0A000000").open).toBe(false);
 
-	menuOf("10M0000000").open = true;
-	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
-	menuOf("10M0000000")
+	menuOf("1-MM0A000000").open = true;
+	menuOf("1-MM0A000000").dispatchEvent(new Event("toggle"));
+	menuOf("1-MM0A000000")
 		.querySelector("summary")
 		?.dispatchEvent(
 			new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
 		);
-	expect(menuOf("10M0000000").open).toBe(false);
+	expect(menuOf("1-MM0A000000").open).toBe(false);
 	expect(document.activeElement).toBe(
-		menuOf("10M0000000").querySelector("summary"),
+		menuOf("1-MM0A000000").querySelector("summary"),
 	);
 
-	menuOf("10M0000000").open = true;
-	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
+	menuOf("1-MM0A000000").open = true;
+	menuOf("1-MM0A000000").dispatchEvent(new Event("toggle"));
 	need("saved-heading").click();
-	expect(menuOf("10M0000000").open).toBe(false);
+	expect(menuOf("1-MM0A000000").open).toBe(false);
 
-	menuOf("10M0000000").open = true;
-	menuOf("10M0000000").dispatchEvent(new Event("toggle"));
-	menuOf("10S0000000").open = true;
-	menuOf("10S0000000").dispatchEvent(new Event("toggle"));
-	expect(menuOf("10M0000000").open).toBe(false);
-	menuOf("10S0000000").open = false;
+	menuOf("1-MM0A000000").open = true;
+	menuOf("1-MM0A000000").dispatchEvent(new Event("toggle"));
+	menuOf("1-MS0A000000").open = true;
+	menuOf("1-MS0A000000").dispatchEvent(new Event("toggle"));
+	expect(menuOf("1-MM0A000000").open).toBe(false);
+	menuOf("1-MS0A000000").open = false;
 	await reset();
 });
 
@@ -1846,7 +1889,7 @@ test("a row's menu closes on a pick, on Escape, on a click elsewhere, and when a
 // or the next opening shows it still hanging open.
 test("closing the drawer closes a row menu left open inside it", async () => {
 	await openSavedDrawer();
-	const menu = rowFor("10M0000000").querySelector<HTMLDetailsElement>(
+	const menu = rowFor("1-MM0A000000").querySelector<HTMLDetailsElement>(
 		"details.more",
 	) as HTMLDetailsElement;
 	menu.open = true;
@@ -1862,7 +1905,7 @@ test("closing the drawer closes a row menu left open inside it", async () => {
 // Without a share sheet, Share could only do what Copy link already does.
 test("an entry offers Share only where the browser has a share sheet", async () => {
 	expect(typeof navigator.share).not.toBe("function");
-	expect(() => savedButtonFor("10M0000000", "share")).toThrow();
+	expect(() => savedButtonFor("1-MM0A000000", "share")).toThrow();
 
 	let shared: ShareData | undefined;
 	Object.defineProperty(navigator, "share", {
@@ -1874,11 +1917,11 @@ test("an entry offers Share only where the browser has a share sheet", async () 
 	});
 	try {
 		// Re-importing a saved code adds nothing but redraws the list.
-		need<HTMLTextAreaElement>("import-text").value = "10M0000000";
+		need<HTMLTextAreaElement>("import-text").value = "1-MM0A000000";
 		need<HTMLButtonElement>("import").click();
 		await settle();
 
-		savedButtonFor("10M0000000", "share").click();
+		savedButtonFor("1-MM0A000000", "share").click();
 		await settle();
 
 		expect(shared).toEqual({
@@ -1906,17 +1949,17 @@ test("exporting copies the whole list as text", async () => {
 
 	const [, , edited] = savedCodes();
 	expect(written).toBe(
-		`10M0000000\n> Coin farm\n\n10S0000000\n> Score run\n\n${edited}\n> Box farm\n`,
+		`1-MM0A000000\n> Coin farm\n\n1-MS0A000000\n> Score run\n\n${edited}\n> Box farm\n`,
 	);
 });
 
 test("importing text adds the new codes on top, keeps saved notes, and names the lines it skipped", async () => {
 	need<HTMLTextAreaElement>("import-text").value =
-		"10M5000000\n> imported\n10M0000000\n> not mine\nnope";
+		"1-MM05000000\n> imported\n1-MM0A000000\n> not mine\nnope";
 	need<HTMLButtonElement>("import").click();
 	await settle();
 
-	expect(savedCodes()[0]).toBe("10M5000000");
+	expect(savedCodes()[0]).toBe("1-MM05000000");
 	expect(savedCodes()).toHaveLength(4);
 	expect(savedRows()[1]?.querySelector(".description")?.textContent).toBe(
 		"Coin farm",
@@ -1931,18 +1974,18 @@ test("importing text adds the new codes on top, keeps saved notes, and names the
 
 test("a link that carries a note offers it in the save box", async () => {
 	// "From a friend" as base64url.
-	location.hash = "#10B5000000?note=RnJvbSBhIGZyaWVuZA";
+	location.hash = "#1-MB05000000?note=RnJvbSBhIGZyaWVuZA";
 	window.dispatchEvent(new Event("hashchange"));
 	await settle();
 
-	expect(await codeText()).toBe("10B5000000");
+	expect(await codeText()).toBe("1-MB05000000");
 	expect(need<HTMLTextAreaElement>("save-description").value).toBe(
 		"From a friend",
 	);
 	expect(notice().type).toBe("info");
 	expect(notice().text).toContain("came with a note");
 	// The page's own hash goes back to being the build alone.
-	expect(location.hash).toBe("#10B5000000");
+	expect(location.hash).toBe("#1-MB05000000");
 
 	need<HTMLTextAreaElement>("save-description").value = "";
 	await reset();
@@ -1952,7 +1995,7 @@ test("a link that carries a note offers it in the save box", async () => {
 // be seen: the note offer joins the warning rather than replacing it.
 test("a link with a contradicting code and a note keeps its warning and mentions the note", async () => {
 	// "From a friend" as base64url.
-	location.hash = "#1AM0F00000?note=RnJvbSBhIGZyaWVuZA";
+	location.hash = "#1-AM0AF00000?note=RnJvbSBhIGZyaWVuZA";
 	window.dispatchEvent(new Event("hashchange"));
 	await settle();
 
@@ -2042,7 +2085,7 @@ test("Clear hands focus to the role card it emptied", async () => {
 // them out again on every click.
 test("the verdict is rewritten only when its words change", async () => {
 	await choose("mode", "auto");
-	await choose("goal", "money");
+	await onlyGoal("money");
 	expect(verdict.textContent).not.toBe("");
 	let writes = 0;
 	const watcher = new MutationObserver((records) => {
@@ -2053,7 +2096,7 @@ test("the verdict is rewritten only when its words change", async () => {
 		characterData: true,
 		subtree: true,
 	});
-	await choose("goal", "box");
+	await onlyGoal("box");
 	await settle();
 	watcher.disconnect();
 
@@ -2063,11 +2106,11 @@ test("the verdict is rewritten only when its words change", async () => {
 
 test("the tab stays put when a code arrives in the address bar", async () => {
 	await pickTab("boosts");
-	location.hash = "#10M0000000";
+	location.hash = "#1-MM0A000000";
 	window.dispatchEvent(new Event("hashchange"));
 	await settle();
 
-	expect(await codeText()).toBe("10M0000000");
+	expect(await codeText()).toBe("1-MM0A000000");
 	expect(shownPanels()).toEqual(["panel-boosts"]);
 	await pickTab("main");
 	await reset();
@@ -2081,13 +2124,13 @@ test("pasting a code while a drawer is open is left alone", async () => {
 
 	const event = new Event("paste", { bubbles: true, cancelable: true });
 	Object.defineProperty(event, "clipboardData", {
-		value: { getData: () => "10M3000000" },
+		value: { getData: () => "1-MM03000000" },
 	});
 	document.dispatchEvent(event);
 	await settle();
 
 	expect(event.defaultPrevented).toBe(false);
-	expect(await codeText()).toBe("10S0000000");
+	expect(await codeText()).toBe("1-MS0A000000");
 	closeButton(savedDrawer()).click();
 	await settle();
 	await reset();
@@ -2111,7 +2154,7 @@ function fillStats(stats: Record<string, string>): void {
 }
 
 test("the note takes run stats, and the saved row shows them", async () => {
-	await choose("goal", "box");
+	await onlyGoal("box");
 	const code = await codeText();
 	fillStats({ money: "12000-15000", exp: "300", boxes: "2-3", time: "245" });
 	await saveCurrent("Box farm");
@@ -2153,7 +2196,7 @@ test("the note takes a score, first of the stats", async () => {
 		"stat-time",
 	]);
 
-	await choose("goal", "score");
+	await onlyGoal("score");
 	const code = await codeText();
 	fillStats({ score: "1200000-1500000", money: "100" });
 	await saveCurrent("High score");
@@ -2165,7 +2208,7 @@ test("the note takes a score, first of the stats", async () => {
 });
 
 test("a saved row reads as its run rather than its code", () => {
-	const row = rowFor("10M0000000");
+	const row = rowFor("1-MM0A000000");
 	expect(
 		[...row.querySelectorAll(".run li")].map((chip) => chip.textContent),
 	).toEqual(["Manual", "Money", "Any episode"]);
@@ -2173,7 +2216,7 @@ test("a saved row reads as its run rather than its code", () => {
 });
 
 test("a saved row reads run, stats, then note, and a blank note takes no line", async () => {
-	await choose("goal", "box");
+	await onlyGoal("box");
 	const code = await codeText();
 	fillStats({ money: "100" });
 	await saveCurrent("Box run");
@@ -2190,16 +2233,16 @@ test("a saved row reads run, stats, then note, and a blank note takes no line", 
 	expect(actions[0]?.textContent).toStartWith("Saved ");
 	await reset();
 
-	expect(rowFor("10M0000000").querySelector(".description")).toBeNull();
+	expect(rowFor("1-MM0A000000").querySelector(".description")).toBeNull();
 });
 
 test("a row with no stats shows no stats line", () => {
-	expect(rowFor("10M0000000").querySelector(".stats")).toBeNull();
+	expect(rowFor("1-MM0A000000").querySelector(".stats")).toBeNull();
 });
 
 test("a stat that does not read stops the save and says why", async () => {
 	const before = savedCodes();
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 	fillStats({ boxes: "9" });
 	await saveCurrent("Exp farm");
 
@@ -2258,7 +2301,7 @@ test("Copy link in the menu carries the note and stats in the boxes", async () =
 	);
 
 	expect(written).toBe(
-		`${location.href.split("#")[0]}#10S0000000?note=SGVsbG8&money=100-200&time=61`,
+		`${location.href.split("#")[0]}#1-MS0A000000?note=SGVsbG8&money=100-200&time=61`,
 	);
 	expect(notice()).toEqual({ type: "info", text: "Copied the link." });
 
@@ -2298,11 +2341,11 @@ test("an entry's link carries its stats, and a link's stats are offered in the b
 	);
 	expect(written).toContain("&boxes=4");
 
-	location.hash = "#10M3000000?money=900-1200&time=61";
+	location.hash = "#1-MM03000000?money=900-1200&time=61";
 	window.dispatchEvent(new Event("hashchange"));
 	await settle();
 
-	expect(await codeText()).toBe("10M3000000");
+	expect(await codeText()).toBe("1-MM03000000");
 	expect(statInput("money").value).toBe("900-1200");
 	expect(statInput("time").value).toBe("61");
 	expect(notice()).toEqual({
@@ -2321,11 +2364,11 @@ function sortBy(value: string): void {
 
 test("Sort by reorders the drawer's rows without touching the stored list", async () => {
 	need<HTMLTextAreaElement>("import-text").value = [
-		"10M3000000",
+		"1-MM03000000",
 		"money: 100-900",
-		"10B3000000",
+		"1-MB03000000",
 		"money: 5000",
-		"10E3000000",
+		"1-MX03000000",
 	].join("\n");
 	need<HTMLButtonElement>("import").click();
 	await settle();
@@ -2335,14 +2378,14 @@ test("Sort by reorders the drawer's rows without touching the stored list", asyn
 	expect(sort.value).toBe("newest");
 	const before = savedCodes();
 	expect(before.slice(0, 3)).toEqual([
-		"10M3000000",
-		"10B3000000",
-		"10E3000000",
+		"1-MM03000000",
+		"1-MB03000000",
+		"1-MX03000000",
 	]);
 
 	sortBy("money");
 	await settle();
-	expect(savedCodes().slice(0, 2)).toEqual(["10B3000000", "10M3000000"]);
+	expect(savedCodes().slice(0, 2)).toEqual(["1-MB03000000", "1-MM03000000"]);
 	expect(localStorage.getItem("combi-name:saved")).toBe(stored);
 	expect(localStorage.getItem("combi-name:saved-sort")).toBe("money");
 
@@ -2377,10 +2420,10 @@ function filterBy(id: string, value: string): void {
 
 test("Filter by narrows the drawer's rows by a search and the run's mode, goal and episode", async () => {
 	need<HTMLTextAreaElement>("import-text").value = [
-		"10M3000000",
+		"1-MM03000000",
 		"> Coin farm",
-		"10B3000000",
-		"1AE0000000",
+		"1-MB03000000",
+		"1-AX0A000000",
 	].join("\n");
 	need<HTMLButtonElement>("import").click();
 	await openSavedDrawer();
@@ -2392,7 +2435,7 @@ test("Filter by narrows the drawer's rows by a search and the run's mode, goal a
 
 	filterBy("saved-search", "coin");
 	await settle();
-	expect(savedCodes()).toEqual(["10M3000000"]);
+	expect(savedCodes()).toEqual(["1-MM03000000"]);
 	expect(need<HTMLButtonElement>("saved-clear").hidden).toBe(false);
 
 	filterBy("saved-search", "nothing like it");
@@ -2404,14 +2447,18 @@ test("Filter by narrows the drawer's rows by a search and the run's mode, goal a
 	filterBy("saved-search", "");
 	filterBy("saved-goal", "Box");
 	await settle();
-	expect(savedCodes()).toEqual(["10B3000000"]);
+	expect(savedCodes()).toEqual(["1-MB03000000"]);
 	filterBy("saved-mode", "Auto");
 	await settle();
 	expect(savedCodes()).toEqual([]);
 
 	need<HTMLButtonElement>("saved-clear").click();
 	await settle();
-	expect(savedCodes()).toEqual(["10M3000000", "10B3000000", "1AE0000000"]);
+	expect(savedCodes()).toEqual([
+		"1-MM03000000",
+		"1-MB03000000",
+		"1-AX0A000000",
+	]);
 	expect(need<HTMLSelectElement>("saved-goal").value).toBe("");
 	expect(need<HTMLButtonElement>("saved-clear").hidden).toBe(true);
 
@@ -2419,28 +2466,28 @@ test("Filter by narrows the drawer's rows by a search and the run's mode, goal a
 	// hide it, so the tools go and take the filter with them.
 	filterBy("saved-mode", "Manual");
 	await settle();
-	expect(savedCodes()).toEqual(["10M3000000", "10B3000000"]);
-	savedButtonFor("10B3000000", "delete").click();
+	expect(savedCodes()).toEqual(["1-MM03000000", "1-MB03000000"]);
+	savedButtonFor("1-MB03000000", "delete").click();
 	await settle();
 	// The last row shown went, so focus takes the row above it on screen.
-	expect(document.activeElement).toBe(savedButtonFor("10M3000000", "load"));
+	expect(document.activeElement).toBe(savedButtonFor("1-MM03000000", "load"));
 	filterBy("saved-mode", "");
-	need<HTMLTextAreaElement>("import-text").value = "10B3000000";
+	need<HTMLTextAreaElement>("import-text").value = "1-MB03000000";
 	need<HTMLButtonElement>("import").click();
 	await settle();
 
 	filterBy("saved-goal", "Exp");
 	await settle();
-	savedButtonFor("1AE0000000", "delete").click();
+	savedButtonFor("1-AX0A000000", "delete").click();
 	await settle();
 	filterBy("saved-goal", "Money");
 	await settle();
-	savedButtonFor("10M3000000", "delete").click();
+	savedButtonFor("1-MM03000000", "delete").click();
 	await settle();
 	expect(need("saved-tools").hidden).toBe(true);
 	expect(need<HTMLSelectElement>("saved-goal").value).toBe("");
-	expect(savedCodes()).toEqual(["10B3000000"]);
-	savedButtonFor("10B3000000", "delete").click();
+	expect(savedCodes()).toEqual(["1-MB03000000"]);
+	savedButtonFor("1-MB03000000", "delete").click();
 	closeButton(savedDrawer()).click();
 	await settle();
 });
@@ -2449,10 +2496,10 @@ test("Filter by narrows the drawer's rows by a search and the run's mode, goal a
 // first, on the page rather than through a dialog the browser draws.
 test("Delete all asks first, then empties the list and closes the open entry", async () => {
 	await reset();
-	await choose("goal", "box");
+	await onlyGoal("box");
 	await saveCurrent("Box run");
 	await reset();
-	await choose("goal", "exp");
+	await onlyGoal("exp");
 	await saveCurrent("Exp run");
 	const count = savedCodes().length;
 	expect(count).toBeGreaterThan(1);

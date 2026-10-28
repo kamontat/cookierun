@@ -12,7 +12,7 @@
  * `state.ts`'s are, and imported text is decoded code by code.
  */
 
-import { describeRun } from "./describe";
+import { describeRun, GOALS_JOIN } from "./describe";
 import { decodeFull, encodeFull } from "./full-code";
 import { codeInHash, noteInHash, statsInHash } from "./state";
 import {
@@ -293,6 +293,14 @@ function facetsOf(chips: string[] | null): Record<RunFacet, string> | null {
 	return { mode, goal, episode };
 }
 
+/**
+ * The values a run reads as on one facet. A run aiming for several goals is
+ * one of each of them, so a goal filter matches it on any and offers each.
+ */
+function facetParts(run: Record<RunFacet, string>, facet: RunFacet): string[] {
+	return facet === "goal" ? run.goal.split(GOALS_JOIN) : [run[facet]];
+}
+
 /** What the drawer is narrowed to. An empty field narrows nothing. */
 export interface SavedFilter extends Record<RunFacet, string> {
 	readonly text: string;
@@ -329,7 +337,11 @@ export function filterSaved(
 		if (facets.length > 0) {
 			const run = facetsOf(chips);
 			if (run === null) return false;
-			if (facets.some((facet) => run[facet] !== filter[facet])) return false;
+			if (
+				facets.some((facet) => !facetParts(run, facet).includes(filter[facet]))
+			) {
+				return false;
+			}
 		}
 		const haystack = [entry.description, entry.code, ...(chips ?? [])]
 			.join("\n")
@@ -346,7 +358,9 @@ export function facetValues(
 	const values = new Set<string>();
 	for (const entry of entries) {
 		const run = runFacets(entry.code);
-		if (run !== null) values.add(run[facet]);
+		if (run !== null) {
+			for (const value of facetParts(run, facet)) values.add(value);
+		}
 	}
 	return [...values].sort((a, b) =>
 		a.localeCompare(b, undefined, { numeric: true }),

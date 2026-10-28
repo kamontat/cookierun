@@ -464,10 +464,10 @@
             page loads it.
           </p>
           <pre class="diagram">
-slot:  1  2  3  4  5  6  7 8 9  10
-       V  M  G  E  B  R  P P P  A
-ex:    1  H  M  3  2  R  F W 0  J
-SE2:   1  A  E  T  0  4  2 0 0  0</pre
+slot:  1  2-3  4  5  6-7  8  9  10
+       M  GG   E  B  RR   P  P  P
+ex:    J  MX   3  5  RV   F  W  0
+SE2:   A  X0   T  0  42   0  0  0</pre
           >
 
           <div class="scroll-x">
@@ -482,31 +482,28 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
               <tbody>
                 <tr>
                   <td>1</td>
-                  <td>Format version</td>
-                  <td><code>1</code></td>
-                </tr>
-                <tr>
-                  <td>2</td>
                   <td>Mode</td>
                   <td>
-                    <code>0</code> Manual, <code>A</code> Auto, <code>H</code>
-                    Semi-auto
+                    <code>M</code> Manual, <code>A</code> Auto, <code>S</code>
+                    Semi-auto, <code>J</code> Semi-auto with a jump at the start
                   </td>
                 </tr>
                 <tr>
-                  <td>3</td>
+                  <td>2-3</td>
                   <td>Goal</td>
                   <td>
-                    <code>S</code> Score, <code>M</code> Money, <code>E</code>
-                    Exp, <code>B</code> Box, <code>0</code> Any. An auto run aims
-                    for Any, Money, Exp or Box; Any is auto only
+                    <code>S0</code> Score, <code>M0</code> Money,
+                    <code>X0</code> Exp, <code>B0</code> Box, <code>MX</code>
+                    Money + Exp, <code>MB</code> Money + Box, <code>XB</code> Exp
+                    + Box, <code>AA</code> all three. Score stands alone, and an
+                    auto run does not aim for it
                   </td>
                 </tr>
                 <tr>
                   <td>4</td>
                   <td>Episode</td>
                   <td>
-                    <code>0</code> Any, <code>1</code>-<code>7</code> Episode 1-7,
+                    <code>A</code> Any, <code>1</code>-<code>7</code> Episode 1-7,
                     <code>C</code> Special Episode 1 (Island of Coins),
                     <code>T</code> Special Episode 2 (Tower of Frozen Waves),
                     <code>R</code> Special Episode 3 (Rabbit Hole),
@@ -520,45 +517,36 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
                     One character for the whole set: <code>0</code> none,
                     <code>H</code> HP Extension, <code>P</code> Power Jelly Boost,
                     <code>F</code> Fast Start, <code>X</code> Double XP,
-                    <code>A</code> all four. Pairs and triples run in order:
-                    <code>1</code> HP, <code>2</code> HF, <code>3</code> HX,
-                    <code>4</code> PF, <code>5</code> PX, <code>6</code> FX,
-                    <code>7</code> HPF, <code>8</code> HPX, <code>9</code> HFX,
+                    <code>2</code> HP, <code>3</code> HPX, <code>A</code> all
+                    four. The other pairs and triples: <code>1</code> HF,
+                    <code>4</code> HX, <code>5</code> PF, <code>6</code> PX,
+                    <code>7</code> FX, <code>8</code> HPF, <code>9</code> HFX,
                     <code>B</code> PFX
                   </td>
                 </tr>
                 <tr>
-                  <td>6</td>
+                  <td>6-7</td>
                   <td>Random boost</td>
                   <td>
-                    <code>0</code> none, otherwise a letter from the boost's
-                    name: <code>D</code> Double Coins, <code>S</code> Score,
-                    <code>H</code> HP Drain, <code>R</code> Revive,
-                    <code>C</code> Crush, <code>B</code> Base Speed,
-                    <code>G</code> Gold Coin Magic, <code>X</code> Collision
-                    Damage, <code>P</code> Potions, <code>M</code> Magnetic Aura,
-                    <code>L</code> Pit Lifts
+                    <code>00</code> none, <code>2C</code> Double Coins,
+                    <code>BS</code> Score, <code>HD</code> HP Drain,
+                    <code>RV</code> Revive, <code>CC</code> Crush,
+                    <code>17</code> Base Speed, <code>GC</code> Gold Coin Magic,
+                    <code>CO</code> Collision Damage, <code>PO</code> Potions,
+                    <code>MA</code> Magnetic Aura, <code>PL</code> Pit Lifts
                   </td>
                 </tr>
                 <tr>
-                  <td>7-9</td>
+                  <td>8-10</td>
                   <td>Cookie power+</td>
                   <td>
-                    One slot per group, <code>0</code> for none of it. Slot 7:
+                    One slot per group, <code>0</code> for none of it. Slot 8:
                     <code>C</code> Cheerleader, <code>S</code> Special Force,
                     <code>F</code> Fairy, <code>1</code> CS, <code>2</code> CF,
-                    <code>3</code> SF, <code>4</code> all three. Slot 8:
+                    <code>3</code> SF, <code>A</code> all three. Slot 9:
                     <code>K</code> Cheesecake, <code>W</code> Sea Fairy,
-                    <code>1</code> both. Slot 9: <code>L</code> Serenade of
-                    Love, <code>E</code> EXP Party, <code>1</code> both
-                  </td>
-                </tr>
-                <tr>
-                  <td>10</td>
-                  <td>Action</td>
-                  <td>
-                    <code>0</code> none, <code>J</code> jump at start. Auto runs
-                    only
+                    <code>A</code> both. Slot 10: <code>L</code> Serenade of
+                    Love, <code>E</code> EXP Party, <code>A</code> both
                   </td>
                 </tr>
               </tbody>
@@ -568,16 +556,20 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
           <h3>Special episodes</h3>
           <p>
             Special Episodes 1 and 2 take a cookie, a pet and treasures - no
-            relay, boosts, random boost or cookie power+, so slots 5-9 read
+            relay, boosts, random boost or cookie power+, so slots 5-10 read
             <code>0</code>. Special Episode 2 spends slots 5-7 on the tower
             floor instead: <code>001</code>-<code>100</code>, or
-            <code>000</code> for any floor. The Special Exp Episode takes a
+            <code>000</code> for any floor, and slots 8-10 read
+            <code>000</code>. The Special Exp Episode takes a
             cookie and a pet only.
           </p>
 
           <h3>The loadout section</h3>
           <p>
-            Everything left of the dash. Groups always read in the order
+            Everything left of the dash. It opens with the format version,
+            which is there even with nothing after it - <code>1-</code> and
+            the ten game characters is a full code with no loadout. Groups
+            always read in the order
             <code>C</code> <code>R</code> <code>P</code> <code>T</code>, and a
             group you did not pick is simply absent.
           </p>
@@ -594,9 +586,10 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
               <tbody>
                 <tr>
                   <td><code>1</code></td>
-                  <td>Loadout version</td>
+                  <td>Format version</td>
                   <td>
-                    Always <code>1</code>, and separate from the name's version
+                    Always <code>1</code>, for the whole code: the ten game
+                    characters carry no version of their own
                   </td>
                 </tr>
                 <tr>

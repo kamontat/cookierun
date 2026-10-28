@@ -308,3 +308,131 @@ test("a chip thumbnail is empty-alt and lazy", async () => {
 	expect(image?.getAttribute("alt")).toBe("");
 	expect(image?.getAttribute("loading")).toBe("lazy");
 });
+
+async function mountMultiple(): Promise<ChipGroup> {
+	const element = await mount("Goal");
+	element.multiple = true;
+	await element.updateComplete;
+	return element;
+}
+
+// A multiple row is a set of toggles, so each chip says so and the row is a
+// group of them rather than one radio choice.
+test("a multiple group is a group of checkboxes, each its own tab stop", async () => {
+	const element = await mountMultiple();
+
+	expect(
+		element.shadowRoot
+			?.querySelector("[role='group']")
+			?.getAttribute("aria-label"),
+	).toBe("Goal");
+	expect(chips(element).map((chip) => chip.getAttribute("role"))).toEqual([
+		"checkbox",
+		"checkbox",
+		"checkbox",
+	]);
+	expect(chips(element).map((chip) => chip.tabIndex)).toEqual([0, 0, 0]);
+});
+
+test("clicking chips in a multiple group adds them, in option order", async () => {
+	const element = await mountMultiple();
+	element.values = ["exp"];
+	await element.updateComplete;
+
+	chips(element)[0]?.click();
+	await element.updateComplete;
+
+	expect(element.values).toEqual(["score", "exp"]);
+	expect(
+		chips(element).map((chip) => chip.getAttribute("aria-checked")),
+	).toEqual(["true", "false", "true"]);
+});
+
+test("clicking a chosen chip in a multiple group takes it off", async () => {
+	const element = await mountMultiple();
+	element.values = ["score", "money"];
+	await element.updateComplete;
+	let inputs = 0;
+	element.addEventListener("input", () => {
+		inputs++;
+	});
+
+	chips(element)[1]?.click();
+	await element.updateComplete;
+
+	expect(element.values).toEqual(["score"]);
+	expect(inputs).toBe(1);
+});
+
+// At least one stays on: the last chip chosen cannot be clicked off.
+test("the last chosen chip in a multiple group stays chosen and says nothing", async () => {
+	const element = await mountMultiple();
+	element.values = ["money"];
+	await element.updateComplete;
+	let inputs = 0;
+	element.addEventListener("input", () => {
+		inputs++;
+	});
+
+	chips(element)[1]?.click();
+	await element.updateComplete;
+
+	expect(element.values).toEqual(["money"]);
+	expect(inputs).toBe(0);
+});
+
+// The same fallback a single row has, for picks the options lost under them.
+test("values fall back to the first option when every pick left the list", async () => {
+	const element = await mountMultiple();
+	element.values = ["box"];
+
+	expect(element.values).toEqual(["score"]);
+});
+
+// Nothing set is a value of its own — a code can say none in particular — and
+// the row shows it as no chip on rather than inventing a pick.
+test("values set to nothing read back as nothing", async () => {
+	const element = await mountMultiple();
+	element.values = [];
+	await element.updateComplete;
+
+	expect(element.values).toEqual([]);
+	expect(
+		chips(element).map((chip) => chip.getAttribute("aria-checked")),
+	).toEqual(["false", "false", "false"]);
+});
+
+// An exclusive chip stands alone: turning it on turns the rest off, and
+// turning any other on turns it off.
+test("an exclusive chip in a multiple group stands alone", async () => {
+	const element = await mountMultiple();
+	element.exclusive = ["score"];
+	element.values = ["money", "exp"];
+	await element.updateComplete;
+
+	chips(element)[0]?.click();
+	await element.updateComplete;
+	expect(element.values).toEqual(["score"]);
+
+	chips(element)[2]?.click();
+	await element.updateComplete;
+	expect(element.values).toEqual(["exp"]);
+});
+
+// The last chip on stays on, exclusive or not.
+test("clicking the only chosen exclusive chip leaves it chosen", async () => {
+	const element = await mountMultiple();
+	element.exclusive = ["score"];
+	element.values = ["score"];
+	await element.updateComplete;
+	let inputs = 0;
+	element.addEventListener("input", () => {
+		inputs++;
+	});
+
+	chips(element)[0]?.click();
+	await element.updateComplete;
+
+	expect(element.values).toEqual(["score"]);
+	expect(inputs).toBe(0);
+});

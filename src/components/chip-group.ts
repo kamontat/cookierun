@@ -142,7 +142,30 @@ export class ChipGroup extends LitElement {
 	@property({ attribute: false })
 	resettable = false;
 
+	/**
+	 * Whether the row holds a set rather than one pick: each chip toggles on its
+	 * own, read and written through `values`. At least one stays on — clicking
+	 * the last chip chosen does nothing — but a set written as empty is shown
+	 * as empty, since a code can say "none in particular" and the row must not
+	 * invent a pick for it.
+	 *
+	 * Every chip is its own tab stop then, the way card-group's toggles are: no
+	 * arrow walk, since an arrow that toggled would be a keypress that edits.
+	 */
+	@property({ attribute: false })
+	multiple = false;
+
+	/**
+	 * Values in a multiple row that stand alone: turning one on turns every
+	 * other chip off, and turning any other on turns it off. Score is one — a
+	 * run plays for it on its own.
+	 */
+	@property({ attribute: false })
+	exclusive: readonly string[] = [];
+
 	#chosen = "";
+
+	#picked: readonly string[] = [];
 
 	/**
 	 * Falls back to the first option whenever `#chosen` names none of them —
@@ -159,6 +182,43 @@ export class ChipGroup extends LitElement {
 	set value(value: string) {
 		this.#chosen = value;
 		this.requestUpdate();
+	}
+
+	/**
+	 * The set a multiple row holds, in option order. Picks the options no longer
+	 * hold are dropped, and if that leaves none of a set that had some, the
+	 * first option stands in, as `value` does for a single row.
+	 */
+	get values(): string[] {
+		const kept = this.options
+			.map(([value]) => value)
+			.filter((value) => this.#picked.includes(value));
+		if (kept.length > 0 || this.#picked.length === 0) return kept;
+		const first = this.options[0]?.[0];
+		return first === undefined ? [] : [first];
+	}
+
+	set values(values: readonly string[]) {
+		this.#picked = [...values];
+		this.requestUpdate();
+	}
+
+	#toggle(value: string): void {
+		const values = this.values;
+		const on = values.includes(value);
+		if (on && values.length === 1) return;
+		if (on) {
+			this.#picked = values.filter((picked) => picked !== value);
+		} else if (this.exclusive.includes(value)) {
+			this.#picked = [value];
+		} else {
+			this.#picked = [
+				...values.filter((picked) => !this.exclusive.includes(picked)),
+				value,
+			];
+		}
+		this.requestUpdate();
+		this.dispatchEvent(new Event("input", { bubbles: true }));
 	}
 
 	#chips(): HTMLButtonElement[] {
@@ -231,6 +291,7 @@ export class ChipGroup extends LitElement {
 	}
 
 	override render() {
+		if (this.multiple) return this.#renderMultiple();
 		const chosen = this.value;
 
 		return html`
@@ -255,6 +316,37 @@ export class ChipGroup extends LitElement {
 						tabindex=${value === chosen ? 0 : -1}
 						@click=${() => {
 							this.#click(value);
+						}}
+					>
+						${
+							image
+								? html`<img class="thumb" src=${image} alt="" loading="lazy" />`
+								: null
+						}
+						<span>${text}</span>
+					</button>`,
+				)}
+			</div>
+		`;
+	}
+
+	#renderMultiple() {
+		const picked = this.values;
+
+		return html`
+			<span class=${this.labelHidden ? "label offscreen" : "label"}
+				>${this.label}</span
+			>
+			<div class="chips" role="group" aria-label=${this.label}>
+				${this.options.map(
+					([value, text, image]) => html`<button
+						type="button"
+						class="chip"
+						role="checkbox"
+						.value=${value}
+						aria-checked=${String(picked.includes(value))}
+						@click=${() => {
+							this.#toggle(value);
 						}}
 					>
 						${

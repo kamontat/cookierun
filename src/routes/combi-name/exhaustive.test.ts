@@ -5,7 +5,7 @@ import {
 	ALL_BOOSTS,
 	ALL_COOKIE_POWERS,
 	ALL_EPISODES,
-	ALL_GOALS,
+	ALL_GOAL_SETS,
 	ALL_MODES,
 	ALL_RANDOM_BOOSTS,
 	type Boost,
@@ -41,7 +41,7 @@ function* everyCombi(): Generator<Combi> {
 		(_, mask) => subset(ALL_COOKIE_POWERS, mask),
 	);
 
-	for (const goal of ALL_GOALS) {
+	for (const goals of ALL_GOAL_SETS) {
 		for (const mode of ALL_MODES) {
 			for (const episode of ALL_EPISODES) {
 				const limits = limitsOf(episode);
@@ -56,7 +56,7 @@ function* everyCombi(): Generator<Combi> {
 							for (const cookiePowers of cookieSets) {
 								for (const action of ALL_ACTIONS) {
 									yield {
-										goal,
+										goals,
 										mode,
 										episode,
 										floor,
@@ -75,7 +75,7 @@ function* everyCombi(): Generator<Combi> {
 	}
 }
 
-const CODE_PATTERN = /^[0-9A-Z-]{10}$/;
+const CODE_PATTERN = /^[0-9A-Z]{10}$/;
 
 /**
  * Both tests below walk the whole configuration space, so their runtime is the
@@ -84,7 +84,7 @@ const CODE_PATTERN = /^[0-9A-Z-]{10}$/;
  * slower than a laptop — the explicit budget is what keeps a growing format
  * from reading as a flaky test.
  */
-const WHOLE_SPACE_TIMEOUT = 120_000;
+const WHOLE_SPACE_TIMEOUT = 300_000;
 
 test(
 	"every combi round-trips through a 10-character code",
@@ -107,7 +107,7 @@ test(
 			// The mode is derived, so it is the one field allowed to come back
 			// different: re-encoding is what proves it came back right.
 			const same =
-				back.goal === expected.goal &&
+				back.goals.join() === expected.goals.join() &&
 				back.episode === expected.episode &&
 				back.floor === expected.floor &&
 				back.randomBoost === expected.randomBoost &&
@@ -129,7 +129,7 @@ test(
 		// Nine ordinary episodes carry everything; the tower carries a floor; the
 		// other two special episodes carry neither.
 		const perGoalAndMode = 9 * 16 * 12 * 128 * 2 + 101 * 2 + 2 * 2;
-		expect(checked).toBe(5 * 3 * perGoalAndMode);
+		expect(checked).toBe(8 * 3 * perGoalAndMode);
 	},
 	WHOLE_SPACE_TIMEOUT,
 );
@@ -143,7 +143,7 @@ test(
 		// Auto and semi-auto are one family, since that char is derived; and a
 		// manual run drops its action, so its two actions are one code.
 		const carried = 9 * 16 * 12 * 128 + 101 + 2;
-		expect(codes.size).toBe(5 * (carried + carried * 2));
+		expect(codes.size).toBe(8 * (carried + carried * 2));
 	},
 	WHOLE_SPACE_TIMEOUT,
 );

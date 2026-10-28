@@ -26,6 +26,7 @@ import {
 	MANUAL_GOALS,
 	type Mode,
 	type RandomBoost,
+	SOLO_GOAL,
 } from "./codec";
 import { describeBuild, describeRun } from "./describe";
 import { attachResize } from "./drawer-width";
@@ -442,7 +443,7 @@ function readFloor(): number | null {
 
 function readForm(): Combi {
 	return {
-		goal: goalChips.value as Goal,
+		goals: goalChips.values as Goal[],
 		mode: modeChips.value as Mode,
 		// The grid offers no None of its own — `any` is the episode's — so the
 		// fallback is a type-level one and never a value the page can produce.
@@ -463,7 +464,7 @@ function writeForm(combi: Combi): void {
 	// A semi-auto code lands on the Auto chip: semi-auto is what the flag slots
 	// make of an auto run, not a mode anyone picks, so there is no chip for it.
 	modeChips.value = combi.mode === "semiauto" ? "auto" : combi.mode;
-	goalChips.value = combi.goal;
+	goalChips.values = combi.goals;
 	episodeGrid.value = combi.episode;
 	floorInput.value = combi.floor === null ? "" : String(combi.floor);
 	randomBoostChips.value = combi.randomBoost ?? "";
@@ -549,15 +550,14 @@ function verdictText(full: FullCode): string {
  * through here.
  */
 function render(warnings: readonly string[] = []): void {
-	// Before the form is read: an auto run has no Score to aim for and a manual
-	// one no Any, so the goal row has to have dropped it by the time its value
-	// is taken.
+	// Before the form is read: an auto run has no Score to aim for, so the goal
+	// row has to have dropped it by the time its values are taken.
 	goalChips.options = goalOptions(modeChips.value as Mode);
 	const code = encodeFull({ loadout: readLoadout(), combi: readForm() });
 	codeBar.value = code;
 
 	// Read the code back so the verdict reflects the character actually written
-	// into slot 2, not the type the chips still show.
+	// into slot 1, not the type the chips still show.
 	const { full } = decodeFull(code);
 	const { episode } = full.combi;
 	// After the value: setting it drops the old hints, which described the code
@@ -1803,10 +1803,10 @@ function pairs<K extends string>(
 
 /**
  * Every mode but semi-auto. That one is derived, not chosen: `encode` writes
- * slot 2 from the flag slots — Fast Start, a random boost, a jump action — so
+ * slot 1 from the flag slots — Fast Start, a random boost, a jump action — so
  * an auto run becomes semi-auto by what else is on, and a chip for it could
  * only disagree with the code. The codec still knows the value, and a code
- * carrying `H` still decodes to it; `writeForm` lands that on the Auto chip.
+ * carrying `S` or `J` still decodes to it; `writeForm` lands that on the Auto chip.
  */
 const PICKABLE_MODES = ALL_MODES.filter((mode) => mode !== "semiauto");
 
@@ -1826,11 +1826,10 @@ function modeOptions(semi: boolean): readonly (readonly [string, string])[] {
 }
 
 /**
- * The goals a mode can aim for. Score is played by hand and Any is an auto
- * run that specialises in nothing, so each mode is offered its own four — and
- * a pick the other mode's row lacks falls to the first of them, the way a chip
- * row reads a value its options no longer hold: Score becomes Any on the way
- * to auto, and Any becomes Score on the way back.
+ * The goals a mode can aim for, at least one. Score is played by hand and on
+ * its own — the row's `exclusive` keeps it alone — so an auto run is offered
+ * the other three, and a run aiming for Score falls to Money on the way to
+ * auto, the way a chip row reads picks its options no longer hold.
  */
 function goalOptions(mode: Mode): readonly (readonly [string, string])[] {
 	const goals = mode === "manual" ? MANUAL_GOALS : AUTO_GOALS;
@@ -1839,6 +1838,11 @@ function goalOptions(mode: Mode): readonly (readonly [string, string])[] {
 
 modeChips.options = modeOptions(false);
 goalChips.options = goalOptions("manual");
+goalChips.multiple = true;
+goalChips.exclusive = [SOLO_GOAL];
+// A set starts empty, and no code says an empty set: the page opens on a
+// manual run aiming for Score.
+goalChips.values = [SOLO_GOAL];
 // Twelve landscape cards is a grid, not a row: an episode is a place, and the
 // picture is what anyone recognises it by. `any` has no icon and falls back to
 // the lettered cell the catalog pickers already use.

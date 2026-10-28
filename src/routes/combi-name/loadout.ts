@@ -11,7 +11,7 @@
  *     1C2LR0BP1ZTU0FZ02_0FZ59_0RB3.0QQ9
  *     │└cookie      │ └ treasures: slot 1 accepts 0FZ at +0-2 or +5-9, or 0RB
  *     │  └relay     └pet            at +3; slot 2 wants 0QQ at +9
- *     └ this section's own version, independent of the combi section's
+ *     └ the format version of the whole code, combi half included
  *
  * Encoding canonicalizes — ids sorted within a slot, slots sorted when order
  * does not matter — so one build has exactly one code. Decoding accepts a
@@ -38,6 +38,11 @@ export type Loadout = {
 	ordered: boolean;
 };
 
+/**
+ * The format version of the whole full code, not of this section alone: the
+ * combi half carries none of its own, since its ten characters are all the
+ * game's field leaves room for. An empty loadout is this character alone.
+ */
 export const LOADOUT_VERSION = "1";
 export const MAX_TREASURE_SLOTS = 3;
 

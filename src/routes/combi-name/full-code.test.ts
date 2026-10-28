@@ -19,7 +19,7 @@ const t = (id: string, min = 0, max = min): TreasurePick =>
 	treasurePick(id, levelRange(min, max));
 
 const combi: Combi = {
-	goal: "score",
+	goals: ["score"],
 	mode: "manual",
 	episode: "any",
 	floor: null,
@@ -33,8 +33,10 @@ function loadout(over: Partial<Loadout> = {}): Loadout {
 	return { ...emptyLoadout(), ...over };
 }
 
-test("an empty loadout writes the bare ten-character code", () => {
-	expect(encodeFull({ loadout: emptyLoadout(), combi })).toBe("10S0000000");
+// The version is the full code's alone, so a code with no loadout still
+// opens with it: the version, the separator, then the ten game characters.
+test("an empty loadout writes the version alone before the combi", () => {
+	expect(encodeFull({ loadout: emptyLoadout(), combi })).toBe("1-MS0A000000");
 });
 
 test("a loadout is written before the combi, separated by a dot", () => {
@@ -43,15 +45,16 @@ test("a loadout is written before the combi, separated by a dot", () => {
 			loadout: loadout({ cookie: "01", treasures: [[t("001")]] }),
 			combi,
 		}),
-	).toBe("1C01TU001-10S0000000");
+	).toBe("1C01TU001-MS0A000000");
 });
 
-// Every code that worked before this feature has to keep working.
-test("a bare code decodes with an empty loadout and the same combi", () => {
-	const { full, warnings } = decodeFull("1HE34R000J");
+// The ten characters copied back out of the game carry no version, and
+// still read: as the version this page writes.
+test("a bare combi decodes with an empty loadout and the same combi", () => {
+	const { full, warnings } = decodeFull("JX035RV000");
 
 	expect(full.loadout).toEqual(emptyLoadout());
-	expect(full.combi.goal).toBe("exp");
+	expect(full.combi.goals).toEqual(["exp"]);
 	expect(full.combi.boosts).toEqual(["powerJellyBoost", "fastStart"]);
 	expect(full.combi.randomBoost).toBe("revive");
 	expect(full.combi.action).toBe("jumpAtStart");
@@ -59,7 +62,7 @@ test("a bare code decodes with an empty loadout and the same combi", () => {
 });
 
 test("both sections decode together", () => {
-	const { full } = decodeFull("1C01P06TU001-10S070FW00");
+	const { full } = decodeFull("1C01P06TU001-MS0A800FW0");
 
 	expect(full.loadout.cookie).toBe("01");
 	expect(full.loadout.pet).toBe("06");
@@ -68,27 +71,28 @@ test("both sections decode together", () => {
 });
 
 test("the combi section's soft warning survives the join", () => {
-	const { warnings } = decodeFull("1C01-1AM32R0000");
+	const { warnings } = decodeFull("1C01-AM031RV000");
 
 	expect(warnings).toHaveLength(1);
-	expect(warnings[0]).toContain("slot 2 says Auto");
+	expect(warnings[0]).toContain("slot 1 says Auto");
 });
 
 test("a second section separator is refused", () => {
-	expect(() => decodeFull("1C01-10S0000000-x")).toThrow(
+	expect(() => decodeFull("1C01-MS0A000000-x")).toThrow(
 		'a code holds at most one "-", got 2',
 	);
 });
 
 test("an unreadable combi section still throws from the combi codec", () => {
-	expect(() => decodeFull("1C01-1S0000000")).toThrow(
+	expect(() => decodeFull("1C01-MS0A00000")).toThrow(
 		"code must be exactly 10 characters",
 	);
 });
 
 test("combiSectionOf picks the right half, or the whole code", () => {
-	expect(combiSectionOf("1C01-10S0000000")).toBe("10S0000000");
-	expect(combiSectionOf("10S0000000")).toBe("10S0000000");
+	expect(combiSectionOf("1C01-MS0A000000")).toBe("MS0A000000");
+	expect(combiSectionOf("1-MS0A000000")).toBe("MS0A000000");
+	expect(combiSectionOf("MS0A000000")).toBe("MS0A000000");
 	expect(combiSectionOf("1C0")).toBe("1C0");
 });
 
@@ -96,7 +100,7 @@ test("combiSectionOf picks the right half, or the whole code", () => {
 // covered by a seeded sample rather than exhaustively.
 test("a seeded sample of loadouts round-trips to its canonical form", () => {
 	// mulberry32: every step stays in 32-bit range. The obvious LCG
-	// (`seed * 1013515245 + 12345`) overflows 2^53 and degenerates into a
+	// (`seed * 1-013515245 + 12345`) overflows 2^53 and degenerates into a
 	// generator that returns 0 almost always — which silently emptied this loop.
 	let seed = 20260912;
 	const random = (bound: number): number => {
@@ -162,9 +166,9 @@ test("a seeded sample of loadouts round-trips to its canonical form", () => {
 
 // A relay cookie is swapped in by hand, so a run carrying one never plays
 // itself through — and the ten characters someone pastes into the game say so.
-test("a relay writes Semi-auto into slot 3", () => {
+test("a relay writes Semi-auto into slot 1", () => {
 	const auto: Combi = {
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		episode: "any",
 		floor: null,
@@ -176,16 +180,16 @@ test("a relay writes Semi-auto into slot 3", () => {
 
 	expect(
 		encodeFull({ loadout: { ...emptyLoadout(), relay: "0P" }, combi: auto }),
-	).toBe("1R0P-1HM0000000");
+	).toBe("1R0P-SM0A000000");
 	// The combi half on its own knows nothing about a relay and never did.
 	expect(encodeFull({ loadout: emptyLoadout(), combi: auto })).toBe(
-		"1AM0000000",
+		"1-AM0A000000",
 	);
 });
 
 test("a build is semi-auto when the loadout carries a relay", () => {
 	const auto: Combi = {
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		episode: "any",
 		floor: null,
@@ -206,9 +210,9 @@ test("a build is semi-auto when the loadout carries a relay", () => {
 
 // Which relay it is changes nothing: a build that says any relay will do still
 // says a relay gets swapped in by hand. Only no relay at all leaves it auto.
-test("an Any relay is a relay, for slot 3 and for the verdict", () => {
+test("an Any relay is a relay, for slot 1 and for the verdict", () => {
 	const auto: Combi = {
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		episode: "any",
 		floor: null,
@@ -220,7 +224,7 @@ test("an Any relay is a relay, for slot 3 and for the verdict", () => {
 
 	expect(
 		encodeFull({ loadout: { ...emptyLoadout(), relay: "__" }, combi: auto }),
-	).toBe("1R__-1HM0000000");
+	).toBe("1R__-SM0A000000");
 	expect(
 		isSemiAutoBuild({
 			loadout: { ...emptyLoadout(), relay: "__" },
@@ -232,26 +236,26 @@ test("an Any relay is a relay, for slot 3 and for the verdict", () => {
 // Hand-typed codes are allowed to contradict themselves; the relay wins, and
 // re-encoding snaps the slot back.
 test("a code saying Auto beside a relay warns rather than refusing", () => {
-	const { full, warnings } = decodeFull("1R0P-1AM0000000");
+	const { full, warnings } = decodeFull("1R0P-AM0A000000");
 
 	expect(full.combi.mode).toBe("auto");
 	expect(warnings).toEqual([
-		"slot 2 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
+		"slot 1 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
 	]);
-	expect(encodeFull(full)).toBe("1R0P-1HM0000000");
+	expect(encodeFull(full)).toBe("1R0P-SM0A000000");
 });
 
 // The codec's own contradiction warning does not fire for an H the loadout
 // explains: nothing is wrong with that code.
 test("a relayed code saying Semi-auto draws no warning", () => {
-	const { warnings } = decodeFull("1R0P-1HM0000000");
+	const { warnings } = decodeFull("1R0P-SM0A000000");
 
 	expect(warnings).toEqual([]);
 });
 
 const special = (episode: Combi["episode"]): Combi => ({
 	...combi,
-	goal: "money",
+	goals: ["money"],
 	mode: "auto",
 	episode,
 });
@@ -267,13 +271,13 @@ test("a special episode drops the relay, and the exp episode the treasures", () 
 	};
 
 	expect(encodeFull({ loadout, combi: special("special1") })).toBe(
-		"1C01P06TU001-1AMC000000",
+		"1C01P06TU001-AM0C000000",
 	);
 	expect(encodeFull({ loadout, combi: special("special2") })).toBe(
-		"1C01P06TU001-1AMT000000",
+		"1C01P06TU001-AM0T000000",
 	);
 	expect(encodeFull({ loadout, combi: special("specialExp") })).toBe(
-		"1C01P06-1AMX000000",
+		"1C01P06-AM0X000000",
 	);
 });
 
@@ -287,7 +291,7 @@ test("a relay a special episode has no room for forces nothing", () => {
 });
 
 test("decoding drops what the episode has no room for, with a warning", () => {
-	const { full, warnings } = decodeFull("1C01R0PTU001-1AMX000000");
+	const { full, warnings } = decodeFull("1C01R0PTU001-AM0X000000");
 
 	expect(full.loadout.relay).toBeNull();
 	expect(full.loadout.treasures).toEqual([]);

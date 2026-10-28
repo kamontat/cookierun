@@ -10,14 +10,13 @@
  */
 
 import { CODE_LENGTH, type Combi, limitsOf } from "./codec";
-import { describeLoadout, floorText, NOT_USED } from "./describe";
+import { describeLoadout, floorText, goalsText, NOT_USED } from "./describe";
 import { combiSectionOf, decodeFull, SECTION_SEPARATOR } from "./full-code";
 import {
 	ACTION_LABELS,
 	BOOST_LABELS,
 	COOKIE_POWER_LABELS,
 	EPISODE_LABELS,
-	GOAL_LABELS,
 	MODE_LABELS,
 	RANDOM_BOOST_LABELS,
 } from "./labels";
@@ -62,7 +61,7 @@ function listed(values: string[]): string {
 }
 
 /**
- * Slots 5-9, which say different things on different episodes: the tower
+ * Slots 5-10, which say different things on different episodes: the tower
  * floor where there is one, what the run carries where there is room for it,
  * and nothing at all on an episode that takes neither.
  */
@@ -76,12 +75,12 @@ function carriedSpans(combi: Combi): Span[] {
 			// them as one run, and no control claims them: `index.ts`'s OWNER map
 			// has no entry for this group, which is what keeps a click on them
 			// from jumping.
-			span(2, "reserved", "Slots 8-9 · Reserved"),
+			span(3, "reserved", "Slots 8-10 · Reserved"),
 		];
 	}
 
 	if (!limits.boosts) {
-		return [span(5, "reserved", "Slots 5-9 · Boosts", NOT_USED)];
+		return [span(6, "reserved", "Slots 5-10 · Boosts", NOT_USED)];
 	}
 
 	return [
@@ -92,9 +91,9 @@ function carriedSpans(combi: Combi): Span[] {
 			listed(combi.boosts.map((boost) => BOOST_LABELS[boost])),
 		),
 		span(
-			1,
+			2,
 			"randomBoost",
-			"Slot 6 · Random boost",
+			"Slots 6-7 · Random boost",
 			combi.randomBoost === null
 				? NONE
 				: RANDOM_BOOST_LABELS[combi.randomBoost],
@@ -102,7 +101,7 @@ function carriedSpans(combi: Combi): Span[] {
 		span(
 			3,
 			"cookiePowers",
-			"Slots 7-9 · Cookie power+",
+			"Slots 8-10 · Cookie power+",
 			listed(combi.cookiePowers.map((power) => COOKIE_POWER_LABELS[power])),
 		),
 	];
@@ -110,12 +109,18 @@ function carriedSpans(combi: Combi): Span[] {
 
 function spansOfCombi(combi: Combi): Span[] {
 	return [
-		span(1, "version", "Slot 1 · Format version"),
-		span(1, "mode", "Slot 2 · Mode", MODE_LABELS[combi.mode]),
-		span(1, "goal", "Slot 3 · Goal", GOAL_LABELS[combi.goal]),
+		// The jump has no slot of its own: `J` in slot 1 says it.
+		span(
+			1,
+			"mode",
+			"Slot 1 · Mode",
+			combi.action === "none"
+				? MODE_LABELS[combi.mode]
+				: `${MODE_LABELS[combi.mode]}, ${ACTION_LABELS[combi.action]}`,
+		),
+		span(2, "goal", "Slots 2-3 · Goal", goalsText(combi.goals)),
 		span(1, "episode", "Slot 4 · Episode", EPISODE_LABELS[combi.episode]),
 		...carriedSpans(combi),
-		span(1, "action", "Slot 10 · Action", ACTION_LABELS[combi.action]),
 	];
 }
 
@@ -155,7 +160,7 @@ function treasureSpans(text: string, hint: string): Span[] {
  */
 function spansOfLoadout(section: string, loadout: Loadout): Span[] {
 	const rows = describeLoadout(loadout);
-	const spans: Span[] = [span(1, "loadoutVersion", "Loadout version")];
+	const spans: Span[] = [span(1, "version", "Format version")];
 
 	let at = 1;
 	while (at < section.length) {

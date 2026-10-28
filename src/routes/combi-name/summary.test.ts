@@ -20,7 +20,7 @@ const [TA = "", TB = "", TC = ""] = Object.keys(index.treasures);
 
 function combi(overrides: Partial<Combi> = {}): Combi {
 	return {
-		goal: "money",
+		goals: ["money"],
 		mode: "auto",
 		episode: "episode3",
 		floor: null,
@@ -128,7 +128,7 @@ test("a full-auto run's pill reads Auto with no reasons beside it", () => {
 });
 
 test("a manual run's Run row has no action and a Manual pill", () => {
-	const { full } = decodeFull("10M3000000");
+	const { full } = decodeFull("1-MM03000000");
 	const { items } = row(summaryOf(full, BASE).rows, "Run");
 
 	expect(items[0]).toEqual({ kind: "pill", text: "Manual" });
@@ -149,10 +149,17 @@ test("the tower's Run row names the floor", () => {
 
 // A bare "Any" between two dots says nothing about what it is any of.
 test("the Run row names what Any stands for", () => {
-	const { full } = decodeFull("1A00000000");
+	const { full } = decodeFull("1-AM0A000000");
 	const { items } = row(summaryOf(full, BASE).rows, "Run");
 
-	expect(texts(items)).toEqual(["Auto", "Any goal", "Any episode"]);
+	expect(texts(items)).toEqual(["Auto", "Money", "Any episode"]);
+});
+
+test("the Run row names every goal the run aims for", () => {
+	const { full } = decodeFull("1-AAAA000000");
+	const { items } = row(summaryOf(full, BASE).rows, "Run");
+
+	expect(texts(items)).toEqual(["Auto", "Money + Exp + Box", "Any episode"]);
 });
 
 test("Cookies reads cookie → relay · pet as faces, named only in their titles", () => {
@@ -271,7 +278,7 @@ test("a treasure with no picture is named rather than left blank", () => {
 });
 
 test("empty rows are left out and the hint shows for a bare build", () => {
-	const bare = summaryOf(decodeFull("10S0000000").full, BASE);
+	const bare = summaryOf(decodeFull("1-MS0A000000").full, BASE);
 
 	expect(bare.rows.map((each) => each.label)).toEqual(["Run"]);
 	expect(bare.hint).toBe(

@@ -1,5 +1,12 @@
 import { type CatalogSection, isRetired, labelFor } from "./catalog";
-import { type Combi, type Episode, isSemiAuto, limitsOf } from "./codec";
+import {
+	ALL_GOALS,
+	type Combi,
+	type Episode,
+	type Goal,
+	isSemiAuto,
+	limitsOf,
+} from "./codec";
 import { carriesRelay, type FullCode, isSemiAutoBuild } from "./full-code";
 import {
 	ACTION_LABELS,
@@ -30,6 +37,20 @@ export type DescribedCombi = {
 };
 
 const NONE = "None";
+/**
+ * The goals a run aims for, in table order, or Any naming its field — a bare
+ * "Any" beside a mode and an episode reads as nothing.
+ */
+export function goalsText(goals: readonly Goal[]): string {
+	return goals.length === 0
+		? "Any goal"
+		: ALL_GOALS.filter((goal) => goals.includes(goal))
+				.map((goal) => GOAL_LABELS[goal])
+				.join(GOALS_JOIN);
+}
+
+/** What `goalsText` puts between two goals, for a reader that splits them. */
+export const GOALS_JOIN = " + ";
 
 function list(values: string[]): string {
 	return values.length === 0 ? NONE : values.join(", ");
@@ -90,7 +111,7 @@ export function describeRun(full: FullCode): string[] {
 			: MODE_LABELS[combi.mode === "semiauto" ? "auto" : combi.mode];
 	return [
 		mode,
-		combi.goal === "any" ? "Any goal" : GOAL_LABELS[combi.goal],
+		goalsText(combi.goals),
 		combi.episode === "any" ? "Any episode" : shortEpisode(combi.episode),
 		...(limitsOf(combi.episode).floor ? [floorText(combi.floor)] : []),
 	];
@@ -130,7 +151,7 @@ export function describeCombi(combi: Combi): DescribedCombi {
 
 	return {
 		rows: [
-			{ field: "Goal", value: GOAL_LABELS[combi.goal] },
+			{ field: "Goal", value: goalsText(combi.goals) },
 			{ field: "Mode", value: MODE_LABELS[combi.mode] },
 			{ field: "Episode", value: EPISODE_LABELS[combi.episode] },
 			...(limits.floor
