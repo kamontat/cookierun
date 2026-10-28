@@ -61,7 +61,7 @@ function listed(values: string[]): string {
 }
 
 /**
- * Slots 5-9, which say different things on different episodes: the tower
+ * Slots 4-8, which say different things on different episodes: the tower
  * floor where there is one, what the run carries where there is room for it,
  * and nothing at all on an episode that takes neither.
  */
@@ -70,30 +70,30 @@ function carriedSpans(combi: Combi): Span[] {
 
 	if (limits.floor) {
 		return [
-			span(3, "floor", "Slots 5-7 · Floor", floorText(combi.floor)),
+			span(3, "floor", "Slots 4-6 · Floor", floorText(combi.floor)),
 			// Reserved characters own a group of their own so the code bar draws
 			// them as one run, and no control claims them: `index.ts`'s OWNER map
 			// has no entry for this group, which is what keeps a click on them
 			// from jumping.
-			span(2, "reserved", "Slots 8-9 · Reserved"),
+			span(2, "reserved", "Slots 7-8 · Reserved"),
 		];
 	}
 
 	if (!limits.boosts) {
-		return [span(5, "reserved", "Slots 5-9 · Boosts", NOT_USED)];
+		return [span(5, "reserved", "Slots 4-8 · Boosts", NOT_USED)];
 	}
 
 	return [
 		span(
 			1,
 			"boosts",
-			"Slot 5 · Boosts",
+			"Slot 4 · Boosts",
 			listed(combi.boosts.map((boost) => BOOST_LABELS[boost])),
 		),
 		span(
 			1,
 			"randomBoost",
-			"Slot 6 · Random boost",
+			"Slot 5 · Random boost",
 			combi.randomBoost === null
 				? NONE
 				: RANDOM_BOOST_LABELS[combi.randomBoost],
@@ -101,7 +101,7 @@ function carriedSpans(combi: Combi): Span[] {
 		span(
 			3,
 			"cookiePowers",
-			"Slots 7-9 · Cookie power+",
+			"Slots 6-8 · Cookie power+",
 			listed(combi.cookiePowers.map((power) => COOKIE_POWER_LABELS[power])),
 		),
 	];
@@ -109,12 +109,11 @@ function carriedSpans(combi: Combi): Span[] {
 
 function spansOfCombi(combi: Combi): Span[] {
 	return [
-		span(1, "version", "Slot 1 · Format version"),
-		span(1, "mode", "Slot 2 · Mode", MODE_LABELS[combi.mode]),
-		span(1, "goal", "Slot 3 · Goal", goalsText(combi.goals)),
-		span(1, "episode", "Slot 4 · Episode", EPISODE_LABELS[combi.episode]),
+		span(1, "mode", "Slot 1 · Mode", MODE_LABELS[combi.mode]),
+		span(1, "goal", "Slot 2 · Goal", goalsText(combi.goals)),
+		span(1, "episode", "Slot 3 · Episode", EPISODE_LABELS[combi.episode]),
 		...carriedSpans(combi),
-		span(1, "action", "Slot 10 · Action", ACTION_LABELS[combi.action]),
+		span(1, "action", "Slot 9 · Action", ACTION_LABELS[combi.action]),
 	];
 }
 
@@ -154,7 +153,7 @@ function treasureSpans(text: string, hint: string): Span[] {
  */
 function spansOfLoadout(section: string, loadout: Loadout): Span[] {
 	const rows = describeLoadout(loadout);
-	const spans: Span[] = [span(1, "loadoutVersion", "Loadout version")];
+	const spans: Span[] = [span(1, "version", "Format version")];
 
 	let at = 1;
 	while (at < section.length) {

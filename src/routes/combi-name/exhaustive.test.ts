@@ -80,7 +80,7 @@ function* everyCombi(): Generator<Combi> {
 	}
 }
 
-const CODE_PATTERN = /^[0-9A-Z-]{10}$/;
+const CODE_PATTERN = /^[0-9A-Z]{9}$/;
 
 /**
  * Both tests below walk the whole configuration space, so their runtime is the

@@ -39,8 +39,8 @@ const REFUSING = {
 } as unknown as Storage;
 
 test("a hash carries the code without its leading marker", () => {
-	expect(codeInHash("#10S0000000")).toBe("10S0000000");
-	expect(hashFor("10S0000000")).toBe("#10S0000000");
+	expect(codeInHash("#1-0S0000000")).toBe("1-0S0000000");
+	expect(hashFor("1-0S0000000")).toBe("#1-0S0000000");
 });
 
 test("an empty or bare hash is no code at all", () => {
@@ -50,30 +50,30 @@ test("an empty or bare hash is no code at all", () => {
 });
 
 test("a lowercase code in the hash reads as the canonical uppercase one", () => {
-	expect(codeInHash("#1c00-10s0000000")).toBe("1C00-10S0000000");
+	expect(codeInHash("#1c00-0s0000000")).toBe("1C00-0S0000000");
 });
 
 test("the remembered code survives a round trip through storage", () => {
 	const held = storage(null);
 
-	rememberCode(held, "10S0000000");
+	rememberCode(held, "1-0S0000000");
 
-	expect(storedCode(held)).toBe("10S0000000");
-	expect(held.written).toEqual(["10S0000000"]);
+	expect(storedCode(held)).toBe("1-0S0000000");
+	expect(held.written).toEqual(["1-0S0000000"]);
 });
 
 test("a browser that refuses storage still yields a code, and swallows the write", () => {
 	expect(storedCode(REFUSING)).toBeNull();
 	expect(() => {
-		rememberCode(REFUSING, "10S0000000");
+		rememberCode(REFUSING, "1-0S0000000");
 	}).not.toThrow();
 });
 
 test("a link beats the last visit, which beats nothing at all", () => {
-	const held = storage("10M0000000");
+	const held = storage("1-0M0000000");
 
-	expect(startingCode("#1HE34R000J", held)).toBe("1HE34R000J");
-	expect(startingCode("", held)).toBe("10M0000000");
+	expect(startingCode("#1-HE34R000J", held)).toBe("1-HE34R000J");
+	expect(startingCode("", held)).toBe("1-0M0000000");
 	expect(startingCode("", storage(null))).toBeNull();
 });
 
@@ -82,24 +82,24 @@ test("the storage key names the page, so another tool cannot collide with it", (
 });
 
 test("a shared link carries its note after the code, and the code reads without it", () => {
-	const hash = shareHashFor("10M0000000", "Coin farm\nuse Fairy & co");
+	const hash = shareHashFor("1-0M0000000", "Coin farm\nuse Fairy & co");
 
-	expect(hash.startsWith("#10M0000000?note=")).toBe(true);
-	expect(codeInHash(hash)).toBe("10M0000000");
+	expect(hash.startsWith("#1-0M0000000?note=")).toBe(true);
+	expect(codeInHash(hash)).toBe("1-0M0000000");
 	expect(noteInHash(hash)).toBe("Coin farm\nuse Fairy & co");
 });
 
 test("a link with no note, or an empty one, carries none", () => {
-	expect(shareHashFor("10M0000000", "")).toBe("#10M0000000");
-	expect(noteInHash("#10M0000000")).toBeNull();
-	expect(noteInHash("#10M0000000?note=")).toBeNull();
+	expect(shareHashFor("1-0M0000000", "")).toBe("#1-0M0000000");
+	expect(noteInHash("#1-0M0000000")).toBeNull();
+	expect(noteInHash("#1-0M0000000?note=")).toBeNull();
 	expect(noteInHash("")).toBeNull();
 });
 
 test("a note keeps its own case while the code is uppercased", () => {
-	const hash = shareHashFor("10m0000000", "Keep My Case");
+	const hash = shareHashFor("1-0m0000000", "Keep My Case");
 
-	expect(codeInHash(hash)).toBe("10M0000000");
+	expect(codeInHash(hash)).toBe("1-0M0000000");
 	expect(noteInHash(hash)).toBe("Keep My Case");
 });
 
@@ -107,15 +107,15 @@ test("a note keeps its own case while the code is uppercased", () => {
 // end the link at, and non-Latin text comes out shorter, not three times longer.
 test("a note travels as base64url, safe for any script", () => {
 	const note = "ฟาร์มเหรียญ 🍪\nuse Fairy & co / 100%";
-	const hash = shareHashFor("10M0000000", note);
+	const hash = shareHashFor("1-0M0000000", note);
 
-	expect(hash).toMatch(/^#10M0000000\?note=[A-Za-z0-9_-]+$/);
+	expect(hash).toMatch(/^#1-0M0000000\?note=[A-Za-z0-9_-]+$/);
 	expect(noteInHash(hash)).toBe(note);
 });
 
 test("a note that is not base64url, or not text, reads as none", () => {
-	expect(noteInHash("#10M0000000?note=***")).toBeNull();
-	expect(noteInHash("#10M0000000?note=_-_-")).toBeNull();
+	expect(noteInHash("#1-0M0000000?note=***")).toBeNull();
+	expect(noteInHash("#1-0M0000000?note=_-_-")).toBeNull();
 });
 
 test("a remembered tab is read back", () => {
@@ -169,14 +169,14 @@ test("a storage that throws reads the full code as off and remembers nothing", (
 });
 
 test("a shared link carries its run stats beside the note, readable by eye", () => {
-	const hash = shareHashFor("10M0000000", "Coin farm", {
+	const hash = shareHashFor("1-0M0000000", "Coin farm", {
 		money: { min: 12000, max: 15000 },
 		boxes: { min: 3, max: 3 },
 		time: 245,
 	});
 
 	expect(hash).toMatch(/&money=12000-15000&boxes=3&time=245$/);
-	expect(codeInHash(hash)).toBe("10M0000000");
+	expect(codeInHash(hash)).toBe("1-0M0000000");
 	expect(noteInHash(hash)).toBe("Coin farm");
 	expect(statsInHash(hash)).toEqual({
 		money: { min: 12000, max: 15000 },
@@ -186,27 +186,27 @@ test("a shared link carries its run stats beside the note, readable by eye", () 
 });
 
 test("a link with stats and no note carries the stats alone", () => {
-	const hash = shareHashFor("10M0000000", "", { exp: { min: 300, max: 450 } });
+	const hash = shareHashFor("1-0M0000000", "", { exp: { min: 300, max: 450 } });
 
-	expect(hash).toBe("#10M0000000?exp=300-450");
+	expect(hash).toBe("#1-0M0000000?exp=300-450");
 	expect(noteInHash(hash)).toBeNull();
 	expect(statsInHash(hash)).toEqual({ exp: { min: 300, max: 450 } });
 });
 
 test("a stat in a link that does not read is left out", () => {
-	expect(statsInHash("#10M0000000?money=lots&boxes=9&time=60")).toEqual({
+	expect(statsInHash("#1-0M0000000?money=lots&boxes=9&time=60")).toEqual({
 		time: 60,
 	});
-	expect(statsInHash("#10M0000000")).toEqual({});
+	expect(statsInHash("#1-0M0000000")).toEqual({});
 });
 
 test("a shared link carries the score first among its stats", () => {
-	const hash = shareHashFor("10S0000000", "", {
+	const hash = shareHashFor("1-0S0000000", "", {
 		money: { min: 10, max: 10 },
 		score: { min: 1200000, max: 1500000 },
 	});
 
-	expect(hash).toBe("#10S0000000?score=1200000-1500000&money=10");
+	expect(hash).toBe("#1-0S0000000?score=1200000-1500000&money=10");
 	expect(statsInHash(hash)).toEqual({
 		score: { min: 1200000, max: 1500000 },
 		money: { min: 10, max: 10 },

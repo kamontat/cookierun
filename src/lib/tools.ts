@@ -14,7 +14,7 @@ export const TOOLS = [
 		slug: "combi-name",
 		name: "Combi name codes",
 		tagline:
-			"Pack a run configuration - type, episode, boosts, random boost, cookie power+, and action - into a 10-character combi name.",
+			"Pack a run configuration - type, episode, boosts, random boost, cookie power+, and action - into a 9-character combi name.",
 	},
 ] as const satisfies readonly Tool[];
 

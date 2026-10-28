@@ -1,34 +1,33 @@
 # Cookie Run combi codes
 
-A Cookie Run combi stores a cookie, relay, pet, and treasure, but nothing else — the run's goal, whether it plays itself, the episode, boosts, and cookie power+ selections would otherwise live only in your head. The combi name is 10 characters, which is enough room to carry all of it. An optional loadout section goes further still, writing down the cookie, relay, pet, and treasure choices themselves, so a whole build travels as one code even without the game in front of you.
+A Cookie Run combi stores a cookie, relay, pet, and treasure, but nothing else — the run's goal, whether it plays itself, the episode, boosts, and cookie power+ selections would otherwise live only in your head. The combi name holds 10 characters, and 9 are enough room to carry all of it. An optional loadout section goes further still, writing down the cookie, relay, pet, and treasure choices themselves, so a whole build travels as one code even without the game in front of you.
 
 Every slot is a character you can read at a glance: a letter from the name of what it holds, a digit where the thing is a number, and `0` for off or none.
 
 ## Format
 
 ```
-slot:  1  2  3  4  5  6  7 8 9  10
-       V  M  G  E  B  R  P P P  A
-ex:    1  H  M  3  2  R  F W 0  J
-SE2:   1  A  E  T  0  4  2 0 0  0
+slot:  1  2  3  4  5  6 7 8  9
+       M  G  E  B  R  P P P  A
+ex:    H  M  3  2  R  F W 0  J
+SE2:   A  E  T  0  4  2 0 0  0
 ```
 
 | Slot | Field | Encoding |
 | --- | --- | --- |
-| 1 | Format version | `1` |
-| 2 | Mode | `0` Manual, `A` Auto, `H` Semi-auto |
-| 3 | Goal | One character for the whole set of goals, below |
-| 4 | Episode | `0` Any, `1`-`7` Episode 1-7, `C` Special Episode 1 (Island of Coins), `T` Special Episode 2 (Tower of Frozen Waves), `R` Special Episode 3 (Mysterious Rabbit Hole), `X` Special Exp Episode (XP-Elixir Workshop) |
-| 5 | Boosts | One character for the whole set, below |
-| 6 | Random boost | `0` none, otherwise one of the eleven below |
-| 7-9 | Cookie power+ | One slot per group of powers, below |
-| 10 | Action | `0` none, `J` jump at start — an auto run only |
+| 1 | Mode | `0` Manual, `A` Auto, `H` Semi-auto |
+| 2 | Goal | One character for the whole set of goals, below |
+| 3 | Episode | `0` Any, `1`-`7` Episode 1-7, `C` Special Episode 1 (Island of Coins), `T` Special Episode 2 (Tower of Frozen Waves), `R` Special Episode 3 (Mysterious Rabbit Hole), `X` Special Exp Episode (XP-Elixir Workshop) |
+| 4 | Boosts | One character for the whole set, below |
+| 5 | Random boost | `0` none, otherwise one of the eleven below |
+| 6-8 | Cookie power+ | One slot per group of powers, below |
+| 9 | Action | `0` none, `J` jump at start — an auto run only |
 
-`0` means off or none in every slot. The combi name is letters and digits only: the game field takes it as is, and a `-` inside it would read as the section separator below.
+`0` means off or none in every slot. The combi name is letters and digits only: the game field takes it as is, and a `-` inside it would read as the section separator below. There is no version character among the nine: the format version is the full code's, the first character of the loadout section below.
 
 A manual run has no starting action: a `J` beside a manual `0` is dropped, with a warning.
 
-### Goals (slot 3)
+### Goals (slot 2)
 
 A run aims for one or more goals: a manual run any 1-4 of Score, Money, Exp and Box, an auto run any 1-3 of Money, Exp and Box — Score is played by hand. Each set has a fixed character. A single goal is its own letter, as it was before a run could aim for more than one, so every older code still reads the same; the pairs and triples run in order, digits first, then `C`, since `B` is the box's, and all four is `A`:
 
@@ -43,9 +42,9 @@ A run aims for one or more goals: a manual run any 1-4 of Score, Money, Exp and 
 
 Any, `0`, is an auto run that aims for nothing in particular. The page no longer offers it, but a code that says it still reads as itself. A code that says Score beside `A` or `H`, alone or among others, or Any beside a manual `0`, still decodes, with a warning.
 
-### Boosts (slot 5)
+### Boosts (slot 4)
 
-Each of the sixteen sets of boosts has a fixed character. A single boost is its own letter and all four is `A`; the pairs and triples have no letter of their own, so they run in order, digits first — a digit in slot 5 always means more than one boost:
+Each of the sixteen sets of boosts has a fixed character. A single boost is its own letter and all four is `A`; the pairs and triples have no letter of their own, so they run in order, digits first — a digit in slot 4 always means more than one boost:
 
 | Char | Boosts | Char | Boosts | Char | Boosts |
 | --- | --- | --- | --- | --- | --- |
@@ -58,7 +57,7 @@ Each of the sixteen sets of boosts has a fixed character. A single boost is its 
 
 Cookie Relay is not here: a run that uses one says so by naming a relay cookie in the loadout section.
 
-### Random boost (slot 6)
+### Random boost (slot 5)
 
 Each boost is a letter from its own name.
 
@@ -71,17 +70,17 @@ Each boost is a letter from its own name.
 | `C` | 70% Crush Chance | `L` | 2 Pit Lifts |
 | `B` | +17% Base Speed | | |
 
-### Cookie power+ (slots 7-9)
+### Cookie power+ (slots 6-8)
 
 Any number of the seven can be on, so they are split into three groups with a slot each. A slot works like the boost slot: `0` for none of its group, a power's own letter when it is the only one of its group, a running digit for some but not all of a group, and `A` for the whole group — as all four boosts and all four goals are `A`.
 
 | Slot | Powers | Combinations |
 | --- | --- | --- |
-| 7 | `C` Cheerleader, `S` Special Force, `F` Fairy | `1` C+S, `2` C+F, `3` S+F, `A` all three |
-| 8 | `K` Cheesecake, `W` Sea Fairy (W for water) | `A` both |
-| 9 | `L` Serenade of Love, `E` EXP Party | `A` both |
+| 6 | `C` Cheerleader, `S` Special Force, `F` Fairy | `1` C+S, `2` C+F, `3` S+F, `A` all three |
+| 7 | `K` Cheesecake, `W` Sea Fairy (W for water) | `A` both |
+| 8 | `L` Serenade of Love, `E` EXP Party | `A` both |
 
-Fairy plus Sea Fairy is `FW0`; Cheerleader, Fairy and EXP Party is `20E`; all seven is `AAA`. A code written before this used `4` in slot 7 and `1` in slots 8 and 9 for a whole group; those characters no longer read.
+Fairy plus Sea Fairy is `FW0`; Cheerleader, Fairy and EXP Party is `20E`; all seven is `AAA`. A code written before this used `4` in the first power slot and `1` in the other two for a whole group; those characters no longer read.
 
 ### Special episodes
 
@@ -93,13 +92,13 @@ Some episodes take less than a full run:
 | Special Episode 2 (`T`) | cookie, pet, treasures, and a tower floor |
 | Special Exp Episode (`X`) | cookie and pet |
 
-None of the three takes a relay, boosts, a random boost, or cookie power+, so slots 5-9 read `0`. Special Episode 2 spends slots 5-7 on the floor instead — `001` to `100`, or `000` for any floor — and slots 8-9 stay `0`. The goal, mode, and action apply as they do anywhere else.
+None of the three takes a relay, boosts, a random boost, or cookie power+, so slots 4-8 read `0`. Special Episode 2 spends slots 4-6 on the floor instead — `001` to `100`, or `000` for any floor — and slots 7-8 stay `0`. The goal, mode, and action apply as they do anywhere else.
 
 Encoding drops what the episode has no room for. Decoding a code that carries it anyway drops it too, with a warning, rather than refusing the code.
 
 ## Loadout section
 
-A full code is `loadout-combi`: an optional loadout section, a `-`, then the ten-character combi name exactly as above. A bare ten-character code — no `-`, no loadout — is still a whole code; the loadout is purely additive.
+A full code is `loadout-combi`: the loadout section, a `-`, then the nine-character combi name exactly as above. The loadout section always opens with the format version, so a full code with no loadout is the version alone before the `-`: `1-0S0000000`. A bare nine-character code — copied back out of the game, with no `-` and no version — still decodes, read as the version this page writes.
 
 The separators are picked for word-wise selection (double-click, or Option+Shift+Arrow). Editors and browsers stop a word at `-` but not at `_` or `.`, so the loadout selects as one word and the combi name — the part you paste into the game — as another.
 
@@ -107,7 +106,7 @@ The loadout writes down the cookie, relay, pet, and treasure a build uses. The g
 
 | Tag | Group | Encoding |
 | --- | --- | --- |
-| `1` | Version | This section's own format version, tracked separately from the combi section's (slot 1 of the table above) |
+| `1` | Version | The format version of the whole code; the nine combi characters carry none of their own. Always present, even with no group after it |
 | `C` | Cookie | 2-character catalog id, or `__` for any cookie |
 | `R` | Relay | 2-character catalog id, the same catalog as cookie, or `__` for any relay |
 | `P` | Pet | 2-character catalog id, or `__` for any pet |
@@ -117,14 +116,14 @@ The loadout writes down the cookie, relay, pet, and treasure a build uses. The g
 
 "Any" is not that placeholder, and the difference is the point: a missing group is a build that never mentions the slot, while `__` is one that says anything fits there. `_` is outside the `[0-9A-Z]` alphabet ids are drawn from, so it can never collide with a catalog id however far the catalog grows. Only `C`, `R`, and `P` accept it — a treasure slot already holds a list of acceptable alternatives, which is a different idea, and `TU___` is rejected like any other malformed id (there `_` is the alternative separator, so it reads as empty ids).
 
-An `R__` counts as a relay for everything a named relay counts for: the build is semi-auto, and slot 2 is written `H`. Which cookie relays in is not what makes the run need a hand.
+An `R__` counts as a relay for everything a named relay counts for: the build is semi-auto, and slot 1 is written `H`. Which cookie relays in is not what makes the run need a hand.
 
 ```
-10S070FW00                          no loadout
-1C2L-10S070FW00                     a cookie only
-1C__R__P__-1HM0000000               any cookie, any relay, any pet
-1C2LR0BP1ZTU09F_0G2.0G1-1HM32R000J  cookie, relay, pet, two treasure slots, any order
-1TU09F02_09F59_0G23.0G19-10S0000000 slot 1: 09F at +0-2 or +5-9, or 0G2 at +3; slot 2: 0G1 at +9
+1-0S070FW00                        no loadout
+1C2L-0S070FW00                     a cookie only
+1C__R__P__-HM0000000               any cookie, any relay, any pet
+1C2LR0BP1ZTU09F_0G2.0G1-HM32R000J  cookie, relay, pet, two treasure slots, any order
+1TU09F02_09F59_0G23.0G19-0S0000000 slot 1: 09F at +0-2 or +5-9, or 0G2 at +3; slot 2: 0G1 at +9
 ```
 
 Encoding always writes the canonical form: ids are sorted within a slot, and whole slots are sorted against each other whenever the order flag is `U` — a single slot is always written `U`, since there is nothing to order with only one slot. That is what keeps one build to exactly one code. Reading a code is more forgiving: a hand-written or otherwise non-canonical loadout still decodes correctly, it just re-encodes into the canonical form rather than back into what you typed.
@@ -151,20 +150,20 @@ No digits means +0, which is also how every code written before levels existed r
 
 ## Auto vs semi-auto
 
-Semi-auto is an auto run that needs manual work each time. An auto build is semi-auto when **any** of these is true: Fast Start is on (slot 5), a random boost is selected (slot 6), there is a jump action (slot 10), or the loadout carries a relay cookie (the `R` group, `R__` included) on an episode that takes one. The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
+Semi-auto is an auto run that needs manual work each time. An auto build is semi-auto when **any** of these is true: Fast Start is on (slot 4), a random boost is selected (slot 5), there is a jump action (slot 9), or the loadout carries a relay cookie (the `R` group, `R__` included) on an episode that takes one. The other three boosts do nothing to it — Double XP included, since it changes what a run pays out rather than what it asks of you.
 
-The relay is the one reason that lives outside the ten characters: a relay cookie is swapped in by hand, so a run carrying one never plays itself through. Slot 2 is written from the whole build, so the ten characters you paste into the game say `H` when a relay is in front of them — while a bare combi code, having no loadout to read, answers for its own three flags alone.
+The relay is the one reason that lives outside the nine characters: a relay cookie is swapped in by hand, so a run carrying one never plays itself through. Slot 1 is written from the whole build, so the nine characters you paste into the game say `H` when a relay is in front of them — while a bare combi code, having no loadout to read, answers for its own three flags alone.
 
-Slot 2 stores `A` or `H` for readability, but those four reasons are the authority. `encodeFull` normalizes slot 2 so a generated code never contradicts itself. `decodeFull` accepts a hand-typed code that does contradict, keeps `combi.mode` as written, and returns a warning; `isSemiAutoBuild` always answers from the fields above.
+Slot 1 stores `A` or `H` for readability, but those four reasons are the authority. `encodeFull` normalizes slot 1 so a generated code never contradicts itself. `decodeFull` accepts a hand-typed code that does contradict, keeps `combi.mode` as written, and returns a warning; `isSemiAutoBuild` always answers from the fields above.
 
 ```
-1AM3H00000    full auto, money (HP Extension only)
-1A03H00000    full auto, no goal in particular
-1AC3H00000    full auto, money + exp + box
-1HM32R0000    semi-auto (HP Extension + Fast Start, Revive)
-1HE3H0000J    semi-auto (jump only)
-1AB3300000    full auto, box (HP Extension + Double XP)
-1AMT042000    full auto on the tower, floor 42
+AM3H00000    full auto, money (HP Extension only)
+A03H00000    full auto, no goal in particular
+AC3H00000    full auto, money + exp + box
+HM32R0000    semi-auto (HP Extension + Fast Start, Revive)
+HE3H0000J    semi-auto (jump only)
+AB3300000    full auto, box (HP Extension + Double XP)
+AMT042000    full auto on the tower, floor 42
 ```
 
 ## Usage
@@ -182,13 +181,13 @@ encode({
   cookiePowers: ["fairy", "seaFairy"],
   action: "none",
 });
-// "10S070FW00"
+// "0S070FW00"
 
-const { combi, warnings } = decode("1HE34R000J");
+const { combi, warnings } = decode("HE34R000J");
 isSemiAuto(combi); // true
 ```
 
-`decode` throws on a code it cannot read — wrong length, unknown version, an unknown character in a slot, or a tower floor that is not `000`-`100`. Everything else is soft and comes back in `warnings`: slot 2 disagreeing with the flag slots, Score on an auto run or Any on a manual one, an action on a manual run, or anything the episode has no room for.
+`decode` throws on a code it cannot read — wrong length, an unknown character in a slot, or a tower floor that is not `000`-`100`. Everything else is soft and comes back in `warnings`: slot 1 disagreeing with the flag slots, Score on an auto run or Any on a manual one, an action on a manual run, or anything the episode has no room for.
 
 ## Web app
 
@@ -200,7 +199,7 @@ The code panel stays in reach while you work: pinned to the top of the page, on 
 
 Every message the page has goes in that banner and nowhere else, as one of three kinds, each with its own colour and mark: **info** in green (a copy that worked, a code saved, updated, loaded or deleted, typing progress), **warn** in yellow (a code read with changes, an import that skipped lines, nothing to import or export) or **error** in red (a code that does not read, a clipboard or a store the browser refused). Info clears itself after a few seconds, except typing progress, which stays while the editor is open; a warning or an error stays until you dismiss it with **✕** or something replaces it. A message about the code on screen — its warnings, a paste, a copy — goes once the build changes, and an error about a code you were typing goes when you close the editor. A message of several lines folds to its title and a count, like **Read with changes (2) ▾**; tap it to read them. A link that reads with changes and carries a note shows both: the note offer is one more line under the warning. While the Saved or Help drawer is open the banner moves into it, under its header, since a drawer covers the page behind it.
 
-The panel shows only the ten characters the game takes — what **Copy code** copies — even when the code carries a loadout; **Show full code** in the menu swaps it to the whole code (and Copy code with it) until you switch back, and the choice is remembered in this browser: the loadout is the summary's to show, and it still rides in the link, in saved codes, and in the editor **Edit** opens, which holds the whole code. Each field of those ten characters is drawn as its own run. Hover one and it names its slot and what it currently says; click it and the page switches to the tab that holds the control and jumps to it, the same jump a line of the summary makes. A run for a slot nothing on the page owns — the version character, a reserved slot — or whose tab the episode has no room for is plain text instead, its tooltip still there but nothing behind it to click. That is why the slot tables, and the tip about clicking the code, live in the Help drawer behind the top bar's **?** (Help) button rather than folded away at the bottom of the page — they confirm the format rather than being where you look things up.
+The panel shows only the nine characters the game takes — what **Copy code** copies — even when the code carries a loadout; **Show full code** in the menu swaps it to the whole code (and Copy code with it) until you switch back, and the choice is remembered in this browser: the loadout is the summary's to show, and it still rides in the link, in saved codes, and in the editor **Edit** opens, which holds the whole code. Each field of those nine characters is drawn as its own run. Hover one and it names its slot and what it currently says; click it and the page switches to the tab that holds the control and jumps to it, the same jump a line of the summary makes. A run for a character nothing on the page owns — the full code's version character, a reserved slot — or whose tab the episode has no room for is plain text instead, its tooltip still there but nothing behind it to click. That is why the slot tables, and the tip about clicking the code, live in the Help drawer behind the top bar's **?** (Help) button rather than folded away at the bottom of the page — they confirm the format rather than being where you look things up.
 
 Under the note sits the summary: a read-only digest of the build, one row per tab and in the tabs' own order — Run, Cookies, Treasures, Boosts, Random boost, Power+ — each with its pictures and words — cookies, treasures, boosts and Power+ as pictures, their names a click away; an evolved or blessed treasure wears an E or B and a ring in its colour, as in the treasure picker, since both forms share one picture — and each a way to the control behind it. Pictures sit in equal boxes, like a grid; click a row's pictures to show or hide that row's names (on the Run line, the same click shows why a run is semi-auto), and use the › at the right end of a line to switch to its tab and focus the control. Run always shows; every other row only when it has something to say, with a muted hint once nothing else has been picked. On a phone the summary opens folded to one line — the mode, the goal, the episode, the faces and the treasure pictures, and a boost count — and expands on tap.
 

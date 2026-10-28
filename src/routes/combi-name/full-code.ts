@@ -1,12 +1,14 @@
 /**
- * A full code is `loadout-combi`, or just `combi` when there is no loadout.
- * The `-` is the one character a word-wise selection stops at, so the combi
- * half — the part the game takes — selects on its own.
+ * A full code is `loadout-combi`, always: the loadout half opens with the
+ * format version, so with no loadout it is the version alone, `1-…`. The `-`
+ * is the one character a word-wise selection stops at, so the combi half —
+ * the part the game takes — selects on its own.
  *
- * The right half is the ten characters the game's combi name field holds,
- * unchanged; the left half is everything the game already stores in the combi
- * itself. Splitting them is what keeps the right half copy-pasteable into the
- * game, and what keeps every code written before the loadout existed valid.
+ * The right half is the nine characters the game's combi name field holds,
+ * with no version of their own; the left half is the version and everything
+ * the game already stores in the combi itself. Splitting them is what keeps
+ * the right half copy-pasteable into the game. A bare combi, copied back out
+ * of the game, still decodes: it is read as the version this page writes.
  */
 
 import { type Combi, decode, encode, isSemiAuto, limitsOf } from "./codec";
@@ -14,7 +16,6 @@ import {
 	decodeLoadout,
 	emptyLoadout,
 	encodeLoadout,
-	isEmptyLoadout,
 	type Loadout,
 } from "./loadout";
 
@@ -29,7 +30,7 @@ export const SECTION_SEPARATOR = "-";
  * Whether the whole build plays itself. The combi half answers for its own
  * flags; the loadout adds one reason of its own — a relay cookie has to be
  * swapped in by hand, so a run carrying one is never full auto no matter what
- * the ten characters say.
+ * the nine characters say.
  *
  * This lives here rather than in `codec.ts` because it is the one question
  * whose answer needs both halves, and the codec does not model a loadout.
@@ -63,10 +64,9 @@ export function fitLoadout(loadout: Loadout, combi: Combi): Loadout {
 
 export function encodeFull(full: FullCode): string {
 	const loadout = fitLoadout(full.loadout, full.combi);
-	// Slot 2 is written from the whole build, so a code carrying a relay says
-	// Semi-auto in the ten characters someone pastes into the game.
+	// Slot 1 is written from the whole build, so a code carrying a relay says
+	// Semi-auto in the nine characters someone pastes into the game.
 	const combi = encode(full.combi, loadout.relay !== null);
-	if (isEmptyLoadout(loadout)) return combi;
 	return `${encodeLoadout(loadout)}${SECTION_SEPARATOR}${combi}`;
 }
 
@@ -98,7 +98,7 @@ export function decodeFull(code: string): {
 
 	const written = decodeLoadout(first);
 	// The episode lives in the combi half, so it is read before the relay is
-	// allowed to say anything about slot 2.
+	// allowed to say anything about slot 1.
 	const episode = decode(second).combi.episode;
 	const limits = limitsOf(episode);
 	const relayed = written.relay !== null && limits.relay;
@@ -135,6 +135,6 @@ function loadoutWarnings(written: Loadout, kept: Loadout): string[] {
 function relayWarnings(combi: Combi): string[] {
 	if (combi.mode !== "auto") return [];
 	return [
-		"slot 2 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
+		"slot 1 says Auto but the loadout carries a relay cookie — treating as Semi-auto",
 	];
 }

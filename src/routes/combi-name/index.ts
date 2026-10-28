@@ -2037,7 +2037,7 @@ editCodeButton.addEventListener("click", () => {
 	codeBar.editing = true;
 });
 
-// The bar draws the ten characters the game takes and nothing before them: the
+// The bar draws the nine characters the game takes and nothing before them: the
 // loadout is the summary's to show, and it still rides in the link, the saves
 // and the editor, which all keep the whole code. The menu swaps it to the whole
 // code and back, and the choice is remembered.
@@ -2058,7 +2058,7 @@ fullCodeButton.addEventListener("click", () => {
 // The menu has closed by the time the clipboard answers, so both copies say
 // how it went in the banner. A refusal has an instruction to give.
 copyCodeButton.addEventListener("click", () => {
-	// What the panel shows: the ten characters the game takes, or the whole
+	// What the panel shows: the nine characters the game takes, or the whole
 	// code once the menu has asked for it.
 	const code =
 		codeBar.showAfter === "" ? codeBar.value : combiSectionOf(codeBar.value);

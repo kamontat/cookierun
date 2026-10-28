@@ -20,7 +20,7 @@
     <title>Cookie Run combi codes</title>
     <meta
       name="description"
-      content="Pack a Cookie Run run configuration - goal, mode, episode, boosts, random boost, cookie power+, and action - into a 10-character combi name."
+      content="Pack a Cookie Run run configuration - goal, mode, episode, boosts, random boost, cookie power+, and action - into a 9-character combi name."
     />
     <!-- Fairy Cookie (assets/index.json -> cookies.FairyCookie); the build
          inlines it as a data URI, so the page stays self-contained. -->
@@ -102,7 +102,7 @@
               <button id="edit-code" type="button">Edit code</button>
               <button id="copy-code" type="button">Copy code</button>
               <button id="copy-link" type="button">Copy link</button>
-              <!-- The panel shows the ten characters the game takes; this
+              <!-- The panel shows the nine characters the game takes; this
                    swaps it to the whole code, loadout and all, and back. -->
               <button id="code-full" type="button" aria-pressed="false">
                 Show full code
@@ -451,7 +451,7 @@
             <button type="button" class="close" data-close>Close</button>
           </header>
           <p class="intro">
-            A combi name holds 10 characters - enough to carry the run's goal,
+            A combi name holds 10 characters, and 9 are enough to carry the run's goal,
             whether it plays itself, the episode, boosts, random boost, cookie
             power+ selections, and starting action. Put a loadout section in
             front and the same code carries your cookie, relay, pet, and
@@ -464,10 +464,10 @@
             page loads it.
           </p>
           <pre class="diagram">
-slot:  1  2  3  4  5  6  7 8 9  10
-       V  M  G  E  B  R  P P P  A
-ex:    1  H  M  3  2  R  F W 0  J
-SE2:   1  A  E  T  0  4  2 0 0  0</pre
+slot:  1  2  3  4  5  6 7 8  9
+       M  G  E  B  R  P P P  A
+ex:    H  M  3  2  R  F W 0  J
+SE2:   A  E  T  0  4  2 0 0  0</pre
           >
 
           <div class="scroll-x">
@@ -482,11 +482,6 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
               <tbody>
                 <tr>
                   <td>1</td>
-                  <td>Format version</td>
-                  <td><code>1</code></td>
-                </tr>
-                <tr>
-                  <td>2</td>
                   <td>Mode</td>
                   <td>
                     <code>0</code> Manual, <code>A</code> Auto, <code>H</code>
@@ -494,7 +489,7 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
                   </td>
                 </tr>
                 <tr>
-                  <td>3</td>
+                  <td>2</td>
                   <td>Goal</td>
                   <td>
                     <code>S</code> Score, <code>M</code> Money, <code>E</code>
@@ -505,7 +500,7 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
                   </td>
                 </tr>
                 <tr>
-                  <td>4</td>
+                  <td>3</td>
                   <td>Episode</td>
                   <td>
                     <code>0</code> Any, <code>1</code>-<code>7</code> Episode 1-7,
@@ -516,7 +511,7 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
                   </td>
                 </tr>
                 <tr>
-                  <td>5</td>
+                  <td>4</td>
                   <td>Boosts</td>
                   <td>
                     One character for the whole set: <code>0</code> none,
@@ -530,7 +525,7 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
                   </td>
                 </tr>
                 <tr>
-                  <td>6</td>
+                  <td>5</td>
                   <td>Random boost</td>
                   <td>
                     <code>0</code> none, otherwise a letter from the boost's
@@ -543,20 +538,20 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
                   </td>
                 </tr>
                 <tr>
-                  <td>7-9</td>
+                  <td>6-8</td>
                   <td>Cookie power+</td>
                   <td>
-                    One slot per group, <code>0</code> for none of it. Slot 7:
+                    One slot per group, <code>0</code> for none of it. Slot 6:
                     <code>C</code> Cheerleader, <code>S</code> Special Force,
                     <code>F</code> Fairy, <code>1</code> CS, <code>2</code> CF,
-                    <code>3</code> SF, <code>A</code> all three. Slot 8:
+                    <code>3</code> SF, <code>A</code> all three. Slot 7:
                     <code>K</code> Cheesecake, <code>W</code> Sea Fairy,
-                    <code>A</code> both. Slot 9: <code>L</code> Serenade of
+                    <code>A</code> both. Slot 8: <code>L</code> Serenade of
                     Love, <code>E</code> EXP Party, <code>A</code> both
                   </td>
                 </tr>
                 <tr>
-                  <td>10</td>
+                  <td>9</td>
                   <td>Action</td>
                   <td>
                     <code>0</code> none, <code>J</code> jump at start. Auto runs
@@ -570,8 +565,8 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
           <h3>Special episodes</h3>
           <p>
             Special Episodes 1 and 2 take a cookie, a pet and treasures - no
-            relay, boosts, random boost or cookie power+, so slots 5-9 read
-            <code>0</code>. Special Episode 2 spends slots 5-7 on the tower
+            relay, boosts, random boost or cookie power+, so slots 4-8 read
+            <code>0</code>. Special Episode 2 spends slots 4-6 on the tower
             floor instead: <code>001</code>-<code>100</code>, or
             <code>000</code> for any floor. The Special Exp Episode takes a
             cookie and a pet only.
@@ -579,7 +574,10 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
 
           <h3>The loadout section</h3>
           <p>
-            Everything left of the dash. Groups always read in the order
+            Everything left of the dash. It opens with the format version,
+            which is there even with nothing after it - <code>1-</code> and
+            the nine game characters is a full code with no loadout. Groups
+            always read in the order
             <code>C</code> <code>R</code> <code>P</code> <code>T</code>, and a
             group you did not pick is simply absent.
           </p>
@@ -596,9 +594,10 @@ SE2:   1  A  E  T  0  4  2 0 0  0</pre
               <tbody>
                 <tr>
                   <td><code>1</code></td>
-                  <td>Loadout version</td>
+                  <td>Format version</td>
                   <td>
-                    Always <code>1</code>, and separate from the name's version
+                    Always <code>1</code>, for the whole code: the nine game
+                    characters carry no version of their own
                   </td>
                 </tr>
                 <tr>

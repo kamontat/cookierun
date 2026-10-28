@@ -168,7 +168,7 @@ export function rememberTab(storage: Storage, tab: TabName): void {
 
 /**
  * Whether the code panel shows the whole code, loadout and all, rather than
- * the ten characters the game takes. Off by default: the loadout is the
+ * the nine characters the game takes. Off by default: the loadout is the
  * summary's to show. Stored as "1" or "0", every access wrapped.
  */
 export const FULL_CODE_KEY = "combi-name:full-code";

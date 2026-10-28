@@ -68,8 +68,6 @@ export type Combi = {
 	action: Action;
 };
 
-export const VERSION = "1";
-
 /**
  * Manual is `0` because it is auto switched off. Semi-auto is `H`, for a run
  * that needs a hand.
@@ -114,7 +112,7 @@ type SetSlot<T extends string> = {
 };
 
 /**
- * Slot 3: every set of goals in one character. A single goal is a letter from
+ * Slot 2: every set of goals in one character. A single goal is a letter from
  * its own name and none in particular is `0`, as they were before a run could
  * aim for more than one; the pairs and triples run `1`-`9`, then `C`, since
  * `B` is the box's, and all four are `A`, as all four boosts are. Member
@@ -143,7 +141,7 @@ const GOAL_SLOT: SetSlot<Goal> = {
 };
 
 /**
- * Slot 5: every set of boosts in one character. A single boost is its own
+ * Slot 4: every set of boosts in one character. A single boost is its own
  * letter and all four are `A`; the pairs and triples run `1`-`9`, then `B`.
  * Member order is also `ALL_BOOSTS`' order.
  */
@@ -189,7 +187,7 @@ const RANDOM_BOOST_CHARS: Record<RandomBoost, string> = {
 };
 
 /**
- * Slots 7-9: cookie power+, any number of them, so the seven powers are split
+ * Slots 6-8: cookie power+, any number of them, so the seven powers are split
  * into three groups of one slot each, and each slot is a set slot of its own.
  * A run with at most one power per group reads as plain letters. Cheesecake
  * is `K`, since `C` is the cheerleader's; Sea Fairy is `W` for water, since
@@ -236,16 +234,16 @@ const OFF = "0";
 
 /** Zero-based index of each field's first character. */
 const AT = {
-	mode: 1,
-	goal: 2,
-	episode: 3,
-	boosts: 4,
-	randomBoost: 5,
-	cookiePowers: 6,
-	action: 9,
-	floor: 4,
+	mode: 0,
+	goal: 1,
+	episode: 2,
+	boosts: 3,
+	randomBoost: 4,
+	cookiePowers: 5,
+	action: 8,
+	floor: 3,
 	/** The two characters a floor leaves after it, before the action. */
-	floorRest: 7,
+	floorRest: 6,
 } as const;
 
 const FLOOR_MAX = 100;
@@ -407,7 +405,7 @@ function encodeFloor(floor: number | null): string {
 	return String(floor).padStart(FLOOR_DIGITS, "0");
 }
 
-/** Slots 5-9: the floor on an episode that has one, or what a run carries. */
+/** Slots 4-8: the floor on an episode that has one, or what a run carries. */
 function encodeCarried(combi: Combi): string {
 	if (limitsOf(combi.episode).floor) {
 		return encodeFloor(combi.floor) + OFF.repeat(2);
@@ -430,7 +428,6 @@ export function encode(combi: Combi, forcedSemiAuto = false): string {
 	const canonical = normalize(combi);
 
 	return [
-		VERSION,
 		MODE_CHARS[normalizeMode(canonical, forcedSemiAuto)],
 		GOAL_CODEC.encode(canonical.goals),
 		EPISODE_CHARS[canonical.episode],
@@ -439,23 +436,28 @@ export function encode(combi: Combi, forcedSemiAuto = false): string {
 	].join("");
 }
 
-export const CODE_LENGTH = 10;
+/**
+ * The game's combi name field takes this many. There is no version character
+ * here: the format version is the full code's, the first character before the
+ * `-`, and these nine are only ever read as the version that page writes.
+ */
+export const CODE_LENGTH = 9;
 
 function decodeFloor(code: string): number | null {
 	const text = code.slice(AT.floor, AT.floor + FLOOR_DIGITS);
 	if (!/^[0-9]{3}$/.test(text)) {
-		throw new Error(`slots 5-7 (floor): "${text}" is not 3 digits`);
+		throw new Error(`slots 4-6 (floor): "${text}" is not 3 digits`);
 	}
 
 	const floor = Number.parseInt(text, 10);
 	if (floor > FLOOR_MAX) {
-		throw new Error(`slots 5-7 (floor): ${text} is above ${FLOOR_MAX}`);
+		throw new Error(`slots 4-6 (floor): ${text} is above ${FLOOR_MAX}`);
 	}
 
 	const rest = code.slice(AT.floorRest, AT.action);
 	if (rest !== OFF.repeat(2)) {
 		throw new Error(
-			`slots 8-9 (reserved on this episode): "${rest}", expected "${OFF.repeat(2)}"`,
+			`slots 7-8 (reserved on this episode): "${rest}", expected "${OFF.repeat(2)}"`,
 		);
 	}
 
@@ -475,7 +477,7 @@ function decodeCookiePowers(code: string): CookiePower[] {
 
 /**
  * `forcedSemiAuto` says the same thing it says to `encode`: something outside
- * these ten characters already forces manual work. It only silences the
+ * these nine characters already forces manual work. It only silences the
  * contradiction warnings, since a stored `H` that the loadout explains is not a
  * contradiction — and the caller that knows about the loadout says so itself.
  *
@@ -490,34 +492,30 @@ export function decode(code: string, forcedSemiAuto = false): DecodeResult {
 		);
 	}
 
-	if (code[0] !== VERSION) {
-		throw new Error(`unsupported version "${code[0]}"`);
-	}
-
 	const episode = lookup(
 		EPISODE_BY_CHAR,
 		code[AT.episode] as string,
-		"4 (episode)",
+		"3 (episode)",
 	);
 	const hasFloor = limitsOf(episode).floor;
 
 	const written: Combi = {
-		goals: lookup(GOAL_CODEC.decode, code[AT.goal] as string, "3 (goal)"),
-		mode: lookup(MODE_BY_CHAR, code[AT.mode] as string, "2 (mode)"),
+		goals: lookup(GOAL_CODEC.decode, code[AT.goal] as string, "2 (goal)"),
+		mode: lookup(MODE_BY_CHAR, code[AT.mode] as string, "1 (mode)"),
 		episode,
 		floor: hasFloor ? decodeFloor(code) : null,
 		boosts: hasFloor
 			? []
-			: lookup(BOOST_CODEC.decode, code[AT.boosts] as string, "5 (boosts)"),
+			: lookup(BOOST_CODEC.decode, code[AT.boosts] as string, "4 (boosts)"),
 		randomBoost: hasFloor
 			? null
 			: lookup(
 					RANDOM_BOOST_BY_CHAR,
 					code[AT.randomBoost] as string,
-					"6 (random boost)",
+					"5 (random boost)",
 				),
 		cookiePowers: hasFloor ? [] : decodeCookiePowers(code),
-		action: lookup(ACTION_BY_CHAR, code[AT.action] as string, "10 (action)"),
+		action: lookup(ACTION_BY_CHAR, code[AT.action] as string, "9 (action)"),
 	};
 
 	const combi = normalize(written);
@@ -549,7 +547,7 @@ function droppedWarnings(combi: Combi): string[] {
 
 	if (combi.mode === "manual" && combi.action !== "none") {
 		warnings.push(
-			"slot 10 sets an action but the run is played by hand — ignoring it",
+			"slot 9 sets an action but the run is played by hand — ignoring it",
 		);
 	}
 
@@ -560,12 +558,12 @@ function goalWarnings(combi: Combi): string[] {
 	if (combi.mode === "manual") {
 		if (combi.goals.length > 0) return [];
 		return [
-			"slot 3 says Any but a run played by hand aims for Score, Money, Exp, or Box",
+			"slot 2 says Any but a run played by hand aims for Score, Money, Exp, or Box",
 		];
 	}
 	if (combi.goals.every((goal) => AUTO_GOALS.includes(goal))) return [];
 	return [
-		"slot 3 says Score but an auto run aims for Money, Exp, or Box — Score is played by hand",
+		"slot 2 says Score but an auto run aims for Money, Exp, or Box — Score is played by hand",
 	];
 }
 
@@ -577,20 +575,20 @@ function goalWarnings(combi: Combi): string[] {
 function modeWarnings(combi: Combi, forced: boolean): string[] {
 	const semi = isSemiAuto(combi);
 
-	// Whatever forces manual work from outside these ten characters is the
+	// Whatever forces manual work from outside these nine characters is the
 	// caller's to explain: it knows what the reason is called, and this file
 	// deliberately does not.
 	if (forced) return [];
 
 	if (combi.mode === "auto" && semi) {
 		return [
-			"slot 2 says Auto but Fast Start, a random boost, or an action is present — treating as Semi-auto",
+			"slot 1 says Auto but Fast Start, a random boost, or an action is present — treating as Semi-auto",
 		];
 	}
 
 	if (combi.mode === "semiauto" && !semi) {
 		return [
-			"slot 2 says Semi-auto but there is no Fast Start, random boost, or action",
+			"slot 1 says Semi-auto but there is no Fast Start, random boost, or action",
 		];
 	}
 
