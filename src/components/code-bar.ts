@@ -325,7 +325,7 @@ export class CodeBar extends LitElement {
 	/**
 	 * When set, the display draws only what follows the last occurrence of
 	 * this marker — the combi page passes the section separator, so the bar
-	 * shows the nine characters the game takes and leaves the loadout before
+	 * shows the ten characters the game takes and leaves the loadout before
 	 * them to the summary. Only the display: `value`, the editor, Copy and the
 	 * hints' alignment all stay on the whole code. A value without the marker
 	 * is drawn whole.

@@ -26,6 +26,7 @@ import {
 	MANUAL_GOALS,
 	type Mode,
 	type RandomBoost,
+	SOLO_GOAL,
 } from "./codec";
 import { describeBuild, describeRun } from "./describe";
 import { attachResize } from "./drawer-width";
@@ -552,16 +553,11 @@ function render(warnings: readonly string[] = []): void {
 	// Before the form is read: an auto run has no Score to aim for, so the goal
 	// row has to have dropped it by the time its values are taken.
 	goalChips.options = goalOptions(modeChips.value as Mode);
-	// A run played by hand always aims for something, so Any — an auto run's,
-	// or a code that says it — lands on Score, the first a manual run is offered.
-	if (modeChips.value === "manual" && goalChips.values.length === 0) {
-		goalChips.values = [MANUAL_GOALS[0] as Goal];
-	}
 	const code = encodeFull({ loadout: readLoadout(), combi: readForm() });
 	codeBar.value = code;
 
 	// Read the code back so the verdict reflects the character actually written
-	// into slot 2, not the type the chips still show.
+	// into slot 1, not the type the chips still show.
 	const { full } = decodeFull(code);
 	const { episode } = full.combi;
 	// After the value: setting it drops the old hints, which described the code
@@ -1807,10 +1803,10 @@ function pairs<K extends string>(
 
 /**
  * Every mode but semi-auto. That one is derived, not chosen: `encode` writes
- * slot 2 from the flag slots — Fast Start, a random boost, a jump action — so
+ * slot 1 from the flag slots — Fast Start, a random boost, a jump action — so
  * an auto run becomes semi-auto by what else is on, and a chip for it could
  * only disagree with the code. The codec still knows the value, and a code
- * carrying `H` still decodes to it; `writeForm` lands that on the Auto chip.
+ * carrying `S` or `J` still decodes to it; `writeForm` lands that on the Auto chip.
  */
 const PICKABLE_MODES = ALL_MODES.filter((mode) => mode !== "semiauto");
 
@@ -1830,11 +1826,10 @@ function modeOptions(semi: boolean): readonly (readonly [string, string])[] {
 }
 
 /**
- * The goals a mode can aim for, any number of them but at least one. Score is
- * played by hand, so an auto run is offered the other three, and a run aiming
- * for Score alone falls to Money on the way to auto, the way a chip row reads
- * picks its options no longer hold. Any — no goal in particular — is not
- * offered: a code that says it still reads, as a row with no chip on.
+ * The goals a mode can aim for, at least one. Score is played by hand and on
+ * its own — the row's `exclusive` keeps it alone — so an auto run is offered
+ * the other three, and a run aiming for Score falls to Money on the way to
+ * auto, the way a chip row reads picks its options no longer hold.
  */
 function goalOptions(mode: Mode): readonly (readonly [string, string])[] {
 	const goals = mode === "manual" ? MANUAL_GOALS : AUTO_GOALS;
@@ -1844,9 +1839,10 @@ function goalOptions(mode: Mode): readonly (readonly [string, string])[] {
 modeChips.options = modeOptions(false);
 goalChips.options = goalOptions("manual");
 goalChips.multiple = true;
-// A set starts empty, which is Any; the page opens on a manual run, which
-// always aims for something, so it starts on Score as the single row did.
-goalChips.values = [MANUAL_GOALS[0] as Goal];
+goalChips.exclusive = [SOLO_GOAL];
+// A set starts empty, and no code says an empty set: the page opens on a
+// manual run aiming for Score.
+goalChips.values = [SOLO_GOAL];
 // Twelve landscape cards is a grid, not a row: an episode is a place, and the
 // picture is what anyone recognises it by. `any` has no icon and falls back to
 // the lettered cell the catalog pickers already use.
@@ -2037,7 +2033,7 @@ editCodeButton.addEventListener("click", () => {
 	codeBar.editing = true;
 });
 
-// The bar draws the nine characters the game takes and nothing before them: the
+// The bar draws the ten characters the game takes and nothing before them: the
 // loadout is the summary's to show, and it still rides in the link, the saves
 // and the editor, which all keep the whole code. The menu swaps it to the whole
 // code and back, and the choice is remembered.
@@ -2058,7 +2054,7 @@ fullCodeButton.addEventListener("click", () => {
 // The menu has closed by the time the clipboard answers, so both copies say
 // how it went in the banner. A refusal has an instruction to give.
 copyCodeButton.addEventListener("click", () => {
-	// What the panel shows: the nine characters the game takes, or the whole
+	// What the panel shows: the ten characters the game takes, or the whole
 	// code once the menu has asked for it.
 	const code =
 		codeBar.showAfter === "" ? codeBar.value : combiSectionOf(codeBar.value);

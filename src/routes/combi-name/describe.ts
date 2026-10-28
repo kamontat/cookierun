@@ -73,7 +73,7 @@ function verdict(combi: Combi): AutoVerdict | null {
 const RELAY_REASON = "Relay cookie";
 
 /**
- * The verdict for a whole build rather than for its nine characters: the combi's
+ * The verdict for a whole build rather than for its ten characters: the combi's
  * own three reasons plus the loadout's one. A relay cookie is swapped in by
  * hand, so a run carrying one never plays itself through.
  */

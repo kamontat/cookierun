@@ -6,7 +6,7 @@ This file is the always-loaded core: what the project is, how to run it, and whe
 
 ## What this project is
 
-A Cookie Run combi name is 10 characters, and the game stores only the cookie, relay, pet, and treasure in it. This project packs the rest of a run's configuration — goal, mode, episode (and the tower's floor), boosts, random boost, cookie power+ selections, and starting action — into nine of those characters, plus a browser page for building and reading codes. `README.md` documents the slot format for humans.
+A Cookie Run combi name is 10 characters, and the game stores only the cookie, relay, pet, and treasure in it. This project packs the rest of a run's configuration — goal, mode, episode (and the tower's floor), boosts, random boost, cookie power+ selections, and starting action — into those 10 characters, plus a browser page for building and reading codes. `README.md` documents the slot format for humans.
 
 ## Runtime
 

@@ -401,3 +401,38 @@ test("values set to nothing read back as nothing", async () => {
 		chips(element).map((chip) => chip.getAttribute("aria-checked")),
 	).toEqual(["false", "false", "false"]);
 });
+
+// An exclusive chip stands alone: turning it on turns the rest off, and
+// turning any other on turns it off.
+test("an exclusive chip in a multiple group stands alone", async () => {
+	const element = await mountMultiple();
+	element.exclusive = ["score"];
+	element.values = ["money", "exp"];
+	await element.updateComplete;
+
+	chips(element)[0]?.click();
+	await element.updateComplete;
+	expect(element.values).toEqual(["score"]);
+
+	chips(element)[2]?.click();
+	await element.updateComplete;
+	expect(element.values).toEqual(["exp"]);
+});
+
+// The last chip on stays on, exclusive or not.
+test("clicking the only chosen exclusive chip leaves it chosen", async () => {
+	const element = await mountMultiple();
+	element.exclusive = ["score"];
+	element.values = ["score"];
+	await element.updateComplete;
+	let inputs = 0;
+	element.addEventListener("input", () => {
+		inputs++;
+	});
+
+	chips(element)[0]?.click();
+	await element.updateComplete;
+
+	expect(element.values).toEqual(["score"]);
+	expect(inputs).toBe(0);
+});

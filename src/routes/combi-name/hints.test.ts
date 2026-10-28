@@ -11,7 +11,7 @@ function groups(code: string): string[] {
 }
 
 test("one hint per character of the code", () => {
-	const code = "0S0000000";
+	const code = "MS0A000000";
 	const described = hintsFor(code);
 
 	expect(described).toHaveLength(code.length);
@@ -19,86 +19,91 @@ test("one hint per character of the code", () => {
 });
 
 test("each slot names its number, its field and what it currently says", () => {
-	const [mode, goal, episode] = hints("HE34R000J");
+	const [mode, goal, goalRest, episode] = hints("JX035RV000");
 
-	expect(mode).toBe("Slot 1 · Mode · Semi-auto");
-	expect(goal).toBe("Slot 2 · Goal · Exp");
-	expect(episode).toBe("Slot 3 · Episode · Episode 3");
+	// The jump has no slot of its own, so the mode slot says it.
+	expect(mode).toBe("Slot 1 · Mode · Semi-auto, Jump at start");
+	expect(goal).toBe("Slots 2-3 · Goal · Exp");
+	expect(goalRest).toBe(goal);
+	expect(episode).toBe("Slot 4 · Episode · Episode 3");
+	expect(hints("SM03F00000")[0]).toBe("Slot 1 · Mode · Semi-auto");
 });
 
-test("the goal slot names every goal the run aims for", () => {
-	expect(hints("A40000000")[1]).toBe("Slot 2 · Goal · Money + Exp");
-	expect(hints("A00000000")[1]).toBe("Slot 2 · Goal · Any goal");
+test("the goal slots name every goal the run aims for", () => {
+	expect(hints("AMXA000000")[1]).toBe("Slots 2-3 · Goal · Money + Exp");
+	expect(hints("AAAA000000")[1]).toBe("Slots 2-3 · Goal · Money + Exp + Box");
 });
 
 test("the boost slot names every boost that is on", () => {
-	expect(hints("HE34R000J")[3]).toBe(
-		"Slot 4 · Boosts · Power Jelly Boost, Fast Start",
+	expect(hints("JX035RV000")[4]).toBe(
+		"Slot 5 · Boosts · Power Jelly Boost, Fast Start",
 	);
-	expect(hints("AE3A0000J")[3]).toBe(
-		"Slot 4 · Boosts · HP Extension, Power Jelly Boost, Fast Start, Double XP",
+	expect(hints("JX03A00000")[4]).toBe(
+		"Slot 5 · Boosts · HP Extension, Power Jelly Boost, Fast Start, Double XP",
 	);
 });
 
 test("a boost slot with nothing on reads as None", () => {
-	expect(hints("AE30R000J")[3]).toBe("Slot 4 · Boosts · None");
+	expect(hints("JX030RV000")[4]).toBe("Slot 5 · Boosts · None");
 });
 
 test("the three cookie power+ characters share one hint over the whole list", () => {
-	const described = hints("0S000FW00");
+	const described = hints("MS0A000FW0");
 
-	expect(described[5]).toBe(
-		"Slots 6-8 · Cookie power+ · Fairy Cookie, Sea Fairy Cookie",
+	expect(described[7]).toBe(
+		"Slots 8-10 · Cookie power+ · Fairy Cookie, Sea Fairy Cookie",
 	);
-	expect(described[7]).toBe(described[5]);
+	expect(described[9]).toBe(described[7]);
 });
 
 test("an empty field reads as None rather than as a blank", () => {
-	const described = hints("0S0000000");
+	const described = hints("MS0A000000");
 
-	expect(described[4]).toBe("Slot 5 · Random boost · None");
-	expect(described[8]).toBe("Slot 9 · Action · No action");
+	expect(described[5]).toBe("Slots 6-7 · Random boost · None");
+	expect(described[6]).toBe(described[5]);
 });
 
 test("characters of one field share a group, and neighbouring fields do not", () => {
-	expect(groups("0S0000000")).toEqual([
+	expect(groups("MS0A000000")).toEqual([
 		"mode",
+		"goal",
 		"goal",
 		"episode",
 		"boosts",
 		"randomBoost",
+		"randomBoost",
 		"cookiePowers",
 		"cookiePowers",
 		"cookiePowers",
-		"action",
 	]);
 });
 
 test("the tower's floor is one run, and what follows it is reserved", () => {
-	const described = hintsFor("AMT042000");
+	const described = hintsFor("AM0T042000");
 
-	expect(described.slice(3, 6).map(({ hint }) => hint)).toEqual(
-		Array(3).fill("Slots 4-6 · Floor · Floor 42"),
+	expect(described.slice(4, 7).map(({ hint }) => hint)).toEqual(
+		Array(3).fill("Slots 5-7 · Floor · Floor 42"),
 	);
-	expect(described[3]?.group).toBe("floor");
-	expect(described[6]?.hint).toBe("Slots 7-8 · Reserved");
-	expect(hints("AMT000000")[3]).toBe("Slots 4-6 · Floor · Any floor");
+	expect(described[4]?.group).toBe("floor");
+	expect(described.slice(7).map(({ hint }) => hint)).toEqual(
+		Array(3).fill("Slots 8-10 · Reserved"),
+	);
+	expect(hints("AM0T000000")[4]).toBe("Slots 5-7 · Floor · Any floor");
 });
 
-test("a special episode with no boosts says so over slots 4-8", () => {
-	const described = hintsFor("AMC000000");
+test("a special episode with no boosts says so over slots 5-10", () => {
+	const described = hintsFor("AM0C000000");
 
-	expect(described[3]?.hint).toBe(
-		"Slots 4-8 · Boosts · Not used in this episode",
+	expect(described[4]?.hint).toBe(
+		"Slots 5-10 · Boosts · Not used in this episode",
 	);
-	expect(described[7]?.hint).toBe(described[3]?.hint);
-	expect(described[8]?.group).toBe("action");
+	expect(described[9]?.hint).toBe(described[4]?.hint);
 });
 
 // The version lives in the full code alone, as the first character before the
 // loadout, so a bare combi has none to hint.
 test("the full code's first character is the format version", () => {
-	const described = hintsFor("1-0S0000000");
+	const described = hintsFor("1-MS0A000000");
 
 	expect(described[0]).toMatchObject({
 		char: "1",
@@ -110,7 +115,7 @@ test("the full code's first character is the format version", () => {
 });
 
 test("a loadout section is hinted group by group, separator included", () => {
-	const code = "1C01P06-0S0000000";
+	const code = "1C01P06-MS0A000000";
 	const described = hintsFor(code);
 
 	expect(described).toHaveLength(code.length);
@@ -123,7 +128,7 @@ test("a loadout section is hinted group by group, separator included", () => {
 });
 
 test("a treasure group is one run for the order and one per slot", () => {
-	const described = hintsFor("1TU001.002-0S0000000");
+	const described = hintsFor("1TU001.002-MS0A000000");
 	const groups = described.slice(1, 10).map(({ group }) => group);
 
 	// The . closing a slot belongs to the slot before it.
@@ -143,11 +148,11 @@ test("a treasure group is one run for the order and one per slot", () => {
 });
 
 test("every run carries a short name: its slot and field, no value", () => {
-	const combi = hintsFor("AMT000000");
+	const combi = hintsFor("AM0T000000");
 	expect(combi[0]?.name).toBe("Slot 1 · Mode");
-	expect(combi[3]?.name).toBe("Slots 4-6 · Floor");
+	expect(combi[4]?.name).toBe("Slots 5-7 · Floor");
 
-	const full = hintsFor("1C01TU001.002-0S0000000");
+	const full = hintsFor("1C01TU001.002-MS0A000000");
 	expect(full[1]?.name).toBe("Cookie");
 	expect(full[4]?.name).toBe("Treasure order");
 	expect(full[6]?.name).toBe("Treasure slot 1");

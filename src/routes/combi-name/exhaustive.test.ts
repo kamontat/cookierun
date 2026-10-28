@@ -5,7 +5,7 @@ import {
 	ALL_BOOSTS,
 	ALL_COOKIE_POWERS,
 	ALL_EPISODES,
-	ALL_GOALS,
+	ALL_GOAL_SETS,
 	ALL_MODES,
 	ALL_RANDOM_BOOSTS,
 	type Boost,
@@ -14,7 +14,6 @@ import {
 	type CookiePower,
 	decode,
 	encode,
-	type Goal,
 	limitsOf,
 	normalize,
 	type RandomBoost,
@@ -37,16 +36,12 @@ function* everyCombi(): Generator<Combi> {
 		{ length: 1 << ALL_BOOSTS.length },
 		(_, mask) => subset(ALL_BOOSTS, mask),
 	);
-	const goalSubsets: Goal[][] = Array.from(
-		{ length: 1 << ALL_GOALS.length },
-		(_, mask) => subset(ALL_GOALS, mask),
-	);
 	const cookieSubsets: CookiePower[][] = Array.from(
 		{ length: 1 << ALL_COOKIE_POWERS.length },
 		(_, mask) => subset(ALL_COOKIE_POWERS, mask),
 	);
 
-	for (const goals of goalSubsets) {
+	for (const goals of ALL_GOAL_SETS) {
 		for (const mode of ALL_MODES) {
 			for (const episode of ALL_EPISODES) {
 				const limits = limitsOf(episode);
@@ -80,7 +75,7 @@ function* everyCombi(): Generator<Combi> {
 	}
 }
 
-const CODE_PATTERN = /^[0-9A-Z]{9}$/;
+const CODE_PATTERN = /^[0-9A-Z]{10}$/;
 
 /**
  * Both tests below walk the whole configuration space, so their runtime is the
@@ -134,7 +129,7 @@ test(
 		// Nine ordinary episodes carry everything; the tower carries a floor; the
 		// other two special episodes carry neither.
 		const perGoalAndMode = 9 * 16 * 12 * 128 * 2 + 101 * 2 + 2 * 2;
-		expect(checked).toBe(16 * 3 * perGoalAndMode);
+		expect(checked).toBe(8 * 3 * perGoalAndMode);
 	},
 	WHOLE_SPACE_TIMEOUT,
 );
@@ -148,7 +143,7 @@ test(
 		// Auto and semi-auto are one family, since that char is derived; and a
 		// manual run drops its action, so its two actions are one code.
 		const carried = 9 * 16 * 12 * 128 + 101 + 2;
-		expect(codes.size).toBe(16 * (carried + carried * 2));
+		expect(codes.size).toBe(8 * (carried + carried * 2));
 	},
 	WHOLE_SPACE_TIMEOUT,
 );

@@ -155,6 +155,14 @@ export class ChipGroup extends LitElement {
 	@property({ attribute: false })
 	multiple = false;
 
+	/**
+	 * Values in a multiple row that stand alone: turning one on turns every
+	 * other chip off, and turning any other on turns it off. Score is one — a
+	 * run plays for it on its own.
+	 */
+	@property({ attribute: false })
+	exclusive: readonly string[] = [];
+
 	#chosen = "";
 
 	#picked: readonly string[] = [];
@@ -199,9 +207,16 @@ export class ChipGroup extends LitElement {
 		const values = this.values;
 		const on = values.includes(value);
 		if (on && values.length === 1) return;
-		this.#picked = on
-			? values.filter((picked) => picked !== value)
-			: [...values, value];
+		if (on) {
+			this.#picked = values.filter((picked) => picked !== value);
+		} else if (this.exclusive.includes(value)) {
+			this.#picked = [value];
+		} else {
+			this.#picked = [
+				...values.filter((picked) => !this.exclusive.includes(picked)),
+				value,
+			];
+		}
 		this.requestUpdate();
 		this.dispatchEvent(new Event("input", { bubbles: true }));
 	}

@@ -4,7 +4,7 @@
  * is the one character a word-wise selection stops at, so the combi half —
  * the part the game takes — selects on its own.
  *
- * The right half is the nine characters the game's combi name field holds,
+ * The right half is the ten characters the game's combi name field holds,
  * with no version of their own; the left half is the version and everything
  * the game already stores in the combi itself. Splitting them is what keeps
  * the right half copy-pasteable into the game. A bare combi, copied back out
@@ -30,7 +30,7 @@ export const SECTION_SEPARATOR = "-";
  * Whether the whole build plays itself. The combi half answers for its own
  * flags; the loadout adds one reason of its own — a relay cookie has to be
  * swapped in by hand, so a run carrying one is never full auto no matter what
- * the nine characters say.
+ * the ten characters say.
  *
  * This lives here rather than in `codec.ts` because it is the one question
  * whose answer needs both halves, and the codec does not model a loadout.
@@ -65,7 +65,7 @@ export function fitLoadout(loadout: Loadout, combi: Combi): Loadout {
 export function encodeFull(full: FullCode): string {
 	const loadout = fitLoadout(full.loadout, full.combi);
 	// Slot 1 is written from the whole build, so a code carrying a relay says
-	// Semi-auto in the nine characters someone pastes into the game.
+	// Semi-auto in the ten characters someone pastes into the game.
 	const combi = encode(full.combi, loadout.relay !== null);
 	return `${encodeLoadout(loadout)}${SECTION_SEPARATOR}${combi}`;
 }

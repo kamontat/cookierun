@@ -3,7 +3,7 @@
  * already stores in a combi, carried so a whole build fits in one code.
  *
  * It is the left half of `loadout-combi`, variable length, and lives outside
- * the game's nine-character combi name — which is why it can afford tags and
+ * the game's ten-character combi name — which is why it can afford tags and
  * separators the combi section cannot. Its separators are `_` and `.`, which a
  * word-wise selection reads as part of the word, so the whole loadout selects
  * as one; only the `-` before the combi breaks it.
@@ -40,7 +40,7 @@ export type Loadout = {
 
 /**
  * The format version of the whole full code, not of this section alone: the
- * combi half carries none of its own, since its nine characters are all the
+ * combi half carries none of its own, since its ten characters are all the
  * game's field leaves room for. An empty loadout is this character alone.
  */
 export const LOADOUT_VERSION = "1";
