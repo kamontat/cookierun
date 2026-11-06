@@ -1623,17 +1623,54 @@ test("Save as new sits beside Update in the code panel, outside the menu", async
 	await onlyGoal("exp");
 	expect(saveNew.hidden).toBe(false);
 
-	// It hides behind its own click, since the code is saved now, so focus
-	// goes to Save rather than down with it.
+	// It hides behind its own click, since the code is saved now, and the new
+	// entry is unchanged so Update hides too: focus goes to Reset rather than
+	// down with them.
 	saveNew.focus();
 	saveNew.click();
 	await settle();
 	expect(saveNew.hidden).toBe(true);
-	expect(document.activeElement?.id).toBe("save");
+	expect(need("save").hidden).toBe(true);
+	expect(document.activeElement?.id).toBe("reset");
 
 	savedButtonFor(await codeText(), "delete").click();
 	await settle();
 	await reset();
+});
+
+// An open entry with nothing changed has nothing to update, so Update waits
+// for the first change to the code, the note or a stat.
+test("Update shows only once the open entry has been changed", async () => {
+	const save = need<HTMLButtonElement>("save");
+	savedButtonFor("1-MM0A000000", "load").click();
+	await settle();
+	expect(isEditing()).toBe(true);
+	expect(save.hidden).toBe(true);
+
+	const note = need<HTMLTextAreaElement>("save-description");
+	const original = note.value;
+	note.value = `${original} more`;
+	note.dispatchEvent(new Event("input", { bubbles: true }));
+	expect(save.hidden).toBe(false);
+	note.value = original;
+	note.dispatchEvent(new Event("input", { bubbles: true }));
+	expect(save.hidden).toBe(true);
+
+	const time = need<HTMLInputElement>("stat-time");
+	const before = time.value;
+	time.value = before === "61" ? "62" : "61";
+	time.dispatchEvent(new Event("input", { bubbles: true }));
+	expect(save.hidden).toBe(false);
+	time.value = before;
+	time.dispatchEvent(new Event("input", { bubbles: true }));
+	expect(save.hidden).toBe(true);
+
+	await onlyGoal("exp");
+	expect(save.hidden).toBe(false);
+
+	await reset();
+	expect(save.hidden).toBe(false);
+	expect(save.textContent?.trim()).toBe("Save");
 });
 
 // Built and closed like a saved row's menu: a pick, Escape (focus back to its

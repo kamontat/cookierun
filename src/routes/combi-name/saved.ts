@@ -12,6 +12,7 @@
  * `state.ts`'s are, and imported text is decoded code by code.
  */
 
+import type { Episode } from "./codec";
 import { describeRun, GOALS_JOIN } from "./describe";
 import { decodeFull, encodeFull } from "./full-code";
 import { codeInHash, noteInHash, statsInHash } from "./state";
@@ -201,6 +202,7 @@ export const SAVED_SORTS = [
 	"exp",
 	"boxes",
 	"time",
+	"episode",
 ] as const;
 
 export type SavedSort = (typeof SAVED_SORTS)[number];
@@ -213,6 +215,7 @@ export const SAVED_SORT_LABELS: Readonly<Record<SavedSort, string>> = {
 	exp: "Most exp",
 	boxes: "Most boxes",
 	time: "Longest",
+	episode: "Episode",
 };
 
 export const SAVED_SORT_KEY = "combi-name:saved-sort";
@@ -245,9 +248,38 @@ function statKey(entry: SavedCode, field: StatField): [number, number] | null {
 }
 
 /**
+ * The order the episode sort walks: the numbered episodes, the special ones,
+ * and Special Exp last. Any is not an episode, so it follows every one.
+ */
+const EPISODE_ORDER: readonly Episode[] = [
+	"episode1",
+	"episode2",
+	"episode3",
+	"episode4",
+	"episode5",
+	"episode6",
+	"episode7",
+	"special1",
+	"special2",
+	"special3",
+	"specialExp",
+	"any",
+];
+
+/** Where an entry's episode falls, with a code that no longer reads last. */
+function episodeRank(entry: SavedCode): number {
+	try {
+		return EPISODE_ORDER.indexOf(decodeFull(entry.code).full.combi.episode);
+	} catch {
+		return EPISODE_ORDER.length;
+	}
+}
+
+/**
  * The list in the order the drawer shows it. A stat sort puts the most first,
  * by the top of a range and then its floor, and the entries that never noted
- * that stat after every one that did. Ties keep the order the list has.
+ * that stat after every one that did. The episode sort walks `EPISODE_ORDER`.
+ * Ties keep the order the list has.
  */
 export function sortSaved(
 	entries: readonly SavedCode[],
@@ -255,6 +287,12 @@ export function sortSaved(
 ): SavedCode[] {
 	if (sort === "newest") return [...entries];
 	if (sort === "oldest") return [...entries].reverse();
+	if (sort === "episode") {
+		const ranks = new Map(entries.map((entry) => [entry, episodeRank(entry)]));
+		return [...entries].sort(
+			(a, b) => (ranks.get(a) ?? 0) - (ranks.get(b) ?? 0),
+		);
+	}
 	return [...entries].sort((a, b) => {
 		const left = statKey(a, sort);
 		const right = statKey(b, sort);

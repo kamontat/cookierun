@@ -2,6 +2,24 @@
 
 What changed in this project and why, newest first.
 
+## 2026-11-06: Update waits for a change, and saved codes sort by episode
+
+### Features
+
+- The Saved drawer sorts by Episode: Episode 1-7, then Special Episode 1-3, then Special Exp
+  Episode. Any episode, and a code that no longer reads, come after every episode.
+
+### Improvements
+
+- While a saved entry is open, Update shows only once the code, the note or a stat differs
+  from what is saved, and hides again when the change is undone. After Save as new both
+  buttons hide, so focus moves to Reset.
+
+### Decisions
+
+- A stat box that does not read counts as a change, so Update is there to click and name
+  the error rather than hiding it.
+
 ## 2026-10-28: A new combi code layout read letter by letter, and several goals per run
 
 ### BREAKING CHANGES
