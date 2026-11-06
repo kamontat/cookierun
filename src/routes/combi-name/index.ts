@@ -50,6 +50,7 @@ import {
 } from "./labels";
 import { type Loadout, treasurePick } from "./loadout";
 import {
+	cleanDescription,
 	clearSaved,
 	descriptionTitle,
 	facetValues,
@@ -986,16 +987,42 @@ function markCurrent(code: string): void {
  * each code once, so saving a saved code "as new" would overwrite that entry.
  */
 function showEditing(code: string): void {
-	const open =
-		editing !== null && savedEntries.some((saved) => saved.code === editing);
+	const entry =
+		editing === null
+			? undefined
+			: savedEntries.find((saved) => saved.code === editing);
+	const open = entry !== undefined;
 	if (!open) editing = null;
 
+	// An open entry nothing has changed has nothing to update.
+	saveButton.hidden = open && !entryChanged(entry, code);
 	saveNewButton.hidden =
 		!open || savedEntries.some((saved) => saved.code === code);
 	saveCancelButton.hidden = !open;
 	saveButton.textContent = open ? "Update" : "Save";
 	codeHeading.textContent = open ? "Editing saved code" : "New code";
 	codeHeading.toggleAttribute("data-editing", open);
+}
+
+/**
+ * Whether the code on screen, the note or a stat box says something `entry`
+ * does not. A stat box that does not read counts as a change, so Update is
+ * there to say why.
+ */
+function entryChanged(entry: SavedCode, code: string): boolean {
+	if (code !== entry.code) return true;
+	if (cleanDescription(saveDescription.value) !== entry.description) {
+		return true;
+	}
+	return STAT_FIELDS.some((field) => {
+		const typed = parseStat(field, statInputs[field].value);
+		if (!typed.ok) return true;
+		const saved = entry.stats?.[field];
+		if (typed.value === null || saved === undefined) {
+			return (typed.value === null) !== (saved === undefined);
+		}
+		return formatStat(typed.value) !== formatStat(saved);
+	});
 }
 
 /** Fills the stat boxes, or empties them for `{}`. */
@@ -1126,9 +1153,17 @@ saveForm.addEventListener("submit", (event) => {
 
 saveNewButton.addEventListener("click", () => {
 	saveAsNew();
-	// The code is saved now, so Save as new hides behind its own click; Save beside
-	// it takes focus rather than letting it fall to <body>.
-	if (saveNewButton.hidden) saveButton.focus();
+	// The code is saved now, so Save as new hides behind its own click, and the
+	// new entry is unchanged, so Update hides too. Reset beside them takes focus
+	// rather than letting it fall to <body>.
+	if (saveNewButton.hidden) {
+		(saveButton.hidden ? resetButton : saveButton).focus();
+	}
+});
+
+// Update shows once the note or a stat moves away from the open entry.
+saveForm.addEventListener("input", () => {
+	if (editing !== null) showEditing(codeBar.value);
 });
 
 saveCancelButton.addEventListener("click", () => {
@@ -1244,6 +1279,7 @@ savedList.addEventListener("click", (event) => {
 		bringNoticeHome();
 		saveDescription.value = entry.description;
 		writeStats(entry.stats ?? {});
+		showEditing(codeBar.value);
 		// A code read with changes keeps its warning up (render put it there):
 		// it says more than "loaded" does. Otherwise "Loaded" replaces whatever
 		// was showing, a stale warning about something else included.
