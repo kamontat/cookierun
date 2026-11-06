@@ -491,6 +491,40 @@ test("a stat sort puts the most first, by the top of a range, and entries withou
 	expect(codes(sortSaved(LIST, "exp"))).toEqual(["A", "B", "C", "D"]);
 });
 
+test("the episode sort runs Episode 1 to 7, then the special episodes, Special Exp last", () => {
+	// Mode, goal, episode: slot 4 of the game code is the episode.
+	const entry = (code: string, savedAt: number): SavedCode => ({
+		code,
+		description: "",
+		savedAt,
+	});
+	const list = [
+		entry("1-MS0X000000", 1),
+		entry("1-MS0T000000", 2),
+		entry("1-MS07000000", 3),
+		entry("1-MS0A000000", 4),
+		entry("1ZZZZZZZZZ", 5),
+		entry("1-MS0C000000", 6),
+		entry("1-MS01000000", 7),
+		entry("1-MS0R000000", 8),
+		entry("1-MS03000000", 9),
+	];
+	expect(SAVED_SORTS).toContain("episode");
+	expect(SAVED_SORT_LABELS.episode).toBe("Episode");
+	// Any episode, and a code that no longer reads, come after every episode.
+	expect(codes(sortSaved(list, "episode"))).toEqual([
+		"1-MS01000000",
+		"1-MS03000000",
+		"1-MS07000000",
+		"1-MS0C000000",
+		"1-MS0T000000",
+		"1-MS0R000000",
+		"1-MS0X000000",
+		"1-MS0A000000",
+		"1ZZZZZZZZZ",
+	]);
+});
+
 test("saved codes sort by the highest score", () => {
 	const list: SavedCode[] = [
 		{ code: "A", description: "", savedAt: 2 },
